@@ -27,7 +27,8 @@ builder.Services.AddCors(options =>
            // "https://customerregistration.multimedia.interactivedns.com"
             )
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 builder.Services.AddDbContext<CustomerRegistrationContext>(options =>
