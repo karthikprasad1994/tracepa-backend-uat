@@ -32,16 +32,26 @@ namespace TracePca.Controllers
         // POST api/<LoginController>
         [HttpPost]
         [Route("SignupUsers")]
-        public async Task<IActionResult> AddUser([FromBody] CustomerRegReq request)
+        public async Task<IActionResult> AddUser([FromBody] RegistrationDto registerModel)
         {
-            if (request.User == null || request.Customer == null)
+            if (registerModel == null)
             {
-                return BadRequest(new { message = "User and Customer details are required." });
+                return BadRequest(new { message = "User details are required." });
             }
 
-            var result = await _LoginInterface.AddUsersAsync(request.User, request.Customer);
-            return StatusCode((int)result.GetType().GetProperty("statuscode").GetValue(result), result);
+            var result = await _LoginInterface.SignUpUserAsync(registerModel);
+
+            if (result is OkObjectResult okResult) // ✅ Extract from OkObjectResult
+            {
+                var response = okResult.Value as dynamic;
+                int statusCode = response.statuscode;
+                return StatusCode(statusCode, response);
+            }
+
+            return result; // Return as it is if not OkObjectResult
         }
+
+
 
         [HttpPost]
         [Route("UserLogin")]
@@ -54,9 +64,8 @@ namespace TracePca.Controllers
 
             var result = await _LoginInterface.AuthenticateUserAsync(user.UsrEmail, user.UsrPassWord);
 
-            int statusCode = (int)result.GetType().GetProperty("statuscode").GetValue(result);
-
-            return statusCode switch
+            // ✅ Use strongly typed DTO instead of reflection
+            return result.StatusCode switch
             {
                 200 => Ok(result),
                 401 => Unauthorized(result),
@@ -66,7 +75,8 @@ namespace TracePca.Controllers
         }
 
 
-        
+
+
 
         // PUT api/<LoginController>/5
         [HttpPut("{id}")]

@@ -16838,6 +16838,9 @@ public partial class Trdmyus1Context : DbContext
         {
             entity
                 .HasNoKey()
+
+
+
                 .ToTable("sad_userdetails_Log");
 
             entity.Property(e => e.LogDate)

@@ -9,6 +9,11 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using TracePca.Dto;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using System.Text.RegularExpressions;
+using TracePca.Models.UserModels;
 
 namespace TracePca.Service
 {
@@ -18,13 +23,15 @@ namespace TracePca.Service
         private readonly CustomerRegistrationContext _customerRegistrationContext;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly DynamicDbContext _context;
 
-        public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DynamicDbContext context)
         {
             _dbcontext = dbContext;
             _customerRegistrationContext = customerDbContext;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
+            _context = context;
         }
 
         public async Task<object> GetAllUsersAsync()
@@ -61,216 +68,321 @@ namespace TracePca.Service
             }
         }
 
-        public async Task<object> AddUsersAsync(SadUserDetail User, MmcsCustomerRegistration Customer)
+
+        public async Task<IActionResult> SignUpUserAsync(RegistrationDto registerModel)
         {
             try
             {
-                if (User == null || string.IsNullOrEmpty(User.UsrEmail) ||
-                    string.IsNullOrEmpty(User.UsrMobileNo) ||
-                    Customer == null || string.IsNullOrEmpty(Customer.McrCustomerName))
+                // Check if a customer with the same email already exists
+                bool customerExists = await _customerRegistrationContext.MmcsCustomerRegistrations
+                    .AnyAsync(c => c.McrCustomerEmail == registerModel.McrCustomerEmail);
+
+                if (customerExists)
                 {
-                    return new
-                    {
-                        statuscode = 400,
-                        message = "Email, Phone, and Customer Name are required.",
-                        data = new object()
-                    };
+                    return new ConflictObjectResult(new { statuscode = 409, message = "Customer with this email already exists." });
                 }
 
-                try
-                {
-                    // Validate required fields
-                   
-                    
-
-                    // Check if a user with the same email, phone, and customer name already exists
-                    var existingUser = await _dbcontext.SadUserDetails
-                        .FirstOrDefaultAsync(u => u.UsrEmail == User.UsrEmail &&
-                                                  u.UsrMobileNo == User.UsrMobileNo &&
-                                                  _customerRegistrationContext.MmcsCustomerRegistrations
-                                  .Any(c => c.McrCustomerName == Customer.McrCustomerName));
-
-                    if (existingUser != null)
-                    {
-                        return new
-                        {
-                            statuscode = 409, // 409 Conflict - Indicates a duplicate entry
-                            message = "A user with this Email, Phoneno, and Customer Name already exists.",
-                            data = new object()
-                        };
-                    }
-
-                    // Proceed with registration logic...
-                }
-                catch (Exception ex)
-                {
-                    return new
-                    {
-                        statuscode = 500,
-                        message = $"An error occurred: {ex.Message}",
-                        data = new object()
-                    };
-                }
-
-                if (!DateTime.TryParse(Customer.McrFromDate.ToString(), out _) ||
-                    !DateTime.TryParse(Customer.McrToDate.ToString(), out _) ||
-                    !DateTime.TryParse(Customer.McrCreatedDate.ToString(), out _))
-                {
-                    return new
-                    {
-                        statuscode = 400,
-                        message = "Invalid date format provided."
-                    };
-                }
-
+                int maxMcrId = (await _customerRegistrationContext.MmcsCustomerRegistrations.MaxAsync(c => (int?)c.McrId) ?? 0) + 1;
                 string currentYear = DateTime.Now.Year.ToString().Substring(2, 2);
                 string yearPrefix = $"TR{currentYear}";
                 int customerCount = await _customerRegistrationContext.MmcsCustomerRegistrations.CountAsync(c => c.McrCustomerCode.StartsWith(yearPrefix));
                 int nextNumber = customerCount + 1;
                 string newCustomerCode = $"{yearPrefix}_{nextNumber:D3}";
-
                 string productKey = $"PRD-{Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()}";
-                int maxMcrId = (await _customerRegistrationContext.MmcsCustomerRegistrations.MaxAsync(c => (int?)c.McrId) ?? 0) + 1;
-                Customer.McrId = maxMcrId;
-                int MaxUserId = (await _dbcontext.SadUserDetails.MaxAsync(c => (int?)c.UsrId) ?? 0) + 1;
-                User.UsrId = MaxUserId;
 
 
-                // string currentYear = DateTime.Now.Year.ToString().Substring(2, 2);
-                //string yearPrefix = $"T{currentYear}";
-
-                var lastUser = await _dbcontext.SadUserDetails
-                    .Where(u => u.UsrPassWord.Contains($"@{currentYear}"))
-                    .OrderByDescending(u => u.UsrPassWord)
-                    .FirstOrDefaultAsync();
-
-                int Count_number = 1;
-
-                if (lastUser != null)
+                // Map DTO to Entity Model
+                var newCustomer = new MmcsCustomerRegistration
                 {
-                    string lastPassword = lastUser.UsrPassWord;
-                    string numberPart = new string(lastPassword.Skip(1).TakeWhile(char.IsDigit).ToArray());
+                    McrId = maxMcrId,
+                    McrMpId = 2,
+                    McrCustomerName = registerModel.McrCustomerName,
+                    McrCustomerEmail = registerModel.McrCustomerEmail,
+                    McrCustomerTelephoneNo = registerModel.McrCustomerTelephoneNo,
+                    McrStatus = "A",
+                    McrTstatus = "T"
+                };
+                newCustomer.SetCustomerCodeAndProductKey(newCustomerCode, productKey);
 
-                    if (int.TryParse(numberPart, out int lastNumber))
-                    {
-                        Count_number = lastNumber + 1;
-                    }
-                }
-
-                string plainPassword = $"T{nextNumber}@{currentYear}";
-                string hashedPassword = BCrypt.Net.BCrypt.HashPassword(plainPassword);
-                User.UsrPassWord = hashedPassword;
-                User.UsrDutyStatus = "A";
-                User.UsrDelFlag = "A";
-                User.UsrStatus = "U";
-                User.UsrType = "C";
-                User.UsrIsLogin = "Y";
-                Customer.McrStatus = "A";
-                
-                Customer.McrTstatus = "A";
-                
-
-                await _dbcontext.SadUserDetails.AddAsync(User);
-                await _customerRegistrationContext.MmcsCustomerRegistrations.AddAsync(Customer);
-                await _dbcontext.SaveChangesAsync();
+                // Save to database
+                await _customerRegistrationContext.MmcsCustomerRegistrations.AddAsync(newCustomer);
                 await _customerRegistrationContext.SaveChangesAsync();
 
-                return new
+                    await CreateCustomerDatabaseAsync(newCustomerCode);
+               // string userdbconnectionstring = _configuration.GetConnectionString("UserConnection");
+             //   _context.Database.SetConnectionString(userdbconnectionstring);
+             //   await _context.Database.OpenConnectionAsync();
+
+                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+                  string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
+
+                 
+                  string scriptPath = @"C:\Users\i5_4G_X2\Desktop\Cleaned_Sign-up.sql";
+                    await ExecuteSqlScriptAsync(newDbConnectionString, scriptPath);
+                int maxUserId = (await _context.SadUserDetails.MaxAsync(c => (int?)c.UsrId) ?? 0) + 1;
+                var lastUserCode = await _context.SadUserDetails
+                    .Where(u => u.UsrCode.StartsWith("EMP"))
+                    .OrderByDescending(u => u.UsrCode)
+                    .Select(u => u.UsrCode)
+                    .FirstOrDefaultAsync();
+                int nextUserCodeNumber = 1;
+
+                if (!string.IsNullOrEmpty(lastUserCode) && int.TryParse(lastUserCode.Substring(3), out int lastCodeNumber))
                 {
-                    statuscode = 201,
-                    message = "User successfully added."
+                    nextUserCodeNumber = lastCodeNumber + 1;
+                }
+
+                string newUserCode = $"EMP{nextUserCodeNumber:D3}";
+                var lastUser = await _context.SadUserDetails
+                  .Where(u => u.UsrPassWord.Contains($"@{currentYear}"))
+                  .OrderByDescending(u => u.UsrPassWord)
+                  .FirstOrDefaultAsync();
+                int countNumber = 1;
+
+                /*  if (lastUser != null)
+                  {
+                      string lastPassword = lastUser.UsrPassWord;
+                      string numberPart = new string(lastPassword.Skip(1).TakeWhile(char.IsDigit).ToArray());
+
+                      if (int.TryParse(numberPart, out int lastNumber))
+                      {
+                          countNumber = lastNumber + 1;
+                      }
+                  }*/
+
+                string hashedPassword = BCrypt.Net.BCrypt.HashPassword("sa");
+
+
+                var UserRegister = new Models.UserModels.SadUserDetail
+                {
+                    UsrId = maxUserId,
+                    UsrCode = newUserCode,
+                    UsrNode = 2,
+                    UsrFullName = "Admin",
+                    UsrLoginName = "sa",
+                    UsrPassWord = hashedPassword,
+                    UsrEmail = registerModel.McrCustomerEmail,
+                    UsrMobileNo = registerModel.McrCustomerTelephoneNo,
+                    UsrDutyStatus = "A",
+                    UsrDelFlag = "A",
+                    UsrStatus = "U",
+                    UsrType = "C",
+                    UsrIsLogin = "Y"
+
+
                 };
+                var optionsBuilder = new DbContextOptionsBuilder<DynamicDbContext>();
+                optionsBuilder.UseSqlServer(newDbConnectionString); // Set new database connection
+
+                using (var newDbContext = new DynamicDbContext(optionsBuilder.Options))
+                {
+                    await newDbContext.SadUserDetails.AddAsync(UserRegister);
+                    await newDbContext.SaveChangesAsync();
+                }
+                return new OkObjectResult(new { statuscode = 201, message = "Customer registered successfully." });
             }
             catch (Exception ex)
             {
-                return new
+                return new ObjectResult(new { statuscode = 500, message = "Internal server error", error = ex.Message })
                 {
-                    statuscode = 500,
-                    message = $"An error occurred: {ex.Message}",
-                    data = new object()
+                    StatusCode = 500
                 };
             }
         }
 
+        private async Task CreateCustomerDatabaseAsync(string customerCode)
+        {
+            string dbName = customerCode.Replace("-", "_"); // Replace hyphen for safety
+            string CustomerConnectionString = _configuration.GetConnectionString("CustomerConnection");
 
-        public async Task<object> AuthenticateUserAsync(string email, string password)
+            using (var connection = new SqlConnection(CustomerConnectionString))
+            {
+                await connection.OpenAsync();
+
+                string createDbQuery = $@"
+            IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = @dbName) 
+            BEGIN 
+                CREATE DATABASE [{dbName}] 
+            END";
+
+                using (var command = new SqlCommand(createDbQuery, connection))
+                {
+                    command.Parameters.AddWithValue("@dbName", dbName);
+                    await command.ExecuteNonQueryAsync();
+                }
+            }
+
+            string newConnectionString = $"{CustomerConnectionString};Database={dbName};";
+
+            // ✅ Update DbContext dynamically (optional)
+            _customerRegistrationContext.Database.SetConnectionString(newConnectionString);
+        }
+
+
+
+        
+
+public async Task ExecuteSqlScriptAsync(string connectionString, string scriptPath)
+    {
+        try
+        {
+            string script = await File.ReadAllTextAsync(scriptPath);
+
+            // Split script based on "GO" (case-insensitive, ensures it's a whole word)
+            string[] commands = Regex.Split(script, @"\bGO\b", RegexOptions.IgnoreCase);
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+                foreach (string commandText in commands)
+                {
+                    string trimmedCommand = commandText.Trim();
+
+                    if (!string.IsNullOrEmpty(trimmedCommand)) // Prevent empty command execution
+                    {
+                        using (var command = new SqlCommand(trimmedCommand, connection))
+                        {
+                            await command.ExecuteNonQueryAsync();
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error executing SQL script: {ex.Message}");
+        }
+    }
+
+
+
+        public async Task<LoginResponse> AuthenticateUserAsync(string email, string password)
         {
             try
             {
-                // Find user by email
-                var user = await _dbcontext.SadUserDetails.FirstOrDefaultAsync(u => u.UsrEmail == email);
+                // ✅ Step 1: Find Customer Code from Registration Database
+                var customer = await _customerRegistrationContext.MmcsCustomerRegistrations
+                    .AsNoTracking()
+                    .Where(c => c.McrCustomerEmail == email)
+                    .Select(c => new { c.McrCustomerCode })
+                    .FirstOrDefaultAsync();
 
-                if (user == null)
+                if (customer == null)
                 {
-                    return new
-                    {
-                        statuscode = 404,
-                        message = "Invalid Email"
-                    };
+                    return new LoginResponse { StatusCode = 404, Message = "Email not found" };
                 }
 
-                // Verify the hashed password using BCrypt
-                bool isPasswordValid = BCrypt.Net.BCrypt.Verify(password, user.UsrPassWord);
+                // ✅ Step 2: Get Connection String for Customer Database
+                string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+                string newDbConnectionString = string.Format(connectionStringTemplate, customer.McrCustomerCode);
 
-                if (!isPasswordValid)
+                // ✅ Step 3: Use DynamicDbContext with new Connection String
+                var optionsBuilder = new DbContextOptionsBuilder<DynamicDbContext>();
+                optionsBuilder.UseSqlServer(newDbConnectionString);
+
+                using (var newDbContext = new DynamicDbContext(optionsBuilder.Options))
                 {
-                    return new
+                    // ✅ Step 4: Fetch user from the correct database
+                    var userDto = await newDbContext.SadUserDetails
+                        .AsNoTracking()
+                        .Where(u => u.UsrEmail == email)
+                        .Select(u => new LoginDto
+                        {
+                            UsrEmail = u.UsrEmail,
+                            UsrPassWord = u.UsrPassWord
+                        })
+                        .SingleOrDefaultAsync();
+
+                    if (userDto == null)
                     {
-                        statuscode = 401,
-                        message = "Invalid password."
+                        return new LoginResponse { StatusCode = 404, Message = "Invalid Email" };
+                    }
+
+                    // ✅ Debugging: Log stored hashed password
+                    Console.WriteLine($"[DEBUG] Stored Hashed Password: {userDto.UsrPassWord}");
+
+                    // ✅ Step 5: Verify Password
+                    bool isPasswordValid = BCrypt.Net.BCrypt.Verify(password, userDto.UsrPassWord);
+
+                    if (!isPasswordValid)
+                    {
+                        return new LoginResponse { StatusCode = 401, Message = "Invalid Password" };
+                    }
+
+                    // ✅ Step 6: Fetch User ID
+                    var userId = await newDbContext.SadUserDetails
+                        .Where(a => a.UsrEmail == email)
+                        .Select(a => a.UsrId)
+                        .FirstOrDefaultAsync();
+
+                    // ✅ Step 7: Generate JWT Token
+                    string token = GenerateJwtToken(userDto);
+
+                    return new LoginResponse
+                    {
+                        StatusCode = 200,
+                        Message = "Login successful",
+                        Token = token,
+                        UsrId = userId
                     };
                 }
-
-                // Generate JWT token
-                var token = GenerateJwtToken(user);
-
-                return new
-                {
-                    statuscode = 200,
-                    message = "Login successful.",
-                    token = token
-                };
             }
             catch (Exception ex)
             {
-                return new
+                Console.WriteLine($"[ERROR] Exception in AuthenticateUserAsync: {ex.Message}");
+                return new LoginResponse
                 {
-                    statuscode = 500,
-                    message = $"An error occurred: {ex.Message}"
+                    StatusCode = 500,
+                    Message = $"An error occurred: {ex.Message}"
                 };
             }
         }
 
-        public string GenerateJwtToken(SadUserDetail user)
+
+        public string GenerateJwtToken(LoginDto userDto)
         {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var secretKey = _configuration["JwtSettings:Secret"];
-            var issuer = _configuration["JwtSettings:Issuer"];
-            var audience = _configuration["JwtSettings:Audience"];
-            var expiryInHours = int.Parse(_configuration["JwtSettings:ExpiryInHours"]);
-
-            var key = Encoding.UTF8.GetBytes(secretKey);
-
-            var tokenDescriptor = new SecurityTokenDescriptor
+            try
             {
-                Subject = new ClaimsIdentity(new[]
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var secretKey = _configuration["JwtSettings:Secret"];
+                var issuer = _configuration["JwtSettings:Issuer"];
+                var audience = _configuration["JwtSettings:Audience"];
+                var expiryInHoursString = _configuration["JwtSettings:ExpiryInHours"];
+
+                if (string.IsNullOrEmpty(secretKey) || string.IsNullOrEmpty(issuer) ||
+                    string.IsNullOrEmpty(audience) || string.IsNullOrEmpty(expiryInHoursString))
                 {
-                new Claim(ClaimTypes.NameIdentifier, user.UsrId.ToString()),
-                new Claim(ClaimTypes.Email, user.UsrEmail)
+                    throw new Exception("JWT configuration values are missing.");
+                }
+
+                int expiryInHours = int.Parse(expiryInHoursString);
+                var key = Encoding.UTF8.GetBytes(secretKey);
+
+                var tokenDescriptor = new SecurityTokenDescriptor
+                {
+                    Subject = new ClaimsIdentity(new[]
+                    {
+                //new Claim(ClaimTypes.NameIdentifier, userDto.UsrId.ToString()),
+                new Claim(ClaimTypes.Email, userDto.UsrEmail)
             }),
-                Expires = DateTime.UtcNow.AddHours(expiryInHours),
-                Issuer = issuer,
-                Audience = audience,
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-            };
+                    Expires = DateTime.UtcNow.AddHours(expiryInHours),
+                    Issuer = issuer,
+                    Audience = audience,
+                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                };
 
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
+                var token = tokenHandler.CreateToken(tokenDescriptor);
+                return tokenHandler.WriteToken(token);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error generating JWT token: {ex.Message}");
+            }
         }
 
-        
-        }
     }
+
+}
 
 
 

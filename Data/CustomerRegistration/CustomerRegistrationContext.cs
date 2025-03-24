@@ -7,6 +7,8 @@ namespace TracePca.Data.CustomerRegistration;
 
 public partial class CustomerRegistrationContext : DbContext
 {
+    private readonly string _connectionString;
+   
     public CustomerRegistrationContext()
     {
     }
@@ -43,8 +45,12 @@ public partial class CustomerRegistrationContext : DbContext
     public virtual DbSet<Person> Persons { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Server=142.93.217.23;Database=customer_registration;User Id=mmcs;Password=@736ScMm;TrustServerCertificate=True;");
+    {
+        if (!optionsBuilder.IsConfigured && !string.IsNullOrEmpty(_connectionString))
+        {
+            optionsBuilder.UseSqlServer(_connectionString);
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

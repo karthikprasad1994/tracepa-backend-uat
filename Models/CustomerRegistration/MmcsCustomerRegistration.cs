@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace TracePca.Models.CustomerRegistration;
 
@@ -54,4 +55,13 @@ public partial class MmcsCustomerRegistration
     public int? McrDataSize { get; set; }
 
     public int? McrNumberOfCustomers { get; set; }
+
+    [JsonConstructor]
+    public MmcsCustomerRegistration() { }
+
+    public void SetCustomerCodeAndProductKey(string mcrCustomerCode, string mcrProductKey)
+    {
+        McrCustomerCode = mcrCustomerCode;
+        McrProductKey = mcrProductKey;
+    }
 }
