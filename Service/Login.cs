@@ -85,11 +85,11 @@ namespace TracePca.Service
                 int maxMcrId = (await _customerRegistrationContext.MmcsCustomerRegistrations.MaxAsync(c => (int?)c.McrId) ?? 0) + 1;
                 string currentYear = DateTime.Now.Year.ToString().Substring(2, 2);
                 string yearPrefix = $"TR{currentYear}";
-                int customerCount = await _customerRegistrationContext.MmcsCustomerRegistrations.CountAsync(c => c.McrCustomerCode.StartsWith(yearPrefix));
+                int customerCount = await _customerRegistrationContext.MmcsCustomerRegistrations
+                    .CountAsync(c => c.McrCustomerCode.StartsWith(yearPrefix));
                 int nextNumber = customerCount + 1;
                 string newCustomerCode = $"{yearPrefix}_{nextNumber:D3}";
                 string productKey = $"PRD-{Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()}";
-
 
                 // Map DTO to Entity Model
                 var newCustomer = new MmcsCustomerRegistration
@@ -108,77 +108,61 @@ namespace TracePca.Service
                 await _customerRegistrationContext.MmcsCustomerRegistrations.AddAsync(newCustomer);
                 await _customerRegistrationContext.SaveChangesAsync();
 
-                    await CreateCustomerDatabaseAsync(newCustomerCode);
-               // string userdbconnectionstring = _configuration.GetConnectionString("UserConnection");
-             //   _context.Database.SetConnectionString(userdbconnectionstring);
-             //   await _context.Database.OpenConnectionAsync();
+                // ✅ Create new customer database
+                await CreateCustomerDatabaseAsync(newCustomerCode);
 
-                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
-                  string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
+                // ✅ Build new database connection string
+                string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+                string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
 
-                 
-                  string scriptPath = @"C:\Users\i5_4G_X2\Desktop\Cleaned_Sign-up.sql";
-                    await ExecuteSqlScriptAsync(newDbConnectionString, scriptPath);
-                int maxUserId = (await _context.SadUserDetails.MaxAsync(c => (int?)c.UsrId) ?? 0) + 1;
-                var lastUserCode = await _context.SadUserDetails
-                    .Where(u => u.UsrCode.StartsWith("EMP"))
-                    .OrderByDescending(u => u.UsrCode)
-                    .Select(u => u.UsrCode)
-                    .FirstOrDefaultAsync();
-                int nextUserCodeNumber = 1;
+                // ✅ Execute SQL script to set up schema
+                string scriptPath = @"C:\Users\i5_4G_X2\Desktop\Cleaned_Sign-up.sql";
+                await ExecuteSqlScriptAsync(newDbConnectionString, scriptPath);
 
-                if (!string.IsNullOrEmpty(lastUserCode) && int.TryParse(lastUserCode.Substring(3), out int lastCodeNumber))
-                {
-                    nextUserCodeNumber = lastCodeNumber + 1;
-                }
-
-                string newUserCode = $"EMP{nextUserCodeNumber:D3}";
-                var lastUser = await _context.SadUserDetails
-                  .Where(u => u.UsrPassWord.Contains($"@{currentYear}"))
-                  .OrderByDescending(u => u.UsrPassWord)
-                  .FirstOrDefaultAsync();
-                int countNumber = 1;
-
-                /*  if (lastUser != null)
-                  {
-                      string lastPassword = lastUser.UsrPassWord;
-                      string numberPart = new string(lastPassword.Skip(1).TakeWhile(char.IsDigit).ToArray());
-
-                      if (int.TryParse(numberPart, out int lastNumber))
-                      {
-                          countNumber = lastNumber + 1;
-                      }
-                  }*/
-
-                string hashedPassword = BCrypt.Net.BCrypt.HashPassword("sa");
-
-
-                var UserRegister = new Models.UserModels.SadUserDetail
-                {
-                    UsrId = maxUserId,
-                    UsrCode = newUserCode,
-                    UsrNode = 2,
-                    UsrFullName = "Admin",
-                    UsrLoginName = "sa",
-                    UsrPassWord = hashedPassword,
-                    UsrEmail = registerModel.McrCustomerEmail,
-                    UsrMobileNo = registerModel.McrCustomerTelephoneNo,
-                    UsrDutyStatus = "A",
-                    UsrDelFlag = "A",
-                    UsrStatus = "U",
-                    UsrType = "C",
-                    UsrIsLogin = "Y"
-
-
-                };
+                // ✅ Using fresh DbContext instance for new database operations
                 var optionsBuilder = new DbContextOptionsBuilder<DynamicDbContext>();
-                optionsBuilder.UseSqlServer(newDbConnectionString); // Set new database connection
+                optionsBuilder.UseSqlServer(newDbConnectionString);
 
                 using (var newDbContext = new DynamicDbContext(optionsBuilder.Options))
                 {
+                    int maxUserId = (await newDbContext.SadUserDetails.MaxAsync(c => (int?)c.UsrId) ?? 0) + 1;
+
+                    var lastUserCode = await newDbContext.SadUserDetails
+                        .Where(u => u.UsrCode.StartsWith("EMP"))
+                        .OrderByDescending(u => u.UsrCode)
+                        .Select(u => u.UsrCode)
+                        .FirstOrDefaultAsync();
+
+                    int nextUserCodeNumber = 1;
+                    if (!string.IsNullOrEmpty(lastUserCode) && int.TryParse(lastUserCode.Substring(3), out int lastCodeNumber))
+                    {
+                        nextUserCodeNumber = lastCodeNumber + 1;
+                    }
+
+                    string newUserCode = $"EMP{nextUserCodeNumber:D3}";
+                    string hashedPassword = BCrypt.Net.BCrypt.HashPassword("sa");
+
+                    var UserRegister = new Models.UserModels.SadUserDetail
+                    {
+                        UsrId = maxUserId,
+                        UsrCode = newUserCode,
+                        UsrNode = 2,
+                        UsrFullName = "Admin",
+                        UsrLoginName = "sa",
+                        UsrPassWord = hashedPassword,
+                        UsrEmail = registerModel.McrCustomerEmail,
+                        UsrMobileNo = registerModel.McrCustomerTelephoneNo,
+                        UsrDutyStatus = "A",
+                        UsrDelFlag = "A",
+                        UsrStatus = "U",
+                        UsrType = "C",
+                        UsrIsLogin = "Y"
+                    };
+
                     await newDbContext.SadUserDetails.AddAsync(UserRegister);
                     await newDbContext.SaveChangesAsync();
                 }
+
                 return new OkObjectResult(new { statuscode = 201, message = "Customer registered successfully." });
             }
             catch (Exception ex)
@@ -193,17 +177,17 @@ namespace TracePca.Service
         private async Task CreateCustomerDatabaseAsync(string customerCode)
         {
             string dbName = customerCode.Replace("-", "_"); // Replace hyphen for safety
-            string CustomerConnectionString = _configuration.GetConnectionString("CustomerConnection");
+            string customerConnectionString = _configuration.GetConnectionString("CustomerConnection");
 
-            using (var connection = new SqlConnection(CustomerConnectionString))
+            using (var connection = new SqlConnection(customerConnectionString))
             {
                 await connection.OpenAsync();
 
                 string createDbQuery = $@"
-            IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = @dbName) 
-            BEGIN 
-                CREATE DATABASE [{dbName}] 
-            END";
+        IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = @dbName) 
+        BEGIN 
+            CREATE DATABASE [{dbName}] 
+        END";
 
                 using (var command = new SqlCommand(createDbQuery, connection))
                 {
@@ -211,48 +195,37 @@ namespace TracePca.Service
                     await command.ExecuteNonQueryAsync();
                 }
             }
-
-            string newConnectionString = $"{CustomerConnectionString};Database={dbName};";
-
-            // ✅ Update DbContext dynamically (optional)
-            _customerRegistrationContext.Database.SetConnectionString(newConnectionString);
         }
 
-
-
-        
-
-public async Task ExecuteSqlScriptAsync(string connectionString, string scriptPath)
-    {
-        try
+        // ✅ Optimized SQL script execution
+        public async Task ExecuteSqlScriptAsync(string connectionString, string scriptPath)
         {
-            string script = await File.ReadAllTextAsync(scriptPath);
-
-            // Split script based on "GO" (case-insensitive, ensures it's a whole word)
-            string[] commands = Regex.Split(script, @"\bGO\b", RegexOptions.IgnoreCase);
-
-            using (var connection = new SqlConnection(connectionString))
+            try
             {
-                await connection.OpenAsync();
-                foreach (string commandText in commands)
-                {
-                    string trimmedCommand = commandText.Trim();
+                string script = await File.ReadAllTextAsync(scriptPath);
+                string[] commands = Regex.Split(script, @"\bGO\b", RegexOptions.IgnoreCase);
 
-                    if (!string.IsNullOrEmpty(trimmedCommand)) // Prevent empty command execution
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    await connection.OpenAsync();
+                    foreach (string commandText in commands)
                     {
-                        using (var command = new SqlCommand(trimmedCommand, connection))
+                        string trimmedCommand = commandText.Trim();
+                        if (!string.IsNullOrEmpty(trimmedCommand))
                         {
-                            await command.ExecuteNonQueryAsync();
+                            using (var command = new SqlCommand(trimmedCommand, connection))
+                            {
+                                await command.ExecuteNonQueryAsync();
+                            }
                         }
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error executing SQL script: {ex.Message}");
+            }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error executing SQL script: {ex.Message}");
-        }
-    }
 
 
 
