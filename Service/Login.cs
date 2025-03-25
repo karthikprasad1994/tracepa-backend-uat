@@ -202,6 +202,10 @@ namespace TracePca.Service
         {
             try
             {
+               
+
+                
+                
                 string script = await File.ReadAllTextAsync(scriptPath);
                 string[] commands = Regex.Split(script, @"\bGO\b", RegexOptions.IgnoreCase);
 

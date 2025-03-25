@@ -33,6 +33,8 @@ builder.Services.AddCors(options =>
 });
 builder.Services.AddDbContext<CustomerRegistrationContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("CustomerRegistrationConnection")));
+builder.Services.AddDbContext<DynamicDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("UserConnection")));
 
 builder.Services.AddDbContext<Trdmyus1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
