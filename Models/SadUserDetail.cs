@@ -26,6 +26,7 @@ public partial class SadUserDetail
     public DateTime? UsrDoj { get; set; }
 
     public short? UsrLevelGrp { get; set; }
+    public string JwtToken { get; set; }
 
     public string? UsrDutyStatus { get; set; }
 

@@ -1,3 +1,5 @@
+using OfficeOpenXml;
+
 using Microsoft.EntityFrameworkCore;
 using System.Text;
 using TracePca.Data;
@@ -6,15 +8,35 @@ using TracePca.Interface;
 using TracePca.Service;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using TracePca.Interface.FixedAssetsInterface;
+using TracePca.Service.FixedAssetsService;
+using TracePca.Service.AssetService;
+using TracePca.Interface.AssetMaserInterface;
+//using TracePca.Interface.AssetMaserInterface;
+
 
 var builder = WebApplication.CreateBuilder(args);
-
+ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+.AddJsonOptions(options =>
+ {
+     options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+ });
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<LoginInterface, Login>();
+builder.Services.AddScoped<OtpService>();
+builder.Services.AddScoped<AssetInterface, Asset>();
+builder.Services.AddScoped<AssetRegisterInterface, AssetRegister>();
+builder.Services.AddScoped<LocationSetUpInterface, LocationSeUp>();
+builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAddition>();
+
+
+builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
+
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

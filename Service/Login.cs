@@ -24,14 +24,16 @@ namespace TracePca.Service
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly DynamicDbContext _context;
+        private readonly OtpService _otpService;
 
-        public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DynamicDbContext context)
+        public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DynamicDbContext context, OtpService otpService)
         {
             _dbcontext = dbContext;
             _customerRegistrationContext = customerDbContext;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
             _context = context;
+            _otpService = otpService;
         }
 
         public async Task<object> GetAllUsersAsync()
@@ -69,11 +71,16 @@ namespace TracePca.Service
         }
 
 
+
+
         public async Task<IActionResult> SignUpUserAsync(RegistrationDto registerModel)
         {
             try
             {
-                // Check if a customer with the same email already exists
+                // Step 1: Check if customer already exists
+
+
+
                 bool customerExists = await _customerRegistrationContext.MmcsCustomerRegistrations
                     .AnyAsync(c => c.McrCustomerEmail == registerModel.McrCustomerEmail);
 
@@ -82,6 +89,20 @@ namespace TracePca.Service
                     return new ConflictObjectResult(new { statuscode = 409, message = "Customer with this email already exists." });
                 }
 
+                bool customerPhonenoExists = await _customerRegistrationContext.MmcsCustomerRegistrations
+                   .AnyAsync(c => c.McrCustomerTelephoneNo == registerModel.McrCustomerTelephoneNo);
+
+                if (customerPhonenoExists)
+                {
+                    return new ConflictObjectResult(new { statuscode = 409, message = "Customer with this Phoneno already exists." });
+                }
+                // Step 2: Send OTP (If OTP is not provided yet)
+
+
+                // Step 3: Verify OTP
+
+
+                // Step 4: Generate Customer Code
                 int maxMcrId = (await _customerRegistrationContext.MmcsCustomerRegistrations.MaxAsync(c => (int?)c.McrId) ?? 0) + 1;
                 string currentYear = DateTime.Now.Year.ToString().Substring(2, 2);
                 string yearPrefix = $"TR{currentYear}";
@@ -91,7 +112,7 @@ namespace TracePca.Service
                 string newCustomerCode = $"{yearPrefix}_{nextNumber:D3}";
                 string productKey = $"PRD-{Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()}";
 
-                // Map DTO to Entity Model
+                // Step 5: Register Customer
                 var newCustomer = new MmcsCustomerRegistration
                 {
                     McrId = maxMcrId,
@@ -104,22 +125,22 @@ namespace TracePca.Service
                 };
                 newCustomer.SetCustomerCodeAndProductKey(newCustomerCode, productKey);
 
-                // Save to database
                 await _customerRegistrationContext.MmcsCustomerRegistrations.AddAsync(newCustomer);
                 await _customerRegistrationContext.SaveChangesAsync();
 
-                // ✅ Create new customer database
+                // Step 6: Create new customer database
                 await CreateCustomerDatabaseAsync(newCustomerCode);
 
-                // ✅ Build new database connection string
+                // Step 7: Build new database connection string
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
                 string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
 
-                // ✅ Execute SQL script to set up schema
-                string scriptPath = @"C:\Users\i5_4G_X2\Desktop\Cleaned_Sign-up.sql";
-                await ExecuteSqlScriptAsync(newDbConnectionString, scriptPath);
+                // Step 8: Execute SQL script to set up schema
+                string scriptsFolderPath = @"C:\Users\i5_4G_X2\Desktop";
+                await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptsFolderPath);
 
-                // ✅ Using fresh DbContext instance for new database operations
+
+                // Step 9: Create Admin User in the new database
                 var optionsBuilder = new DbContextOptionsBuilder<DynamicDbContext>();
                 optionsBuilder.UseSqlServer(newDbConnectionString);
 
@@ -198,38 +219,83 @@ namespace TracePca.Service
         }
 
         // ✅ Optimized SQL script execution
-        public async Task ExecuteSqlScriptAsync(string connectionString, string scriptPath)
+        public async Task ExecuteAllSqlScriptsAsync(string connectionString, string scriptsFolderPath)
         {
             try
             {
-               
-
-                
-                
-                string script = await File.ReadAllTextAsync(scriptPath);
-                string[] commands = Regex.Split(script, @"\bGO\b", RegexOptions.IgnoreCase);
+                string[] scriptFiles = {
+            Path.Combine(scriptsFolderPath, "Createtable.sql"),
+            Path.Combine(scriptsFolderPath, "Insertvalues.sql"),
+            Path.Combine(scriptsFolderPath, "CreateProcedures.sql")
+        };
 
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
-                    foreach (string commandText in commands)
+                    using (var transaction = connection.BeginTransaction())  // ✅ Ensure atomic execution
                     {
-                        string trimmedCommand = commandText.Trim();
-                        if (!string.IsNullOrEmpty(trimmedCommand))
+                        try
                         {
-                            using (var command = new SqlCommand(trimmedCommand, connection))
+                            foreach (string scriptPath in scriptFiles)
                             {
-                                await command.ExecuteNonQueryAsync();
+                                if (File.Exists(scriptPath))
+                                {
+                                    string script = await File.ReadAllTextAsync(scriptPath);
+                                    string[] commands = Regex.Split(script, @"(?i)^\s*GO\s*$", RegexOptions.Multiline);
+
+                                    foreach (string commandText in commands)
+                                    {
+                                        string trimmedCommand = commandText.Trim();
+                                        if (!string.IsNullOrEmpty(trimmedCommand))
+                                        {
+                                            try
+                                            {
+                                                using (var command = new SqlCommand(trimmedCommand, connection, transaction))
+                                                {
+                                                    command.CommandTimeout = 120;
+
+                                                    // ✅ Identity Insert Handling
+                                                    if (trimmedCommand.Contains("INSERT INTO") && trimmedCommand.Contains("IDENTITY"))
+                                                    {
+                                                        await new SqlCommand("SET IDENTITY_INSERT ON;", connection, transaction).ExecuteNonQueryAsync();
+                                                    }
+
+                                                    await command.ExecuteNonQueryAsync();
+                                                }
+                                            }
+                                            catch (SqlException sqlEx)
+                                            {
+                                                Console.WriteLine($"SQL Execution Error in {Path.GetFileName(scriptPath)}: {sqlEx.Message}\nCommand: {trimmedCommand}");
+                                            }
+                                        }
+                                    }
+
+                                    Console.WriteLine($"Successfully executed: {Path.GetFileName(scriptPath)}");
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"File not found: {scriptPath}");
+                                }
                             }
+
+                            await transaction.CommitAsync();  // ✅ Commit after successful execution
+                        }
+                        catch (Exception ex)
+                        {
+                            await transaction.RollbackAsync();  // ✅ Rollback if any error occurs
+                            Console.WriteLine($"Transaction failed: {ex.Message}");
                         }
                     }
                 }
+
+                Console.WriteLine("All SQL scripts executed successfully.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error executing SQL script: {ex.Message}");
+                Console.WriteLine($"General error executing SQL scripts: {ex.Message}");
             }
         }
+
 
 
 
@@ -239,7 +305,7 @@ namespace TracePca.Service
             {
                 // ✅ Step 1: Find Customer Code from Registration Database
                 var customer = await _customerRegistrationContext.MmcsCustomerRegistrations
-                    .AsNoTracking()
+
                     .Where(c => c.McrCustomerEmail == email)
                     .Select(c => new { c.McrCustomerCode })
                     .FirstOrDefaultAsync();
@@ -288,12 +354,14 @@ namespace TracePca.Service
 
                     // ✅ Step 6: Fetch User ID
                     var userId = await newDbContext.SadUserDetails
+                        .AsNoTracking()
                         .Where(a => a.UsrEmail == email)
                         .Select(a => a.UsrId)
                         .FirstOrDefaultAsync();
 
                     // ✅ Step 7: Generate JWT Token
                     string token = GenerateJwtToken(userDto);
+                  
 
                     return new LoginResponse
                     {
@@ -317,6 +385,109 @@ namespace TracePca.Service
 
 
         public string GenerateJwtToken(LoginDto userDto)
+        {
+            try
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var secretKey = _configuration["JwtSettings:Secret"];
+                var issuer = _configuration["JwtSettings:Issuer"];
+                var audience = _configuration["JwtSettings:Audience"];
+                var expiryInHoursString = _configuration["JwtSettings:ExpiryInHours"];
+
+                if (string.IsNullOrEmpty(secretKey) || string.IsNullOrEmpty(issuer) ||
+                    string.IsNullOrEmpty(audience) || string.IsNullOrEmpty(expiryInHoursString))
+                {
+                    throw new Exception("JWT configuration values are missing.");
+                }
+
+                int expiryInHours = int.Parse(expiryInHoursString);
+                var key = Encoding.UTF8.GetBytes(secretKey);
+
+                var tokenDescriptor = new SecurityTokenDescriptor
+                {
+                    Subject = new ClaimsIdentity(new[]
+                    {
+                //new Claim(ClaimTypes.NameIdentifier, userDto.UsrId.ToString()),
+                new Claim(ClaimTypes.Email, userDto.UsrEmail)
+            }),
+                    Expires = DateTime.UtcNow.AddHours(expiryInHours),
+                    Issuer = issuer,
+                    Audience = audience,
+                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                };
+
+                var token = tokenHandler.CreateToken(tokenDescriptor);
+                return tokenHandler.WriteToken(token);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error generating JWT token: {ex.Message}");
+            }
+        }
+
+
+
+        public async Task<(string Token, string Otp)> GenerateAndSendOtpJwtAsync(string email)
+        {
+            return await _otpService.GenerateAndSendOtpJwtAsync(email);
+        }
+
+
+        public async Task<bool> VerifyOtpJwtAsync(string token, string enteredOtp)
+        {
+            return await Task.FromResult(_otpService.VerifyOtpJwt(token, enteredOtp)); // ✅ Use await correctly
+        }
+
+
+        public async Task<LoginResponse> LoginUser(string email, string password)
+        {
+            var customer = await _customerRegistrationContext.MmcsCustomerRegistrations
+                .Where(c => c.McrCustomerEmail == email)
+                .Select(c => new { c.McrCustomerEmail })
+                .FirstOrDefaultAsync();
+
+            if (customer == null)
+            {
+                return new LoginResponse { StatusCode = 404, Message = "Email not found" };
+            }
+
+            // ✅ Step 2: Get Password from User Table
+            var user = await _dbcontext.SadUserDetails
+                .Where(u => u.UsrEmail == email)
+                .Select(u => new { u.UsrPassWord, u.UsrEmail }) // Fetch necessary fields
+                .FirstOrDefaultAsync();
+
+            if (user == null)
+            {
+                return new LoginResponse { StatusCode = 404, Message = "Invalid Email" };
+            }
+
+            // ✅ Step 3: Create `userDto` with correct assignments
+            var userDto = new LoginDto
+            {
+                UsrEmail = user.UsrEmail, // Assign email from `user`
+                UsrPassWord = user.UsrPassWord      // Assign user ID from `user`
+            };
+            var userId = await _dbcontext.SadUserDetails
+                       .AsNoTracking()
+                       .Where(a => a.UsrEmail == email)
+                       .Select(a => a.UsrId)
+                       .FirstOrDefaultAsync();
+            // ✅ Step 4: Generate JWT token
+            string token = GenerateJwtTokens(userDto);
+           
+
+            return new LoginResponse
+            {
+                StatusCode = 200,
+                Message = "Login successful and token saved succeessfully",
+                UsrId = userId, // Corrected: Assign from `user`, not `userId`
+                Token = token // Include token in response
+            };
+        }
+
+
+        public string GenerateJwtTokens(LoginDto userDto)
         {
             try
             {

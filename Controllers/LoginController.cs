@@ -3,6 +3,7 @@ using TracePca.Interface;
 using TracePca.Models.CustomerRegistration;
 using TracePca.Models;
 using TracePca.Dto;
+using TracePca.Data.CustomerRegistration;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -17,17 +18,78 @@ namespace TracePca.Controllers
         public LoginController(LoginInterface LoginInterface)
         {
             _LoginInterface = LoginInterface;
-            
+
         }
         // GET: api/<LoginController>
         [HttpGet("get-users")]
         public async Task<IActionResult> GetUsers()
         {
             var result = await _LoginInterface.GetAllUsersAsync();
-            return Ok(result); 
+            return Ok(result);
+        }
+        [HttpPost("sendOtp")]
+        public async Task<IActionResult> SendOtp([FromBody] OtpReqDto request)
+        {
+            if (string.IsNullOrEmpty(request.Email))
+            {
+                return BadRequest(new OtpResponseDto
+                {
+                    StatusCode = 400,
+                    Message = "Email cannot be empty."
+                });
+            }
+
+            var (token, otp) = await _LoginInterface.GenerateAndSendOtpJwtAsync(request.Email);
+
+            return Ok(new OtpResponseDto
+            {
+                StatusCode = 200,
+                Message = "OTP sent successfully.",
+                Token = token,
+                Otp = otp // Include OTP in response
+            });
         }
 
-       
+
+
+
+    
+
+            [HttpPost("VerifyOtp")]
+            public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpReqDto request)
+            {
+                // Extract the JWT token from Authorization header
+                var token = Request.Headers["Authorization"].ToString();
+
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    return BadRequest(new { statuscode = 400, message = "Authorization token is missing in the header." });
+                }
+
+                // Remove "Bearer " prefix if present
+                if (token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    token = token.Substring("Bearer ".Length).Trim();
+                }
+
+                if (string.IsNullOrWhiteSpace(request.Otp))
+                {
+                    return BadRequest(new { statuscode = 400, message = "OTP cannot be empty." });
+                }
+
+                var isValid = await _LoginInterface.VerifyOtpJwtAsync(token, request.Otp);
+
+                if (isValid)
+                {
+                    return Ok(new { statuscode = 200, message = "OTP verified successfully." });
+                }
+
+                return BadRequest(new { statuscode = 400, message = "Invalid or expired OTP." });
+            }
+        
+
+
+
 
         // POST api/<LoginController>
         [HttpPost]
@@ -75,7 +137,26 @@ namespace TracePca.Controllers
         }
 
 
+        [HttpPost]
+        [Route("UsersLogin")]
+        public async Task<IActionResult> LoginUser([FromBody] LoginDto user)
+        {
+            if (user == null || string.IsNullOrWhiteSpace(user.UsrEmail) || string.IsNullOrWhiteSpace(user.UsrPassWord))
+            {
+                return BadRequest(new { statuscode = 400, message = "Email and password are required." });
+            }
 
+            var result = await _LoginInterface.LoginUser(user.UsrEmail, user.UsrPassWord);
+
+            // ✅ Use strongly typed DTO instead of reflection
+            return result.StatusCode switch
+            {
+                200 => Ok(result),
+                401 => Unauthorized(result),
+                404 => NotFound(result),
+                _ => StatusCode(500, result)
+            };
+        }
 
 
         // PUT api/<LoginController>/5

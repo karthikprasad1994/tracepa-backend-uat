@@ -40,6 +40,8 @@
 
         public string? UsrMobileNo { get; set; }
 
+        public string? Otp { get; set; }
+
     }
 }
 
