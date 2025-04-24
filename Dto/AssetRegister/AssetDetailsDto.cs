@@ -11,5 +11,8 @@
         public int Afam_AssetAge { get; set; }
         public string Afam_Status { get; set; }
         public string? TR_Status { get; set; }
+
+        public string UnitOfMeasurement { get; set; }  // This will now hold the CMM_DESC
+
     }
 }
