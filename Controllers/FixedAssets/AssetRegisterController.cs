@@ -81,14 +81,22 @@ namespace TracePca.Controllers.FixedAssets
                         {
                             assetDetail = new
                             {
+                                result.Id,
                                 result.CustomerName,
+                                result.CustomerId,
                                 result.FinancialYear,
+                                result.YearId,
+                                result.UnitOfMeasurement,
+                                result.UnitOfMeasurementId,
+                                result.AssetId,
+                                
+                              
                                 result.AssetClassName,
                                 result.AssetCode,
                                 result.AssetNo,
                                 result.AssetDescription,
                                 result.Quantity,
-                                result.UnitOfMeasurement,
+                               
                                 result.UsefulLife,
                                 putToUseDate = result.PutToUseDate.ToString("yyyy-MM-dd") // ✅ only date string
                             }
@@ -114,7 +122,7 @@ namespace TracePca.Controllers.FixedAssets
             }
         }
 
-        [HttpPut("update")]
+        [HttpPut("update/{afamId}")]
         public async Task<IActionResult> UpdateAssetDetails(int afamId,[FromBody] AssetUpdateDto updateDto)
         {
             if (updateDto == null)
@@ -125,7 +133,7 @@ namespace TracePca.Controllers.FixedAssets
             try
             {
                 // Call service method to update asset details
-                await _AssetRegisterInterface.UpdateAssetDetailsAsync(afamId, updateDto);
+                await _AssetRegisterInterface.UpdateAssetAsync(afamId, updateDto);
 
                 // Return success response
                 return Ok(new { message = "Asset details updated successfully." });

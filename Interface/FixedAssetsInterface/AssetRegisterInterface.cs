@@ -6,7 +6,7 @@ namespace TracePca.Interface.FixedAssetsInterface
     {
         Task<IEnumerable<AssetDetailsDto>> GetAssetDetailsAsync(int customerId, int assetClassId, int financialYearId);
         Task<AssetRegDetailsDto> GetAssetRegDetailsAsync(int assetId);
-        Task UpdateAssetDetailsAsync(int afamId, AssetUpdateDto updateDto);
+        Task<bool> UpdateAssetAsync(int afamId, AssetUpdateDto dto);
 
     }
 }
