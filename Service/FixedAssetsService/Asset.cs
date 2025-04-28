@@ -75,8 +75,8 @@ namespace TracePca.Service
             string query = @"
         SELECT AM_ID, AM_Description 
         FROM Acc_AssetMaster 
-        WHERE AM_LevelCode = 2 
-          AND AM_DelFlag = 'X' 
+        WHERE 
+           AM_DelFlag = 'X' 
           AND AM_CompID = @CompanyId 
           AND AM_CustId = @CustomerId";
 
