@@ -2,6 +2,7 @@
 {
     public class AssetDetailsDto
     {
+        public int AFAM_ID { get; set; }
         public string Afam_AssetCode { get; set; }
         public string AssetTypeName { get; set; }
         public string AFAM_Code { get; set; }

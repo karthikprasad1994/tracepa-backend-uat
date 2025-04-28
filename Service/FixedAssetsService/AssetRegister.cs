@@ -28,6 +28,7 @@ namespace TracePca.Service.FixedAssetsService
 
             string query = @"
         SELECT 
+            afm.AFAM_ID,
             afm.AFAM_AssetCode,
             afm.AFAM_Code,
             am.AM_Description AS AssetTypeName,
