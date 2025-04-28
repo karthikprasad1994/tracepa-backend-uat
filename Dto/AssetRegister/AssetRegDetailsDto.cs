@@ -4,6 +4,7 @@
     {
         public int CustomerId { get; set; }
         public int Id { get; set;}
+        public int LocationId { get; set; } 
         public string CustomerName { get; set; }
         public int YearId { get; set; }
         public string FinancialYear { get; set; }

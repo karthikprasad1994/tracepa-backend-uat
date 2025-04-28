@@ -89,7 +89,7 @@ namespace TracePca.Controllers.FixedAssets
                                 result.UnitOfMeasurement,
                                 result.UnitOfMeasurementId,
                                 result.AssetId,
-                                
+                                result.LocationId,
                               
                                 result.AssetClassName,
                                 result.AssetCode,

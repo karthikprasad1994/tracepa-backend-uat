@@ -66,11 +66,12 @@ namespace TracePca.Service.FixedAssetsService
         fy.YMS_ID AS FinancialYear,
         am.AM_Description AS AssetClassName,
         am.AM_ID AS AssetId,
-                
+       
         
         afm.AFAM_Code AS AssetCode,
         afm.AFAM_AssetCode AS AssetNo,
         afm.AFAM_ID AS Id,
+        afm.AFAM_Location AS LocationId,
         afm.AFAM_Description AS AssetDescription,
         afm.AFAM_Quantity AS Quantity,
         cmm.CMM_DESC AS UnitOfMeasurement, 
