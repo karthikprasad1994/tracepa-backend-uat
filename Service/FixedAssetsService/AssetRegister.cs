@@ -98,6 +98,7 @@ UPDATE Acc_FixedAssetMaster SET
     Attribute1 = @Attribute1,
     Attribute2 = @Attribute2,
     Attribute3 = @Attribute3,
+    AFAM_AssetType = @AssetClassId,
     AFAM_Location = @AfamLocation,
     AFAM_Division = @AfamDivision,
     AFAM_Department = @AfamDepartment,
@@ -123,6 +124,8 @@ UPDATE Acc_FixedAssetMaster SET
     AfAM_BrokerName = @AfamBrokerName,
     AFAM_AMCCompanyName = @AfamAmcCompanyName,
     AFAM_AMCFrmDate = @AfamAmcFrmDate,
+    AFAM_AssetAge = @AfamAssetAge,
+    AFAM_Remark = @AfamRemark,
     AFAM_AMCTo = @AfamAmcTo
 WHERE AFAM_ID = @AfamId;";
 

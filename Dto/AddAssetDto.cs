@@ -10,6 +10,7 @@
         public int? AfamId { get; set; }
 
         public string? AfamAssetType { get; set; }
+        
 
 
 

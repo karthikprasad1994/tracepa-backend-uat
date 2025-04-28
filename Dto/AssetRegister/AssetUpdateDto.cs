@@ -14,6 +14,8 @@
 
         public int? AfamDepartment { get; set; }
 
+        public string? AssetClassId { get; set; }
+
         public int? AfamBay { get; set; }
 
         public string? AfamEmployeeName { get; set; }
@@ -52,6 +54,10 @@
         public DateTime? AfamAmcfrmDate { get; set; }
 
         public DateTime? AfamAmcto { get; set; }
+
+        public decimal? AfamAssetAge { get; set; }
+
+        public string? AfamRemark { get; set; }
 
 
 
