@@ -9,8 +9,8 @@
         public DateTime? Afam_CommissionDate { get; set; }
         public int Afam_Quantity { get; set; }
         public int Afam_AssetAge { get; set; }
-        public string Afam_Status { get; set; }
-        public string? TR_Status { get; set; }
+        public string Afam_Status { get; set; } = "Not Available"; // Default
+        public string Afam_TRStatus { get; set; } = "Not Available";
 
         public string UnitOfMeasurement { get; set; }  // This will now hold the CMM_DESC
 
