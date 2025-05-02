@@ -2,7 +2,7 @@
 {
     public class AuditTypeDto
     {
-        public int CmmId { get; set; }
-        public string CmmDesc { get; set; }
+        public int AuditId { get; set; }
+        public string AuditDesc { get; set; }
     }
 }

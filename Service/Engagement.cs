@@ -93,10 +93,10 @@ namespace TracePca.Service
             await connection.OpenAsync();
 
             var auditTypesTask = connection.QueryAsync<AuditTypeDto>(@"
-        SELECT cmm_ID AS CmmId, cmm_Desc AS CmmDesc
+        SELECT cmm_ID AS AuditId, cmm_Desc AS  AuditDesc
         FROM Content_Management_Master
         WHERE CMM_CompID = @CompId
-          AND CMM_Category = 'TM'
+          AND CMM_Category = 'AT'
           AND CMM_Delflag = 'A'
         ORDER BY cmm_Desc ASC", new { CompId = compId });
 
@@ -113,12 +113,17 @@ namespace TracePca.Service
         FROM SAD_CUST_LOE
         WHERE LOE_CompID = @CompId", new { CompId = compId });
 
-            await Task.WhenAll(auditTypesTask, reportTypesTask, loeListTask);
+            var FeesType = connection.QueryAsync<FeeTypeDto>(@"
+        SELECT cmm_ID AS FeeId, cmm_Desc AS FeeName
+        FROM Content_Management_Master
+        WHERE cmm_Category = 'OE' and CMM_CompID = @CompId", new { CompId = compId });
+            await Task.WhenAll(auditTypesTask, reportTypesTask, loeListTask, FeesType);
 
             return new DropDownDataDto
             {
                 AuditTypes = auditTypesTask.Result.ToList(),
                 ReportTypes = reportTypesTask.Result.ToList(),
+                FeeTypes = FeesType.Result.ToList(),
                 Loenames = loeListTask.Result.ToList()
             };
         }
