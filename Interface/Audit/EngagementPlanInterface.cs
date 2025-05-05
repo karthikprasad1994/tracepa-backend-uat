@@ -7,6 +7,7 @@ namespace TracePca.Interface.Audit
         Task<LoEDto> GetLoeIdAsync(int customerId, int compId, int serviceId);
         Task<List<AuditTypeDto>> GetAuditTypesAsync(int compId);
          Task<DropDownDataDto> LoadAllDropdownDataAsync(int compId);
+        Task<bool> SaveAllLoeDataAsync(AddEngagementDto dto);
 
     }
 }

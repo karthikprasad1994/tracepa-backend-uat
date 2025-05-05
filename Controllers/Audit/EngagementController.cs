@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
 using TracePca.Interface.FixedAssetsInterface;
 
@@ -34,6 +35,29 @@ namespace TracePca.Controllers.Audit
                 data = dropdownData
             });
         }
+        [HttpPost("InsertLoe")]
+        public async Task<IActionResult> SaveLoe([FromBody] AddEngagementDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            // Call the method and get success flag
+            bool isSuccess = await _EngagementInterface.SaveAllLoeDataAsync(dto);
+
+            if (isSuccess)
+            {
+                return Ok(new { Message = "Engagementplan Inserted Successfully" });
+            }
+            else
+            {
+                return StatusCode(500, new { Message = "Failed to insert data." });
+            }
+        }
+
+
+
 
     }
 }
