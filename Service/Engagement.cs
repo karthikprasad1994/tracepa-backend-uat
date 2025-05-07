@@ -58,7 +58,7 @@ namespace TracePca.Service
         SELECT cmm_ID AS CmmId, cmm_Desc AS CmmDesc
         FROM Content_Management_Master
         WHERE CMM_CompID = @CompId
-          AND CMM_Category = 'AuditType'
+          AND CMM_Category = 'OE'
           AND CMM_Delflag = 'A'
         ORDER BY cmm_Desc ASC";
 

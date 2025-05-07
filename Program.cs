@@ -13,6 +13,7 @@ using TracePca.Service.FixedAssetsService;
 using TracePca.Service.AssetService;
 using TracePca.Interface.AssetMaserInterface;
 using TracePca.Interface.Audit;
+using TracePca.Service.Communication_with_client;
 //using TracePca.Interface.AssetMaserInterface;
 
 
@@ -37,6 +38,7 @@ builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAd
 
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
 builder.Services.AddScoped<EngagementPlanInterface, Engagement>();
+builder.Services.AddScoped<AuditInterface, Communication>();
 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
