@@ -37,8 +37,9 @@ builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAd
 
 
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
-builder.Services.AddScoped<EngagementPlanInterface, Engagement>();
-builder.Services.AddScoped<AuditInterface, Communication>();
+//builder.Services.AddScoped<EngagementPlanInterface, Engagement>();
+//builder.Services.AddScoped<AuditInterface, Communication>();
+builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

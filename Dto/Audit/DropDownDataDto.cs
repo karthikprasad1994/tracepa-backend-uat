@@ -7,6 +7,10 @@
         public List<AuditTypeDto> AuditTypes { get; set; }
         public List<FeeTypeDto> FeeTypes { get; set; }
 
+        public List<AuditSummaryDto> CustomerDetails { get; set; }
+
+        public List<AuditSummaryDto> AuditNoDetails { get; set; }
+
     }
 
 
