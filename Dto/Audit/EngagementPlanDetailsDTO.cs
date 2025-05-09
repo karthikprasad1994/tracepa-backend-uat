@@ -2,13 +2,13 @@
 
 namespace TracePca.Dto.Audit
 {
-    public class EngagementDetailsDTO
+    public class EngagementPlanDetailsDTO
     {
         public int? LOE_Id { get; set; } = 0;
         public int LOE_YearId { get; set; }
         public int LOE_CustomerId { get; set; }
         public int LOE_ServiceTypeId { get; set; }
-        public int LOE_FunctionId { get; set; }        
+        public int LOE_FunctionId { get; set; }
         public string? LOE_NatureOfService { get; set; }
         public int LOE_Total { get; set; }
         public string? LOE_Name { get; set; }
@@ -31,11 +31,11 @@ namespace TracePca.Dto.Audit
         public string LOET_Frequency { get; set; }
         public int LOET_ProfessionalFees { get; set; } = 0;
         public int? LOE_AttachID { get; set; }
-        public List<EngagementTemplateDetailsDTO> EngagementTemplateDetails { get; set; } = new List<EngagementTemplateDetailsDTO>();
-        public List<EngagementAdditionalFeesDTO> EngagementAdditionalFees { get; set; } = new List<EngagementAdditionalFeesDTO>();
+        public List<EngagementPlanTemplateDetailsDTO> EngagementTemplateDetails { get; set; } = new List<EngagementPlanTemplateDetailsDTO>();
+        public List<EngagementPlanAdditionalFeesDTO> EngagementAdditionalFees { get; set; } = new List<EngagementPlanAdditionalFeesDTO>();
     }
 
-    public class EngagementTemplateDetailsDTO
+    public class EngagementPlanTemplateDetailsDTO
     {
         public int? LTD_ID { get; set; } = 0;
         public int? LTD_LOE_ID { get; set; } = 0;
@@ -52,7 +52,7 @@ namespace TracePca.Dto.Audit
         public DateTime? LTD_UpdatedOn { get; set; }
     }
 
-    public class EngagementAdditionalFeesDTO
+    public class EngagementPlanAdditionalFeesDTO
     {
         public int? LAF_ID { get; set; } = 0;
         public int? LAF_LOEID { get; set; } = 0;
@@ -79,4 +79,3 @@ namespace TracePca.Dto.Audit
         public string? RCM_Description { get; set; }
     }
 }
-

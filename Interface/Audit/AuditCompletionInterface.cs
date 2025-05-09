@@ -7,6 +7,10 @@ namespace TracePca.Interface.Audit
         Task<AuditDropDownListDataDTO> LoadAllAuditDDLDataAsync(int compId);
         Task<IEnumerable<ReportTypeDetails>> GetReportTypeDetails(int compId);
         Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId);
-        Task<AuditDropDownListDataDTO> LoadAuditWorkpaperDDLAsync(int compId, int auditId);
+        Task<AuditDropDownListDataDTO> LoadAuditWorkPaperDDLAsync(int compId, int auditId);
+        Task<AuditCompletionDTO> GetAuditCompletionDetailsByIdAsync(int compId, int auditId);
+        Task<List<AuditCompletionSubPointDetailsDTO>> GetAuditCompletionSubPointDetailsAsync(int compId, int auditId, int checkPointId);
+        Task<int> SaveOrUpdateAuditCompletionDataAsync(AuditCompletionDTO dto);
+        Task<int> UpdateSignedByUDINInAuditAsync(AuditSignedByUDINRequestDTO dto);
     }
 }
