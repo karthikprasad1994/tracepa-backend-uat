@@ -1,0 +1,316 @@
+﻿using Dapper;
+using Microsoft.Data.SqlClient;
+using TracePca.Data;
+using TracePca.Dto.Audit;
+using TracePca.Interface.Audit;
+
+namespace TracePca.Service.Audit
+{
+    public class EngagementPlanService : EngagementPlanInterface
+    {
+        private readonly Trdmyus1Context _dbcontext;
+        private readonly IConfiguration _configuration;
+
+        public EngagementPlanService(Trdmyus1Context dbcontext, IConfiguration configuration)
+        {
+            _dbcontext = dbcontext;
+            _configuration = configuration;
+        }
+
+        public async Task<AuditDropDownListDataDTO> LoadAllDDLDataAsync(int compId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            var parameters = new { CompId = compId };
+
+            var currentYear = connection.QueryFirstOrDefaultAsync<DropDownListData>(@"SELECT YMS_YEARID AS ID, YMS_ID AS Name FROM YEAR_MASTER
+                WHERE YMS_Default = 1 AND YMS_CompId = @CompId", parameters);
+
+            var customerList = connection.QueryAsync<DropDownListData>(@"SELECT CUST_ID AS ID, CUST_NAME AS Name FROM SAD_CUSTOMER_MASTER
+                WHERE CUST_DELFLG = 'A' AND CUST_CompID = @CompId ORDER BY CUST_NAME ASC", parameters);
+
+            var auditTypeList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master
+                WHERE CMM_Category = 'AT' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
+
+            var reportTypeList = connection.QueryAsync<DropDownListData>(@"SELECT RTM_Id AS ID, RTM_ReportTypeName As Name FROM SAD_ReportTypeMaster
+                WHERE RTM_TemplateId = 1 And RTM_DelFlag = 'A' AND RTM_CompID = @CompId ORDER BY RTM_ReportTypeName", parameters);
+
+            var feeTypeList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master
+                WHERE cmm_Category = 'OE' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId", parameters);
+
+            await Task.WhenAll(currentYear, customerList, auditTypeList, reportTypeList, feeTypeList);
+
+            return new AuditDropDownListDataDTO
+            {
+                CurrentYear = await currentYear,
+                CustomerList = customerList.Result.ToList(),
+                AuditTypeList = auditTypeList.Result.ToList(),
+                ReportTypeList = reportTypeList.Result.ToList(),
+                FeeTypeList = feeTypeList.Result.ToList()
+            };
+        }
+
+        public async Task<AuditDropDownListDataDTO> LoadEngagementPlanDDLAsync(int compId, int yearId, int custId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            IEnumerable<DropDownListData> loeList;
+            if (custId > 0)
+            {
+                loeList = await connection.QueryAsync<DropDownListData>(@"SELECT LOE_ID AS ID, LOE_Name AS Name FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId AND LOE_CompID = @CompId AND LOE_CustomerId = @CustId",
+                    new { CompId = compId, YearId = yearId, CustId = custId });
+            }
+            else
+            {
+                loeList = await connection.QueryAsync<DropDownListData>(@"SELECT LOE_ID AS ID, LOE_Name AS Name FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId AND LOE_CompID = @CompId",
+                    new { CompId = compId, YearId = yearId });
+            }
+
+            return new AuditDropDownListDataDTO
+            {
+                ExistingEngagementPlanNames = loeList.ToList()
+            };
+        }
+
+        public async Task<IEnumerable<ReportTypeDetails>> GetReportTypeDetails(int compId, int reportTypeId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            var contentIds = await connection.QueryAsync<int>(@"SELECT TEM_ContentId FROM SAD_Finalisation_Report_Template WHERE TEM_FunctionId = @ReportTypeId And TEM_Delflag = 'A' And TEM_CompID = @CompId", 
+                new { CompId = compId, ReportTypeId = reportTypeId });
+
+            string query;
+            object parameters;
+            if (contentIds.Count() == 1)
+            {
+                query = @"SELECT RCM_Id, RCM_ReportName, RCM_Heading, RCM_Description FROM SAD_ReportContentMaster WHERE RCM_Id IN (@ContentId) AND RCM_ReportId = @ReportTypeId AND RCM_CompID = @CompId AND RCM_Delflag = 'A' ORDER BY RCM_Id";
+                parameters = new { ContentId = contentIds.First(), CompId = compId, ReportTypeId = reportTypeId };
+            }
+            else
+            {
+                query = @"SELECT RCM_Id, RCM_ReportName, RCM_Heading, RCM_Description FROM SAD_ReportContentMaster WHERE RCM_ReportId = @ReportTypeId AND RCM_CompID = @CompId AND RCM_Delflag = 'A' ORDER BY RCM_Id";
+                parameters = new { CompId = compId, ReportTypeId = reportTypeId };
+            }
+
+            var result = await connection.QueryAsync<ReportTypeDetails>(query, parameters);
+            return result;
+        }
+
+        public async Task<EngagementDetailsDTO> CheckAndGetEngagementPlanByIdsAsync(int compId, int customerId, int yearId, int auditTypeId)
+        {
+            int epPKid = 0;
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            if (customerId > 0 && auditTypeId > 0)
+            {
+                var parameters = new { CompId = compId, CustomerId = customerId, YearId = yearId, AuditTypeId = auditTypeId };
+                string query = @"SELECT LOE_ID FROM SAD_CUST_LOE WHERE LOE_CustomerId = @CustomerId And LOE_YearId = @YearId AND LOE_ServiceTypeId = @AuditTypeId And LOE_CompID = @CompId";
+                epPKid = await connection.QueryFirstOrDefaultAsync<int?>(query, parameters) ?? 0;
+            }
+
+            if (epPKid > 0)
+            {
+                return await GetEngagementPlanByIdAsync(compId, epPKid);
+            }
+            else
+            {
+                return new EngagementDetailsDTO();
+            }
+        }      
+
+        public async Task<EngagementDetailsDTO> GetEngagementPlanByIdAsync(int compId, int epPKid)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            var dto = await connection.QueryFirstOrDefaultAsync<EngagementDetailsDTO>(
+                @"SELECT LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId, LOE_FunctionId, LOE_NatureOfService, LOE_CrBy, LOE_CrOn, LOE_Total, LOE_Name, LOE_Frequency, LOE_STATUS, LOE_Delflag, LOE_IPAddress, LOE_CompID
+                FROM SAD_CUST_LOE WHERE LOE_Id = @LOEId And LOE_CompID = @CompId;", new { CompId = compId, LOEId = epPKid });
+            if (dto == null)
+                return new EngagementDetailsDTO();
+
+            var template = await connection.QueryFirstOrDefaultAsync<EngagementDetailsDTO>(
+                @"SELECT LOET_Id, LOET_LOEID AS LOE_Id, LOET_CustomerId, LOET_FunctionId, LOET_ScopeOfWork, LOET_Frequency AS LOET_Frequency, LOET_ProfessionalFees, LOET_CrBy, LOET_IPAddress, LOET_CompID, LOE_AttachID
+                FROM LOE_Template WHERE LOET_LOEID = @LOEId And LOET_CompID = @CompId;", new { CompId = compId, LOEId = epPKid });
+            if (template != null)
+            {
+                dto.LOET_Id = template.LOET_Id;
+                dto.LOET_ScopeOfWork = template.LOET_ScopeOfWork;
+                dto.LOET_Frequency = template.LOET_Frequency;
+                dto.LOET_ProfessionalFees = template.LOET_ProfessionalFees;
+                dto.LOE_AttachID = template.LOE_AttachID;
+            }
+
+            var templateDetails = await connection.QueryAsync<EngagementTemplateDetailsDTO>(
+                @"SELECT LTD_ID, LTD_LOE_ID, LTD_ReportTypeID, LTD_HeadingID, LTD_Heading, LTD_Decription, LTD_FormName, LTD_CrBy, LTD_CrOn, LTD_IPAddress, LTD_CompID 
+                FROM LOE_Template_Details WHERE LTD_LOE_ID = @LOEId And LTD_CompID = @CompId;",
+                new { CompId = compId, LOEId = epPKid });
+            dto.EngagementTemplateDetails = templateDetails.ToList();
+
+            var additionalFees = await connection.QueryAsync<EngagementAdditionalFeesDTO>(
+                @"SELECT LAF_ID, LAF_LOEID, LAF_OtherExpensesID, LAF_Charges, LAF_OtherExpensesName, LAF_Delflag, LAF_STATUS, LAF_CrBy, LAF_CrOn, LAF_IPAddress, LAF_CompID
+                FROM LOE_AdditionalFees WHERE LAF_LOEID = @LOEId And LAF_CompID = @CompId;",
+                new { CompId = compId, LOEId = epPKid });
+            dto.EngagementAdditionalFees = additionalFees.ToList();
+            return dto;
+        }
+
+        public async Task<string> GenerateLOENameAsync(int compId, int yearId, int customerId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                int nextId = await connection.ExecuteScalarAsync<int>(@"SELECT COUNT(*) + 1 FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId", new { YearId = yearId });
+                const string queryCust = @"SELECT CUST_CODE FROM SAD_CUSTOMER_MASTER WHERE CUST_ID = @CustomerId And CUST_Compid  = @CompId";
+                string? prefix = await connection.ExecuteScalarAsync<string>(queryCust, new { CompId = compId, CustomerId = customerId });
+
+                const string queryYear = @"Select YMS_ID from YEAR_MASTER WHERE YMS_YEARID = @YearId And YMS_CompID = @CompId";
+                string? yearName = await connection.ExecuteScalarAsync<string>(queryYear, new { CompId = compId, YearId = yearId });
+
+
+                string formattedId = nextId.ToString().PadLeft(5, '0');
+                string loeName = $"{prefix}/LOE/{yearName}/{formattedId}";
+                return loeName;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
+
+        public async Task<int> SaveOrUpdateEngagementPlanDataAsync(EngagementDetailsDTO dto)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+            try
+            {
+                bool isUpdate = dto.LOE_Id > 0;
+                if (isUpdate)
+                {
+                    await connection.ExecuteAsync(
+                        @"UPDATE SAD_CUST_LOE SET LOE_NatureOfService = @LOE_NatureOfService, LOE_Total = @LOE_Total, LOE_Frequency = @LOE_Frequency, LOE_UpdatedBy = @LOE_UpdatedBy, LOE_UpdatedOn = GETDATE(),
+                          LOE_IPAddress = @LOE_IPAddress WHERE LOE_Id = @LOE_Id;", dto, transaction);
+
+                    await connection.ExecuteAsync("DELETE FROM LOE_Template_Details WHERE LTD_LOE_ID = @LOE_Id;", dto, transaction);
+                    await connection.ExecuteAsync("DELETE FROM LOE_AdditionalFees WHERE LAF_LOEID = @LOE_Id;", dto, transaction);
+                }
+                else
+                {
+                    dto.LOE_Name = await GenerateLOENameAsync(dto.LOE_CompID, dto.LOE_YearId, dto.LOE_CustomerId);
+                    dto.LOE_Id = await connection.ExecuteScalarAsync<int>(
+                        @"DECLARE @NewId INT; SELECT @NewId = ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE;
+                          INSERT INTO SAD_CUST_LOE (LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId, LOE_NatureOfService, LOE_LocationIds, LOE_TimeSchedule, LOE_ReportDueDate, LOE_ProfessionalFees, LOE_OtherFees,
+                          LOE_ServiceTax, LOE_RembFilingFee, LOE_CrBy, LOE_CrOn, LOE_Total, LOE_Name, LOE_Frequency, LOE_FunctionId, LOE_SubFunctionId, LOE_STATUS, LOE_Delflag, LOE_IPAddress, LOE_CompID)
+                          VALUES (@NewId, @LOE_YearId, @LOE_CustomerId, @LOE_ServiceTypeId, @LOE_NatureOfService, '0', NULL, NULL, 0, 0, 0, 0,
+                          @LOE_CrBy, GETDATE(), @LOE_Total, @LOE_Name, @LOE_Frequency, @LOE_ServiceTypeId, 0, 'C', 'A', @LOE_IPAddress, @LOE_CompID); 
+                          SELECT @NewId;", dto, transaction);
+                }
+
+                int existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"SELECT COUNT(*) FROM LOE_Template WHERE LOET_LOEID = @LOE_Id;", new { dto.LOE_Id }, transaction);
+                if (existingTemplateCount > 0)
+                {
+                    await connection.ExecuteAsync(
+                        @"UPDATE LOE_Template SET LOET_CustomerId = @LOE_CustomerId, LOET_FunctionId = @LOE_ServiceTypeId, LOET_ScopeOfWork = @LOET_ScopeOfWork, LOET_Frequency = @LOET_Frequency,
+                          LOET_ProfessionalFees = @LOET_ProfessionalFees, LOET_UpdatedBy = @LOE_UpdatedBy, LOET_UpdatedOn = GETDATE(), LOET_IPAddress = @LOE_IPAddress,
+                          LOE_AttachID = @LOE_AttachID WHERE LOET_LOEID = @LOE_Id;",
+                        new
+                        {
+                            dto.LOE_Id,
+                            dto.LOE_CustomerId,
+                            dto.LOE_ServiceTypeId,
+                            dto.LOET_ScopeOfWork,
+                            dto.LOET_Frequency,
+                            dto.LOET_ProfessionalFees,
+                            dto.LOE_IPAddress,
+                            dto.LOE_CompID,
+                            dto.LOE_UpdatedBy,
+                            dto.LOE_AttachID
+                        }, transaction);
+                }
+                else
+                {
+                    dto.LOET_Id = await connection.ExecuteScalarAsync<int>(
+                        @"DECLARE @TemplateId INT; SELECT @TemplateId = ISNULL(MAX(LOET_Id), 0) + 1 FROM LOE_Template;
+                          INSERT INTO LOE_Template (LOET_Id, LOET_LOEID, LOET_CustomerId, LOET_FunctionId, LOET_ScopeOfWork, LOET_Frequency, LOET_ProfessionalFees, LOET_Delflag, LOET_STATUS, 
+                          LOET_CrOn, LOET_CrBy, LOET_IPAddress, LOET_CompID, LOE_AttachID)
+                          VALUES ( @TemplateId, @LTD_LOE_ID, @LOE_CustomerId, @LOE_ServiceTypeId, @LOET_ScopeOfWork, @LOET_Frequency, @LOET_ProfessionalFees, 'A', 'C', GETDATE(), @LOE_CrBy, @LOE_IPAddress, @LOE_CompID, @LOE_AttachID);
+                          SELECT @TemplateId;",
+                        new
+                        {
+                            LTD_LOE_ID = dto.LOE_Id ?? 0,
+                            dto.LOE_CustomerId,
+                            dto.LOE_ServiceTypeId,
+                            dto.LOET_ScopeOfWork,
+                            dto.LOET_Frequency,
+                            dto.LOET_ProfessionalFees,
+                            dto.LOE_CrBy,
+                            dto.LOE_IPAddress,
+                            dto.LOE_CompID,
+                            dto.LOE_AttachID
+                        },
+                        transaction
+                    );
+                }
+
+                foreach (var item in dto.EngagementTemplateDetails)
+                {
+                    item.LTD_LOE_ID = dto.LOE_Id ?? 0;
+                    await connection.ExecuteAsync(
+                        @"DECLARE @NewTemplateDetailId INT; SELECT @NewTemplateDetailId = ISNULL(MAX(LTD_ID), 0) + 1 FROM LOE_Template_Details;
+                          INSERT INTO LOE_Template_Details (LTD_ID, LTD_LOE_ID, LTD_ReportTypeID, LTD_HeadingID, LTD_Heading, LTD_Decription, LTD_FormName, LTD_CrBy, LTD_CrOn, LTD_IPAddress, LTD_CompID)
+                          VALUES (@NewTemplateDetailId, @LTD_LOE_ID, @LTD_ReportTypeID, @LTD_HeadingID, @LTD_Heading, @LTD_Decription, @LTD_FormName, @LTD_CrBy, GETDATE(), @LTD_IPAddress, @LTD_CompID);",
+                        item, transaction);
+                }
+
+                foreach (var fee in dto.EngagementAdditionalFees)
+                {
+                    fee.LAF_LOEID = dto.LOE_Id ?? 0;
+                    await connection.ExecuteAsync(
+                        @"DECLARE @NewFeesId INT; SELECT @NewFeesId = ISNULL(MAX(LAF_ID), 0) + 1 FROM LOE_AdditionalFees;
+                          INSERT INTO LOE_AdditionalFees (LAF_ID, LAF_LOEID, LAF_OtherExpensesID, LAF_Charges, LAF_OtherExpensesName, LAF_Delflag, LAF_STATUS, LAF_CrBy, LAF_CrOn, LAF_IPAddress, LAF_CompID)
+                          VALUES (@NewFeesId, @LAF_LOEID, @LAF_OtherExpensesID, @LAF_Charges, @LAF_OtherExpensesName, 'A', 'A', @LAF_CrBy, GETDATE(), @LAF_IPAddress, @LAF_CompID);",
+                        fee, transaction);
+                }
+
+                await transaction.CommitAsync();
+                return dto.LOE_Id ?? 0;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task<bool> ApproveEngagementPlanAsync(int compId, int epPKid, int approvedBy)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var parameters = new { ApprovedBy = approvedBy, LOEId = epPKid, CompId = compId };
+
+                var query1 = @"UPDATE SAD_CUST_LOE SET LOE_STATUS = 'A', LOE_ApprovedBy = @ApprovedBy, LOE_ApprovedOn = GETDATE() WHERE LOE_Id = @LOEId AND LOE_CompID = @CompId";
+
+                var query2 = @"UPDATE LOE_Template SET LOET_STATUS = 'A', LOET_ApprovedBy = @ApprovedBy, LOET_ApprovedOn = GETDATE() WHERE LOET_LOEID = @LOEId AND LOET_CompID = @CompId";
+
+                var rowsAffected1 = await connection.ExecuteAsync(query1, parameters);
+                var rowsAffected2 = await connection.ExecuteAsync(query2, parameters);
+
+                return rowsAffected1 > 0 || rowsAffected2 > 0;
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
+    }
+}
