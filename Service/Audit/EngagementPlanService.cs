@@ -176,13 +176,13 @@ namespace TracePca.Service.Audit
 
                 var templateDetails = await connection.QueryAsync<EngagementPlanTemplateDetailsDTO>(
                     @"SELECT LTD_ID, LTD_LOE_ID, LTD_ReportTypeID, LTD_HeadingID, LTD_Heading, LTD_Decription, LTD_FormName, LTD_CrBy, LTD_CrOn, LTD_IPAddress, LTD_CompID 
-                    FROM LOE_Template_Details WHERE LTD_LOE_ID = @LOEId And LTD_CompID = @CompId;",
+                    FROM LOE_Template_Details WHERE LTD_FormName = 'LOE' And LTD_LOE_ID = @LOEId And LTD_CompID = @CompId;",
                     new { CompId = compId, LOEId = epPKid });
                 dto.EngagementTemplateDetails = templateDetails.ToList();
 
                 var additionalFees = await connection.QueryAsync<EngagementPlanAdditionalFeesDTO>(
                     @"SELECT LAF_ID, LAF_LOEID, LAF_OtherExpensesID, LAF_Charges, LAF_OtherExpensesName, LAF_Delflag, LAF_STATUS, LAF_CrBy, LAF_CrOn, LAF_IPAddress, LAF_CompID
-                    FROM LOE_AdditionalFees WHERE LTD_FormName = 'LOE' And LAF_LOEID = @LOEId And LAF_CompID = @CompId;",
+                    FROM LOE_AdditionalFees WHERE LAF_LOEID = @LOEId And LAF_CompID = @CompId;",
                     new { CompId = compId, LOEId = epPKid });
                 dto.EngagementAdditionalFees = additionalFees.ToList();
                 return dto;
