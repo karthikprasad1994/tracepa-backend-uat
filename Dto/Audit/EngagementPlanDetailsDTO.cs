@@ -71,11 +71,39 @@ namespace TracePca.Dto.Audit
         public int LAF_CompID { get; set; }
     }
 
-    public class ReportTypeDetails
+    public class ReportTypeDetailsDTO
     {
         public int RCM_Id { get; set; }
         public string? RCM_ReportName { get; set; }
         public string? RCM_Heading { get; set; }
         public string? RCM_Description { get; set; }
+    }
+
+    public class FileAttachmentDTO
+    {
+        public int ATCH_ID { get; set; }
+        public IFormFile File { get; set; }
+        public int ATCH_CREATEDBY { get; set; }
+        public int ATCH_COMPID { get; set; }
+    }
+
+    public class AttachmentDetailsDTO
+    {
+        public int ATCH_ID { get; set; }
+        public int ATCH_DOCID { get; set; }
+        public string? ATCH_FNAME { get; set; }
+        public string? ATCH_EXT { get; set; }
+        public string? ATCH_DESC { get; set; }
+        public string? ATCH_CREATEDBYNAME { get; set; }
+        public int ATCH_CREATEDBY { get; set; }
+        public string? ATCH_CREATEDON { get; set; }
+        public long ATCH_SIZE { get; set; }
+        public string ATCH_FILESIZE_KB
+        {
+            get
+            {
+                return $"{(ATCH_SIZE / 1024.0):0.00} KB";
+            }
+        }
     }
 }

@@ -159,5 +159,106 @@ namespace TracePca.Controllers.Audit
                 return StatusCode(500, new { success = false, message = "An error occurred while approving the Engagement Plan.", error = ex.Message });
             }
         }
+
+        [HttpGet("LoadAllAttachmentsById")]
+        public async Task<IActionResult> LoadAllAttachmentsByIdAsync(int compId, int attachId)
+        {
+            try
+            {
+                var result = await _engagementInterface.LoadAllAttachmentsByIdAsync(compId, attachId);
+                return Ok(new { success = true, message = result.Count > 0 ? "Attachments loaded successfully." : "No attachments found.", data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "An error occurred while loading attachments.", error = ex.Message });
+            }
+        }
+
+        [HttpPost("UploadAndSaveAttachment")]
+        public async Task<IActionResult> UploadAndSaveAttachment([FromForm] FileAttachmentDTO dto)
+        {
+            try
+            {
+                var result = await _engagementInterface.UploadAndSaveAttachmentAsync(dto);
+                if (result > 0)
+                {
+                    return Ok(new { success = true, message = "File uploaded and saved successfully.", data = result });
+                }
+                else
+                {
+                    return StatusCode(500, new { success = false, message = "File upload failed. No attachment record was saved." });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while uploading the file: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("RemoveAttachmentDoc")]
+        public async Task<IActionResult> RemoveAttachmentDoc(int compId, int attachId, int docId, int userId)
+        {
+            try
+            {
+                await _engagementInterface.RemoveAttachmentDocAsync(compId, attachId, docId, userId);
+                return Ok(new { success = true, message = "Attachment marked as deleted successfully.", data = docId });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while marking the attachment as deleted: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("UpdateAttachmentDocDescription")]
+        public async Task<IActionResult> UpdateAttachmentDocDescription(int compId, int attachId, int docId, int userId, string description)
+        {
+            try
+            {
+                await _engagementInterface.UpdateAttachmentDocDescriptionAsync(compId, attachId, docId, userId, description);
+                return Ok(new { success = true, message = "Attachment description updated successfully.", data = docId });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while updating the attachment description: {ex.Message}" });
+            }
+        }
+
+        [HttpGet("DownloadAttachment")]
+        public async Task<IActionResult> DownloadAttachment(int compId, int attachId, int docId)
+        {
+            try
+            {
+                var result = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId);
+                if (result == null)
+                {
+                    return NotFound(new { success = false, message = "Attachment not found." });
+                }
+
+                string fileExt = result.ATCH_EXT;
+                if (string.IsNullOrEmpty(fileExt))
+                {
+                    return NotFound(new { success = false, message = "File extension not found." });
+                }
+
+                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
+                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+
+                string fileName = $"{docId}.{fileExt}";
+                string filePath = Path.Combine(absoluteFolder, fileName);
+
+                if (!System.IO.File.Exists(filePath))
+                {
+                    return NotFound(new { success = false, message = "File not found." });
+                }
+
+                var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+                return File(fileBytes, "application/octet-stream", fileName);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while downloading the file: {ex.Message}" });
+            }
+        }
     }
 }
+

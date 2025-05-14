@@ -54,7 +54,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<IEnumerable<ReportTypeDetails>> GetReportTypeDetails(int compId)
+        public async Task<IEnumerable<ReportTypeDetailsDTO>> GetReportTypeDetails(int compId)
         {
             try
             {
@@ -77,7 +77,7 @@ namespace TracePca.Service.Audit
                     parameters = new { CompId = compId, ReportTypeId = 16 };
                 }
 
-                var result = await connection.QueryAsync<ReportTypeDetails>(query, parameters);
+                var result = await connection.QueryAsync<ReportTypeDetailsDTO>(query, parameters);
                 return result;
             }
             catch (Exception ex)

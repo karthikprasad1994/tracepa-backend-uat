@@ -6,10 +6,15 @@ namespace TracePca.Interface.Audit
     {
         Task<AuditDropDownListDataDTO> LoadAllDDLDataAsync(int compId);
         Task<AuditDropDownListDataDTO> LoadEngagementPlanDDLAsync(int compId, int yearId, int custId);
-        Task<IEnumerable<ReportTypeDetails>> GetReportTypeDetails(int compId, int reportTypeId);
+        Task<IEnumerable<ReportTypeDetailsDTO>> GetReportTypeDetails(int compId, int reportTypeId);
         Task<EngagementPlanDetailsDTO> CheckAndGetEngagementPlanByIdsAsync(int compId, int customerId, int yearId, int auditTypeId);
         Task<EngagementPlanDetailsDTO> GetEngagementPlanByIdAsync(int compId, int epPKid);
         Task<int> SaveOrUpdateEngagementPlanDataAsync(EngagementPlanDetailsDTO dto);
         Task<bool> ApproveEngagementPlanAsync(int compId, int epPKid, int approvedBy);
+        Task<List<AttachmentDetailsDTO>> LoadAllAttachmentsByIdAsync(int compId, int attachId);
+        Task<int> UploadAndSaveAttachmentAsync(FileAttachmentDTO dto);
+        Task RemoveAttachmentDocAsync(int compId, int attachId, int docId, int userId);
+        Task UpdateAttachmentDocDescriptionAsync(int compId, int attachId, int docId, int userId, string description);
+        Task<AttachmentDetailsDTO> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId);
     }
 }

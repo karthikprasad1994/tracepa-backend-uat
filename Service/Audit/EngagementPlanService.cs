@@ -1,4 +1,5 @@
 ﻿using Dapper;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
 using TracePca.Dto.Audit;
@@ -88,7 +89,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<IEnumerable<ReportTypeDetails>> GetReportTypeDetails(int compId, int reportTypeId)
+        public async Task<IEnumerable<ReportTypeDetailsDTO>> GetReportTypeDetails(int compId, int reportTypeId)
         {
             try
             {
@@ -111,7 +112,7 @@ namespace TracePca.Service.Audit
                     parameters = new { CompId = compId, ReportTypeId = reportTypeId };
                 }
 
-                var result = await connection.QueryAsync<ReportTypeDetails>(query, parameters);
+                var result = await connection.QueryAsync<ReportTypeDetailsDTO>(query, parameters);
                 return result;
             }
             catch (Exception ex)
@@ -337,6 +338,134 @@ namespace TracePca.Service.Audit
             catch (Exception ex)
             {
                 throw new ApplicationException("An error occurred while approving the engagement plan", ex);
+            }
+        }
+
+        public async Task<List<AttachmentDetailsDTO>> LoadAllAttachmentsByIdAsync(int compId, int attachId)
+        {
+            try
+            {
+                var result = new List<AttachmentDetailsDTO>();
+                var query = @"SELECT A.ATCH_ID, A.ATCH_DOCID, A.ATCH_FNAME, A.ATCH_EXT, A.ATCH_DESC, A.ATCH_CREATEDBY, U.Usr_FullName AS ATCH_CREATEDBYNAME, A.ATCH_CREATEDON, A.ATCH_SIZE FROM edt_attachments A 
+                LEFT JOIN Sad_Userdetails U ON A.ATCH_CREATEDBY = U.Usr_ID AND A.ATCH_COMPID = U.Usr_CompId WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID = @AttachId AND A.ATCH_Status <> 'D' ORDER BY A.ATCH_CREATEDON;";
+
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                result = (await connection.QueryAsync<AttachmentDetailsDTO>(query, new { CompId = compId, AttachId = attachId })).ToList();
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting the attachment details", ex);
+            }
+        }
+
+        public async Task<int> UploadAndSaveAttachmentAsync(FileAttachmentDTO dto)
+        {
+            try
+            {
+                if (dto.File == null || dto.File.Length == 0)
+                    throw new ArgumentException("Invalid file.");
+
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                int attachId = dto.ATCH_ID == 0 ? await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID }) : dto.ATCH_ID;
+                int docId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID });
+
+                string originalFileName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
+                string safeFileName = originalFileName.Replace("&", " and");
+                safeFileName = safeFileName.Length > 95 ? safeFileName.Substring(0, 95) : safeFileName;
+
+                string fileExt = Path.GetExtension(dto.File.FileName)?.TrimStart('.').ToLower() ?? "unk";
+                long fileSize = dto.File.Length;
+
+                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
+                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+
+                if (!Directory.Exists(absoluteFolder))
+                    Directory.CreateDirectory(absoluteFolder);
+
+                string uniqueFileName = $"{docId}.{fileExt}";
+                string fullFilePath = Path.Combine(absoluteFolder, uniqueFileName);
+
+                using (var stream = new FileStream(fullFilePath, FileMode.Create))
+                {
+                    await dto.File.CopyToAsync(stream);
+                }
+
+                var insertQuery = @"
+                INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
+                ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID)
+                VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
+
+                await connection.ExecuteAsync(insertQuery, new
+                {
+                    AtchId = attachId,
+                    DocId = docId,
+                    FileName = safeFileName,
+                    FileExt = fileExt,
+                    CreatedBy = dto.ATCH_CREATEDBY,
+                    Size = fileSize,
+                    CompId = dto.ATCH_COMPID
+                });
+
+                return attachId;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to upload the attachment document.", ex);
+            }
+        }
+
+        public async Task RemoveAttachmentDocAsync(int compId, int attachId, int docId, int userId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var query = @"UPDATE EDT_ATTACHMENTS SET ATCH_Status = 'D', ATCH_MODIFIEDBY = @UserId WHERE ATCH_CompID = @CompId AND ATCH_DOCID = @DocId AND ATCH_ID = @AttachId";
+
+                await connection.ExecuteAsync(query, new { CompId = compId, DocId = docId, AttachId = attachId, UserId = userId });
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Failed to remove the selected document.", ex);
+            }
+        }
+
+        public async Task UpdateAttachmentDocDescriptionAsync(int compId, int attachId, int docId, int userId, string description)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var query = @"UPDATE EDT_ATTACHMENTS SET ATCH_Desc = @Desc, ATCH_MODIFIEDBY = @UserId WHERE ATCH_CompID = @CompId AND ATCH_DOCID = @DocId AND ATCH_ID = @AttachId";
+
+                await connection.ExecuteAsync(query, new { CompId = compId, DocId = docId, AttachId = attachId, Desc = description, UserId = userId });
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Failed to update the attachment description.", ex);
+            }
+        }
+
+        public async Task<AttachmentDetailsDTO> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId)
+        {
+            try
+            {
+                var result = new AttachmentDetailsDTO();
+                var query = @"SELECT A.ATCH_ID, A.ATCH_DOCID, A.ATCH_FNAME, A.ATCH_EXT, A.ATCH_DESC, A.ATCH_CREATEDBY, U.Usr_FullName AS ATCH_CREATEDBYNAME, A.ATCH_CREATEDON, A.ATCH_SIZE FROM edt_attachments A 
+                LEFT JOIN Sad_Userdetails U ON A.ATCH_CREATEDBY = U.Usr_ID AND A.ATCH_COMPID = U.Usr_CompId WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID = @AttachId AND A.ATCH_DOCID = @DocId";
+
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                result = (await connection.QueryFirstAsync<AttachmentDetailsDTO>(query, new { CompId = compId, AttachId = attachId, DocId = docId }));
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting the attachment details", ex);
             }
         }
     }
