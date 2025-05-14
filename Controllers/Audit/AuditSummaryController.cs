@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Dapper;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 using TracePca.Dto.AssetRegister;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
@@ -408,5 +411,31 @@ namespace TracePca.Controllers.Audit
                 return StatusCode(500, new { message = "An error occurred while updating asset details.", error = ex.Message });
             }
         }
+
+         
+
+        [HttpPost("UploadCMAAttachments")]
+        public async Task<IActionResult> UploadCMAAttachments([FromForm] CMADtoAttachment dto)
+        {
+
+            try
+            {
+                var result = await _AuditSummaryInterface.UploadCMAAttachmentsAsync(dto);
+
+                if (result.StartsWith("Error"))
+                {
+                    return StatusCode(500, result); // Internal Server Error
+                }
+
+                return Ok("File uploaded Successfully"); // Success
+            }
+            catch (Exception ex)
+            {
+                // Log the exception here if needed
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+        }
+
+
     }
 }

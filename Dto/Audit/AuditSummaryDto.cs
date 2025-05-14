@@ -1,4 +1,6 @@
-﻿namespace TracePca.Dto.Audit
+﻿using System.Text.Json.Serialization;
+
+namespace TracePca.Dto.Audit
 {
     public class AuditSummaryDto
     {
@@ -88,6 +90,8 @@
         public string ExceededMateriality { get; set; }
         public string DescriptionOrReasonForSelectionAsCAM { get; set; }
         public string AuditProcedureUndertakenToAddressTheCAM { get; set; }
+
+        
     }
 
     public class UpdateStandardAuditASCAMdetailsDto
@@ -97,4 +101,22 @@
         public string? SACAM_DescriptionOrReasonForSelectionAsCAM { get; set; }
         public string? SACAM_AuditProcedureUndertakenToAddressTheCAM { get; set; }
     }
+
+    public class CMADtoAttachment
+    {
+        
+        public IFormFile File { get; set; }
+        public int UserId { get; set; }
+     
+        public int CompId { get; set; }
+         
+        //public string AccessCodeDirectory { get; set; }
+        //public string UserLoginName { get; set; }
+         
+        public int CAMDPKID { get; set; }
+    }
+
+
+     
+
 }

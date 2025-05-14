@@ -1,12 +1,17 @@
 ﻿using Dapper;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using Org.BouncyCastle.Asn1.X509;
 using StackExchange.Redis;
+using System.Net.Mail;
+using System.Security.Cryptography;
 using TracePca.Data;
 using TracePca.Dto.AssetRegister;
 using TracePca.Dto.Audit;
 using TracePca.Interface;
 using TracePca.Interface.Audit;
+using static TracePca.Interface.Audit.AuditSummaryInterface;
 
 
 
@@ -167,10 +172,7 @@ namespace TracePca.Service.Audit
 
             return result;
         }
-
-
-
-
+         
         public async Task<IEnumerable<DocumentRequestSummaryDto>> GetDocumentRequestSummaryAsync(int compId, int customerId, int auditNo, int requestId, int yearId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -245,11 +247,7 @@ namespace TracePca.Service.Audit
             return result;
         }
 
-
-       
-
-
-
+         
         public async Task<IEnumerable<AuditProgramSummaryDto>> GetAuditProgramSummaryAsync(int compId,  int auditNo)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -331,7 +329,6 @@ namespace TracePca.Service.Audit
         }
 
 
-
         public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -340,7 +337,7 @@ namespace TracePca.Service.Audit
             Update StandardAudit_AuditSummary_CAMDetails set SACAM_DescriptionOrReasonForSelectionAsCAM=@SACAM_DescriptionOrReasonForSelectionAsCAM,
             SACAM_AuditProcedureUndertakenToAddressTheCAM=@SACAM_AuditProcedureUndertakenToAddressTheCAM  
             Where SACAM_PKID=@SACAM_PKID and SACAM_SA_ID=@SACAM_SA_ID";
-             
+
             var parameters = new DynamicParameters(dto);
             parameters.Add("SACAM_PKID", sacm_pkid);
             parameters.Add("SACAM_SA_ID", sacm_sa_id);
@@ -349,6 +346,431 @@ namespace TracePca.Service.Audit
 
             return rowsAffected > 0;
         }
+
+
+        public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
+        {
+            if (!Directory.Exists(accessCodeDirectory))
+            {
+                Directory.CreateDirectory(accessCodeDirectory);
+            }
+
+            var sFoldersToCreate = new List<string> { "Tempfolder", sFolderName, imgDocType };
+
+            foreach (var sFolder in sFoldersToCreate)
+            {
+                if (!string.IsNullOrEmpty(sFolder))
+                {
+                    accessCodeDirectory = Path.Combine(accessCodeDirectory.TrimEnd('\\'), sFolder);
+                    if (!Directory.Exists(accessCodeDirectory))
+                    {
+                        Directory.CreateDirectory(accessCodeDirectory);
+                    }
+                }
+            }
+            return accessCodeDirectory;
+        }
+
+
+        private async Task<int> GenerateNextAttachmentIdAsync(int compId)
+        {
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                return await connection.ExecuteScalarAsync<int>(
+                    @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM Edt_Attachments WHERE ATCH_CompID = @CompId",
+                    new { compId });
+            }
+        }
+
+        private async Task<int> GetDocumentIdAsync(int compId)
+        {
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                return await connection.ExecuteScalarAsync<int>(
+                    @"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @compId",
+                    new { compId });
+            }
+        }
+
+        private async Task<int> CheckDocumentIdAsync(int compId, int iAttachID)
+        {
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                return await connection.ExecuteScalarAsync<int>(
+                    @"SELECT ATCH_DOCID FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @compId and ATCH_ID=@iAttachID",
+                    new { compId, iAttachID });
+            }
+        }
+
+
+        private async Task<string> GetAccessCodeDirectory(int compId)
+        {
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                return await connection.ExecuteScalarAsync<string>(
+                    @"Select sad_Config_Value from sad_config_settings where sad_Config_Key='ImgPath' and sad_compid=@compId",
+                    new { compId });
+            }
+        }
+
+        private async Task<string> GetUserName(int compId, int userId)
+        {
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                return await connection.ExecuteScalarAsync<string>(
+                    @"Select Usr_Email from sad_UserDetails where Usr_Id=@userId and usr_compId=@compId",
+                    new { compId, userId });
+            }
+        }
+
+
+        private async Task<int> SaveAttachmentsModulewise(CMADtoAttachment dto,  int CompId, string AccessCodeDirectory, string sModule, string sFilePath, int iUserId, int iAttachID)
+        {
+
+            string sFileExtension = "";  
+            string sFileName = "";  int iDocID= 0;
+            int iPosSlash = sFilePath.LastIndexOf('\\');
+            int iPosDot = sFilePath.LastIndexOf('.');
+
+            if (iPosDot != -1)
+            {
+                sFileName = sFilePath.Substring(iPosSlash + 1, iPosDot - (iPosSlash + 1));
+                sFileExtension = sFilePath.Substring(iPosDot + 1);
+            }
+            else
+            {
+                sFileName = sFilePath.Substring(iPosSlash, sFilePath.Length - (iPosSlash + 1));
+                sFileExtension = "unk";
+            }
+
+            sFileName = sFileName.Replace("&", " and").Substring(0, Math.Min(sFileName.Length, 95));
+
+            iAttachID = await GenerateNextAttachmentIdAsync(CompId);
+            iDocID = await GetDocumentIdAsync(CompId);
+
+            if (iDocID == 0)
+            {
+               int icheck = await CheckDocumentIdAsync(CompId, iAttachID);
+                if(icheck > 0)
+                {
+                    iAttachID = await GenerateNextAttachmentIdAsync(CompId);
+                    iDocID = await GetDocumentIdAsync(CompId);
+                }
+            }
+
+            long fileSize = new FileInfo(sFilePath).Length;
+            string FilePath1 = sFilePath;
+
+
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                await connection.ExecuteAsync(
+                    @"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, ATCH_VERSION, ATCH_FLAG,
+                    ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, ATCH_Status, ATCH_CompID,Atch_Vstatus) VALUES (@AttachID,@DocID,@FileName,@FileExtension,
+                    @UserId, @UserId, 1, 0, @fileSize,0,0,GetDate(),'X',@CompID,'A')",
+                    new
+                    {
+                        AttachID = iAttachID,
+                        DocID = iDocID,
+                        FileName = sFileName,
+                        FileExtension = sFileExtension,
+                        UserId = dto.UserId,
+                        fileSize = fileSize,
+                        CompID = CompId
+                    });
+            }
+
+            //CheckOrCreateFileIsImageOrDocumentDirectory
+
+            sFileExtension = Path.GetExtension(sFilePath).ToLower();
+            string[] aImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv" };
+            string[] aDocumentExtensions = { ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar" };
+
+            string sFileType = "";
+
+            if(aImageExtensions.Contains(sFileExtension) == true)
+            {
+                sFileType = "Images";
+            }
+            else if (aDocumentExtensions.Contains(sFileExtension) == true)
+            {
+                sFileType = "Documents";
+            }
+
+            //string sFileType = aImageExtensions.Contains(sFileExtension) ? "Images" :
+            //                 (aDocumentExtensions.Contains(sFileExtension) ? "Documents" :;
+
+            string sAccessCodeModulePath = Path.Combine(AccessCodeDirectory, sModule);
+            if (!Directory.Exists(sAccessCodeModulePath))
+                Directory.CreateDirectory(sAccessCodeModulePath);
+
+            string sFinalDirectory = Path.Combine(sAccessCodeModulePath, sFileType, Convert.ToInt32(iDocID/301).ToString());
+            if (!Directory.Exists(sFinalDirectory))
+                Directory.CreateDirectory(sFinalDirectory);
+
+
+            String sFinalFilePath = sFinalDirectory + "\\" + iDocID + "." + sFileExtension;
+
+            if (File.Exists(sFinalFilePath))
+            { File.Delete(sFinalFilePath); }
+
+            //Encrypt(sFilePath, sFinalFilePath);
+
+            string EncryptionKey = "MAKV2SPBNI99212";
+            using (Aes encryptor = Aes.Create())
+            {
+                Rfc2898DeriveBytes pdb = new Rfc2898DeriveBytes(EncryptionKey, new byte[] { 0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D, 0x65, 0x64, 0x76, 0x65, 0x64, 0x65, 0x76 });
+                encryptor.Key = pdb.GetBytes(32);
+                encryptor.IV = pdb.GetBytes(16);
+                using (FileStream fs = new FileStream(sFinalFilePath, FileMode.Create))
+                {
+                    using (CryptoStream cs = new CryptoStream(fs, encryptor.CreateEncryptor(), CryptoStreamMode.Write))
+                    {
+                        using (FileStream fsInput = new FileStream(sFilePath, FileMode.Open))
+                        {
+                            int data;
+                            while ((data = fsInput.ReadByte()) != -1)
+                            {
+                                cs.WriteByte((byte)data);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (File.Exists(sFilePath))
+                File.Delete(sFilePath);
+
+            return iAttachID;
+        }
+
+        private async Task UpdateStandardAuditASCAMAttachmentdetails(int compId, int CAMPkID,int attachId )
+        {
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                await connection.ExecuteAsync(
+                    @"Update StandardAudit_AuditSummary_CAMDetails set SACAM_AttachID=@attachId
+              WHERE SACAM_PKID = @CAMPkID",
+                    new { attachId = attachId, CAMPkID = CAMPkID, compId = compId });
+            }
+        }
+
+
+
+        public async Task<string> UploadCMAAttachmentsAsync(CMADtoAttachment dto)
+        {
+            try
+            {
+
+                string AccessCodeDirectory = await GetAccessCodeDirectory(dto.CompId);
+
+                string UserLoginName = await GetUserName(dto.CompId,dto.UserId);
+
+                //1. Generate Filepath
+                String sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
+
+
+                if (dto.File == null || dto.File.Length == 0)
+                    throw new ArgumentException("Invalid file.");
+
+                var sSelectedFileName = Path.GetFileName(dto.File.FileName);
+                var fileExt = Path.GetExtension(sSelectedFileName)?.TrimStart('.');
+                var sFullFilePath = Path.Combine(sFileSavingPath, sSelectedFileName);
+
+                using (var stream = new FileStream(sFullFilePath, FileMode.Create))
+                {
+                    await dto.File.CopyToAsync(stream);
+                }
+
+                int attachId = 0;
+                //2.SaveAttachmentsModulewise
+                attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
+
+
+                UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
+                 
+                return "Successs";
+            }
+            catch (Exception ex)
+            {
+                // Log the exception for better error handling
+                return $"Error: {ex.Message}";
+            }
+        }
+        //private async Task<int> SaveAttachmentsModulewise(int iCompID,string sAccessCodeDirectory, string sModule, string sFilePath, int iUserId, int iAttachID)
+        //{
+        //    using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //    {
+        //        await connection.OpenAsync();
+        //        //  return await connection.ExecuteScalarAsync<int>(
+        //        //      @"SELECT ISNULL(MAX( ATCH_DOCID), 0) + 1 FROM Edt_Attachments 
+        //        //WHERE ATCH_COMPID = @CustomerId AND ATCH_AuditID = @AuditId",
+        //        //      new { customerId, auditId });
+        //        string sFileExtension = "";
+        //        string sFileName = "";
+        //        int iPosSlash = sFilePath.LastIndexOf('\\') + 1;
+        //        int iPosDot = sFilePath.LastIndexOf('.') + 1;
+
+        //        if (iPosDot != 0)
+        //        {
+        //            sFileName = sFilePath.Substring(iPosSlash, iPosDot - iPosSlash - 1);
+        //            sFileExtension = sFilePath.Substring(iPosDot);
+        //        }
+        //        else
+        //        {
+        //            sFileName = sFilePath.Substring(iPosSlash);
+        //            sFileExtension = "unk";
+        //        }
+        //        sFileName = sFileName.Replace("&", " and").Substring(0, Math.Min(sFileName.Length, 95));
+
+
+        //        iAttachID = iAttachID == 0 ?
+        //            iAttachID = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID") : iAttachID;
+        //        int iDocID = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID");
+
+        //        if (iDocID == 0)
+        //        {
+        //           int docID = await connection.ExecuteScalarAsync<int>(@"SELECT ATCH_DOCID FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID AND ATCH_ID=@iAttachID  ");
+
+        //            if (docID > 0)
+        //            {
+        //                iAttachID = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID");
+        //                iDocID = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID");
+        //            }
+        //        }
+
+        //        string sSql = "";
+        //        long fileSize = new FileInfo(sFilePath).Length;
+        //        await connection.ExecuteAsync(
+        //            @"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, ATCH_VERSION, ATCH_FLAG, 
+        //        ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, ATCH_Status, ATCH_CompID,Atch_Vstatus)
+        //        VALUES (
+        //        @iAttachID, @iDocID, @AuditId, @sFileName,
+        //        @sFileExtension, @iUserId, @UserId, 1,0, @fileSize,0,0,GetDate(),'X',@iCompID,'A')",
+        //            new
+        //            {
+        //                RemarkId = remarkId,
+        //                CustomerId = dto.CustomerId,
+        //                AuditId = dto.AuditId,
+        //                RequestedId = requestedId,
+        //                Remark = dto.Remark,
+        //                UserId = dto.UserId,
+        //                //Type = dto.Type,
+        //                AttachId = attachId
+        //            });
+
+
+        //        string sFileExtension1 = Path.GetExtension(sFilePath).ToLower();
+        //        string[] aImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv" };
+        //        string[] aDocumentExtensions = { ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar" };
+
+        //        string sFileType = aImageExtensions.Contains(sFileExtension) ? "Images" :
+        //                         (aDocumentExtensions.Contains(sFileExtension) ? "Documents" : "Others");
+
+        //        string sAccessCodeModulePath = Path.Combine(sAccessCodeDirectory, sModule);
+        //        if (!Directory.Exists(sAccessCodeModulePath)) Directory.CreateDirectory(sAccessCodeModulePath);
+
+        //        int iFolder = (Convert.ToInt32(iDocID) / 301);
+        //        string sFinalDirectory = Path.Combine(sAccessCodeModulePath, sFileType, iFolder.ToString());
+        //        if (!Directory.Exists(sFinalDirectory)) Directory.CreateDirectory(sFinalDirectory);
+        //        string sFinalFilePath = $"{sFinalDirectory}\\{iDocID}.{sFileExtension}";
+
+        //        if (File.Exists(sFinalFilePath)) File.Delete(sFinalFilePath);
+        //        // File.Copy(sFilePath, sFinalFilePath);
+
+
+
+        //        string EncryptionKey = "MAKV2SPBNI99212";
+        //        using (Aes encryptor = Aes.Create())
+        //        {
+        //            var pdb = new Rfc2898DeriveBytes(EncryptionKey, new byte[] { 0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D,
+        //                                                            0x65, 0x64, 0x76, 0x65, 0x64, 0x65,
+        //                                                            0x76 });
+        //            encryptor.Key = pdb.GetBytes(32);
+        //            encryptor.IV = pdb.GetBytes(16);
+        //            using (FileStream fs = new FileStream(sFinalFilePath, FileMode.Create))
+        //            {
+        //                using (CryptoStream cs = new CryptoStream(fs, encryptor.CreateEncryptor(), CryptoStreamMode.Write))
+        //                {
+        //                    using (FileStream fsInput = new FileStream(sFilePath, FileMode.Open))
+        //                    {
+        //                        int data;
+        //                        while ((data = fsInput.ReadByte()) != -1)
+        //                        {
+        //                            cs.WriteByte((byte)data);
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //        }
+
+
+        //        if (File.Exists(sFilePath)) File.Delete(sFilePath);
+        //        return iAttachID;
+        //    }
+        //}
+
+
+        //public async Task<string> CAMAttachmentAsync( string sAccessCodeDirectory, string sFolderName, int attachId, IFormFile file, CMADtoAttachment dto)
+        //{
+
+        //    if (!Directory.Exists(sAccessCodeDirectory))
+        //    {
+        //        Directory.CreateDirectory(sAccessCodeDirectory);
+        //    }
+
+        //    var sFoldersToCreate = new List<string> { "Tempfolder", sFolderName, "Upload" };
+        //    foreach (var sFolder in sFoldersToCreate)
+        //    {
+        //        if (!string.IsNullOrEmpty(sFolder))
+        //        {
+        //            sAccessCodeDirectory = Path.Combine(sAccessCodeDirectory.TrimEnd('\\'), sFolder);
+        //            if (!Directory.Exists(sAccessCodeDirectory))
+        //            {
+        //                Directory.CreateDirectory(sAccessCodeDirectory);
+        //            }
+        //        }
+        //    }
+
+
+
+        //    if (file == null || file.Length == 0)
+        //        throw new ArgumentException("Invalid file.");
+
+        //    var sSelectedFileName = Path.GetFileName(file.FileName);
+        //    var fileExt = Path.GetExtension(sSelectedFileName)?.TrimStart('.');
+        //    var sFullFilePath = Path.Combine(sAccessCodeDirectory, sSelectedFileName);
+
+        //    using (var stream = new FileStream(sFullFilePath, FileMode.Create))
+        //    {
+        //        await file.CopyToAsync(stream);
+        //    }
+
+
+        //    int iAttachID = SaveAttachmentsModulewise();
+
+
+        //}
+
+        //private async Task<int> GenerateNextDocIdAsync(int customerId, int auditId)
+        //{
+        //    using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //    {
+        //        await connection.OpenAsync();
+        //        return await connection.ExecuteScalarAsync<int>(
+        //            @"SELECT ISNULL(MAX( ATCH_DOCID), 0) + 1 FROM Edt_Attachments 
+        //WHERE ATCH_COMPID = @CustomerId AND ATCH_AuditID = @AuditId",
+        //            new { customerId, auditId });
+        //    }
+        //}
+
 
 
         public async Task<bool> SaveAllLoeDataAsync(AddEngagementDto dto)
@@ -420,11 +842,6 @@ namespace TracePca.Service.Audit
                 throw;
             }
         }
-
-
-
-
-
-
+         
     }
 }
