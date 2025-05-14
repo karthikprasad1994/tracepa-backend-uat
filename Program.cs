@@ -13,6 +13,7 @@ using TracePca.Service.FixedAssetsService;
 using TracePca.Service.AssetService;
 using TracePca.Interface.AssetMaserInterface;
 using TracePca.Interface.Audit;
+using TracePca.Service.Audit;
 using TracePca.Service.Communication_with_client;
 //using TracePca.Interface.AssetMaserInterface;
 
@@ -34,10 +35,10 @@ builder.Services.AddScoped<AssetInterface, Asset>();
 builder.Services.AddScoped<AssetRegisterInterface, AssetRegister>();
 builder.Services.AddScoped<LocationSetUpInterface, LocationSeUp>();
 builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAddition>();
-
-
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
-//builder.Services.AddScoped<EngagementPlanInterface, Engagement>();
+
+builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
+builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
 //builder.Services.AddScoped<AuditInterface, Communication>();
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 

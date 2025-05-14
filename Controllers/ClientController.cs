@@ -18,12 +18,12 @@ namespace TracePca.Controllers
         }
 
         // GET: api/<ClientController>
-        [HttpGet("GetDropdownData")]
-        public async Task<IActionResult> GetDropdownData([FromQuery] int companyId)
-        {
-            var result = await _AuditInterface.GetCustomerAuditDropdownAsync(companyId);
-            return Ok(result);
-        }
+        //[HttpGet("GetDropdownData")]
+        //public async Task<IActionResult> GetDropdownData([FromQuery] int companyId)
+        //{
+        //    var result = await _AuditInterface.GetCustomerAuditDropdownAsync(companyId);
+        //    return Ok(result);
+        //}
 
         [HttpGet("ActiveCustomers")]
         public async Task<IActionResult> GetActiveCustomers([FromQuery] int companyId)

@@ -29,51 +29,6 @@ namespace TracePca.Service.Audit
             _configuration = configuration;
         }
 
-
-
-
-        public async Task<LoEDto> GetLoeIdAsync(int customerId, int compId, int serviceId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-            string query = @"
-    SELECT LOE_ID, LOE_Name
-    FROM SAD_CUST_LOE
-    WHERE LOE_CustomerId = @CustomerId
-      AND LOE_CompID = @CompId
-      AND LOE_ServiceTypeId = @ServiceId";
-
-            var loeId = await connection.QueryFirstOrDefaultAsync<int?>(query, new
-            {
-                CustomerId = customerId,
-                CompId = compId,
-                ServiceId = serviceId
-            });
-
-            return new LoEDto
-            {
-                LoeId = loeId ?? 0  // Default to 0 if null
-            };
-        }
-
-
-        public async Task<List<AuditTypeDto>> GetAuditTypesAsync(int compId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-            string query = @"
-        SELECT cmm_ID AS CmmId, cmm_Desc AS CmmDesc
-        FROM Content_Management_Master
-        WHERE CMM_CompID = @CompId
-          AND CMM_Category = 'AuditType'
-          AND CMM_Delflag = 'A'
-        ORDER BY cmm_Desc ASC";
-
-            var auditTypes = await connection.QueryAsync<AuditTypeDto>(query, new { CompId = compId });
-            return auditTypes.ToList();
-        }
-
-
         public async Task<List<ReportTypeDto>> GetReportTypesAsync(int compId, int templateId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -346,6 +301,7 @@ namespace TracePca.Service.Audit
 
             return rowsAffected > 0;
         }
+<<<<<<< HEAD
 
 
         public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
@@ -843,5 +799,7 @@ namespace TracePca.Service.Audit
             }
         }
          
+=======
+>>>>>>> c94076f40e461e73cdd9e2d033117a7af4a9e2ac
     }
 }
