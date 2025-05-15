@@ -1,9 +1,13 @@
 ﻿using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using StackExchange.Redis;
+using System.Security.Cryptography;
+using System.Xml.XPath;
 using TracePca.Data;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
+using TracePca.Models;
 
 namespace TracePca.Service.Audit
 {
@@ -341,6 +345,73 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<EngagementPlanReportDetailsDTO> GetEngagementPlanReportDetailsByIdAsync(int compId, int epPKid)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var dto = await connection.QueryFirstOrDefaultAsync<EngagementPlanReportDetailsDTO>(
+                    @"SELECT LOE_Name AS EngagementPlanNo, LOE_YearId AS Year, LOE_CustomerId AS Customer, LOE_ServiceTypeId AS AuditType, LOE_Total AS ProfessionalFees, 
+                    LOE_Frequency AS Frequency FROM SAD_CUST_LOE WHERE LOE_Id = @LOEId AND LOE_CompID = @CompId;",
+                    new { CompId = compId, LOEId = epPKid });
+
+                if (dto == null)
+                    return null;
+
+                dto.Year = await connection.ExecuteScalarAsync<string>("SELECT YMS_ID FROM YEAR_MASTER WHERE YMS_YEARID = @YearId AND YMS_CompID = @CompId;", new { YearId = dto.Year, CompId = compId });
+
+                dto.Customer = await connection.ExecuteScalarAsync<string>("SELECT CUST_NAME FROM SAD_CUSTOMER_MASTER WHERE CUST_ID = @CustId AND CUST_CompID = @CompId;", new { CustId = dto.Customer, CompId = compId });
+
+                dto.CurrencyType = await connection.ExecuteScalarAsync<string>("SELECT CUR_CODE FROM SAD_Currency_Master WHERE CUR_CompID = @CompId;", new { CompId = compId });
+
+                dto.AuditType = await connection.ExecuteScalarAsync<string>(@"SELECT CMM_Desc FROM Content_Management_Master WHERE CMM_Category = 'AT' AND CMM_ID = @AuditType AND CMM_CompID = @CompId;",
+                    new { AuditType = dto.AuditType, CompId = compId });
+
+                var reportTypeId = await connection.ExecuteScalarAsync<int?>(@"SELECT TOP 1 LTD_ReportTypeID FROM LOE_Template_Details WHERE LTD_FormName = 'LOE' AND LTD_LOE_ID = @LOEId AND LTD_CompID = @CompId;",
+                    new { LOEId = epPKid, CompId = compId });
+
+                if (reportTypeId.HasValue)
+                {
+                    dto.ReportType = await connection.ExecuteScalarAsync<string>("SELECT RTM_ReportTypeName FROM SAD_ReportTypeMaster WHERE RTM_Id = @ReportTypeId AND RTM_CompID = @CompId;",
+                        new { ReportTypeId = reportTypeId.Value, CompId = compId });
+                }
+
+                dto.Frequency = dto.Frequency switch
+                {
+                    "1" => "Yearly",
+                    "2" => "Quarterly",
+                    _ => "Unknown"
+                };
+
+                dto.CompanyName = await connection.ExecuteScalarAsync<string>(@"SELECT STUFF((SELECT DISTINCT '; ' + CAST(Company_Name AS VARCHAR(MAX)) FROM Trace_CompanyDetails WHERE Company_CompID = @CompId FOR XML PATH('')), 1, 2, '')",
+                    new { CompId = compId });
+
+                dto.AnnexureToLetterOfEngagement = $"Details of Engagement Estimate for the {dto.ReportType} to {dto.Customer}";
+                dto.Subject = $"Sub: Engagement letter – {dto.ReportType} for the year ended {dto.Year}";
+                dto.CurrentDate = DateTime.Now;
+
+                var templateDetails = await connection.QueryAsync<EngagementPlanTemplateReportDetailsDTO>(
+                    @"SELECT LTD_ReportTypeID, LTD_Heading, LTD_Decription FROM LOE_Template_Details WHERE LTD_FormName = 'LOE' AND LTD_LOE_ID = @LOEId AND LTD_CompID = @CompId;",
+                    new { CompId = compId, LOEId = epPKid });
+
+                dto.EngagementTemplateDetails = templateDetails.ToList();
+
+                var additionalFees = await connection.QueryAsync<EngagementPlanAdditionalFeesReportDTO>(
+                    @"SELECT LAF_OtherExpensesName, LAF_Charges FROM LOE_AdditionalFees WHERE LAF_LOEID = @LOEId AND LAF_CompID = @CompId;",
+                    new { CompId = compId, LOEId = epPKid });
+
+                dto.EngagementAdditionalFees = additionalFees.ToList();
+
+                return dto;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting engagement plan report details by ID", ex);
+            }
+        }
+
         public async Task<List<AttachmentDetailsDTO>> LoadAllAttachmentsByIdAsync(int compId, int attachId)
         {
             try
@@ -369,29 +440,36 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
 
+                string basePath = await connection.ExecuteScalarAsync<string>(@"SELECT sad_Config_Value FROM sad_config_settings WHERE sad_Config_Key = 'ImgPath' AND sad_compid = @CompId", new { CompId = dto.ATCH_COMPID });
+                basePath ??= Directory.GetCurrentDirectory();
+
                 int attachId = dto.ATCH_ID == 0 ? await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID }) : dto.ATCH_ID;
                 int docId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID });
 
-                string originalFileName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
-                string safeFileName = originalFileName.Replace("&", " and");
+                string originalName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
+                string safeFileName = originalName.Replace("&", "And");
                 safeFileName = safeFileName.Length > 95 ? safeFileName.Substring(0, 95) : safeFileName;
-
-                string fileExt = Path.GetExtension(dto.File.FileName)?.TrimStart('.').ToLower() ?? "unk";
+                string fileExtension = (Path.GetExtension(dto.File.FileName) ?? ".unk").ToLower().TrimStart('.');
                 long fileSize = dto.File.Length;
 
-                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
-                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+                string[] imageExtensions = { "jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "svg", "psd", "ai", "eps", "ico", "webp", "raw", "heic", "heif", "exr", "dng", "jp2", "j2k", "cr2", "nef", "orf", "arw", "raf", "rw2", "mp4", "avi", "mov", "wmv", "mkv", "flv", "webm", "m4v", "mpg", "mpeg", "3gp", "ts", "m2ts", "vob", "mts", "divx", "ogv" };
+                string[] documentExtensions = { "pdf", "doc", "docx", "txt", "xls", "xlsx", "ppt", "ppsx", "pptx", "odt", "ods", "odp", "rtf", "csv", "pptm", "xlsm", "docm", "xml", "json", "yaml", "key", "numbers", "pages", "tar", "zip", "rar" };
 
-                if (!Directory.Exists(absoluteFolder))
-                    Directory.CreateDirectory(absoluteFolder);
+                string fileType = imageExtensions.Contains(fileExtension) ? "Images" : documentExtensions.Contains(fileExtension) ? "Documents" : "Others";
 
-                string uniqueFileName = $"{docId}.{fileExt}";
-                string fullFilePath = Path.Combine(absoluteFolder, uniqueFileName);
+                string accessCodeModulePath = Path.Combine(basePath, "Audit");
+                Directory.CreateDirectory(accessCodeModulePath);
 
-                using (var stream = new FileStream(fullFilePath, FileMode.Create))
-                {
-                    await dto.File.CopyToAsync(stream);
-                }
+                string finalDirectory = Path.Combine(accessCodeModulePath, fileType, (docId / 301).ToString());
+                Directory.CreateDirectory(finalDirectory);
+
+                string finalFilePath = Path.Combine(finalDirectory, $"{docId}.{fileExtension}");
+
+                if (File.Exists(finalFilePath))
+                    File.Delete(finalFilePath);
+
+                await using var stream = new FileStream(finalFilePath, FileMode.Create);
+                await dto.File.CopyToAsync(stream);
 
                 var insertQuery = @"
                 INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
@@ -403,7 +481,7 @@ namespace TracePca.Service.Audit
                     AtchId = attachId,
                     DocId = docId,
                     FileName = safeFileName,
-                    FileExt = fileExt,
+                    FileExt = fileExtension,
                     CreatedBy = dto.ATCH_CREATEDBY,
                     Size = fileSize,
                     CompId = dto.ATCH_COMPID
@@ -413,7 +491,7 @@ namespace TracePca.Service.Audit
             }
             catch (Exception ex)
             {
-                throw new Exception($"Failed to upload the attachment document.", ex);
+                throw new Exception("Failed to upload the attachment document.", ex);
             }
         }
 
@@ -451,21 +529,46 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<AttachmentDetailsDTO> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId)
+        public async Task<AttachmentDownloadInfoDTO> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId)
         {
             try
             {
-                var result = new AttachmentDetailsDTO();
-                var query = @"SELECT A.ATCH_ID, A.ATCH_DOCID, A.ATCH_FNAME, A.ATCH_EXT, A.ATCH_DESC, A.ATCH_CREATEDBY, U.Usr_FullName AS ATCH_CREATEDBYNAME, A.ATCH_CREATEDON, A.ATCH_SIZE FROM edt_attachments A 
-                LEFT JOIN Sad_Userdetails U ON A.ATCH_CREATEDBY = U.Usr_ID AND A.ATCH_COMPID = U.Usr_CompId WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID = @AttachId AND A.ATCH_DOCID = @DocId";
-
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-                result = (await connection.QueryFirstAsync<AttachmentDetailsDTO>(query, new { CompId = compId, AttachId = attachId, DocId = docId }));
-                return result;
+
+                var result = await connection.QueryFirstOrDefaultAsync<(string FileExt, string FileName, string BasePath)>(
+                    @"SELECT A.ATCH_EXT, A.ATCH_FNAME, (SELECT sad_Config_Value FROM sad_config_settings WHERE sad_Config_Key = 'ImgPath' AND sad_compid = A.ATCH_CompID) AS BasePath FROM EDT_ATTACHMENTS A 
+                    WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID = @AttachId AND A.ATCH_DOCID = @DocId", new { CompId = compId, AttachId = attachId, DocId = docId });
+
+                if (string.IsNullOrWhiteSpace(result.FileExt) || string.IsNullOrWhiteSpace(result.FileName))
+                    return null;
+
+                string fileExtension = result.FileExt.Trim().ToLower();
+                string basePath = result.BasePath ?? Directory.GetCurrentDirectory();
+                string originalFileName = $"{result.FileName}.{fileExtension}";
+                string[] imageExtensions = { "jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "svg", "psd", "ai", "eps", "ico", "webp", "raw", "heic", "heif", "exr", "dng", "jp2", "j2k", "cr2", "nef", "orf", "arw", "raf", "rw2", "mp4", "avi", "mov", "wmv", "mkv", "flv", "webm", "m4v", "mpg", "mpeg", "3gp", "ts", "m2ts", "vob", "mts", "divx", "ogv" };
+                string[] documentExtensions = { "pdf", "doc", "docx", "txt", "xls", "xlsx", "ppt", "ppsx", "pptx", "odt", "ods", "odp", "rtf", "csv", "pptm", "xlsm", "docm", "xml", "json", "yaml", "key", "numbers", "pages", "tar", "zip", "rar" };
+                string fileType = imageExtensions.Contains(fileExtension) ? "Images" : documentExtensions.Contains(fileExtension) ? "Documents" : "Others";
+                string sourceFolder = Path.Combine(basePath, "Audit", fileType, (docId / 301).ToString());
+                string sourceFilePath = Path.Combine(sourceFolder, $"{docId}.{fileExtension}");
+
+                if (!System.IO.File.Exists(sourceFilePath))
+                    return null;
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "Tempfolder");
+                Directory.CreateDirectory(tempFolder);
+
+                string tempFilePath = Path.Combine(tempFolder, originalFileName);
+                File.Copy(sourceFilePath, tempFilePath, true);
+
+                return new AttachmentDownloadInfoDTO
+                {
+                    TempFilePath = tempFilePath,
+                    OriginalFileName = originalFileName
+                };
             }
             catch (Exception ex)
             {
-                throw new ApplicationException("An error occurred while getting the attachment details", ex);
+                throw new ApplicationException("An error occurred while getting the attachment for download.", ex);
             }
         }
     }

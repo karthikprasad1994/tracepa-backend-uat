@@ -106,4 +106,40 @@ namespace TracePca.Dto.Audit
             }
         }
     }
+
+    public class AttachmentDownloadInfoDTO
+    {
+        public string TempFilePath { get; set; }
+        public string OriginalFileName { get; set; }
+    }
+
+    public class EngagementPlanReportDetailsDTO
+    {
+        public string? Subject { get; set; }
+        public string? Year { get; set; }
+        public string? Customer { get; set; }
+        public string? CurrencyType { get; set; }
+        public string? AuditType { get; set; }
+        public string? ReportType { get; set; }
+        public string? Frequency { get; set; }
+        public string? ProfessionalFees { get; set; }
+        public string? EngagementPlanNo { get; set; }
+        public string? AnnexureToLetterOfEngagement { get; set; }        
+        public string? CompanyName { get; set; }
+        public DateTime? CurrentDate { get; set; }        
+        public List<EngagementPlanTemplateReportDetailsDTO> EngagementTemplateDetails { get; set; } = new List<EngagementPlanTemplateReportDetailsDTO>();
+        public List<EngagementPlanAdditionalFeesReportDTO> EngagementAdditionalFees { get; set; } = new List<EngagementPlanAdditionalFeesReportDTO>();
+    }
+
+    public class EngagementPlanTemplateReportDetailsDTO
+    {
+        public string? LTD_Heading { get; set; }
+        public string? LTD_Decription { get; set; }
+    }
+
+    public class EngagementPlanAdditionalFeesReportDTO
+    {
+        public string? LAF_OtherExpensesName { get; set; }
+        public string? LAF_Charges { get; set; }
+    }
 }
