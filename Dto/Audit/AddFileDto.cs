@@ -10,6 +10,8 @@ namespace TracePca.Dto.Audit
         // public string FileName { get; set; }
         public IFormFile File { get; set; }
         public int UserId { get; set; }
+        public string EmailId { get; set; }
+        public string IpAddress { get; set; }
         public int YearId { get; set; }
         [JsonIgnore]
         public string ExportType { get; set; }
@@ -17,7 +19,7 @@ namespace TracePca.Dto.Audit
         [JsonIgnore]
         public string DocumentName { get; set; }
         public string Remark { get; set; }
-        //public string Type { get; set; }
+        public string Type { get; set; }
 
         public int AuditScheduleId { get; set; }
         public int SubProcessId { get; set; }
