@@ -39,7 +39,7 @@ builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboa
 
 builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
-//builder.Services.AddScoped<AuditInterface, Communication>();
+builder.Services.AddScoped<AuditInterface, Communication>();
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 
 
@@ -52,10 +52,9 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
              "http://localhost:3000", // React app for local development
-<<<<<<< HEAD
-=======
+
+
            
->>>>>>> 3b254494234879f642b666a7bc63e70dd44b99bf
              "https://tracelites.multimedia.interactivedns.com"
             )
               .AllowAnyMethod()
