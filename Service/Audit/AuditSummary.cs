@@ -301,7 +301,6 @@ namespace TracePca.Service.Audit
 
             return rowsAffected > 0;
         }
-<<<<<<< HEAD
 
 
         public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
@@ -729,77 +728,76 @@ namespace TracePca.Service.Audit
 
 
 
-        public async Task<bool> SaveAllLoeDataAsync(AddEngagementDto dto)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
-            using var transaction = connection.BeginTransaction();
+        //public async Task<bool> SaveAllLoeDataAsync(AddEngagementDto dto)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    await connection.OpenAsync();
+        //    using var transaction = connection.BeginTransaction();
 
-            try
-            {
-                // 1. Insert into SAD_CUST_LOE
-                dto.LoeId = await connection.ExecuteScalarAsync<int>(
-                    @"DECLARE @NewId INT = (SELECT ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE);
-              INSERT INTO SAD_CUST_LOE (
-                  LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId, LOE_NatureOfService,
-                  LOE_LocationIds, LOE_TimeSchedule, LOE_ReportDueDate,
-                  LOE_ProfessionalFees, LOE_OtherFees, LOE_ServiceTax, LOE_RembFilingFee,
-                  LOE_CrBy, LOE_CrOn, LOE_Total, LOE_Name, LOE_Frequency,
-                  LOE_FunctionId, LOE_SubFunctionId, LOE_STATUS, LOE_Delflag, LOE_IPAddress, LOE_CompID
-              )
-              VALUES (
-                  @NewId, @LoeYearId, @LoeCustomerId, @LoeServiceTypeId, @LoeNatureOfService,
-                  '0', @LoeTimeSchedule, @LoeReportDueDate,
-                  '0', '0', '0', '0',
-                  1, GETDATE(), @LoeTotal, @LoeName, @LoeFrequency,
-                  0, '1', 'A', 'A', @LoeIpaddress, @LoeCompId);
-              SELECT @NewId;", dto, transaction);
+        //    try
+        //    {
+        //        // 1. Insert into SAD_CUST_LOE
+        //        dto.LoeId = await connection.ExecuteScalarAsync<int>(
+        //            @"DECLARE @NewId INT = (SELECT ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE);
+        //      INSERT INTO SAD_CUST_LOE (
+        //          LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId, LOE_NatureOfService,
+        //          LOE_LocationIds, LOE_TimeSchedule, LOE_ReportDueDate,
+        //          LOE_ProfessionalFees, LOE_OtherFees, LOE_ServiceTax, LOE_RembFilingFee,
+        //          LOE_CrBy, LOE_CrOn, LOE_Total, LOE_Name, LOE_Frequency,
+        //          LOE_FunctionId, LOE_SubFunctionId, LOE_STATUS, LOE_Delflag, LOE_IPAddress, LOE_CompID
+        //      )
+        //      VALUES (
+        //          @NewId, @LoeYearId, @LoeCustomerId, @LoeServiceTypeId, @LoeNatureOfService,
+        //          '0', @LoeTimeSchedule, @LoeReportDueDate,
+        //          '0', '0', '0', '0',
+        //          1, GETDATE(), @LoeTotal, @LoeName, @LoeFrequency,
+        //          0, '1', 'A', 'A', @LoeIpaddress, @LoeCompId);
+        //      SELECT @NewId;", dto, transaction);
 
-                // 2. Insert into LOE_Template
-                dto.LOET_Id = await connection.ExecuteScalarAsync<int>(
-                    @"DECLARE @TemplateId INT = (SELECT ISNULL(MAX(LOET_Id), 0) + 1 FROM LOE_Template);
-              INSERT INTO LOE_Template (
-                  LOET_Id, LOET_LOEID , LOET_CustomerId, LOET_FunctionId, LOET_ScopeOfWork,
-                  LOET_Frequency, LOET_ProfessionalFees, LOET_Delflag, LOET_STATUS,
-                  LOET_CrOn, LOET_CrBy, LOET_IPAddress, LOET_CompID, LOE_AttachID
-              )
-              VALUES (
-                  @TemplateId, @LoeId, @LoeCustomerId, 0, @LoeNatureOfService,
-                  @LoeFrequency, '0', 'A', 'A', GETDATE(), 1,
-                  @LoeIpaddress, @LoeCompId, @LoeAttachId);
-              SELECT @TemplateId;", dto, transaction);
+        //        // 2. Insert into LOE_Template
+        //        dto.LOET_Id = await connection.ExecuteScalarAsync<int>(
+        //            @"DECLARE @TemplateId INT = (SELECT ISNULL(MAX(LOET_Id), 0) + 1 FROM LOE_Template);
+        //      INSERT INTO LOE_Template (
+        //          LOET_Id, LOET_LOEID , LOET_CustomerId, LOET_FunctionId, LOET_ScopeOfWork,
+        //          LOET_Frequency, LOET_ProfessionalFees, LOET_Delflag, LOET_STATUS,
+        //          LOET_CrOn, LOET_CrBy, LOET_IPAddress, LOET_CompID, LOE_AttachID
+        //      )
+        //      VALUES (
+        //          @TemplateId, @LoeId, @LoeCustomerId, 0, @LoeNatureOfService,
+        //          @LoeFrequency, '0', 'A', 'A', GETDATE(), 1,
+        //          @LoeIpaddress, @LoeCompId, @LoeAttachId);
+        //      SELECT @TemplateId;", dto, transaction);
 
-                // 3. Insert into LOE_AdditionalFees
-                dto.FeeName = await connection.QueryFirstOrDefaultAsync<string>(
-                    @"SELECT cmm_Desc FROM Content_Management_Master WHERE cmm_Category = 'OE' AND CMM_CompID = @LoeCompId",
-                    new { dto.LoeCompId }, transaction);
+        //        // 3. Insert into LOE_AdditionalFees
+        //        dto.FeeName = await connection.QueryFirstOrDefaultAsync<string>(
+        //            @"SELECT cmm_Desc FROM Content_Management_Master WHERE cmm_Category = 'OE' AND CMM_CompID = @LoeCompId",
+        //            new { dto.LoeCompId }, transaction);
 
-                dto.ExpensesId = await connection.QueryFirstOrDefaultAsync<int>(
-                    @"SELECT cmm_ID FROM Content_Management_Master WHERE cmm_Category = 'OE' AND CMM_CompID = @LoeCompId",
-                    new { dto.LoeCompId }, transaction);
+        //        dto.ExpensesId = await connection.QueryFirstOrDefaultAsync<int>(
+        //            @"SELECT cmm_ID FROM Content_Management_Master WHERE cmm_Category = 'OE' AND CMM_CompID = @LoeCompId",
+        //            new { dto.LoeCompId }, transaction);
 
-                dto.FeesId = await connection.ExecuteScalarAsync<int>(
-                    @"DECLARE @NewFeesId INT = (SELECT ISNULL(MAX(LAF_ID), 0) + 1 FROM LOE_AdditionalFees);
-              INSERT INTO LOE_AdditionalFees (
-                  LAF_ID, LAF_LOEID, LAF_OtherExpensesID, LAF_Charges, LAF_OtherExpensesName,
-                  LAF_Delflag, LAF_STATUS, LAF_CrBy, LAF_CrOn, LAF_IPAddress, LAF_CompID
-              )
-              VALUES (
-                  @NewFeesId, @LoeId, @ExpensesId, @LoeTotal, @FeeName, 'A', 'C', 1,
-                  GETDATE(), @LoeIpaddress, @LoeCompId);
-              SELECT @NewFeesId;", dto, transaction);
+        //        dto.FeesId = await connection.ExecuteScalarAsync<int>(
+        //            @"DECLARE @NewFeesId INT = (SELECT ISNULL(MAX(LAF_ID), 0) + 1 FROM LOE_AdditionalFees);
+        //      INSERT INTO LOE_AdditionalFees (
+        //          LAF_ID, LAF_LOEID, LAF_OtherExpensesID, LAF_Charges, LAF_OtherExpensesName,
+        //          LAF_Delflag, LAF_STATUS, LAF_CrBy, LAF_CrOn, LAF_IPAddress, LAF_CompID
+        //      )
+        //      VALUES (
+        //          @NewFeesId, @LoeId, @ExpensesId, @LoeTotal, @FeeName, 'A', 'C', 1,
+        //          GETDATE(), @LoeIpaddress, @LoeCompId);
+        //      SELECT @NewFeesId;", dto, transaction);
 
-                await transaction.CommitAsync();
-                return true;
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
-        }
+        //        await transaction.CommitAsync();
+        //        return true;
+        //    }
+        //    catch
+        //    {
+        //        await transaction.RollbackAsync();
+        //        throw;
+        //    }
+        //}
          
-=======
->>>>>>> c94076f40e461e73cdd9e2d033117a7af4a9e2ac
+
     }
 }

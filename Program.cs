@@ -15,6 +15,8 @@ using TracePca.Interface.AssetMaserInterface;
 using TracePca.Interface.Audit;
 using TracePca.Service.Audit;
 using TracePca.Service.Communication_with_client;
+using TracePca.Interface.FIN_Statement;
+using TracePca.Service.FIN_statement;
 //using TracePca.Interface.AssetMaserInterface;
 
 
@@ -39,6 +41,7 @@ builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboa
 
 builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
+builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMapping>();
 //builder.Services.AddScoped<AuditInterface, Communication>();
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 
