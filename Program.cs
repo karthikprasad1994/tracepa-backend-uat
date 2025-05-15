@@ -13,6 +13,7 @@ using TracePca.Service.FixedAssetsService;
 using TracePca.Service.AssetService;
 using TracePca.Interface.AssetMaserInterface;
 using TracePca.Interface.Audit;
+using TracePca.Service.Audit;
 using TracePca.Service.Communication_with_client;
 //using TracePca.Interface.AssetMaserInterface;
 
@@ -34,11 +35,12 @@ builder.Services.AddScoped<AssetInterface, Asset>();
 builder.Services.AddScoped<AssetRegisterInterface, AssetRegister>();
 builder.Services.AddScoped<LocationSetUpInterface, LocationSeUp>();
 builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAddition>();
-
-
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
-builder.Services.AddScoped<EngagementPlanInterface, Engagement>();
-builder.Services.AddScoped<AuditInterface, Communication>();
+
+builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
+builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
+//builder.Services.AddScoped<AuditInterface, Communication>();
+builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -49,8 +51,12 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowReactApp", policy =>
     {
         policy.WithOrigins(
-             "http://localhost:4000" // React app for local development
-           // "https://customerregistration.multimedia.interactivedns.com"
+             "http://localhost:3000", // React app for local development
+<<<<<<< HEAD
+=======
+           
+>>>>>>> 3b254494234879f642b666a7bc63e70dd44b99bf
+             "https://tracelites.multimedia.interactivedns.com"
             )
               .AllowAnyMethod()
               .AllowAnyHeader()

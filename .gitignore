@@ -12,3 +12,4 @@ obj/
 # Ignore temporary files
 *.log
 *.tmp
+/Uploads/Audit/4
