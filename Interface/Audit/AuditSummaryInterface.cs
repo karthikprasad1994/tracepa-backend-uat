@@ -1,5 +1,7 @@
-﻿using TracePca.Dto.AssetRegister;
+﻿using System.Net.Mail;
+using TracePca.Dto.AssetRegister;
 using TracePca.Dto.Audit;
+using static TracePca.Service.Audit.AuditSummary;
 
 namespace TracePca.Interface.Audit
 {
@@ -25,5 +27,6 @@ namespace TracePca.Interface.Audit
 
         Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto);
 
+        Task<string> UploadCMAAttachmentsAsync(CMADtoAttachment dto);
     }
 }

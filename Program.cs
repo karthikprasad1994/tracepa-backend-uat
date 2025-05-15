@@ -52,6 +52,10 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
              "http://localhost:3000", // React app for local development
+<<<<<<< HEAD
+=======
+           
+>>>>>>> 3b254494234879f642b666a7bc63e70dd44b99bf
              "https://tracelites.multimedia.interactivedns.com"
             )
               .AllowAnyMethod()

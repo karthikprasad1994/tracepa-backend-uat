@@ -1,4 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
 
@@ -254,7 +257,7 @@ namespace TracePca.Controllers
         [HttpPost("upload")]
         public async Task<IActionResult> UploadAttachment([FromForm] AddFileDto dto)
         {
-          
+
 
             try
             {
@@ -274,8 +277,216 @@ namespace TracePca.Controllers
         }
 
 
+        [HttpGet("LoadLOEHeading")]
+        public async Task<IActionResult> LoadLOEHeading([FromQuery] string sFormName, [FromQuery] int compId, [FromQuery] int reportTypeId, [FromQuery] int loeTemplateId)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadLOEHeadingAsync(sFormName, compId, reportTypeId, loeTemplateId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+
+                return StatusCode(500, "An error occurred while loading LOE headings.");
+            }
+        }
 
 
+
+        [HttpGet("GetWorkpapers")]
+        public async Task<IActionResult> GetWorkpapers(
+            [FromQuery] string connectionStringName,
+            [FromQuery] int companyId,
+            [FromQuery] int auditId)
+        {
+            try
+            {
+                var result = await _AuditInterface.GetAuditWorkpaperNosAsync(connectionStringName, companyId, auditId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception (if you have a logger)
+                return StatusCode(500, "An error occurred while retrieving the workpapers.");
+            }
+        }
+
+        [HttpGet("GetChecklists")]
+        public async Task<IActionResult> GetChecklists([FromQuery] string connectionStringName, [FromQuery] int companyId)
+        {
+            try
+            {
+                var checklists = await _AuditInterface.LoadWorkpaperChecklistsAsync(connectionStringName, companyId);
+                return Ok(checklists);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Error fetching checklist data.");
+            }
+        }
+
+
+        [HttpGet("GetDrlAttachments")]
+        public async Task<IActionResult> GetDrlAttachments(
+            [FromQuery] string connectionStringName,
+            [FromQuery] int companyId,
+            [FromQuery] string categoryType,
+            [FromQuery] string auditNo,
+            [FromQuery] int auditId)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadOnlyDRLWithAttachmentsAsync(connectionStringName, companyId, categoryType, auditNo, auditId);
+                return Ok(result);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "An error occurred while loading DRL attachment data.");
+            }
+        }
+
+        [HttpPost("SaveWorkpaper")]
+        public async Task<IActionResult> SaveWorkpaper([FromBody] Dto.Audit.WorkpaperDto dto)
+        {
+            if (dto == null)
+                return BadRequest("Invalid workpaper data.");
+
+            try
+            {
+                // Check if WorkpaperRef already exists for a different WorkpaperId (to allow update)
+                bool exists = await _AuditInterface.CheckWorkpaperRefExists(dto.AuditId, dto.WorkpaperRef, dto.WorkpaperId);
+                if (exists && dto.WorkpaperId == 0) // 0 means it's an insert, so prevent insert if ref exists
+                    return Conflict("Workpaper reference already exists.");
+
+                // Generate workpaper number if it's a new entry
+                string workpaperNo = dto.WorkpaperId == 0 ? await _AuditInterface.GenerateWorkpaperNo(dto.AuditId) : string.Empty;
+
+                // Save the workpaper (insert or update)
+                int result = await _AuditInterface.SaveWorkpaperAsync(dto, workpaperNo);
+
+                // Check if it's an update or insert based on the returned result
+                string message = result == dto.WorkpaperId ? "Workpaper updated successfully." : "Workpaper inserted successfully.";
+
+                return Ok(new
+                {
+                    Message = message,
+                    WorkpaperId = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+
+
+        [HttpGet("GetWorkpapersDetails")]
+        public async Task<IActionResult> GetWorkpapers([FromQuery] int auditId, [FromQuery] int companyId)
+        {
+            try
+            {
+                var data = await _AuditInterface.LoadConductAuditWorkPapersAsync(companyId, auditId);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpGet("GetStandardAuditHeadings")]
+        public async Task<IActionResult> GetStandardAuditHeadings([FromQuery] int auditId, [FromQuery] int companyId)
+        {
+            try
+            {
+                var data = await _AuditInterface.LoadAllStandardAuditHeadingsAsync(companyId, auditId);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpGet("GetWorkpaperNumbers")]
+        public async Task<IActionResult> GetWorkpaperNumbers([FromQuery] int auditId, [FromQuery] int companyId)
+        {
+            try
+            {
+                var data = await _AuditInterface.GetConductAuditWorkpaperNosAsync(companyId, auditId);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpPut("AssignWorkpaperToCheckpoint")]
+        public async Task<IActionResult> AssignWorkpaperToCheckpoint([FromBody] AssignWorkpaperDto dto)
+        {
+            try
+            {
+                await _AuditInterface.AssignWorkpaperToCheckPointAsync(dto);
+                return Ok(new { message = "Workpaper assigned successfully." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+
+        [HttpGet("GetAuditCheckpoints")]
+        public async Task<IActionResult> LoadAuditCheckpoints([FromQuery] int companyId, [FromQuery] int auditId, [FromQuery] int empId, [FromQuery] bool isPartner, [FromQuery] int headingId, [FromQuery] string heading)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadSelectedAuditCheckPointDetailsAsync(companyId, auditId, empId, isPartner, headingId, heading);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal Server Error: {ex.Message}");
+            }
+        }
+
+        [HttpPut("updateScheduleCheckPointRemarksAnnexure")]
+        public async Task<IActionResult> UpdateScheduleCheckPointRemarksAnnexureAsync([FromBody] UpdateScheduleCheckPointDto dto)
+        {
+            if (dto == null)
+            {
+                return BadRequest("Invalid data.");
+            }
+
+            try
+            {
+                // Call the service method to update the record
+                await _AuditInterface.UpdateScheduleCheckPointRemarksAnnexureAsync(dto);
+
+                // Return a successful response
+                return Ok(new { message = "Schedule Checkpoint updated successfully." });
+            }
+            catch (Exception ex)
+            {
+                // Log the error (you may use a logger here)
+                return StatusCode(500, new { message = "An error occurred while updating the schedule checkpoint.", details = ex.Message });
+            }
+        }
+
+
+        [HttpPost("upload-attachment-without-email")]
+        public async Task<IActionResult> UploadAttachmentWithoutEmail([FromForm] AddFileDto dto)
+        {
+            var result = await _AuditInterface.UploadAndSaveAttachmentsAsync(dto);
+
+            if (result.StartsWith("Error"))
+                return BadRequest(result);
+
+            return Ok(result);
+        }
 
 
     }

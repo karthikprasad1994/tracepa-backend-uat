@@ -1,14 +1,26 @@
 ﻿using Dapper;
+using MailKit.Security;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+
+
 using TracePca.Data;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
+using MimeKit.Utils;
+using Microsoft.AspNetCore.Mvc;
+using System.Data;
+using WorkpaperDto = TracePca.Dto.Audit.WorkpaperDto;
+using System.Text;
+using Org.BouncyCastle.Asn1.Ocsp;
 
 namespace TracePca.Service.Communication_with_client
 {
-    public class Communication: AuditInterface
+    public class Communication : AuditInterface
     {
         private readonly IConfiguration _configuration;
 
@@ -268,7 +280,7 @@ namespace TracePca.Service.Communication_with_client
             return result ?? new DrlDescReqDto { Cms_Remarks = string.Empty };
         }
 
-        public  async Task<string> GetUserFullNameAsync(string connectionStringName, int companyId, int userId)
+        public async Task<string> GetUserFullNameAsync(string connectionStringName, int companyId, int userId)
         {
             var connectionString = _configuration.GetConnectionString(connectionStringName);
             using var connection = new SqlConnection(connectionString);
@@ -348,7 +360,7 @@ namespace TracePca.Service.Communication_with_client
             return result;
         }
 
-        private async Task SaveAuditDocumentAsync(AddFileDto dto, int attachId, IFormFile file)
+        private async Task<string> SaveAuditDocumentAsync(AddFileDto dto, int attachId, IFormFile file, int drlId)
         {
             if (file == null || file.Length == 0)
                 throw new ArgumentException("Invalid file.");
@@ -375,7 +387,6 @@ namespace TracePca.Service.Communication_with_client
             {
                 await connection.OpenAsync();
 
-                // ✅ Get max existing ATCH_ID
                 var maxIdQuery = "SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM Edt_Attachments";
                 var nextAttachId = await connection.ExecuteScalarAsync<int>(maxIdQuery);
 
@@ -383,12 +394,12 @@ namespace TracePca.Service.Communication_with_client
 INSERT INTO Edt_Attachments (
     ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_Desc, ATCH_SIZE,
     ATCH_AuditID, ATCH_AUDScheduleID, ATCH_CREATEDBY, ATCH_CREATEDON,
-    ATCH_COMPID, ATCH_ReportType, ATCH_drlid
+    ATCH_COMPID, ATCH_ReportType, ATCH_drlid, Atch_Vstatus
 )
 VALUES (
     @AtchId, @DocId, @FileName, @FileExt, @Description, @Size,
     @AuditId, @ScheduleId, @UserId, GETDATE(),
-    @CompId, @ReportType, @DrlId
+    @CompId, @ReportType, @DrlId, 'A'
 );";
 
                 await connection.ExecuteAsync(insertQuery, new
@@ -404,10 +415,49 @@ VALUES (
                     UserId = dto.UserId,
                     CompId = dto.CompId,
                     ReportType = dto.ReportType,
-                    DrlId = dto.DrlId
+                    DrlId = drlId
                 });
+
+                return fullFilePath;
             }
         }
+
+        
+        private async Task<int> InsertIntoAuditDrlLogAsync(AddFileDto dto, int requestedId)
+        {
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+
+                var drlLogId = await connection.ExecuteScalarAsync<int>(@"
+            INSERT INTO Audit_DRLLog (
+                ADRL_YearID, ADRL_AuditNo, ADRL_CustID, 
+                ADRL_RequestedListID, ADRL_EmailID, ADRL_Comments,
+                ADRL_CrBy, ADRL_IPAddress, ADRL_CompID, ADRL_ReportType
+            ) VALUES (
+                @YearId, @AuditId, @CustomerId,
+                @RequestedId, @EmailIds, @Remarks,
+                @UserId, @IpAddress, @CompId, @ReportType
+            );
+            SELECT SCOPE_IDENTITY();",
+                    new
+                    {
+                        YearId = dto.YearId,
+                        AuditId = dto.AuditId,
+                        CustomerId = dto.CustomerId,
+                        RequestedId = requestedId,
+                        EmailIds = dto.EmailId,
+                        Remarks = dto.Remark,
+                        UserId = dto.UserId,
+                        IpAddress = dto.IpAddress,
+                        CompId = dto.CompId,
+                        ReportType = dto.ReportType
+                    });
+
+                return Convert.ToInt32(drlLogId);
+            }
+        }
+
 
         private async Task<int> GenerateNextDocIdAsync(int customerId, int auditId)
         {
@@ -422,7 +472,7 @@ VALUES (
         }
 
 
-
+       
 
         public async Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto)
         {
@@ -433,9 +483,10 @@ VALUES (
 
                 // 2. Get Requested ID (based on document name)
                 int requestedId = await GetRequestedIdByDocumentNameAsync(dto.DocumentName);
+                int drlLogId = await InsertIntoAuditDrlLogAsync(dto, requestedId);
 
                 // 3. Save into Audit_Document
-                await SaveAuditDocumentAsync(dto, attachId, dto.File);
+                //  await SaveAuditDocumentAsync(dto, attachId, dto.File);
 
                 // 4. Get latest DocId for this customer and audit
                 int docId = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
@@ -444,15 +495,20 @@ VALUES (
                 int remarkId = await GenerateNextRemarkIdAsync(dto.CustomerId, dto.AuditId);
 
                 // 6. Insert into Audit_DocRemarksLog
-                await InsertIntoAuditDocRemarksLogAsync(dto, requestedId, remarkId, attachId);
+                await InsertIntoAuditDocRemarksLogAsync(dto, requestedId, remarkId, attachId, docId);
+
+                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, drlLogId);
 
                 // 7. Get DRL_PKID for updating
                 int pkId = await GetDrlPkIdAsync(dto.CustomerId, dto.AuditId, attachId);
 
                 // 8. Update DRL_AttachID and DRL_DocID in Audit_DocRemarksLog
                 await UpdateDrlAttachIdAndDocIdAsync(dto.CustomerId, dto.AuditId, attachId, docId, pkId);
+                await SendEmailWithAttachmentAsync("varunhallur417@gmail.com", filePath);
 
-                return "Attachment uploaded and details saved successfully.";
+                return "Attachment uploaded, details saved, and email sent successfully.";
+
+
             }
             catch (Exception ex)
             {
@@ -522,18 +578,18 @@ VALUES (
         }
 
 
-        private async Task InsertIntoAuditDocRemarksLogAsync(AddFileDto dto, int requestedId, int remarkId, int attachId)
+        private async Task InsertIntoAuditDocRemarksLogAsync(AddFileDto dto, int requestedId, int remarkId, int attachId, int docId)
         {
             using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 await connection.OpenAsync();
                 await connection.ExecuteAsync(
                     @"INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
-                SAR_ID, SAR_SAC_ID, SAR_SA_ID, SAR_DocRequestedListID,
-                SAR_Remarks, SAR_RemarksDate, SAR_UploadedBy, SAR_RemarkType, SAR_AttachmentID
+                SAR_ID, SAR_SAC_ID, SAR_SA_ID, SAR_DRLId,
+                SAR_Remarks, SAR_Date, SAR_RemarksType, SAR_AttchId, SAR_AtthachDocId
             ) VALUES (
                 @RemarkId, @CustomerId, @AuditId, @RequestedId,
-                @Remark, GETDATE(), @UserId, @Type, @AttachId
+                @Remark, GETDATE(), @Type, @AtchId,  @DocId
             )",
                     new
                     {
@@ -542,9 +598,10 @@ VALUES (
                         AuditId = dto.AuditId,
                         RequestedId = requestedId,
                         Remark = dto.Remark,
-                        UserId = dto.UserId,
-                        //Type = dto.Type,
-                        AttachId = attachId
+                        //UserId = dto.UserId,
+                        Type = dto.Type,
+                        AtchId = attachId,   // use the parameter
+                        DocId = docId
                     });
             }
         }
@@ -556,9 +613,9 @@ VALUES (
             {
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
-                    @"SELECT SAR_PKID 
+                    @"SELECT SAR_ID 
               FROM StandardAudit_Audit_DRLLog_RemarksHistory 
-              WHERE SAR_SAC_ID = @CustomerId AND SAR_SA_ID = @AuditId AND SAR_AttachmentID = @AttachId",
+              WHERE SAR_SAC_ID = @CustomerId AND SAR_SA_ID = @AuditId AND SAR_AtthachDocId = @AttachId",
                     new { customerId, auditId, attachId });
             }
         }
@@ -571,8 +628,8 @@ VALUES (
                 await connection.OpenAsync();
                 await connection.ExecuteAsync(
                     @"UPDATE StandardAudit_Audit_DRLLog_RemarksHistory 
-              SET SAR_AttachmentID = @AttachId, SAR_DocID = @DocId
-              WHERE SAR_SAC_ID = @CustomerId AND SAR_SA_ID = @AuditId AND SAR_PKID = @PkId",
+              SET SAR_AttchId = @AttachId, SAR_AtthachDocId = @DocId
+              WHERE SAR_SAC_ID = @CustomerId AND SAR_SA_ID = @AuditId AND SAR_ID = @PkId",
                     new { AttachId = attachId, DocId = docId, CustomerId = customerId, AuditId = auditId, PkId = pkId });
             }
         }
@@ -580,8 +637,603 @@ VALUES (
 
 
 
+        private async Task SendEmailWithAttachmentAsync(string toEmail, string attachmentPath)
+        {
+            var fileName = Path.GetFileName(attachmentPath);
+            var uploadTime = DateTime.Now.ToString("f"); // e.g., Monday, May 8, 2025 3:20 PM
+
+            var subject = "Document Uploaded Successfully";
+            var body = $@"
+        <p>Dear User,</p>
+        <p>The document <strong>{fileName}</strong> has been uploaded successfully on <strong>{uploadTime}</strong>.</p>
+        <p>Please find the document attached with this email.</p>
+        <br/>
+        <p>Regards,<br/>TracePCA Team</p>
+    ";
+
+            var message = new MimeMessage();
+            message.From.Add(MailboxAddress.Parse("harsha.s2700@gmail.com"));
+            message.To.Add(MailboxAddress.Parse(toEmail));
+            message.Subject = subject;
+
+            var builder = new BodyBuilder
+            {
+                HtmlBody = body
+            };
+
+            if (!string.IsNullOrEmpty(attachmentPath) && File.Exists(attachmentPath))
+            {
+                builder.Attachments.Add(attachmentPath);
+            }
+
+            message.Body = builder.ToMessageBody();
+
+            using var client = new SmtpClient();
+            try
+            {
+                await client.ConnectAsync("smtp.gmail.com", 465, SecureSocketOptions.SslOnConnect);
+                await client.AuthenticateAsync("harsha.s2700@gmail.com", "vihooiylqkwuzqtg"); // App password
+                await client.SendAsync(message);
+                await client.DisconnectAsync(true);
+
+                Console.WriteLine("Email sent successfully!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Email send failed: {ex.Message}");
+            }
+
+
+        }
+
+        public async Task<List<LOEHeadingDto>> LoadLOEHeadingAsync(string sFormName, int compId, int reportTypeId, int loeTemplateId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            string query1 = @"
+        SELECT LTD_HeadingID AS LOEHeadingID, LTD_Heading AS LOEHeading, LTD_Decription AS LOEDesc 
+        FROM LOE_Template_Details 
+        WHERE LTD_LOE_ID = @LoeTemplateId 
+        AND LTD_ReportTypeID = @ReportTypeId 
+        AND LTD_FormName = @FormName 
+        AND LTD_CompID = @CompId 
+        ORDER BY LTD_ID";
+
+            var loeDetails = (await connection.QueryAsync<LOEHeadingDto>(query1, new
+            {
+                LoeTemplateId = loeTemplateId,
+                ReportTypeId = reportTypeId,
+                FormName = sFormName,
+                CompId = compId
+            })).ToList();
+
+            if (loeDetails.Any())
+                return loeDetails;
+
+            string templateQuery = @"SELECT TEM_ContentId FROM SAD_Finalisation_Report_Template WHERE TEM_FunctionId = @ReportTypeId";
+            var templateContentId = await connection.ExecuteScalarAsync<string>(templateQuery, new { ReportTypeId = reportTypeId });
+
+            string contentQuery;
+
+            if (!string.IsNullOrEmpty(templateContentId))
+            {
+                contentQuery = $@"
+            SELECT RCM_Id AS LOEHeadingID, RCM_Heading AS LOEHeading, RCM_Description AS LOEDesc 
+            FROM SAD_ReportContentMaster 
+            WHERE RCM_Id IN ({templateContentId}) 
+            AND RCM_ReportId = @ReportTypeId 
+            ORDER BY RCM_Id";
+            }
+            else
+            {
+                contentQuery = @"
+            SELECT RCM_Id AS LOEHeadingID, RCM_Heading AS LOEHeading, RCM_Description AS LOEDesc 
+            FROM SAD_ReportContentMaster 
+            WHERE RCM_ReportId = @ReportTypeId 
+            ORDER BY RCM_Id";
+            }
+
+            var contentData = (await connection.QueryAsync<LOEHeadingDto>(contentQuery, new { ReportTypeId = reportTypeId })).ToList();
+            return contentData;
+        }
+
+
+
+        public async Task<IEnumerable<WorkpaperDto>> GetAuditWorkpaperNosAsync(string connectionStringName, int companyId, int auditId)
+        {
+            var connectionString = _configuration.GetConnectionString(connectionStringName);
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT SSW_ID, SSW_WorkpaperNo, SSW_WorkpaperRef
+        FROM StandardAudit_ScheduleConduct_WorkPaper
+        WHERE SSW_SA_ID = @AuditId AND SSW_CompID = @CompanyId
+        ORDER BY SSW_ID DESC";
+
+            var result = await connection.QueryAsync<WorkpaperDto>(query, new
+            {
+                AuditId = auditId,
+                CompanyId = companyId
+            });
+
+            return result;
+        }
+
+
+
+        public async Task<IEnumerable<ChecklistItemDto>> LoadWorkpaperChecklistsAsync(string connectionStringName, int companyId)
+        {
+            var connectionString = _configuration.GetConnectionString(connectionStringName);
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+            SELECT cmm_ID, cmm_Desc
+            FROM Content_Management_Master
+            WHERE cmm_Delflag = 'A'
+              AND cmm_Category = 'WCM'
+              AND cmm_CompID = @CompanyId
+            ORDER BY cmm_Desc";
+
+            var result = await connection.QueryAsync<ChecklistItemDto>(query, new { CompanyId = companyId });
+            return result;
+        }
+
+        public async Task<IEnumerable<DRLAttachmentDto>> LoadOnlyDRLWithAttachmentsAsync(string connectionStringName, int companyId, string categoryType, string auditNo, int auditId)
+        {
+            var connectionString = _configuration.GetConnectionString(connectionStringName);
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // Determine Audit Report Type
+            var typeQuery = @"SELECT 
+                            CASE 
+                                WHEN CHARINDEX('Q', @AuditNo) > 0 THEN 1
+                                WHEN CHARINDEX('KY', @AuditNo) > 0 THEN 2
+                                ELSE 3 
+                            END";
+
+            var auditRptType = await connection.ExecuteScalarAsync<int>(typeQuery, new { AuditNo = auditNo });
+
+            // Main Query
+            var dataQuery = @"
+            SELECT CMM_ID AS PKID, CMM_Desc AS Name 
+            FROM Content_Management_Master 
+            WHERE 
+                CMM_Category = @CategoryType 
+                AND CMM_CompID = @CompanyId 
+                AND cmm_AudrptType IN (3, @AuditRptType) 
+                AND CMM_ID IN (
+                    SELECT ADRL_RequestedListID 
+                    FROM Audit_DRLLog 
+                    WHERE 
+                        ADRL_AuditNo = @AuditId 
+                        AND ADRL_AttachID > 0 
+                        AND ADRL_CompID = @CompanyId
+                ) 
+                AND cmm_delflag = 'A' 
+            ORDER BY CMM_Desc ASC";
+
+            var result = await connection.QueryAsync<DRLAttachmentDto>(dataQuery, new
+            {
+                CategoryType = categoryType,
+                CompanyId = companyId,
+                AuditRptType = auditRptType,
+                AuditId = auditId
+            });
+
+            return result;
+        }
+
+        public async Task<bool> CheckWorkpaperRefExists(int auditId, string workpaperRef, int? workpaperId)
+        {
+            var query = @"
+    SELECT COUNT(1) 
+    FROM StandardAudit_ScheduleConduct_WorkPaper 
+    WHERE SSW_SA_ID = @AuditId
+    AND SSW_WorkpaperRef = @WorkpaperRef
+    AND (@WorkpaperId = 0 OR SSW_ID != @WorkpaperId)";
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            int count = await connection.ExecuteScalarAsync<int>(query, new
+            {
+                AuditId = auditId,
+                WorkpaperRef = workpaperRef,
+                WorkpaperId = workpaperId ?? 0 // Default to 0 if null
+            });
+
+            return count > 0;
+        }
+
+        public async Task<string> GenerateWorkpaperNo(int auditId)
+        {
+            string prefix = $"WP_{auditId}_";
+            string sql = "SELECT COUNT(*) FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID = @AuditId";
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            int count = await connection.ExecuteScalarAsync<int>(sql, new { auditId });
+            return prefix + (count + 1).ToString("D3");
+        }
+
+
+        public async Task<int> GetNextWorkpaperIdAsync()
+        {
+            string sql = "SELECT ISNULL(MAX(SSW_ID), 0) FROM StandardAudit_ScheduleConduct_WorkPaper";
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            int maxId = await connection.ExecuteScalarAsync<int>(sql);
+            return maxId + 1;
+        }
+
+        public async Task<int> SaveWorkpaperAsync(WorkpaperDto dto, string workpaperNo)
+        {
+            bool isUpdate = dto.WorkpaperId.HasValue && dto.WorkpaperId.Value > 0;
+            string sql;
+
+            if (isUpdate)
+            {
+                sql = @"
+        UPDATE StandardAudit_ScheduleConduct_WorkPaper
+        SET
+            SSW_SA_ID = @AuditId,
+            SSW_WorkpaperNo = @WorkpaperNo,
+            SSW_WorkpaperRef = @WorkpaperRef,
+            SSW_TypeOfTest = @TypeOfTestId,
+            SSW_WPCheckListID = @CheckListId,
+            SSW_DRLID = @DocumentRequestId,
+            SSW_ExceededMateriality = @ExceededMaterialityId,
+            SSW_AuditorHoursSpent = @AuditorHoursSpent,
+            SSW_Observation = @Observation,
+            SSW_NotesSteps = @NotesSteps,
+            SSW_CriticalAuditMatter = @CriticalAuditMatter,
+            SSW_Conclusion = @Conclusion,
+            SSW_Status = @StatusId,
+            SSW_AttachID = @AttachId,
+            SSW_UpdatedBy = @CreatedBy,
+            SSW_IPAddress = @IPAddress,
+            SSW_CompID = @CompanyId
+        WHERE SSW_ID = @WorkpaperId;
+        SELECT @WorkpaperId;";
+            }
+            else
+            {
+                dto.WorkpaperId = await GetNextWorkpaperIdAsync();
+                sql = @"
+        INSERT INTO StandardAudit_ScheduleConduct_WorkPaper (
+            SSW_ID, SSW_SA_ID, SSW_WorkpaperNo, SSW_WorkpaperRef,
+            SSW_TypeOfTest, SSW_WPCheckListID, SSW_DRLID,
+            SSW_ExceededMateriality, SSW_AuditorHoursSpent, SSW_Observation,
+            SSW_NotesSteps, SSW_CriticalAuditMatter, SSW_Conclusion,
+            SSW_Status, SSW_AttachID, SSW_CrBy, SSW_UpdatedBy,
+            SSW_IPAddress, SSW_CompID
+        ) VALUES (
+            @WorkpaperId, @AuditId, @WorkpaperNo, @WorkpaperRef,
+            @TypeOfTestId, @CheckListId, @DocumentRequestId,
+            @ExceededMaterialityId, @AuditorHoursSpent, @Observation,
+            @NotesSteps, @CriticalAuditMatter, @Conclusion,
+            @StatusId, @AttachId, @CreatedBy, @CreatedBy,
+            @IPAddress, @CompanyId
+        );
+        SELECT @WorkpaperId;";
+            }
+
+            var parameters = new
+            {
+                dto.WorkpaperId,
+                dto.AuditId,
+                WorkpaperNo = workpaperNo,
+                dto.WorkpaperRef,
+                dto.TypeOfTestId,
+                dto.CheckListId,
+                dto.DocumentRequestId,
+                dto.ExceededMaterialityId,
+                dto.AuditorHoursSpent,
+                dto.Observation,
+                dto.NotesSteps,
+                dto.CriticalAuditMatter,
+                dto.Conclusion,
+                dto.StatusId,
+                dto.AttachId,
+                dto.CreatedBy,
+                dto.IPAddress,
+                dto.CompanyId
+            };
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            return await connection.ExecuteScalarAsync<int>(sql, parameters);
+        }
+
+
+
+        public async Task<IEnumerable<WorkpaperViewDto>> LoadConductAuditWorkPapersAsync(int companyId, int auditId)
+        {
+            var query = @"
+        SELECT 
+            SSW_ID AS PKID,
+            SSW_WorkpaperNo AS WorkpaperNo,
+            SSW_WorkpaperRef AS WorkpaperRef,
+            SSW_Observation AS Observation,
+            SSW_Conclusion AS Conclusion,
+            SSW_ReviewerComments AS ReviewerComments,
+            CASE 
+                WHEN a.SSW_TypeOfTest = 1 THEN 'Inquiry'
+                WHEN a.SSW_TypeOfTest = 2 THEN 'Observation'
+                WHEN a.SSW_TypeOfTest = 3 THEN 'Examination'
+                WHEN a.SSW_TypeOfTest = 4 THEN 'Inspection'
+                WHEN a.SSW_TypeOfTest = 5 THEN 'Substantive Testing'
+            END AS TypeOfTest,
+            CASE 
+                WHEN a.SSW_Status = 1 THEN 'Open'
+                WHEN a.SSW_Status = 2 THEN 'WIP'
+                WHEN a.SSW_Status = 3 THEN 'Closed'
+            END AS Status,
+            SSW_AttachID AS AttachID,
+            b.usr_FullName AS CreatedBy,
+            CONVERT(VARCHAR(10), SSW_CrOn, 103) AS CreatedOn,
+            c.usr_FullName AS ReviewedBy,
+            ISNULL(CONVERT(VARCHAR(10), SSW_ReviewedOn, 103), '') AS ReviewedOn
+        FROM StandardAudit_ScheduleConduct_WorkPaper a
+        LEFT JOIN sad_userdetails b ON b.Usr_ID = a.SSW_CrBy
+        LEFT JOIN sad_userdetails c ON c.Usr_ID = a.SSW_ReviewedBy
+        WHERE SSW_SA_ID = @AuditId AND SSW_CompID = @CompanyId
+        ORDER BY a.SSW_WorkpaperNo DESC";
+
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                var result = await connection.QueryAsync<WorkpaperViewDto>(query, new { AuditId = auditId, CompanyId = companyId });
+                return result;
+            }
+        }
+
+
+        public async Task<IEnumerable<StandardAuditHeadingDto>> LoadAllStandardAuditHeadingsAsync(int companyId, int auditId)
+        {
+            var query = @"
+        SELECT DISTINCT(ACM_Heading),
+               DENSE_RANK() OVER (ORDER BY ACM_Heading DESC) AS ACM_ID
+        FROM AuditType_Checklist_Master
+        WHERE ACM_ID IN (
+            SELECT SAC_CheckPointID 
+            FROM StandardAudit_ScheduleCheckPointList 
+            WHERE SAC_SA_ID = @AuditId AND SAC_CompID = @CompanyId
+        ) 
+        AND ACM_CompId = @CompanyId
+        AND ACM_Heading <> '' 
+        AND ACM_Heading <> 'NULL'";
+
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                var result = await connection.QueryAsync<StandardAuditHeadingDto>(query, new { AuditId = auditId, CompanyId = companyId });
+                return result;
+            }
+        }
+
+
+        public async Task<IEnumerable<WorkpaperNoDto>> GetConductAuditWorkpaperNosAsync(int companyId, int auditId)
+        {
+            var query = @"
+        SELECT SSW_ID, SSW_WorkpaperNo, SSW_WorkpaperRef
+        FROM StandardAudit_ScheduleConduct_WorkPaper
+        WHERE SSW_SA_ID = @AuditId AND SSW_CompID = @CompanyId
+        ORDER BY SSW_ID DESC";
+
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                var result = await connection.QueryAsync<WorkpaperNoDto>(query, new { AuditId = auditId, CompanyId = companyId });
+                return result;
+            }
+        }
+
+        public async Task AssignWorkpaperToCheckPointAsync(AssignWorkpaperDto dto)
+        {
+            var query = @"
+    UPDATE StandardAudit_ScheduleCheckPointList
+    SET 
+        SAC_WorkpaperID = @WorkpaperId,
+        SAC_ConductedBy = @UserId,
+        SAC_LastUpdatedOn = GETDATE()
+    WHERE 
+        SAC_ID = @SACId AND 
+        SAC_SA_ID = @AuditId AND 
+        SAC_CompID = @CompanyId AND 
+        SAC_CheckPointID = @CheckPointId"; // This is the full flow from the source
+
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+                await connection.ExecuteAsync(query, dto);
+            }
+        }
+
+
+        public async Task<IEnumerable<AuditCheckPointDto>> LoadSelectedAuditCheckPointDetailsAsync(
+      int companyId, int auditId, int empId, bool isPartner, int headingId, string heading)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            string checkpointIds = "";
+            if (!isPartner)
+            {
+                var sqlCheckpointIds = @"
+            SELECT ISNULL(STUFF((
+                SELECT ',' + CAST(SACD_CheckpointId AS VARCHAR(MAX)) 
+                FROM StandardAudit_Checklist_Details 
+                WHERE SACD_EmpId = @EmpId AND SACD_AuditId = @AuditId 
+                FOR XML PATH('')), 1, 1, ''), '')";
+
+                checkpointIds = await connection.ExecuteScalarAsync<string>(sqlCheckpointIds, new { EmpId = empId, AuditId = auditId });
+            }
+
+            var sql = @"
+        SELECT @AuditId AS AuditID,
+            DENSE_RANK() OVER (ORDER BY SAC_CheckPointID) AS SrNo,
+            SAC_ID AS ConductAuditCheckPointPKId,
+            SAC_CheckPointID AS CheckPointID,
+            ACM_Heading AS [Heading],
+            ACM_Checkpoint AS [CheckPoint],
+            ISNULL(ACM_Assertions, '') AS [Assertions],
+            SAC_Remarks AS [Remarks],
+            CASE WHEN SAC_Mandatory = 1 THEN 'Yes' ELSE 'No' END AS [Mandatory],
+            SAC_TestResult AS [TestResult],
+            SAC_ReviewerRemarks AS [ReviewerRemarks],
+            COALESCE(SAC_AttachID, 0) AS [AttachmentID],
+            CASE WHEN SAC_Annexure = 1 THEN 'TRUE' ELSE 'FALSE' END AS [Annexure],
+            a.USr_FullName AS [ConductedBy],
+            CONVERT(VARCHAR(10), SAC_LastUpdatedOn, 103) AS [LastUpdatedOn],
+            ISNULL(SSW_ID, 0) AS [WorkpaperId],
+            ISNULL(SSW_WorkpaperNo, '') AS [WorkpaperNo],
+            ISNULL(SSW_WorkpaperRef, '') AS [WorkpaperRef],
+            ISNULL(b.USr_FullName, '') AS [CreatedBy],
+            CASE WHEN SSW_CrOn IS NULL THEN '' ELSE CONVERT(VARCHAR(10), SSW_CrOn, 103) END AS [CreatedOn],
+            (SELECT COUNT(*) FROM Audit_DRLLog 
+             WHERE ADRL_AuditNo = @AuditId AND ADRL_FunID = SAC_CheckPointID) AS [DRLCount]
+        FROM StandardAudit_ScheduleCheckPointList
+        JOIN AuditType_Checklist_Master ON ACM_ID = SAC_CheckPointID
+        LEFT JOIN sad_userdetails a ON a.Usr_ID = SAC_ConductedBy
+        LEFT JOIN StandardAudit_ScheduleConduct_WorkPaper 
+            ON SSW_SA_ID = @AuditId AND SSW_ID = SAC_WorkpaperID
+        LEFT JOIN sad_userdetails b ON b.Usr_ID = SSW_CrBy
+        WHERE SAC_SA_ID = @AuditId AND SAC_CompID = @CompanyId";
+
+            if (headingId > 0 && !string.IsNullOrWhiteSpace(heading))
+            {
+                sql += @"
+            AND ACM_ID IN (
+                SELECT ACM_ID 
+                FROM AuditType_Checklist_Master 
+                WHERE ACM_Heading = @Heading 
+                  AND ACM_CompId = @CompanyId 
+                  AND ACM_DELFLG = 'A')";
+            }
+
+            if (!isPartner && !string.IsNullOrWhiteSpace(checkpointIds))
+            {
+                sql += $" AND SAC_CheckPointID IN ({checkpointIds})";
+            }
+
+            sql += " ORDER BY SAC_CheckPointID";
+
+            var results = await connection.QueryAsync<AuditCheckPointDto>(sql, new { AuditId = auditId, CompanyId = companyId, Heading = heading });
+            return results;
+        }
+
+        public async Task UpdateScheduleCheckPointRemarksAnnexureAsync(UpdateScheduleCheckPointDto dto)
+        {
+            try
+            {
+                var updateSql = new StringBuilder();
+                updateSql.Append("UPDATE StandardAudit_ScheduleCheckPointList SET ");
+                updateSql.Append("SAC_ConductedBy = @UserId, ");
+                updateSql.Append("SAC_LastUpdatedOn = GETDATE(), ");
+
+                // Conditional for Remarks update
+                if (dto.RemarksType == 1 || dto.RemarksType == 2)
+                {
+                    updateSql.Append("SAC_Remarks = @Remarks, ");
+                }
+                else if (dto.RemarksType == 3)
+                {
+                    updateSql.Append("SAC_ReviewerRemarks = @Remarks, ");
+                }
+
+                // Update Annexure
+                updateSql.Append("SAC_Annexure = @Annexure, ");
+
+                // Update AuditId as well
+                updateSql.Append("SAC_SA_ID = @AuditId "); // Assuming SAC_SA_ID is AuditId
+
+                // Adding the WHERE clause to match SAC_ID (primary key), AuditId, and CheckPointId
+                updateSql.Append("WHERE SAC_ID = @SACId AND SAC_CheckPointID = @CheckPointId;");
+
+                // Parameters for SQL query
+                var parameters = new
+                {
+                    dto.UserId,
+                    dto.Remarks,
+                    dto.Annexure,
+                    dto.AuditId, // Update the AuditId
+                    dto.SACId,   // The primary key to identify the record
+                    dto.CheckPointId // The CheckPointId to identify the record
+                };
+
+                using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                {
+                    await connection.ExecuteAsync(updateSql.ToString(), parameters);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the exception (optional)
+                throw;
+            }
+        }
+
+
+
+
+        public async Task<string> UploadAndSaveAttachmentsAsync(AddFileDto dto)
+        {
+            try
+            {
+                // 1. Generate Next Attachment ID
+                int attachId = await GenerateNextAttachmentIdAsync(dto.CustomerId, dto.AuditId, dto.YearId);
+
+                // 2. Get Requested ID (based on document name)
+                int requestedId = await GetRequestedIdByDocumentNameAsync(dto.DocumentName);
+
+                // 3. Insert into Audit_DRLLog FIRST and get the primary key
+                int drlLogId = await InsertIntoAuditDrlLogAsync(dto, requestedId);
+
+                // 4. Save the attachment and get the path (insert into Edt_Attachments)
+                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, drlLogId);
+
+                // 5. Get latest DocId for this customer and audit
+                int docId = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
+
+                // 6. Generate next Remark ID
+                int remarkId = await GenerateNextRemarkIdAsync(dto.CustomerId, dto.AuditId);
+
+                // 7. Insert into Audit_DocRemarksLog
+                await InsertIntoAuditDocRemarksLogAsync(dto, requestedId, remarkId, attachId, docId);
+
+                // 8. Update DRL_AttachID and DRL_DocID in Audit_DRLLog
+                await UpdateDrlAttachIdAndDocIdAsync(dto.CustomerId, dto.AuditId, attachId, docId, drlLogId);
+
+                // Optional: Send email
+                // await SendEmailWithAttachmentAsync("varunhallur417@gmail.com", filePath);
+
+                return "Attachment uploaded and details saved successfully.";
+            }
+            catch (Exception ex)
+            {
+                return $"Error: {ex.Message}";
+            }
+        }
+
 
     }
-
 }
+
+
+    
+
+
+        
+
+
+
+    
+
+
     
