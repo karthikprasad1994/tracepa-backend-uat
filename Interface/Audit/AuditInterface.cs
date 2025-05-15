@@ -5,7 +5,7 @@ namespace TracePca.Interface.Audit
 {
     public interface AuditInterface
     {
-        Task<CustomerAuditDropdownDto> GetCustomerAuditDropdownAsync(int companyId);
+        //Task<CustomerAuditDropdownDto> GetCustomerAuditDropdownAsync(int companyId);
         Task<IEnumerable<Dto.Audit.CustomerDto>> LoadActiveCustomersAsync(int companyId);
         Task<IEnumerable<AuditScheduleDto>> LoadScheduledAuditNosAsync(
      string connectionStringName, int companyId, int financialYearId, int customerId);
