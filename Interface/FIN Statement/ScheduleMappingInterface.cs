@@ -17,8 +17,5 @@ namespace TracePca.Interface.FIN_Statement
         Task<int> SaveTrailBalanceExcelUploadAsync(string sAC, TrailBalanceUploadDto dto, int userId);      
         Task<int> SaveTrailBalanceDetailAsync(string dbName, TrailBalanceUploadDetailDto dto, int userId);
 
-        //SaveScheduleFormatHeading
-        Task<int[]> SaveScheduleHeadingAndTemplateAsync(int iCompId, SaveScheduleFormatHeadingDto dto);
-
     }
 }

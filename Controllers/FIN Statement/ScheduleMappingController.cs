@@ -179,53 +179,6 @@ namespace TracePca.Controllers.FIN_Statement
         public void Delete(int id)
         {
         }
-
-        //SaveOrUpdateScheduleFormatHeading
-        [HttpPost("SaveOrUpdateScheduleFormatHeading")]
-        public async Task<IActionResult> SaveScheduleHeadingAndTemplateAsync([FromQuery] int iCompId, [FromBody] SaveScheduleFormatHeadingDto dto)
-        {
-            if (dto == null)
-            {
-                return BadRequest(new
-                {
-                    Status = 400,
-                    Message = "Invalid input: DTO is null",
-                    Data = (object)null
-                });
-            }
-            try
-            {
-                bool isUpdate = dto.ASH_ID > 0;
-
-                var result = await _ScheduleMappingService.SaveScheduleHeadingAndTemplateAsync(iCompId, dto);
-
-                string successMessage = isUpdate
-                    ? "Schedule Heading successfully updated."
-                    : "Schedule Heading successfully created.";
-
-                return Ok(new
-                {
-                    Status = 200,
-                    Message = successMessage,
-                    Data = new
-                    {
-                        UpdateOrSave = result[0],
-                        Oper = result[1],
-                        IsUpdate = isUpdate
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    Status = 500,
-                    Message = "An error occurred while processing your request.",
-                    Error = ex.Message,
-                    InnerException = ex.InnerException?.Message
-                });
-            }
-        }
     }
 }
 
