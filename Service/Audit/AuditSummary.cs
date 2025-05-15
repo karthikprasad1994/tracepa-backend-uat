@@ -303,6 +303,7 @@ namespace TracePca.Service.Audit
         }
 
 
+
         public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
         {
             if (!Directory.Exists(accessCodeDirectory))
@@ -798,6 +799,7 @@ namespace TracePca.Service.Audit
         //    }
         //}
          
+
 
     }
 }

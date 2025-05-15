@@ -475,7 +475,7 @@ namespace TracePca.Service
                        .FirstOrDefaultAsync();
             // ✅ Step 4: Generate JWT token
             string token = GenerateJwtTokens(userDto);
-           
+
 
             return new LoginResponse
             {
@@ -485,6 +485,8 @@ namespace TracePca.Service
                 Token = token // Include token in response
             };
         }
+
+
 
 
         public string GenerateJwtTokens(LoginDto userDto)
