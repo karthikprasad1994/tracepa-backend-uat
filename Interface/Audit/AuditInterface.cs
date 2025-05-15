@@ -25,7 +25,27 @@ namespace TracePca.Interface.Audit
       
         
 Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
-        
+        Task<List<LOEHeadingDto>> LoadLOEHeadingAsync(string sFormName, int compId, int reportTypeId, int loeTemplateId);
+
+
+      Task<IEnumerable<Dto.Audit.WorkpaperDto>> GetAuditWorkpaperNosAsync(string connectionStringName, int companyId, int auditId);
+        Task<IEnumerable<ChecklistItemDto>> LoadWorkpaperChecklistsAsync(string connectionStringName, int companyId);
+        Task<IEnumerable<DRLAttachmentDto>> LoadOnlyDRLWithAttachmentsAsync(string connectionStringName, int companyId, string categoryType, string auditNo, int auditId);
+        Task<bool> CheckWorkpaperRefExists(int auditId, string workpaperRef, int? workpaperId);
+        Task<string> GenerateWorkpaperNo(int auditId);
+        Task<int> GetNextWorkpaperIdAsync();
+        // Task<int> SaveWorkpaper(Dto.Audit.WorkpaperDto dto, string workpaperNo);
+        Task<int> SaveWorkpaperAsync(Dto.Audit.WorkpaperDto dto, string workpaperNo);
+        Task<IEnumerable<WorkpaperViewDto>> LoadConductAuditWorkPapersAsync(int companyId, int auditId);
+        Task<IEnumerable<StandardAuditHeadingDto>> LoadAllStandardAuditHeadingsAsync(int companyId, int auditId);
+        Task<IEnumerable<WorkpaperNoDto>> GetConductAuditWorkpaperNosAsync(int companyId, int auditId);
+        Task AssignWorkpaperToCheckPointAsync(AssignWorkpaperDto dto);
+        Task<IEnumerable<AuditCheckPointDto>> LoadSelectedAuditCheckPointDetailsAsync(
+    int companyId, int auditId, int empId, bool isPartner, int headingId, string heading);
+
+        Task UpdateScheduleCheckPointRemarksAnnexureAsync(UpdateScheduleCheckPointDto dto);
+        Task<string> UploadAndSaveAttachmentsAsync(AddFileDto dto);
+
 
 
 

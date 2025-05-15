@@ -441,6 +441,7 @@ namespace TracePca.Service
 
         public async Task<LoginResponse> LoginUser(string email, string password)
         {
+            // ✅ Step 1: Check if the customer exists
             var customer = await _customerRegistrationContext.MmcsCustomerRegistrations
                 .Where(c => c.McrCustomerEmail == email)
                 .Select(c => new { c.McrCustomerEmail })
@@ -448,13 +449,13 @@ namespace TracePca.Service
 
             if (customer == null)
             {
-                return new LoginResponse { StatusCode = 404, Message = "Email not found" };
+                return new LoginResponse { StatusCode = 404, Message = "Email not found in customer registration" };
             }
 
-            // ✅ Step 2: Get Password from User Table
+            // ✅ Step 2: Get user from SadUserDetails
             var user = await _dbcontext.SadUserDetails
                 .Where(u => u.UsrEmail == email)
-                .Select(u => new { u.UsrPassWord, u.UsrEmail }) // Fetch necessary fields
+                .Select(u => new { u.UsrEmail, u.UsrPassWord })
                 .FirstOrDefaultAsync();
 
             if (user == null)
@@ -462,29 +463,37 @@ namespace TracePca.Service
                 return new LoginResponse { StatusCode = 404, Message = "Invalid Email" };
             }
 
-            // ✅ Step 3: Create `userDto` with correct assignments
+            // ✅ Step 3: Plain text password comparison
+            if (user.UsrPassWord != password)
+            {
+                return new LoginResponse { StatusCode = 401, Message = "Invalid Password" };
+            }
+
+            // ✅ Step 4: Get user ID
+            var userId = await _dbcontext.SadUserDetails
+                .AsNoTracking()
+                .Where(a => a.UsrEmail == email)
+                .Select(a => a.UsrId)
+                .FirstOrDefaultAsync();
+
+            // ✅ Step 5: Create DTO and generate token
             var userDto = new LoginDto
             {
-                UsrEmail = user.UsrEmail, // Assign email from `user`
-                UsrPassWord = user.UsrPassWord      // Assign user ID from `user`
+                UsrEmail = user.UsrEmail,
+                UsrPassWord = user.UsrPassWord
             };
-            var userId = await _dbcontext.SadUserDetails
-                       .AsNoTracking()
-                       .Where(a => a.UsrEmail == email)
-                       .Select(a => a.UsrId)
-                       .FirstOrDefaultAsync();
-            // ✅ Step 4: Generate JWT token
+
             string token = GenerateJwtTokens(userDto);
-           
 
             return new LoginResponse
             {
                 StatusCode = 200,
-                Message = "Login successful and token saved succeessfully",
-                UsrId = userId, // Corrected: Assign from `user`, not `userId`
-                Token = token // Include token in response
+                Message = "Login successful and token saved successfully",
+                UsrId = userId,
+                Token = token
             };
         }
+
 
 
         public string GenerateJwtTokens(LoginDto userDto)
