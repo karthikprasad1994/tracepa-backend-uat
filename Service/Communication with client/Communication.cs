@@ -134,7 +134,7 @@ namespace TracePca.Service.Communication_with_client
 
 
         public async Task<IEnumerable<ReportTypeDto>> LoadAllReportTypeDetailsDRLAsync(
-    string connectionStringName, int companyId, int templateId, string auditNo)
+      string connectionStringName, int companyId, int templateId, string auditNo)
         {
             var connectionString = _configuration.GetConnectionString(connectionStringName);
             using var connection = new SqlConnection(connectionString);
@@ -152,7 +152,7 @@ namespace TracePca.Service.Communication_with_client
 
             // Step 2: Get Report Types
             var sql = @"
-        SELECT RTM_Id, RTM_ReportTypeName, @AudRptType AS AuditNo
+        SELECT RTM_Id, RTM_ReportTypeName
         FROM SAD_ReportTypeMaster
         WHERE RTM_CompID = @CompanyId
           AND RTM_DelFlag = 'A'
@@ -301,7 +301,7 @@ namespace TracePca.Service.Communication_with_client
         }
 
 
-        public async Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, string dateFormat)
+        public async Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, int drlId, string dateFormat)
         {
             var connectionString = _configuration.GetConnectionString(connectionStringName);
             using var connection = new SqlConnection(connectionString);
@@ -325,6 +325,7 @@ namespace TracePca.Service.Communication_with_client
         FROM edt_attachments
         WHERE ATCH_CompID = @CompanyId 
             AND ATCH_ID = @AttachId 
+             AND ATCH_drlid = @DrlId
             AND ATCH_Status <> 'D' 
             AND Atch_Vstatus IN ('A', 'AS', 'C')
         ORDER BY ATCH_CREATEDON";
@@ -333,6 +334,7 @@ namespace TracePca.Service.Communication_with_client
             {
                 CompanyId = companyId,
                 AttachId = attachId,
+                DrlId = drlId,
                 DateFormat = dateFormat
             })).ToList();
 
@@ -433,11 +435,11 @@ VALUES (
             INSERT INTO Audit_DRLLog (
                 ADRL_YearID, ADRL_AuditNo, ADRL_CustID, 
                 ADRL_RequestedListID, ADRL_EmailID, ADRL_Comments,
-                ADRL_CrBy, ADRL_IPAddress, ADRL_CompID, ADRL_ReportType
+                ADRL_CrBy, ADRL_IPAddress, ADRL_CompID, ADRL_ReportType, ADRL_RequestedOn
             ) VALUES (
                 @YearId, @AuditId, @CustomerId,
                 @RequestedId, @EmailIds, @Remarks,
-                @UserId, @IpAddress, @CompId, @ReportType
+                @UserId, @IpAddress, @CompId, @ReportType, GETDATE()
             );
             SELECT SCOPE_IDENTITY();",
                     new
@@ -740,7 +742,7 @@ VALUES (
 
 
 
-        public async Task<IEnumerable<WorkpaperDto>> GetAuditWorkpaperNosAsync(string connectionStringName, int companyId, int auditId)
+        public async Task<IEnumerable<WorkpaperNoDto>> GetAuditWorkpaperNosAsync(string connectionStringName, int companyId, int auditId)
         {
             var connectionString = _configuration.GetConnectionString(connectionStringName);
             using var connection = new SqlConnection(connectionString);
@@ -752,7 +754,7 @@ VALUES (
         WHERE SSW_SA_ID = @AuditId AND SSW_CompID = @CompanyId
         ORDER BY SSW_ID DESC";
 
-            var result = await connection.QueryAsync<WorkpaperDto>(query, new
+            var result = await connection.QueryAsync<WorkpaperNoDto>(query, new
             {
                 AuditId = auditId,
                 CompanyId = companyId

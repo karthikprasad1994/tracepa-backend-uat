@@ -21,14 +21,16 @@ namespace TracePca.Interface.Audit
     string connectionStringName, int companyId, int yearId, int customerId, int auditId, int drlId);
 
          Task<DrlDescReqDto> LoadDRLDescriptionAsync(string connectionStringName, int companyId, int drlId);
-        Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, string dateFormat);
-      
-        
+        // Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, string dateFormat);
+        Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, int drlId, string dateFormat);
+
+
+
 Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
         Task<List<LOEHeadingDto>> LoadLOEHeadingAsync(string sFormName, int compId, int reportTypeId, int loeTemplateId);
 
 
-      Task<IEnumerable<Dto.Audit.WorkpaperDto>> GetAuditWorkpaperNosAsync(string connectionStringName, int companyId, int auditId);
+        Task<IEnumerable<WorkpaperNoDto>> GetAuditWorkpaperNosAsync(string connectionStringName, int companyId, int auditId);
         Task<IEnumerable<ChecklistItemDto>> LoadWorkpaperChecklistsAsync(string connectionStringName, int companyId);
         Task<IEnumerable<DRLAttachmentDto>> LoadOnlyDRLWithAttachmentsAsync(string connectionStringName, int companyId, string categoryType, string auditNo, int auditId);
         Task<bool> CheckWorkpaperRefExists(int auditId, string workpaperRef, int? workpaperId);

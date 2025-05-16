@@ -4,6 +4,7 @@
     {
         public int SrNo { get; set; }
         public int AtchID { get; set; }
+        public int DrlId { get; set; }
         public string FName { get; set; }
         public string FDescription { get; set; }
         public int CreatedById { get; set; }

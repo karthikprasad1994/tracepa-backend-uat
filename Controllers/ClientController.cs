@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿
+
+
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using TracePca.Dto;
@@ -229,11 +232,11 @@ namespace TracePca.Controllers
 
 
         [HttpGet("LoadAttachments")]
-        public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId, string dateFormat = "dd/MM/yyyy")
+        public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId, int Drlid, string dateFormat = "dd/MM/yyyy")
         {
             try
             {
-                var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId, dateFormat);
+                var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId, Drlid, dateFormat);
 
                 return Ok(new
                 {

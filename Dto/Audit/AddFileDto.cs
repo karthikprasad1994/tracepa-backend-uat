@@ -15,6 +15,8 @@ namespace TracePca.Dto.Audit
         public int YearId { get; set; }
         [JsonIgnore]
         public string ExportType { get; set; }
+
+        public DateOnly RequestedOn { get; set; }
         public int  ReportType { get; set; }
         [JsonIgnore]
         public string DocumentName { get; set; }

@@ -25,8 +25,9 @@ namespace TracePca.Service
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly DynamicDbContext _context;
         private readonly OtpService _otpService;
+        private readonly IWebHostEnvironment _env;
 
-        public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DynamicDbContext context, OtpService otpService)
+        public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DynamicDbContext context, OtpService otpService, IWebHostEnvironment env)
         {
             _dbcontext = dbContext;
             _customerRegistrationContext = customerDbContext;
@@ -34,6 +35,7 @@ namespace TracePca.Service
             _httpContextAccessor = httpContextAccessor;
             _context = context;
             _otpService = otpService;
+            _env = env;
         }
 
         public async Task<object> GetAllUsersAsync()
@@ -136,7 +138,8 @@ namespace TracePca.Service
                 string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
 
                 // Step 8: Execute SQL script to set up schema
-                string scriptsFolderPath = @"C:\Users\i5_4G_X2\Desktop";
+                string scriptsFolderPath = Path.Combine(_env.ContentRootPath, "SqlScripts", "Cleaned_Sign-up.sql");
+
                 await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptsFolderPath);
 
 
