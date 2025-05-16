@@ -43,6 +43,7 @@ builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
 
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMapping>();
+builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 //builder.Services.AddScoped<AuditInterface, Communication>();
 
 builder.Services.AddScoped<AuditInterface, Communication>();
