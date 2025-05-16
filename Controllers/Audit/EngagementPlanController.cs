@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
 
@@ -160,6 +162,28 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpGet("GetEngagementPlanReportDetailsById")]
+        public async Task<IActionResult> GetEngagementPlanReportDetailsById(int compId, int epPKid)
+        {
+            try
+            {
+                var result = await _engagementInterface.GetEngagementPlanReportDetailsByIdAsync(compId, epPKid);
+                if (result == null)
+                    return NotFound(new { statusCode = 404, message = "No Engagement Plan details found." });
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Engagement Plan report details fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to retrieve Engagement Plan report details.", error = ex.Message });
+            }
+        }
+
         [HttpGet("LoadAllAttachmentsById")]
         public async Task<IActionResult> LoadAllAttachmentsByIdAsync(int compId, int attachId)
         {
@@ -228,31 +252,15 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var result = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId);
-                if (result == null)
-                {
-                    return NotFound(new { success = false, message = "Attachment not found." });
-                }
+                var downloadInfo = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId);
 
-                string fileExt = result.ATCH_EXT;
-                if (string.IsNullOrEmpty(fileExt))
-                {
-                    return NotFound(new { success = false, message = "File extension not found." });
-                }
-
-                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
-                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
-
-                string fileName = $"{docId}.{fileExt}";
-                string filePath = Path.Combine(absoluteFolder, fileName);
-
-                if (!System.IO.File.Exists(filePath))
+                if (downloadInfo == null || !System.IO.File.Exists(downloadInfo.TempFilePath))
                 {
                     return NotFound(new { success = false, message = "File not found." });
                 }
 
-                var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-                return File(fileBytes, "application/octet-stream", fileName);
+                var fileBytes = await System.IO.File.ReadAllBytesAsync(downloadInfo.TempFilePath);
+                return File(fileBytes, "application/octet-stream", downloadInfo.OriginalFileName);
             }
             catch (Exception ex)
             {
