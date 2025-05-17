@@ -1,18 +1,19 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using System.Text.RegularExpressions;
+using BCrypt.Net;
+using Dapper;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
+using TracePca.Dto;
 using TracePca.Interface;
 using TracePca.Models;
 using TracePca.Models.CustomerRegistration;
-using BCrypt.Net;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using TracePca.Dto;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
-using System.Text.RegularExpressions;
 using TracePca.Models.UserModels;
 
 namespace TracePca.Service
@@ -79,124 +80,158 @@ namespace TracePca.Service
         {
             try
             {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+                await connection.OpenAsync();
+
                 // Step 1: Check if customer already exists
+                var existingCustomer = await connection.QueryFirstOrDefaultAsync<int>(
+                    @"SELECT COUNT(1) 
+              FROM MMCS_CustomerRegistration 
+              WHERE MCR_CustomerEmail = @Email OR MCR_CustomerTelephoneNo = @Phone",
+                    new { Email = registerModel.McrCustomerEmail, Phone = registerModel.McrCustomerTelephoneNo });
 
-
-
-                bool customerExists = await _customerRegistrationContext.MmcsCustomerRegistrations
-                    .AnyAsync(c => c.McrCustomerEmail == registerModel.McrCustomerEmail);
-
-                if (customerExists)
+                if (existingCustomer > 0)
                 {
-                    return new ConflictObjectResult(new { statuscode = 409, message = "Customer with this email already exists." });
+                    return new ConflictObjectResult(new
+                    {
+                        statuscode = 409,
+                        message = "Customer with this email or phone number already exists."
+                    });
                 }
 
-                bool customerPhonenoExists = await _customerRegistrationContext.MmcsCustomerRegistrations
-                   .AnyAsync(c => c.McrCustomerTelephoneNo == registerModel.McrCustomerTelephoneNo);
+                // Step 2: Generate Customer Code and IDs
+                int maxMcrId = (await connection.ExecuteScalarAsync<int?>(
+                    "SELECT ISNULL(MAX(MCR_ID), 0) FROM MMCS_CustomerRegistration") ?? 0) + 1;
 
-                if (customerPhonenoExists)
-                {
-                    return new ConflictObjectResult(new { statuscode = 409, message = "Customer with this Phoneno already exists." });
-                }
-                // Step 2: Send OTP (If OTP is not provided yet)
-
-
-                // Step 3: Verify OTP
-
-
-                // Step 4: Generate Customer Code
-                int maxMcrId = (await _customerRegistrationContext.MmcsCustomerRegistrations.MaxAsync(c => (int?)c.McrId) ?? 0) + 1;
-                string currentYear = DateTime.Now.Year.ToString().Substring(2, 2);
+                string currentYear = DateTime.Now.ToString("yy");
                 string yearPrefix = $"TR{currentYear}";
-                int customerCount = await _customerRegistrationContext.MmcsCustomerRegistrations
-                    .CountAsync(c => c.McrCustomerCode.StartsWith(yearPrefix));
-                int nextNumber = customerCount + 1;
+
+                // Get latest MCR_CustomerCode with the year prefix
+                string latestCode = await connection.ExecuteScalarAsync<string>(
+                    @"SELECT TOP 1 MCR_CustomerCode 
+              FROM MMCS_CustomerRegistration 
+              WHERE MCR_CustomerCode LIKE @PrefixPattern 
+              ORDER BY TRY_CAST(RIGHT(MCR_CustomerCode, LEN(MCR_CustomerCode) - LEN(@PrefixWithUnderscore)) AS INT) DESC",
+                    new
+                    {
+                        PrefixPattern = yearPrefix + "_%",
+                        PrefixWithUnderscore = yearPrefix + "_"
+                    });
+
+                int nextNumber = 1;
+                if (!string.IsNullOrEmpty(latestCode))
+                {
+                    var parts = latestCode.Split('_');
+                    if (parts.Length == 2 && int.TryParse(parts[1], out int lastNumber))
+                    {
+                        nextNumber = lastNumber + 1;
+                    }
+                }
+
                 string newCustomerCode = $"{yearPrefix}_{nextNumber:D3}";
                 string productKey = $"PRD-{Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()}";
 
-                // Step 5: Register Customer
-                var newCustomer = new MmcsCustomerRegistration
+                // Step 3: Insert into MMCS_CustomerRegistration
+                string insertSql = @"
+            INSERT INTO MMCS_CustomerRegistration 
+            (MCR_ID, MCR_MP_ID, MCR_CustomerName, MCR_CustomerEmail, MCR_CustomerTelephoneNo, 
+             MCR_Status, MCR_TStatus, MCR_CustomerCode, MCR_ProductKey)
+            VALUES 
+            (@McrId, @McrMpId, @McrCustomerName, @McrCustomerEmail, @McrCustomerTelephoneNo, 
+             'A', 'T', @McrCustomerCode, @McrProductKey)";
+
+                var rowsInserted = await connection.ExecuteAsync(insertSql, new
                 {
                     McrId = maxMcrId,
                     McrMpId = 2,
                     McrCustomerName = registerModel.McrCustomerName,
                     McrCustomerEmail = registerModel.McrCustomerEmail,
                     McrCustomerTelephoneNo = registerModel.McrCustomerTelephoneNo,
-                    McrStatus = "A",
-                    McrTstatus = "T"
-                };
-                newCustomer.SetCustomerCodeAndProductKey(newCustomerCode, productKey);
+                    McrCustomerCode = newCustomerCode,
+                    McrProductKey = productKey
+                });
 
-                await _customerRegistrationContext.MmcsCustomerRegistrations.AddAsync(newCustomer);
-                await _customerRegistrationContext.SaveChangesAsync();
+                if (rowsInserted == 0)
+                {
+                    return new ObjectResult(new { statuscode = 500, message = "Failed to insert customer." }) { StatusCode = 500 };
+                }
 
-                // Step 6: Create new customer database
+                Console.WriteLine("✅ Customer inserted via Dapper.");
+
+                // Step 4: Create Customer Database
                 await CreateCustomerDatabaseAsync(newCustomerCode);
 
-                // Step 7: Build new database connection string
+                // Step 5: Setup Schema
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
                 string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
 
-                // Step 8: Execute SQL script to set up schema
                 string scriptsFolderPath = Path.Combine(_env.ContentRootPath, "SqlScripts", "Cleaned_Sign-up.sql");
-
                 await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptsFolderPath);
 
-
-                // Step 9: Create Admin User in the new database
+                // Step 6: Insert Admin User in new DB (EF Core)
                 var optionsBuilder = new DbContextOptionsBuilder<DynamicDbContext>();
                 optionsBuilder.UseSqlServer(newDbConnectionString);
 
-                using (var newDbContext = new DynamicDbContext(optionsBuilder.Options))
+                using var newDbContext = new DynamicDbContext(optionsBuilder.Options);
+
+                int maxUserId = (await newDbContext.SadUserDetails.MaxAsync(c => (int?)c.UsrId) ?? 0) + 1;
+
+                var lastUserCode = await newDbContext.SadUserDetails
+                    .Where(u => u.UsrCode.StartsWith("EMP"))
+                    .OrderByDescending(u => u.UsrCode)
+                    .Select(u => u.UsrCode)
+                    .FirstOrDefaultAsync();
+
+                int nextUserCodeNumber = 1;
+                if (!string.IsNullOrEmpty(lastUserCode) && int.TryParse(lastUserCode.Substring(3), out int lastCodeNumber))
                 {
-                    int maxUserId = (await newDbContext.SadUserDetails.MaxAsync(c => (int?)c.UsrId) ?? 0) + 1;
-
-                    var lastUserCode = await newDbContext.SadUserDetails
-                        .Where(u => u.UsrCode.StartsWith("EMP"))
-                        .OrderByDescending(u => u.UsrCode)
-                        .Select(u => u.UsrCode)
-                        .FirstOrDefaultAsync();
-
-                    int nextUserCodeNumber = 1;
-                    if (!string.IsNullOrEmpty(lastUserCode) && int.TryParse(lastUserCode.Substring(3), out int lastCodeNumber))
-                    {
-                        nextUserCodeNumber = lastCodeNumber + 1;
-                    }
-
-                    string newUserCode = $"EMP{nextUserCodeNumber:D3}";
-                    string hashedPassword = BCrypt.Net.BCrypt.HashPassword("sa");
-
-                    var UserRegister = new Models.UserModels.SadUserDetail
-                    {
-                        UsrId = maxUserId,
-                        UsrCode = newUserCode,
-                        UsrNode = 2,
-                        UsrFullName = "Admin",
-                        UsrLoginName = "sa",
-                        UsrPassWord = hashedPassword,
-                        UsrEmail = registerModel.McrCustomerEmail,
-                        UsrMobileNo = registerModel.McrCustomerTelephoneNo,
-                        UsrDutyStatus = "A",
-                        UsrDelFlag = "A",
-                        UsrStatus = "U",
-                        UsrType = "C",
-                        UsrIsLogin = "Y"
-                    };
-
-                    await newDbContext.SadUserDetails.AddAsync(UserRegister);
-                    await newDbContext.SaveChangesAsync();
+                    nextUserCodeNumber = lastCodeNumber + 1;
                 }
 
-                return new OkObjectResult(new { statuscode = 201, message = "Customer registered successfully." });
+                string newUserCode = $"EMP{nextUserCodeNumber:D3}";
+                string hashedPassword = BCrypt.Net.BCrypt.HashPassword("sa");
+
+                var adminUser = new Models.UserModels.SadUserDetail
+                {
+                    UsrId = maxUserId,
+                    UsrCode = newUserCode,
+                    UsrNode = 2,
+                    UsrFullName = "Admin",
+                    UsrLoginName = "sa",
+                    UsrPassWord = hashedPassword,
+                    UsrEmail = registerModel.McrCustomerEmail,
+                    UsrMobileNo = registerModel.McrCustomerTelephoneNo,
+                    UsrDutyStatus = "A",
+                    UsrDelFlag = "A",
+                    UsrStatus = "U",
+                    UsrType = "C",
+                    UsrIsLogin = "Y"
+                };
+
+                await newDbContext.SadUserDetails.AddAsync(adminUser);
+                await newDbContext.SaveChangesAsync();
+
+                return new OkObjectResult(new
+                {
+                    statuscode = 201,
+                    message = "Customer registered successfully."
+                });
             }
             catch (Exception ex)
             {
-                return new ObjectResult(new { statuscode = 500, message = "Internal server error", error = ex.Message })
+                return new ObjectResult(new
+                {
+                    statuscode = 500,
+                    message = "Internal server error",
+                    error = ex.Message
+                })
                 {
                     StatusCode = 500
                 };
             }
         }
+
+
 
         private async Task CreateCustomerDatabaseAsync(string customerCode)
         {
@@ -222,82 +257,71 @@ namespace TracePca.Service
         }
 
         // ✅ Optimized SQL script execution
-        public async Task ExecuteAllSqlScriptsAsync(string connectionString, string scriptsFolderPath)
+        public async Task ExecuteAllSqlScriptsAsync(string connectionString, string scriptFilePath)
         {
             try
             {
-                string[] scriptFiles = {
-            Path.Combine(scriptsFolderPath, "Createtable.sql"),
-            Path.Combine(scriptsFolderPath, "Insertvalues.sql"),
-            Path.Combine(scriptsFolderPath, "CreateProcedures.sql")
-        };
+                if (!File.Exists(scriptFilePath))
+                {
+                    Console.WriteLine($"File not found: {scriptFilePath}");
+                    return;
+                }
+
+                string script = await File.ReadAllTextAsync(scriptFilePath);
+                string[] commands = Regex.Split(script, @"(?i)^\s*GO\s*$", RegexOptions.Multiline);
 
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
-                    using (var transaction = connection.BeginTransaction())  // ✅ Ensure atomic execution
+                    using (var transaction = connection.BeginTransaction())
                     {
                         try
                         {
-                            foreach (string scriptPath in scriptFiles)
+                            foreach (string commandText in commands)
                             {
-                                if (File.Exists(scriptPath))
+                                string trimmedCommand = commandText.Trim();
+                                if (!string.IsNullOrEmpty(trimmedCommand))
                                 {
-                                    string script = await File.ReadAllTextAsync(scriptPath);
-                                    string[] commands = Regex.Split(script, @"(?i)^\s*GO\s*$", RegexOptions.Multiline);
-
-                                    foreach (string commandText in commands)
+                                    try
                                     {
-                                        string trimmedCommand = commandText.Trim();
-                                        if (!string.IsNullOrEmpty(trimmedCommand))
+                                        using (var command = new SqlCommand(trimmedCommand, connection, transaction))
                                         {
-                                            try
-                                            {
-                                                using (var command = new SqlCommand(trimmedCommand, connection, transaction))
-                                                {
-                                                    command.CommandTimeout = 120;
+                                            command.CommandTimeout = 120;
 
-                                                    // ✅ Identity Insert Handling
-                                                    if (trimmedCommand.Contains("INSERT INTO") && trimmedCommand.Contains("IDENTITY"))
-                                                    {
-                                                        await new SqlCommand("SET IDENTITY_INSERT ON;", connection, transaction).ExecuteNonQueryAsync();
-                                                    }
-
-                                                    await command.ExecuteNonQueryAsync();
-                                                }
-                                            }
-                                            catch (SqlException sqlEx)
+                                            // Optional: Handle IDENTITY_INSERT if needed
+                                            if (trimmedCommand.Contains("INSERT INTO") && trimmedCommand.Contains("IDENTITY"))
                                             {
-                                                Console.WriteLine($"SQL Execution Error in {Path.GetFileName(scriptPath)}: {sqlEx.Message}\nCommand: {trimmedCommand}");
+                                                await new SqlCommand("SET IDENTITY_INSERT ON;", connection, transaction).ExecuteNonQueryAsync();
                                             }
+
+                                            await command.ExecuteNonQueryAsync();
                                         }
                                     }
-
-                                    Console.WriteLine($"Successfully executed: {Path.GetFileName(scriptPath)}");
-                                }
-                                else
-                                {
-                                    Console.WriteLine($"File not found: {scriptPath}");
+                                    catch (SqlException sqlEx)
+                                    {
+                                        Console.WriteLine($"SQL Execution Error: {sqlEx.Message}\nCommand: {trimmedCommand}");
+                                        throw; // Rethrow to roll back
+                                    }
                                 }
                             }
 
-                            await transaction.CommitAsync();  // ✅ Commit after successful execution
+                            await transaction.CommitAsync();
+                            Console.WriteLine("SQL script executed successfully.");
                         }
                         catch (Exception ex)
                         {
-                            await transaction.RollbackAsync();  // ✅ Rollback if any error occurs
+                            await transaction.RollbackAsync();
                             Console.WriteLine($"Transaction failed: {ex.Message}");
                         }
                     }
                 }
-
-                Console.WriteLine("All SQL scripts executed successfully.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"General error executing SQL scripts: {ex.Message}");
+                Console.WriteLine($"General error executing SQL script: {ex.Message}");
             }
         }
+
 
 
 
