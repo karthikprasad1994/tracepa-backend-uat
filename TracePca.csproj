@@ -7,10 +7,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Interface\NewFolder1\**" />
+    <Content Remove="Interface\NewFolder1\**" />
+    <EmbeddedResource Remove="Interface\NewFolder1\**" />
+    <None Remove="Interface\NewFolder1\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Dapper" Version="2.1.66" />
     <PackageReference Include="DocX" Version="4.0.25105.5786" />
     <PackageReference Include="EPPlus" Version="6.2.3" />
+    <PackageReference Include="ExcelDataReader" Version="3.7.0" />
+    <PackageReference Include="ExcelDataReader.DataSet" Version="3.7.0" />
     <PackageReference Include="iTextSharp" Version="5.5.13.4" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2">
@@ -31,7 +40,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Interface\NewFolder1\" />
+    <Folder Include="SampleExcels\" />
     <Folder Include="SqlScripts\" />
   </ItemGroup>
 
