@@ -43,7 +43,7 @@ builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboa
 
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
 
-builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMapping>();
+builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
