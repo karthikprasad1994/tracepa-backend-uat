@@ -17,6 +17,8 @@ using TracePca.Service.Audit;
 using TracePca.Service.Communication_with_client;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
+using TracePca.Service.ProfileSetting;
+using TracePca.Interface.ProfileSetting;
 //using TracePca.Interface.AssetMaserInterface;
 
 
@@ -39,11 +41,12 @@ builder.Services.AddScoped<LocationSetUpInterface, LocationSeUp>();
 builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAddition>();
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
 
-builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
 
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMapping>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
+
+builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
 //builder.Services.AddScoped<AuditInterface, Communication>();
 
 builder.Services.AddScoped<AuditInterface, Communication>();
@@ -77,6 +80,12 @@ builder.Services.AddDbContext<DynamicDbContext>(options =>
 
 builder.Services.AddDbContext<Trdmyus1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<Trdmyus1Context>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection1")));
+builder.Services.AddDbContext<Trdmyus1Context>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection2")));
+
+
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"]);
 
