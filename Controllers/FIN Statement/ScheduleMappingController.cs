@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.Audit;
 using TracePca.Interface.FIN_Statement;
-using static TracePca.Dto.FIN_Statement.ScheduleCustDto;
+using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -23,65 +23,148 @@ namespace TracePca.Controllers.FIN_Statement
             _ScheduleMappingService = ScheduleMappingInterface;       
         }
 
-        [HttpGet("GetCustomer")]
-        public async Task<IActionResult> GetCustomers([FromQuery] int compId)
+        //GetCustomersName
+        [HttpGet("GetCustomersName")]
+        public async Task<IActionResult> GetCustomerName([FromQuery] int icompId)
         {
-            var result = await _ScheduleMappingInterface.LoadCustomers(compId);
-
-            var response = new
+            try
             {
-                Status = 200,
-                msg = result != null && result.Any() ? "Fetched Successfully" : "No data found",
-                data = result
-            };
+                var result = await _ScheduleMappingService.GetCustomerNameAsync(icompId);
 
-            return Ok(response);
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No company types found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Company types loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching company types.",
+                    error = ex.Message
+                });
+            }
         }
 
+        //GetFinancialYear
         [HttpGet("GetFinancialYear")]
-        public async Task<IActionResult> LoadFinancialYear([FromQuery] int compId)
+        public async Task<IActionResult> GetFinancialYear([FromQuery] int icompId)
         {
-            var result = await _ScheduleMappingInterface.LoadFinancialYear(compId);
-
-            var response = new
+            try
             {
-                Status = 200,
-                msg = result != null && result.Any() ? "Fetched Successfully" : "No data found",
-                data = result
-            };
+                var result = await _ScheduleMappingService.GetFinancialYearAsync(icompId);
 
-            return Ok(response);
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No company types found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Company types loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching company types.",
+                    error = ex.Message
+                });
+            }
         }
 
-
-        [HttpGet("GetCustBranch")]
-        public async Task<IActionResult> LoadcustBranches([FromQuery] int compId,int CustId)
+        //GetDuration
+        [HttpGet("GetDuration")]
+        public async Task<IActionResult> GetDuration([FromQuery] int compId, [FromQuery] int custId)
         {
-            var result = await _ScheduleMappingInterface.LoadBranches(compId,CustId);
-
-            var response = new
+            try
             {
-                Status = 200,
-                msg = result != null && result.Any() ? "Fetched Successfully" : "No data found",
-                data = result
-            };
+                var data = await _ScheduleMappingService.GetDurationAsync(compId, custId);
 
-            return Ok(response);
+                if (data == null || !data.Any())
+                {
+                    return NotFound(new
+                    {
+                        status = 404,
+                        message = "No duration found for the given customer and company.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Duration loaded successfully.",
+                    data = data
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "Internal server error.",
+                    error = ex.Message
+                });
+            }
         }
 
-        [HttpGet("GetCustDuration")]
-        public async Task<IActionResult> LoadcustDuration([FromQuery] int compId, int CustId)
+        //GetBranchName
+        [HttpGet("GetBranchName")]
+        public async Task<IActionResult> GetBranchName([FromQuery] int icompId, [FromQuery] int icustId)
         {
-            var result = await _ScheduleMappingInterface.LoadDuration(compId, CustId);
-
-            var response = new
+            try
             {
-                Status = 200,
-                msg = result != null && result.Any() ? "Fetched Successfully" : "No data found",
-                data = result
-            };
+                var result = await _ScheduleMappingService.GetBranchNameAsync(icompId, icustId);
 
-            return Ok(response);
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No company types found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Company types loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching company types.",
+                    error = ex.Message
+                });
+            }
         }
 
         [HttpPost("headings")]

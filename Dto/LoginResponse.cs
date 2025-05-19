@@ -8,6 +8,7 @@
 
         public int UsrId { get; set; }
 
+        public string? MCR_emails { get; set; }
 
     }
 }

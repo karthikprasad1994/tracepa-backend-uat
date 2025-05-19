@@ -41,6 +41,7 @@
         public string? UsrMobileNo { get; set; }
 
         public string? Otp { get; set; }
+        public string? MCR_emails { get; set; }
 
     }
 }

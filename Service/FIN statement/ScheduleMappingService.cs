@@ -12,62 +12,88 @@ using TracePca.Interface;
 using TracePca.Interface.Audit;
 using TracePca.Interface.FIN_Statement;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
-using static TracePca.Dto.FIN_Statement.ScheduleCustDto;
-using static TracePca.Service.FIN_statement.ScheduleMapping;
+using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
+using static TracePca.Service.FIN_statement.ScheduleMappingService;
 namespace TracePca.Service.FIN_statement
 {
-    public class ScheduleMapping : ScheduleMappingInterface
+    public class ScheduleMappingService : ScheduleMappingInterface
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
-        public ScheduleMapping(Trdmyus1Context dbcontext, IConfiguration configuration)
+        public ScheduleMappingService(Trdmyus1Context dbcontext, IConfiguration configuration)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
         }
 
-        public async Task<List<CustDto>> LoadCustomers(int compId)
+        //GetCustomersName
+        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int icompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
-            Select Cust_Id,Cust_Name 
-            FROM SAD_CUSTOMER_MASTER
-            WHERE cust_Compid  = @CompID";
-            var result = await connection.QueryAsync<CustDto>(query, new { CompID = compId });
-            return result.ToList();
+            var query = @"
+        SELECT 
+            Cust_Id,
+            Cust_Name 
+        FROM SAD_CUSTOMER_MASTER
+        WHERE cust_Compid = @CompID";
+
+            await connection.OpenAsync();
+
+            return await connection.QueryAsync<CustDto>(query, new { CompID = icompId });
         }
 
-        public async Task<List<FinancialYearDto>> LoadFinancialYear(int compId)
+        //GetFinancialYear
+        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int icompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
-            Select YMS_YEARID, YMS_ID from YEAR_MASTER where YMS_FROMDATE < DATEADD(year,+1,GETDATE()) and YMS_CompId=@CompID order by YMS_ID desc";
-            var result = await connection.QueryAsync<FinancialYearDto>(query, new { CompID = compId });
-            return result.ToList();
+            var query = @"
+        SELECT 
+            YMS_YEARID,
+            YMS_ID 
+        FROM YEAR_MASTER 
+        WHERE YMS_FROMDATE < DATEADD(year, +1, GETDATE()) 
+          AND YMS_CompId = @CompID 
+        ORDER BY YMS_ID DESC";
+
+            await connection.OpenAsync();
+
+            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = icompId });
         }
 
-        public async Task<List<CustBranchDto>> LoadBranches(int compId, int custId)
+        //GetDuration
+        public async Task<IEnumerable<CustDurationDto>> GetDurationAsync(int compId, int custId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
-           select Mas_Id as Branchid,Mas_Description as BranchName from SAD_CUST_LOCATION where Mas_CustID=@custId and Mas_CompID=@compId";
-            var result = await connection.QueryAsync<CustBranchDto>(query, new { CompID = compId });
-            return result.ToList();
+            var query = @"
+        SELECT 
+            ISNULL(Cust_DurtnId, 0) AS Cust_DurtnId  
+        FROM SAD_CUSTOMER_MASTER 
+        WHERE Cust_CompID = @compId AND cust_id = @custId";
+
+            await connection.OpenAsync();
+
+            return await connection.QueryAsync<CustDurationDto>(query, new { compId, custId });
         }
 
-        public async Task<List<CustDurationDto>> LoadDuration(int compId, int custId)
+        //GetBranchName
+        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int compId, int custId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
-           Select isnull(Cust_DurtnId,0) as Cust_DurtnId  from SAD_CUSTOMER_MASTER where cust_id=@custid and Cust_CompID=@compid";
-            var result = await connection.QueryAsync<CustDurationDto>(query, new { CompID = compId });
-            return result.ToList();
-        }
+            var query = @"
+        SELECT 
+            Mas_Id AS Branchid, 
+            Mas_Description AS BranchName 
+        FROM SAD_CUST_LOCATION 
+        WHERE Mas_CompID = @compId AND Mas_CustID = @custId";
 
+            await connection.OpenAsync();
+
+            return await connection.QueryAsync<CustBranchDto>(query, new { compId, custId });
+        }
 
         // Heading
         public async Task<List<ScheduleHeadingDto>> GetScheduleHeadingsAsync(int compId, int custId, int ScheduleTypeId)
