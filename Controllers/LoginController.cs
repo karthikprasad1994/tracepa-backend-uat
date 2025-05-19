@@ -146,7 +146,7 @@ namespace TracePca.Controllers
                 return BadRequest(new { statuscode = 400, message = "Email and password are required." });
             }
 
-            var result = await _LoginInterface.LoginUser(user.UsrEmail, user.UsrPassWord);
+            var result = await _LoginInterface.LoginUserAsync(user.UsrEmail, user.UsrPassWord);
 
             // ✅ Use strongly typed DTO instead of reflection
             return result.StatusCode switch

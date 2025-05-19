@@ -56,6 +56,8 @@ public partial class MmcsCustomerRegistration
 
     public int? McrNumberOfCustomers { get; set; }
 
+    public string? MCR_emails { get; set; }
+
     [JsonConstructor]
     public MmcsCustomerRegistration() { }
 
