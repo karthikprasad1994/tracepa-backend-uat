@@ -124,10 +124,11 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
+                bool isUpdate = dto.LOE_Id > 0;
                 var result = await _engagementInterface.SaveOrUpdateEngagementPlanDataAsync(dto);
                 if (result > 0)
                 {
-                    if (dto.LOE_Id > 0)
+                    if (isUpdate)
                         return Ok(new { statusCode = 200, message = "Engagement Plan data updated successfully.", Data = result });
                     else
                         return Ok(new { statusCode = 200, message = "Engagement Plan data inserted successfully.", Data = result });
