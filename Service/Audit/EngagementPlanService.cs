@@ -201,10 +201,18 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
 
-                var result = await connection.QueryFirstOrDefaultAsync<string>(
-                    @"SELECT CONCAT('EP_', @YearId, '_', @CustomerId) AS LOE_Name FROM DUAL",
-                    new { YearId = yearId, CustomerId = customerId });
-                return result;
+                var nextSerialNo = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT COUNT(*) + 1 FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId",new { YearId = yearId });
+                var loeName = await connection.QueryFirstOrDefaultAsync<string>(
+                    @"SELECT CONCAT(cust.CUST_CODE, '/LOE/', yms.YMS_ID, '/', RIGHT('00000' + CAST(@SerialNo AS VARCHAR), 5)) AS LOE_Name
+                    FROM SAD_CUSTOMER_MASTER cust, YEAR_MASTER yms WHERE cust.CUST_ID = @CustomerId AND yms.YMS_YEARID = @YearId",
+                    new
+                    {
+                        CustomerId = 2,
+                        YearId = yearId,
+                        SerialNo = nextSerialNo
+                    });
+
+                return loeName;
             }
             catch (Exception ex)
             {
