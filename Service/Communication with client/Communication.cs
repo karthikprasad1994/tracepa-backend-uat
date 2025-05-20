@@ -260,6 +260,24 @@ namespace TracePca.Service.Communication_with_client
             return result ?? 0; // Return 0 if no value is found
         }
 
+        public async Task<IEnumerable<DrlDescListDto>> LoadAllDRLDescriptionsAsync(string connectionStringName, int companyId)
+        {
+            var sQuery = @"
+    SELECT 
+        CMM_ID AS DrlId,
+        ISNULL(Cms_Remarks, '') AS Cms_Remarks
+    FROM Content_Management_Master
+    WHERE CMM_CompID = @CompanyId";
+
+            var connectionString = _configuration.GetConnectionString(connectionStringName);
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var result = await connection.QueryAsync<DrlDescListDto>(sQuery, new { CompanyId = companyId });
+            return result;
+        }
+
+
         public async Task<DrlDescReqDto> LoadDRLDescriptionAsync(string connectionStringName, int companyId, int drlId)
         {
             var sQuery = @"

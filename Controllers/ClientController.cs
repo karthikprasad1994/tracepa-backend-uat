@@ -215,6 +215,32 @@ namespace TracePca.Controllers
             }
         }
 
+        [HttpGet("GetAllDRLDescriptions")]
+        public async Task<IActionResult> GetAllDRLDescriptions(string connectionStringName, int companyId)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadAllDRLDescriptionsAsync(connectionStringName, companyId);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "All DRL descriptions fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving DRL descriptions.",
+                    data = (object)null
+                });
+            }
+        }
+
+
         [HttpGet("LoadDRLDescription")]
         public async Task<IActionResult> LoadDRLDescription(string connectionStringName, int companyId, int drlId)
         {

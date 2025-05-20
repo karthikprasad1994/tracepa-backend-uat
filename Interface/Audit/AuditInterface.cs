@@ -19,7 +19,7 @@ namespace TracePca.Interface.Audit
     string connectionStringName, int companyId, int incrementBy);
         Task<int> GetDuringSelfAttachIdAsync(
     string connectionStringName, int companyId, int yearId, int customerId, int auditId, int drlId);
-
+        Task<IEnumerable<DrlDescListDto>> LoadAllDRLDescriptionsAsync(string connectionStringName, int companyId);
          Task<DrlDescReqDto> LoadDRLDescriptionAsync(string connectionStringName, int companyId, int drlId);
         // Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, string dateFormat);
         Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, int drlId, string dateFormat);
