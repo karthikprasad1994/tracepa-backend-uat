@@ -215,20 +215,58 @@ namespace TracePca.Controllers
             }
         }
 
+        [HttpGet("GetAllDRLDescriptions")]
+        public async Task<IActionResult> GetAllDRLDescriptions(string connectionStringName, int companyId)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadAllDRLDescriptionsAsync(connectionStringName, companyId);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "All DRL descriptions fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving DRL descriptions.",
+                    data = (object)null
+                });
+            }
+        }
+
+
         [HttpGet("LoadDRLDescription")]
         public async Task<IActionResult> LoadDRLDescription(string connectionStringName, int companyId, int drlId)
         {
             try
             {
                 var result = await _AuditInterface.LoadDRLDescriptionAsync(connectionStringName, companyId, drlId);
-                return Ok(result);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "DRL description fetched successfully.",
+                    data = result
+                });
             }
             catch (Exception ex)
             {
-                // Log the error if needed
-                return StatusCode(500, "An error occurred while retrieving the DRL description.");
+                // Optionally log the error (ex)
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the DRL description.",
+                    data = (object)null
+                });
             }
         }
+
 
 
         [HttpGet("LoadAttachments")]

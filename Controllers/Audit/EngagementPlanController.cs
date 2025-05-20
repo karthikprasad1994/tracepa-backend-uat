@@ -259,6 +259,22 @@ namespace TracePca.Controllers.Audit
                 return StatusCode(500, new { success = false, message = $"An error occurred while downloading the file: {ex.Message}" });
             }
         }
+
+
+        [HttpPost("Generatepdf/word")]
+        public async Task<IActionResult> Generate([FromBody] EngagementPlanDetailsDTO data, [FromQuery] string fileType)
+        {
+            try
+            {
+                var (fileBytes, contentType, fileName) = await _engagementInterface.GenerateDocumentAsync(data, fileType);
+                return File(fileBytes, contentType, fileName);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
     }
 }
+
 
