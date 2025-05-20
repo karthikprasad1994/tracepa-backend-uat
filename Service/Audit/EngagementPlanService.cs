@@ -1,9 +1,14 @@
 ﻿using Dapper;
+using iTextSharp.text;
+using iTextSharp.text.pdf;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
+using Xceed.Document.NET;
+using Xceed.Words.NET;
+using Paragraph = iTextSharp.text.Paragraph;
 
 namespace TracePca.Service.Audit
 {
@@ -468,5 +473,129 @@ namespace TracePca.Service.Audit
                 throw new ApplicationException("An error occurred while getting the attachment details", ex);
             }
         }
+
+
+        public async Task<(byte[] fileBytes, string contentType, string fileName)> GenerateDocumentAsync(EngagementPlanDetailsDTO data, string fileType)
+        {
+            return fileType.ToLower() switch
+            {
+                "pdf" => (await GeneratePdfAsync(data), "application/pdf", "EngagementLetter.pdf"),
+                "word" => (await GenerateWordAsync(data),
+                           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                           "EngagementLetter.docx"),
+                _ => throw new ArgumentException("Invalid file type. Use 'pdf' or 'word'.")
+            };
+        }
+
+        private async Task<byte[]> GeneratePdfAsync(EngagementPlanDetailsDTO data)
+        {
+            return await Task.Run(() =>
+            {
+                using var ms = new MemoryStream();
+                var document = new iTextSharp.text.Document(PageSize.A4, 40, 40, 40, 40);
+                PdfWriter.GetInstance(document, ms);
+                document.Open();
+
+                var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 16);
+                var subHeaderFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12);
+                var bodyFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
+
+                document.Add(new Paragraph("ENGAGEMENT LETTER", headerFont) { Alignment = Element.ALIGN_CENTER });
+                document.Add(new Paragraph($"Reference: {data.LOE_Name}", bodyFont));
+                document.Add(new Paragraph($"Service Type: {data.LOE_NatureOfService}", bodyFont));
+                document.Add(Chunk.NEWLINE);
+
+                if (!string.IsNullOrEmpty(data.LOET_ScopeOfWork))
+                {
+                    document.Add(new Paragraph("Scope of Work", subHeaderFont));
+                    document.Add(new Paragraph(data.LOET_ScopeOfWork, bodyFont));
+                    document.Add(Chunk.NEWLINE);
+                }
+
+                foreach (var section in data.EngagementTemplateDetails)
+                {
+                    if (!string.IsNullOrEmpty(section.LTD_Heading))
+                        document.Add(new Paragraph(section.LTD_Heading, subHeaderFont));
+
+                    if (!string.IsNullOrEmpty(section.LTD_Decription))
+                        document.Add(new Paragraph(section.LTD_Decription, bodyFont));
+
+                    document.Add(Chunk.NEWLINE);
+                }
+
+                document.Add(new Paragraph("ENGAGEMENT FEES", subHeaderFont));
+                document.Add(new Paragraph($"Total Fees: ₹{data.LOE_Total}", bodyFont));
+
+                foreach (var fee in data.EngagementAdditionalFees)
+                {
+                    document.Add(new Paragraph($"Additional Fee - {fee.LAF_OtherExpensesName}: ₹{fee.LAF_Charges}", bodyFont));
+                }
+
+                document.Add(Chunk.NEWLINE);
+                document.Add(new Paragraph("Sincerely,", bodyFont));
+                document.Add(new Paragraph("M.S. Madhava Rao", bodyFont));
+                document.Add(new Paragraph("Chartered Accountant", bodyFont));
+
+                document.Close();
+                return ms.ToArray();
+            });
+        }
+
+        private async Task<byte[]> GenerateWordAsync(EngagementPlanDetailsDTO data)
+        {
+            return await Task.Run(() =>
+            {
+                using var ms = new MemoryStream();
+                using var doc = DocX.Create(ms);
+
+                doc.InsertParagraph("ENGAGEMENT LETTER")
+                    .FontSize(16)
+                    .Bold()
+                    .Alignment = Alignment.center;
+
+                doc.InsertParagraph($"Reference: {data.LOE_Name}").FontSize(12);
+                doc.InsertParagraph($"Service Type: {data.LOE_NatureOfService}").FontSize(12);
+
+                if (!string.IsNullOrEmpty(data.LOET_ScopeOfWork))
+                {
+                    doc.InsertParagraph("Scope of Work")
+                        .Bold()
+                        .FontSize(12)
+                        .SpacingBefore(10);
+                    doc.InsertParagraph(data.LOET_ScopeOfWork);
+                }
+
+                foreach (var section in data.EngagementTemplateDetails)
+                {
+                    if (!string.IsNullOrEmpty(section.LTD_Heading))
+                        doc.InsertParagraph(section.LTD_Heading)
+                            .Bold()
+                            .UnderlineStyle(UnderlineStyle.singleLine);
+
+                    if (!string.IsNullOrEmpty(section.LTD_Decription))
+                        doc.InsertParagraph(section.LTD_Decription);
+                }
+
+                doc.InsertParagraph("ENGAGEMENT FEES")
+                    .Bold()
+                    .FontSize(12)
+                    .SpacingBefore(10);
+                doc.InsertParagraph($"Total Fees: ₹{data.LOE_Total}");
+
+                foreach (var fee in data.EngagementAdditionalFees)
+                {
+                    doc.InsertParagraph($"Additional Fee - {fee.LAF_OtherExpensesName}: ₹{fee.LAF_Charges}");
+                }
+
+                doc.InsertParagraph("Sincerely,");
+                doc.InsertParagraph("M.S. Madhava Rao").Bold();
+                doc.InsertParagraph("Chartered Accountant");
+
+                doc.Save();
+                return ms.ToArray();
+            });
+        }
     }
+
 }
+

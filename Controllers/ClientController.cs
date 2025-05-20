@@ -221,14 +221,26 @@ namespace TracePca.Controllers
             try
             {
                 var result = await _AuditInterface.LoadDRLDescriptionAsync(connectionStringName, companyId, drlId);
-                return Ok(result);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "DRL description fetched successfully.",
+                    data = result
+                });
             }
             catch (Exception ex)
             {
-                // Log the error if needed
-                return StatusCode(500, "An error occurred while retrieving the DRL description.");
+                // Optionally log the error (ex)
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the DRL description.",
+                    data = (object)null
+                });
             }
         }
+
 
 
         [HttpGet("LoadAttachments")]

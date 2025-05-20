@@ -47,6 +47,7 @@ builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
+builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 //builder.Services.AddScoped<AuditInterface, Communication>();
 
 builder.Services.AddScoped<AuditInterface, Communication>();

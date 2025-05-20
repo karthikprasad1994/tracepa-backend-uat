@@ -564,6 +564,13 @@ namespace TracePca.Service
             }
         }
 
+        public SqlConnection GetConnection(string customerCode)
+        {
+            var template = _configuration.GetConnectionString("NewDatabaseTemplate");
+            var finalConnection = string.Format(template, customerCode);
+            return new SqlConnection(finalConnection);
+        }
+
 
         public string GenerateJwtTokens(LoginDto userDto)
         {
