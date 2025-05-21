@@ -21,7 +21,7 @@ namespace TracePca.Dto.Audit
         public int? LOE_ApprovedON { get; set; }
         [JsonIgnore]
         public string? LOE_Delflag { get; set; } = "A";
-        [JsonIgnore]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? LOE_Status { get; set; } = "C";
         public string LOE_IPAddress { get; set; }
         public int LOE_CompID { get; set; }
