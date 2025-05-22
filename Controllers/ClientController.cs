@@ -267,7 +267,30 @@ namespace TracePca.Controllers
             }
         }
 
+        [HttpGet("GetDRLAttachmentInfo")]
+        public async Task<IActionResult> GetDRLAttachmentInfo(int compId, int customerId, int drlId)
+        {
+            try
+            {
+                var attachments = await _AuditInterface.GetDRLAttachmentInfoAsync(compId, customerId, drlId);
 
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "Data fetched successfully",
+                    Data = attachments
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = $"Error retrieving attachment info: {ex.Message}",
+                    Data = new List<object>() // Empty data on error
+                });
+            }
+        }
 
         [HttpGet("LoadAttachments")]
         public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId, int Drlid, string dateFormat = "dd/MM/yyyy")

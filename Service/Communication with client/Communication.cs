@@ -930,6 +930,42 @@ namespace TracePca.Service.Communication_with_client
 
 
 
+        public async Task<IEnumerable<DRLAttachmentInfoDto>> GetDRLAttachmentInfoAsync(int compId, int customerId, int drlId)
+        {
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+    SELECT 
+        a.ATCH_ID AS AttachID,
+        FORMAT(a.ATCH_CREATEDON, 'dd-MMM-yyyy hh:mm tt') AS FormattedDate
+    FROM 
+        EDT_ATTACHMENTS a
+    INNER JOIN 
+        Audit_DRLLog d ON a.ATCH_CompID = d.ADRL_CompID 
+                     
+    WHERE 
+        a.ATCH_CompID = @CompId
+        AND d.ADRL_CustID = @CustomerId
+        AND d.ADRL_ID = @DrlId
+        AND a.ATCH_Status = 'X'
+    ORDER BY 
+        a.ATCH_CREATEDON DESC";
+
+            var result = await connection.QueryAsync<DRLAttachmentInfoDto>(query, new
+            {
+                CompId = compId,
+                CustomerId = customerId,
+                DrlId = drlId
+            });
+
+            return result;
+        }
+
+
+
         public async Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, int drlId, string dateFormat)
         {
             var connectionString = _configuration.GetConnectionString(connectionStringName);
@@ -937,27 +973,28 @@ namespace TracePca.Service.Communication_with_client
             await connection.OpenAsync();
 
             var query = @"
-        SELECT 
-            Atch_DocID,
-            ATCH_FNAME,
-            ATCH_EXT,
-            ATCH_Desc,
-            ATCH_CreatedBy,
-            FORMAT(ATCH_CREATEDON, @DateFormat) AS ATCH_CREATEDON,
-            ATCH_SIZE,
-            ATCH_ReportType,
-            CASE 
-                WHEN Atch_Vstatus = 'AS' THEN 'Not Shared'
-                WHEN Atch_Vstatus = 'A' THEN 'Shared'
-                WHEN Atch_Vstatus = 'C' THEN 'Received'
-            END AS Atch_Vstatus
-        FROM edt_attachments
-        WHERE ATCH_CompID = @CompanyId 
-            AND ATCH_ID = @AttachId 
-             AND ATCH_drlid = @DrlId
-            AND ATCH_Status <> 'D' 
-            AND Atch_Vstatus IN ('A', 'AS', 'C')
-        ORDER BY ATCH_CREATEDON";
+SELECT 
+    Atch_DocID,
+    ATCH_DRLID,
+    ATCH_FNAME,
+    ATCH_EXT,
+    ATCH_Desc,
+    ATCH_CreatedBy,
+    FORMAT(ATCH_CREATEDON, @DateFormat) AS ATCH_CREATEDON,
+    ATCH_SIZE,
+    ATCH_ReportType,
+    CASE 
+        WHEN Atch_Vstatus = 'AS' THEN 'Not Shared'
+        WHEN Atch_Vstatus = 'A' THEN 'Shared'
+        WHEN Atch_Vstatus = 'C' THEN 'Received'
+    END AS Atch_Vstatus
+FROM edt_attachments
+WHERE ATCH_CompID = @CompanyId 
+    AND ATCH_ID = @AttachId 
+    AND ATCH_DRLID = @DrlId
+    AND ATCH_Status <> 'D' 
+    AND Atch_Vstatus IN ('A', 'AS', 'C')
+ORDER BY ATCH_CREATEDON";
 
             var rawData = (await connection.QueryAsync(query, new
             {
@@ -975,16 +1012,17 @@ namespace TracePca.Service.Communication_with_client
                 result.Add(new AttachmentDto
                 {
                     SrNo = index++,
-                    AtchID = row.Atch_DocID,
+                    AtchID = Convert.ToInt32(row.Atch_DocID),
+                    DrlId = Convert.ToInt32(row.ATCH_DRLID),
                     FName = $"{row.ATCH_FNAME}.{row.ATCH_EXT}",
-                    FDescription = row.ATCH_Desc ?? "",
-                    CreatedById = row.ATCH_CreatedBy,
-                    CreatedBy = await GetUserFullNameAsync(connectionStringName, companyId, row.ATCH_CreatedBy), // Assumed existing helper
-                    CreatedOn = row.ATCH_CREATEDON,
+                    FDescription = row.ATCH_Desc?.ToString() ?? "",
+                    CreatedById = Convert.ToInt32(row.ATCH_CreatedBy),
+                    CreatedBy = await GetUserFullNameAsync(connectionStringName, companyId, Convert.ToInt32(row.ATCH_CreatedBy)),
+                    CreatedOn = row.ATCH_CREATEDON?.ToString() ?? "",
                     FileSize = $"{(Convert.ToDouble(row.ATCH_SIZE) / 1024):0.00} KB",
-                    Extention = row.ATCH_EXT,
-                    Type = row.ATCH_ReportType,
-                    Status = row.Atch_Vstatus
+                    Extention = row.ATCH_EXT?.ToString(),
+                    Type = row.ATCH_ReportType?.ToString(),
+                    Status = row.Atch_Vstatus?.ToString()
                 });
             }
 

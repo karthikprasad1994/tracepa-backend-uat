@@ -52,6 +52,7 @@ Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
         Task<CustomerInvoiceDto> GetCustomerDetailsForInvoiceAsync(int companyId, int customerId);
         Task<CustomerDataDto> GetCustomerDetailsWithTemplatesAsync(int companyId, int customerId, int reportTypeId);
         Task<(string WordFilePath, string PdfFilePath)> GenerateCustomerReportFilesAsync(int companyId, int customerId, int reportTypeId);
+        Task<IEnumerable<DRLAttachmentInfoDto>> GetDRLAttachmentInfoAsync(int compId, int customerId, int drlId);
 
 
     }
