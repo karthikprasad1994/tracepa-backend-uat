@@ -1,4 +1,5 @@
-﻿using TracePca.Dto;
+﻿using Org.BouncyCastle.Tls;
+using TracePca.Dto;
 using TracePca.Dto.Audit;
 
 namespace TracePca.Interface.Audit
@@ -47,9 +48,13 @@ Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
 
         Task UpdateScheduleCheckPointRemarksAnnexureAsync(UpdateScheduleCheckPointDto dto);
         Task<string> UploadAndSaveAttachmentsAsync(AddFileDto dto);
-
-
+    Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndLogDRLReportAsync(DRLRequestDto request, string format);
+        Task<CustomerInvoiceDto> GetCustomerDetailsForInvoiceAsync(int companyId, int customerId);
+        Task<CustomerDataDto> GetCustomerDetailsWithTemplatesAsync(int companyId, int customerId, int reportTypeId);
+        Task<(string WordFilePath, string PdfFilePath)> GenerateCustomerReportFilesAsync(int companyId, int customerId, int reportTypeId);
 
 
     }
+
+
 }

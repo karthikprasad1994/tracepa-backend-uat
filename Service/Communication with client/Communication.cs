@@ -1,22 +1,49 @@
-﻿using Dapper;
+﻿using System.Data;
+using System.Text;
+using Dapper;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
+using MailKit.Net.Smtp;
 using MailKit.Security;
+using MailKit.Security;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-
-
+using MimeKit;
+using MimeKit.Utils;
+using Org.BouncyCastle.Asn1.Ocsp;
+using Org.BouncyCastle.Tls;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using TracePca.Data;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
-using MailKit.Net.Smtp;
-using MailKit.Security;
-using MimeKit;
-using MimeKit.Utils;
-using Microsoft.AspNetCore.Mvc;
-using System.Data;
+using Xceed.Document.NET;
+using Xceed.Words.NET;
+using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
+using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
+using Paragraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
+using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
+using RunProperties = DocumentFormat.OpenXml.Wordprocessing.RunProperties;
+// Aliases to avoid conflicts
+using WordDoc = DocumentFormat.OpenXml.Wordprocessing.Document;
+using WordprocessingDocument = DocumentFormat.OpenXml.Packaging.WordprocessingDocument;
 using WorkpaperDto = TracePca.Dto.Audit.WorkpaperDto;
-using System.Text;
-using Org.BouncyCastle.Asn1.Ocsp;
+
+//using QuestPDF.Fluent;
+//using QuestPDF.Helpers;
+//using QuestPDF.Infrastructure;
+//using TracePca.Data;
+//using TracePca.Dto;
+//using TracePca.Dto.Audit;
+//using TracePca.Interface.Audit;
+////using Xceed.Document.NET;
+//using Paragraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
+//using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
+//using WorkpaperDto = TracePca.Dto.Audit.WorkpaperDto;
 
 namespace TracePca.Service.Communication_with_client
 {
@@ -318,6 +345,590 @@ namespace TracePca.Service.Communication_with_client
             return fullName ?? string.Empty;
         }
 
+        public async Task<int> GetRequestedIdAsync(int exportType)
+        {
+            var query = @"
+        SELECT ISNULL(cmm_ID, 0)
+        FROM Content_Management_Master
+        WHERE cmm_Category = 'DRL'
+          AND cmm_Desc = @Desc";
+
+            var cmmDesc = exportType == 1
+                ? "Beginning of the Audit"
+                : "Nearing completion of the Audit";
+
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var result = await connection.QueryFirstOrDefaultAsync<int>(query, new { Desc = cmmDesc });
+            return result;
+        }
+
+        public async Task<int> CheckAndGetDRLPKIDAsync(int yearId, int customerId, int auditNo, int requestedId)
+        {
+            var query = @"
+        SELECT ISNULL(ADRL_ID, 0)
+        FROM Audit_DRLLog
+        WHERE ADRL_YearID = @YearId
+          AND ADRL_CustID = @CustomerId
+          AND ADRL_AuditNo = @AuditNo
+          AND ADRL_RequestedListID = @RequestedId";
+
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var result = await connection.QueryFirstOrDefaultAsync<int>(query, new
+            {
+                YearId = yearId,
+                CustomerId = customerId,
+                AuditNo = auditNo,
+                RequestedId = requestedId
+            });
+
+            return result;
+        }
+
+        public async Task<int> SaveDRLLogAsync(DRLLogDto dto)
+        {
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id == 0)
+            {
+                var insert = @"
+            INSERT INTO Audit_DRLLog (
+                ADRL_YearID, ADRL_AuditNo, ADRL_CustID,
+                ADRL_RequestedListID, ADRL_RequestedTypeID,
+                ADRL_RequestedOn, ADRL_TimlinetoResOn,
+                ADRL_EmailID, ADRL_Comments,
+                ADRL_CrBy, ADRL_UpdatedBy,
+                ADRL_IPAddress, ADRL_CompID, ADRL_ReportType
+            ) VALUES (
+                @YearId, @AuditNo, @CustomerId,
+                @RequestedListId, @RequestedTypeId,
+                @RequestedOn, @TimelineToRespond,
+                @EmailIds, @Comments,
+                @CreatedBy, @UpdatedBy,
+                @IPAddress, @CompanyId, @ReportType
+            );
+            SELECT CAST(SCOPE_IDENTITY() AS INT);";
+
+                return await connection.ExecuteScalarAsync<int>(insert, new
+                {
+                    dto.YearId,
+                    dto.AuditNo,
+                    dto.CustomerId,
+                    dto.RequestedListId,
+                    dto.RequestedTypeId,
+                    dto.RequestedOn,
+                    dto.TimelineToRespond,
+                    dto.EmailIds,
+                    dto.Comments,
+                    CreatedBy = dto.CreatedBy,
+                    UpdatedBy = dto.UpdatedBy,
+                    IPAddress = dto.IPAddress,
+                    CompanyId = dto.CompanyId,
+                    ReportType = dto.ReportType
+                });
+            }
+            else
+            {
+                var update = @"
+            UPDATE Audit_DRLLog SET
+                ADRL_RequestedOn = @RequestedOn,
+                ADRL_TimlinetoResOn = @TimelineToRespond,
+                ADRL_EmailID = @EmailIds,
+                ADRL_Comments = @Comments,
+                ADRL_UpdatedBy = @UpdatedBy,
+                ADRL_ReportType = @ReportType
+            WHERE ADRL_ID = @Id";
+
+                await connection.ExecuteAsync(update, new
+                {
+                    dto.RequestedOn,
+                    dto.TimelineToRespond,
+                    dto.EmailIds,
+                    dto.Comments,
+                    UpdatedBy = dto.UpdatedBy,
+                    ReportType = dto.ReportType,
+                    dto.Id
+                });
+
+                return dto.Id;
+            }
+        }
+        public async Task<CustomerInvoiceDto> GetCustomerDetailsForInvoiceAsync(int companyId, int customerId)
+        {
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // Step 1: Get base customer details
+            var customerQuery = @"
+            SELECT CUST_ID, CUST_NAME, CUST_ADDRESS, CUST_CITY, CUST_STATE, CUST_PIN, CUST_EMAIL, CUST_TELPHONE
+            FROM SAD_CUSTOMER_MASTER
+            WHERE CUST_ID = @CustomerId AND CUST_CompID = @CompanyId";
+
+            var customer = await connection.QueryFirstOrDefaultAsync(customerQuery, new
+            {
+                CustomerId = customerId,
+                CompanyId = companyId
+            });
+
+
+            if (customer == null)
+                return null;
+
+            // Step 2: Get GSTIN
+            var gstinQuery = @"
+            SELECT Cust_Value 
+            FROM SAD_CUST_Accounting_Template 
+            WHERE Cust_ID = @CustomerId AND Cust_Desc = 'GSTIN'";
+
+            var gstin = await connection.ExecuteScalarAsync<string>(gstinQuery, new { CustomerId = customerId });
+
+            // Step 3: Build and return the DTO
+            return new CustomerInvoiceDto
+            {
+                CustName = customer.CUST_NAME,
+                CustAddress = customer.CUST_ADDRESS,
+                CustCityPin = $"{customer.CUST_CITY} {customer.CUST_PIN}",
+                CustState = $"State: {customer.CUST_STATE}",
+                CustEmail = customer.CUST_EMAIL,
+                CustTelephone = customer.CUST_TELPHONE,
+                CustGSTIN = $"GSTIN Number: {gstin ?? string.Empty}"
+            };
+        }
+
+
+        //public async Task<GenerateDRLReportResultDto> GenerateDRLReportAsync(GenerateDRLReportRequestDto request)
+        //{
+        //    // Step 1: Get Requested ID
+        //    int requestedId = await GetRequestedIdAsync(request.ExportType);
+
+        //    // Step 2: Check for existing record
+        //    int existingId = await CheckAndGetDRLPKIDAsync(request.YearId, request.CustomerId, request.AuditNo, requestedId);
+
+        //    // Step 3: Insert or Update
+        //    var logDto = new DRLLogDto
+        //    {
+        //        Id = existingId,
+        //        YearId = request.YearId,
+        //        AuditNo = request.AuditNo,
+        //        CustomerId = request.CustomerId,
+        //        RequestedListId = requestedId,
+        //        RequestedTypeId = request.RequestedTypeId,
+        //        RequestedOn = DateTime.Now,
+        //        TimelineToRespond = request.TimelineToRespond,
+        //        EmailIds = request.EmailIds,
+        //        Comments = request.Comments,
+        //        CreatedBy = request.CreatedBy,
+        //        UpdatedBy = request.UpdatedBy,
+        //        IPAddress = request.IPAddress,
+        //        CompanyId = request.CompanyId,
+        //        ReportType = request.ReportType
+        //    };
+
+        //    int drlLogId = await SaveDRLLogAsync(logDto);
+
+        //    // Step 4: Fetch Customer + Template Data
+        //    var customerData = await GetCustomerDetailsWithTemplatesAsync(request.CompanyId, request.CustomerId, request.ReportTypeId);
+
+        //    if (customerData == null)
+        //        throw new Exception("No customer/template data found.");
+
+        //    // Step 5: Generate Document
+        //    string fileName = $"DRL_Report_{drlLogId}_{DateTime.Now:yyyyMMddHHmmss}.{(request.Format == "pdf" ? "pdf" : "docx")}";
+        //    string filePath = Path.Combine("wwwroot", "generated", fileName);
+
+        //    Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+
+        //    if (request.Format == "pdf")
+        //    {
+        //        DocumentGenerator.GeneratePdf(customerData, filePath);
+        //    }
+        //    else
+        //    {
+        //        DocumentGenerator.GenerateWord(customerData, filePath);
+        //    }
+
+        //    // Step 6: Return result
+        //    return new GenerateDRLReportResultDto
+        //    {
+        //        DrlLogId = drlLogId,
+        //        FilePath = $"/generated/{fileName}",
+        //        Message = "Report generated successfully."
+        //    };
+        //}
+
+
+        //public async Task<CustomerDataDto> GetCustomerDetailsWithTemplatesAsync(int companyId, int customerId, int reportTypeId)
+        //{
+        //    var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+        //    using var connection = new SqlConnection(connectionString);
+        //    await connection.OpenAsync();
+
+        //    // Step 1: Get base customer details
+        //    var customerQuery = @"
+        //SELECT CUST_ID, CUST_NAME, CUST_ADDRESS, CUST_CITY, CUST_STATE, CUST_PIN, CUST_EMAIL, CUST_TELPHONE
+        //FROM SAD_CUSTOMER_MASTER
+        //WHERE CUST_ID = @CustomerId AND CUST_CompID = @CompanyId";
+
+        //    var customer = await connection.QueryFirstOrDefaultAsync(customerQuery, new
+        //    {
+        //        CustomerId = customerId,
+        //        CompanyId = companyId
+        //    });
+
+        //    if (customer == null)
+        //        return null;
+
+        //    // Step 2: Get GSTIN
+        //    var gstinQuery = @"
+        //SELECT Cust_Value 
+        //FROM SAD_CUST_Accounting_Template 
+        //WHERE Cust_ID = @CustomerId AND Cust_Desc = 'GSTIN'";
+
+        //    var gstin = await connection.ExecuteScalarAsync<string>(gstinQuery, new { CustomerId = customerId });
+
+        //    var customerDto = new CustomerInvoiceDto
+        //    {
+        //        CustName = customer.CUST_NAME,
+        //        CustAddress = customer.CUST_ADDRESS,
+        //        CustCityPin = $"{customer.CUST_CITY} {customer.CUST_PIN}",
+        //        CustState = $"State: {customer.CUST_STATE}",
+        //        CustEmail = customer.CUST_EMAIL,
+        //        CustTelephone = customer.CUST_TELPHONE,
+        //        CustGSTIN = $"GSTIN Number: {gstin ?? string.Empty}"
+        //    };
+
+        //    // Step 3: Load template sections
+        //    var templateQuery = @"
+        //SELECT LTD_Heading AS Heading, LTD_Decription AS Description
+        //FROM LOE_Template_Details
+        //WHERE LTD_ReportTypeID = @ReportTypeId AND LTD_CompID = @CompanyId AND LTD_LOE_ID = (
+        //    SELECT TOP 1 LOET_LOEID FROM LOE_Template
+        //    WHERE LOET_CustomerId = @CustomerId AND LOET_CompID = @CompanyId
+        //    ORDER BY LOET_Id DESC
+        //)
+        //ORDER BY LTD_ID";
+
+        //    var templateSections = (await connection.QueryAsync<DRLTemplateItem>(templateQuery, new
+        //    {
+        //        ReportTypeId = reportTypeId,
+        //        CompanyId = companyId,
+        //        CustomerId = customerId
+        //    })).ToList();
+
+        //    return new CustomerDataDto
+        //    {
+        //        Customer = customerDto,
+        //        TemplateSections = templateSections
+        //    };
+        //}
+
+        public async Task<(string WordFilePath, string PdfFilePath)> GenerateCustomerReportFilesAsync(int companyId, int customerId, int reportTypeId)
+        {
+            var customerData = await GetCustomerDetailsWithTemplatesAsync(companyId, customerId, reportTypeId);
+
+            if (customerData == null)
+                throw new Exception("Customer data not found.");
+
+            string outputDir = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedReports");
+            Directory.CreateDirectory(outputDir);
+
+            string baseFileName = $"CustomerReport_{customerId}_{DateTime.Now:yyyyMMddHHmmss}";
+            string wordFilePath = Path.Combine(outputDir, baseFileName + ".docx");
+            string pdfFilePath = Path.Combine(outputDir, baseFileName + ".pdf");
+
+            GenerateWord(customerData, wordFilePath);
+            GeneratePdf(customerData, pdfFilePath);
+
+            return (wordFilePath, pdfFilePath);
+        }
+
+        // Existing method reused
+        public async Task<CustomerDataDto> GetCustomerDetailsWithTemplatesAsync(int companyId, int customerId, int reportTypeId)
+        {
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var customerQuery = @"
+            SELECT CUST_ID, CUST_NAME, CUST_ADDRESS, CUST_CITY, CUST_STATE, CUST_PIN, CUST_EMAIL, CUST_TELPHONE
+            FROM SAD_CUSTOMER_MASTER
+            WHERE CUST_ID = @CustomerId AND CUST_CompID = @CompanyId";
+
+            var customer = await connection.QueryFirstOrDefaultAsync(customerQuery, new
+            {
+                CustomerId = customerId,
+                CompanyId = companyId
+            });
+
+            if (customer == null)
+                return null;
+
+            var gstinQuery = @"
+            SELECT Cust_Value 
+            FROM SAD_CUST_Accounting_Template 
+            WHERE Cust_ID = @CustomerId AND Cust_Desc = 'GSTIN'";
+
+            var gstin = await connection.ExecuteScalarAsync<string>(gstinQuery, new { CustomerId = customerId });
+
+            var customerDto = new CustomerInvoiceDto
+            {
+                CustName = customer.CUST_NAME,
+                CustAddress = customer.CUST_ADDRESS,
+                CustCityPin = $"{customer.CUST_CITY} {customer.CUST_PIN}",
+                CustState = $"State: {customer.CUST_STATE}",
+                CustEmail = customer.CUST_EMAIL,
+                CustTelephone = customer.CUST_TELPHONE,
+                CustGSTIN = $"GSTIN Number: {gstin ?? string.Empty}"
+            };
+
+            var templateQuery = @"
+            SELECT LTD_Heading AS Heading, LTD_Decription AS Description
+            FROM LOE_Template_Details
+            WHERE LTD_ReportTypeID = @ReportTypeId AND LTD_CompID = @CompanyId AND LTD_LOE_ID = (
+                SELECT TOP 1 LOET_LOEID FROM LOE_Template
+                WHERE LOET_CustomerId = @CustomerId AND LOET_CompID = @CompanyId
+                ORDER BY LOET_Id DESC
+            )
+            ORDER BY LTD_ID";
+
+            var templateSections = (await connection.QueryAsync<DRLTemplateItem>(templateQuery, new
+            {
+                ReportTypeId = reportTypeId,
+                CompanyId = companyId,
+                CustomerId = customerId
+            })).ToList();
+
+            return new CustomerDataDto
+            {
+                Customer = customerDto,
+                TemplateSections = templateSections
+            };
+        }
+
+        // Word (Xceed.Words.NET)
+        private void GenerateWord(CustomerDataDto data, string filePath)
+        {
+            using var doc = DocX.Create(filePath);
+
+            doc.InsertParagraph("Customer Report")
+                .FontSize(18)
+                .Bold()
+                .UnderlineStyle(UnderlineStyle.singleLine)
+                .SpacingAfter(10);
+
+            doc.InsertParagraph($"Name: {data.Customer.CustName}");
+            doc.InsertParagraph($"Address: {data.Customer.CustAddress}");
+            doc.InsertParagraph($"City/Pin: {data.Customer.CustCityPin}");
+            doc.InsertParagraph($"{data.Customer.CustState}");
+            doc.InsertParagraph($"Email: {data.Customer.CustEmail}");
+            doc.InsertParagraph($"Phone: {data.Customer.CustTelephone}");
+            doc.InsertParagraph($"{data.Customer.CustGSTIN}");
+
+            doc.InsertParagraph("Template Sections")
+                 .FontSize(16)
+                .Bold()
+                .SpacingBefore(15);
+
+            foreach (var section in data.TemplateSections)
+            {
+                doc.InsertParagraph(section.Heading).Bold();
+                doc.InsertParagraph(section.Description).SpacingAfter(10);
+            }
+
+            doc.Save();
+        }
+
+        // PDF (QuestPDF)
+        private void GeneratePdf(CustomerDataDto data, string filePath)
+        {
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+            QuestPDF.Fluent.Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Margin(30);
+                    page.Size(PageSizes.A4);
+                    page.PageColor(Colors.White);
+                    page.DefaultTextStyle(x => x.FontSize(12));
+
+                    page.Content()
+                        .Column(col =>
+                        {
+                            col.Item().PaddingBottom(10).Text("Customer Report").FontSize(18).Bold().Underline();
+                            col.Item().Text($"Name: {data.Customer.CustName}");
+                            col.Item().Text($"Address: {data.Customer.CustAddress}");
+                            col.Item().Text($"City/Pin: {data.Customer.CustCityPin}");
+                            col.Item().Text($"{data.Customer.CustState}");
+                            col.Item().Text($"Email: {data.Customer.CustEmail}");
+                            col.Item().Text($"Phone: {data.Customer.CustTelephone}");
+                            col.Item().Text($"{data.Customer.CustGSTIN}");
+
+                            col.Item().PaddingTop(10).Text("Template Sections").FontSize(16).Bold();
+
+                            foreach (var section in data.TemplateSections)
+                            {
+                                col.Item().Text(section.Heading).Bold();
+                                col.Item().PaddingBottom(8).Text(section.Description);
+                            }
+                        });
+                });
+            }).GeneratePdf(filePath);
+        }
+
+
+
+
+        public async Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndLogDRLReportAsync(DRLRequestDto request, string format)
+        {
+            var requestedId = await GetRequestedIdAsync(request.ExportType);
+            var existingId = await CheckAndGetDRLPKIDAsync(request.FinancialYearId, request.CustomerId, request.AuditNo, requestedId);
+
+            var drlLog = new DRLLogDto
+            {
+                Id = existingId,
+                YearId = request.FinancialYearId,
+                AuditNo = request.AuditNo,
+                CustomerId = request.CustomerId,
+                RequestedListId = requestedId,
+                RequestedTypeId = request.ExportType,
+                RequestedOn = DateTime.Parse(request.RequestedOn),
+                TimelineToRespond = DateTime.Parse(request.TimelineToRespond),
+                EmailIds = request.EmailIds,
+                Comments = request.Comments,
+                CreatedBy = request.CreatedBy,
+                UpdatedBy = request.UpdatedBy,
+                IPAddress = request.IPAddress,
+                CompanyId = request.CompanyId,
+                ReportType = request.ReportType
+            };
+
+            await SaveDRLLogAsync(drlLog);
+
+            byte[] fileBytes;
+            string contentType;
+            string fileName = request.ReferenceNumber ?? "DRL_Report";
+
+            if (format.ToLower() == "pdf")
+            {
+                fileBytes = await GeneratePdfAsync(request);
+                contentType = "application/pdf";
+                fileName += ".pdf";
+            }
+            else
+            {
+                fileBytes = await GenerateWordAsync(request);
+                contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                fileName += ".docx";
+            }
+
+            return (fileBytes, contentType, fileName);
+        }
+
+        private async Task<byte[]> GeneratePdfAsync(DRLRequestDto request)
+        {
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(595, 842); // A4 size manually specified
+                        page.Margin(40);
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10)
+                                  .Text("GeneralReport").FontSize(18).Bold();
+
+                            column.Item().Text($"Ref.No.: {request.ReferenceNumber} - {request.Title}")
+                                         .FontSize(12).Bold();
+
+                            column.Item().Text($"Date: {DateTime.Today:dd MMM yyyy}").FontSize(10);
+                            column.Item().Text(request.CompanyName).FontSize(10);
+                            column.Item().Text(request.Address).FontSize(10);
+                            column.Item().PaddingBottom(10);
+
+                            column.Item().PaddingBottom(10)
+                                  .Text(request.Title)
+                                  .FontSize(14).Bold().Underline();
+
+                            foreach (var item in request.TemplateItems)
+                            {
+                                column.Item().Text("• " + item.Heading).FontSize(11).Bold();
+                                if (!string.IsNullOrWhiteSpace(item.Description))
+                                    column.Item().Text(item.Description).FontSize(10);
+                                column.Item().PaddingBottom(5);
+                            }
+
+                            column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
+                            column.Item().Text("M.S. Madhava Rao").FontSize(10).Bold();
+                            column.Item().Text("Chartered Accountant").FontSize(10);
+                        });
+                    });
+                });
+
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
+
+
+
+        private async Task<byte[]> GenerateWordAsync(DRLRequestDto request)
+        {
+            return await Task.Run(() =>
+            {
+                using var ms = new MemoryStream();
+                using var doc = WordprocessingDocument.Create(ms, DocumentFormat.OpenXml.WordprocessingDocumentType.Document);
+                var mainPart = doc.AddMainDocumentPart();
+                mainPart.Document = new WordDoc(new Body());
+                var body = mainPart.Document.Body;
+
+                void AddParagraph(string text, bool bold = false)
+                {
+                    var run = new Run(new Text(text));
+                    if (bold)
+                        run.RunProperties = new RunProperties(new Bold());
+
+                    body.AppendChild(new Paragraph(run));
+                }
+
+                AddParagraph("GeneralReport", true);
+                AddParagraph($"Ref.No.: {request.ReferenceNumber} - {request.Title}", true);
+                AddParagraph($"Date: {DateTime.Today:dd MMM yyyy}");
+                AddParagraph(request.CompanyName);
+                AddParagraph(request.Address);
+                AddParagraph(request.Title, true);
+
+                foreach (var item in request.TemplateItems)
+                {
+                    AddParagraph("• " + item.Heading, true);
+                    AddParagraph(item.Description ?? "");
+                }
+
+                AddParagraph("Very truly yours,");
+                AddParagraph("M.S. Madhava Rao", true);
+                AddParagraph("Chartered Accountant");
+
+                doc.Save();
+                return ms.ToArray();
+            });
+        }
+
+
 
         public async Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, int drlId, string dateFormat)
         {
@@ -606,10 +1217,10 @@ VALUES (
                 await connection.ExecuteAsync(
                     @"INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
                 SAR_ID, SAR_SAC_ID, SAR_SA_ID, SAR_DRLId,
-                SAR_Remarks, SAR_Date, SAR_RemarksType, SAR_AttchId, SAR_AtthachDocId
+                SAR_Remarks, SAR_Date, SAR_RemarksType, SAR_AttchId, SAR_AtthachDocId, SAR_TimelinetoResOn
             ) VALUES (
                 @RemarkId, @CustomerId, @AuditId, @RequestedId,
-                @Remark, GETDATE(), @Type, @AtchId,  @DocId
+                @Remark, GETDATE(), @Type, @AtchId,  @DocId,  GETDATE()
             )",
                     new
                     {

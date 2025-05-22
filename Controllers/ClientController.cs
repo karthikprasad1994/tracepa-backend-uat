@@ -529,7 +529,123 @@ namespace TracePca.Controllers
             return Ok(result);
         }
 
+        [HttpGet("GetCustomerInvoicedetails")]
+        public async Task<IActionResult> GetInvoiceDetails([FromQuery] int companyId, [FromQuery] int customerId)
+        {
+            var result = await _AuditInterface.GetCustomerDetailsForInvoiceAsync(companyId, customerId);
 
+            if (result == null)
+            {
+                return NotFound(new
+                {
+                    statusCode = 404,
+                    message = "Customer not found"
+                });
+            }
+
+            return Ok(new
+            {
+                statusCode = 200,
+                message = "Customer invoice details fetched successfully",
+                data = result
+            });
+        }
+
+
+        [HttpGet("GetCustomerData")]
+        public async Task<IActionResult> GetCustomerData(
+        [FromQuery] int companyId,
+        [FromQuery] int customerId,
+        [FromQuery] int reportTypeId)
+        {
+            try
+            {
+                var result = await _AuditInterface.GetCustomerDetailsWithTemplatesAsync(companyId, customerId, reportTypeId);
+
+                if (result == null)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "Customer not found or  data available.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Customer data fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "Failed to fetch customer  data.",
+                    error = ex.Message
+                });
+            }
+        }
+
+       
+
+            [HttpGet("GenerateFiles")]
+            public async Task<IActionResult> GenerateCustomerReport(int companyId, int customerId, int reportTypeId)
+            {
+                try
+                {
+                    var (wordPath, pdfPath) = await _AuditInterface.GenerateCustomerReportFilesAsync(companyId, customerId, reportTypeId);
+
+                    var response = new ReportFileResponseDto
+                    {
+                        StatusCode = 200,
+                        Message = "Report files generated successfully.",
+                        WordFilePath = wordPath,
+                        PdfFilePath = pdfPath
+                    };
+
+                    return Ok(response);
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new ReportFileResponseDto
+                    {
+                        StatusCode = 500,
+                        Message = "Failed to generate report: " + ex.Message,
+                        WordFilePath = null,
+                        PdfFilePath = null
+                    });
+                }
+            }
+        
+
+
+
+
+        [HttpPost("GenerateFile")]
+        public async Task<IActionResult> GenerateDrlReport([FromBody] DRLRequestDto request, [FromQuery] string format = "pdf")
+        {
+            try
+            {
+                var (fileBytes, contentType, fileName) = await _AuditInterface.GenerateAndLogDRLReportAsync(request, format);
+
+                return File(fileBytes, contentType, fileName);
+            }
+            catch
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "Failed to generate report"
+                });
+            }
+        }
     }
+
+
 }
+
 
