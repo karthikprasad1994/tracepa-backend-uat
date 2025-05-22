@@ -40,7 +40,7 @@ builder.Services.AddScoped<AssetRegisterInterface, AssetRegister>();
 builder.Services.AddScoped<LocationSetUpInterface, LocationSeUp>();
 builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAddition>();
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
-
+builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
 
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
