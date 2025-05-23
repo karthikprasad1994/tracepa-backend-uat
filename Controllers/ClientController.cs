@@ -30,6 +30,116 @@ namespace TracePca.Controllers
         //    var result = await _AuditInterface.GetCustomerAuditDropdownAsync(companyId);
         //    return Ok(result);
         //}
+        [HttpGet("GetDateFormat")]
+        public async Task<IActionResult> GetDateFormat(string connectionKey, int companyId, string configKey)
+        {
+            try
+            {
+                var format = await _AuditInterface.GetDateFormatAsync(connectionKey, companyId, configKey);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Date format retrieved successfully.",
+                    data = format
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving the date format.",
+                    error = ex.Message
+                });
+            }
+        }
+
+       
+
+            [HttpGet("GetLoeTemplateSignedOn")]
+            public async Task<IActionResult> GetLoeTemplateSignedOn(
+                string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId, string dateFormat)
+            {
+                try
+                {
+                    var approvedOn = await _AuditInterface.GetLoeTemplateSignedOnAsync(
+                        connectionStringName, companyId, auditTypeId, customerId, yearId, dateFormat);
+
+                    return Ok(new
+                    {
+                        status = 200,
+                        message = "Record retrieved successfully.",
+                        data = approvedOn
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new
+                    {
+                        status = 500,
+                        message = "An error occurred while processing your request.",
+                        error = ex.Message
+                    });
+                }
+            }
+
+
+        [HttpGet("GetCustomerFinancialYear")]
+        public async Task<IActionResult> GetCustomerFinancialYear(
+       string connectionKey, int companyId, int customerId)
+        {
+            try
+            {
+                var result = await _AuditInterface.GetCustomerFinancialYearAsync(connectionKey, companyId, customerId);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Financial year retrieved successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while processing your request.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        
+
+            [HttpGet("GetReportTypes")]
+            public async Task<IActionResult> GetReportTypes(string connectionKey, int companyId)
+            {
+                try
+                {
+                    var reportTypes = await _AuditInterface.GetReportTypesAsync(connectionKey, companyId);
+
+                    return Ok(new
+                    {
+                        status = 200,
+                        message = "Report types retrieved successfully.",
+                        data = reportTypes
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new
+                    {
+                        status = 500,
+                        message = "An error occurred while processing your request.",
+                        error = ex.Message
+                    });
+                }
+            }
+        
+
+
 
         [HttpGet("ActiveCustomers")]
         public async Task<IActionResult> GetActiveCustomers([FromQuery] int companyId)
@@ -291,6 +401,36 @@ namespace TracePca.Controllers
                 });
             }
         }
+
+        //[HttpPost("GenerateDRLReport")]
+        //public async Task<IActionResult> GenerateDRLReport([FromForm] DRLReportRequest request)
+        //{
+        //    try
+        //    {
+        //        var result = await _drlReportService.SaveDRLLogWithAttachmentAsync(request);
+
+        //        return Ok(new
+        //        {
+        //            StatusCode = 200,
+        //            Message = "DRL log saved and file generated successfully.",
+        //            Data = new
+        //            {
+        //                result.DrlLogId,
+        //                result.AttachmentId,
+        //                result.FilePath
+        //            }
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error generating DRL report");
+        //        return StatusCode(StatusCodes.Status500InternalServerError, new
+        //        {
+        //            StatusCode = 500,
+        //            Message = "An error occurred while generating the DRL report."
+        //        });
+        //    }
+        //}
 
         [HttpGet("LoadAttachments")]
         public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId, int Drlid, string dateFormat = "dd/MM/yyyy")

@@ -53,8 +53,13 @@ Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
         Task<CustomerDataDto> GetCustomerDetailsWithTemplatesAsync(int companyId, int customerId, int reportTypeId);
         Task<(string WordFilePath, string PdfFilePath)> GenerateCustomerReportFilesAsync(int companyId, int customerId, int reportTypeId);
         Task<IEnumerable<DRLAttachmentInfoDto>> GetDRLAttachmentInfoAsync(int compId, int customerId, int drlId);
+        Task<int> SaveDRLLogWithAttachmentAsync(DRLLogDto dto, string filePath, string fileType);
+        Task<string> GetLoeTemplateSignedOnAsync(
+     string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId, string dateFormat);
+        Task<string> GetCustomerFinancialYearAsync(string connectionKey, int companyId, int customerId);
 
-
+        Task<IEnumerable<ReportData>> GetReportTypesAsync(string connectionKey, int companyId);
+        Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey);
     }
 
 

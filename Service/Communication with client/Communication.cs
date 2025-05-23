@@ -59,6 +59,102 @@ namespace TracePca.Service.Communication_with_client
             _configuration = configuration;
         }
 
+
+        public async Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey)
+        {
+            const string query = @"
+        SELECT SAD_Config_Value 
+        FROM SAD_Config_Settings 
+        WHERE SAD_Config_Key = @ConfigKey AND SAD_CompID = @CompanyId";
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+            var configValue = await connection.ExecuteScalarAsync<string>(query, new
+            {
+                ConfigKey = configKey,
+                CompanyId = companyId
+            });
+
+            return configValue switch
+            {
+                "1" => "dd-MMM-yy",
+                "2" => "dd/MM/yyyy",
+                "3" => "MM/dd/yyyy",
+                "4" => "yyyy/MM/dd",
+                "5" => "MMM-dd-yy",
+                "6" => "MMM/dd/yy",
+                "7" => "MM-dd-yyyy",
+                "8" => "MMM/dd/yyyy",
+                _ => string.Empty
+            };
+        }
+
+
+
+        public async Task<string> GetLoeTemplateSignedOnAsync(
+     string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId, string dateFormat)
+        {
+            const string query = @"
+        SELECT ISNULL(FORMAT(LOET_ApprovedOn, @DateFormat), '') AS LOET_ApprovedOn
+        FROM LOE_Template
+        WHERE LOET_CustomerId = @CustomerId
+          AND LOET_FunctionId = @AuditTypeId
+          AND LOET_CompID = @CompanyId
+          AND LOET_LOEID IN (
+              SELECT LOE_Id
+              FROM SAD_CUST_LOE
+              WHERE LOE_YearId = @YearId
+                AND LOE_CustomerId = @CustomerId
+          )";
+
+            var parameters = new
+            {
+                DateFormat = dateFormat,
+                CustomerId = customerId,
+                AuditTypeId = auditTypeId,
+                CompanyId = companyId,
+                YearId = yearId
+            };
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString(connectionStringName));
+            var approvedOn = await connection.ExecuteScalarAsync<string>(query, parameters);
+            return approvedOn ?? string.Empty;
+        }
+
+        public async Task<string> GetCustomerFinancialYearAsync(string connectionKey, int companyId, int customerId)
+        {
+            const string query = @"
+        SELECT CASE 
+            WHEN ISNULL(CUST_FY, '0') = 1 THEN 'Jan 1st to Dec 31st'
+            WHEN ISNULL(CUST_FY, '0') = 2 THEN 'Feb 1st to Jan 31st'
+            WHEN ISNULL(CUST_FY, '0') = 3 THEN 'Mar 1st to Feb 28th'
+            WHEN ISNULL(CUST_FY, '0') = 4 THEN 'Apr 1st to May 31st'
+            WHEN ISNULL(CUST_FY, '0') = 5 THEN 'May 1st to Apr 30th'
+            WHEN ISNULL(CUST_FY, '0') = 6 THEN 'Jun 1st to May 31st'
+            WHEN ISNULL(CUST_FY, '0') = 7 THEN 'Jul 1st to Jun 30th'
+            WHEN ISNULL(CUST_FY, '0') = 8 THEN 'Aug 1st to Jul 31st'
+            WHEN ISNULL(CUST_FY, '0') = 9 THEN 'Sep 1st to Aug 31st'
+            WHEN ISNULL(CUST_FY, '0') = 10 THEN 'Oct 1st to Sep 30th'
+            WHEN ISNULL(CUST_FY, '0') = 11 THEN 'Nov 1st to Oct 31st'
+            WHEN ISNULL(CUST_FY, '0') = 12 THEN 'Dec 1st to Jan 31st'
+            ELSE '-' 
+        END AS CUST_FY_Text
+        FROM SAD_CUSTOMER_MASTER
+        WHERE CUST_ID = @CustomerId AND CUST_CompID = @CompanyId";
+
+            var parameters = new
+            {
+                CustomerId = customerId,
+                CompanyId = companyId
+            };
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+            var financialYear = await connection.ExecuteScalarAsync<string>(query, parameters);
+
+            return financialYear ?? "-";
+        }
+
+
+
         public async Task<IEnumerable<Dto.Audit.CustomerDto>> GetCustomerLoeAsync(int companyId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -69,6 +165,23 @@ namespace TracePca.Service.Communication_with_client
 
             return await connection.QueryAsync<Dto.Audit.CustomerDto>(query, new { CompanyId = companyId });
         }
+
+        public async Task<IEnumerable<ReportData>> GetReportTypesAsync(string connectionKey, int companyId)
+        {
+            const string query = @"
+        SELECT RTM_Id AS ReportId , RTM_ReportTypeName AS  ReportName
+        FROM SAD_ReportTypeMaster
+        WHERE RTM_TemplateId = 1
+          AND RTM_DelFlag = 'A'
+          AND RTM_CompID = @CompId
+        ORDER BY RTM_ReportTypeName";
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+
+            var parameters = new { CompId = companyId };
+            return await connection.QueryAsync<ReportData>(query, parameters);
+        }
+
 
 
         public async Task<IEnumerable<AuditTypeDto>> GetAuditTypesAsync(int companyId)
@@ -926,6 +1039,149 @@ namespace TracePca.Service.Communication_with_client
                 doc.Save();
                 return ms.ToArray();
             });
+        }
+        public async Task<int> SaveDRLLogWithAttachmentAsync(DRLLogDto dto, string filePath, string fileType)
+        {
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                int drlId = dto.Id;
+
+                // 1. Insert or Update Audit_DRLLog
+                if (dto.Id == 0)
+                {
+                    var insert = @"
+                INSERT INTO Audit_DRLLog (
+                    ADRL_YearID, ADRL_AuditNo, ADRL_CustID,
+                    ADRL_RequestedListID, ADRL_RequestedTypeID,
+                    ADRL_RequestedOn, ADRL_TimlinetoResOn,
+                    ADRL_EmailID, ADRL_Comments,
+                    ADRL_CrBy, ADRL_UpdatedBy,
+                    ADRL_IPAddress, ADRL_CompID, ADRL_ReportType
+                ) VALUES (
+                    @YearId, @AuditNo, @CustomerId,
+                    @RequestedListId, @RequestedTypeId,
+                    @RequestedOn, @TimelineToRespond,
+                    @EmailIds, @Comments,
+                    @CreatedBy, @UpdatedBy,
+                    @IPAddress, @CompanyId, @ReportType
+                );
+                SELECT CAST(SCOPE_IDENTITY() AS INT);";
+
+                    drlId = await connection.ExecuteScalarAsync<int>(insert, new
+                    {
+                        dto.YearId,
+                        dto.AuditNo,
+                        dto.CustomerId,
+                        dto.RequestedListId,
+                        dto.RequestedTypeId,
+                        dto.RequestedOn,
+                        dto.TimelineToRespond,
+                        dto.EmailIds,
+                        dto.Comments,
+                        CreatedBy = dto.CreatedBy,
+                        UpdatedBy = dto.UpdatedBy,
+                        IPAddress = dto.IPAddress,
+                        CompanyId = dto.CompanyId,
+                        ReportType = dto.ReportType
+                    }, transaction);
+                }
+                else
+                {
+                    var update = @"
+                UPDATE Audit_DRLLog SET
+                    ADRL_RequestedOn = @RequestedOn,
+                    ADRL_TimlinetoResOn = @TimelineToRespond,
+                    ADRL_EmailID = @EmailIds,
+                    ADRL_Comments = @Comments,
+                    ADRL_UpdatedBy = @UpdatedBy,
+                    ADRL_ReportType = @ReportType
+                WHERE ADRL_ID = @Id";
+
+                    await connection.ExecuteAsync(update, new
+                    {
+                        dto.RequestedOn,
+                        dto.TimelineToRespond,
+                        dto.EmailIds,
+                        dto.Comments,
+                        UpdatedBy = dto.UpdatedBy,
+                        ReportType = dto.ReportType,
+                        dto.Id
+                    }, transaction);
+                }
+
+                // 2. Fetch customer & template data
+                var customerData = await GetCustomerDetailsWithTemplatesAsync(dto.CompanyId, dto.CustomerId, dto.ReportType);
+
+                if (customerData == null)
+                    throw new Exception("Customer data not found.");
+
+                // 3. Generate Word/PDF
+                var outputFolder = Path.Combine("DRLReports", dto.CompanyId.ToString(), dto.CustomerId.ToString());
+                Directory.CreateDirectory(outputFolder);
+
+                var fileName = Path.GetFileName(filePath);
+                var generatedFilePath = Path.Combine(outputFolder, fileName);
+
+                if (fileType.ToLower() == "pdf")
+                    GeneratePdf(customerData, generatedFilePath);
+                else
+                    GenerateWord(customerData, generatedFilePath);
+
+                // 4. Save metadata in EDT_ATTACHMENTS
+                var attachId = await connection.ExecuteScalarAsync<int>(
+                    @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
+                    new { CompanyId = dto.CompanyId }, transaction);
+
+                var docId = await connection.ExecuteScalarAsync<int>(
+                    @"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
+                    new { CompanyId = dto.CompanyId }, transaction);
+
+                var extension = Path.GetExtension(fileName)?.TrimStart('.') ?? "unk";
+                var fileSize = new FileInfo(generatedFilePath).Length;
+
+                var insertAttach = @"
+            INSERT INTO EDT_ATTACHMENTS (
+                ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT,
+                ATCH_CREATEDBY, ATCH_MODIFIEDBY, ATCH_VERSION,
+                ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename,
+                ATCH_CREATEDON, ATCH_Status, ATCH_CompID,
+                Atch_Vstatus, ATCH_ReportType
+            )
+            VALUES (
+                @AttachId, @DocId, @FileName, @Extension,
+                @CreatedBy, @CreatedBy, 1,
+                @Flag, @Size, 0, 0,
+                GETDATE(), 'X', @CompanyId,
+                'A', @ReportType
+            );";
+
+                await connection.ExecuteAsync(insertAttach, new
+                {
+                    AttachId = attachId,
+                    DocId = docId,
+                    FileName = fileName.Length > 95 ? fileName.Substring(0, 95) : fileName.Replace("&", " and"),
+                    Extension = extension,
+                    CreatedBy = dto.CreatedBy,
+                    Flag = 1,
+                    Size = fileSize,
+                    CompanyId = dto.CompanyId,
+                    ReportType = dto.ReportType
+                }, transaction);
+
+                transaction.Commit();
+                return drlId;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
         }
 
 
