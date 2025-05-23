@@ -3,8 +3,10 @@
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using System.Reflection.Metadata.Ecma335;
 using TracePca.Data;
 using TracePca.Dto.Audit;
+using TracePca.Dto.DigitalFiling;
 using TracePca.Interface.Audit;
 
 
@@ -204,7 +206,7 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
 
-                var nextSerialNo = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT COUNT(*) + 1 FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId",new { YearId = yearId });
+                var nextSerialNo = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT COUNT(*) + 1 FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId", new { YearId = yearId });
                 var loeName = await connection.QueryFirstOrDefaultAsync<string>(
                     @"SELECT CONCAT(cust.CUST_CODE, '/LOE/', yms.YMS_ID, '/', RIGHT('00000' + CAST(@SerialNo AS VARCHAR), 5)) AS LOE_Name
                     FROM SAD_CUSTOMER_MASTER cust, YEAR_MASTER yms WHERE cust.CUST_ID = @CustomerId AND yms.YMS_YEARID = @YearId",
@@ -480,11 +482,38 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<AuditDropDownListDataDTO> LoadUsersByCustomerIdDDLAsync(int custId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
 
-       
+                var userList = await connection.QueryAsync<DropDownListData>(@"SELECT usr_FullName As Name,usr_Id As ID from Sad_UserDetails where usr_Type = 'C' and usr_CompanyId = @CustId order by usr_FullName", new { CustId = custId });
 
-       
+                return new AuditDropDownListDataDTO
+                {
+                    CustomerUserList = userList.ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while loading customer user dropdown data.", ex);
+            }
+        }
+
+        public async Task<bool> SaveEngagementPlanExportDataAsync(EngagementPlanReportExportDetailsDTO dto)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            try
+            {
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while saving or updating the engagement plan data", ex);
+            }
+        }
     }
-
 }
-

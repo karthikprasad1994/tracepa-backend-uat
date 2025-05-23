@@ -142,4 +142,14 @@ namespace TracePca.Dto.Audit
         public string? LAF_OtherExpensesName { get; set; }
         public string? LAF_Charges { get; set; }
     }
+
+    public class EngagementPlanReportExportDetailsDTO
+    {
+        public int LOEId { get; set; }
+        public int YearId { get; set; }
+        public int CustomerId { get; set; }
+        public List<int> CustomerUsers { get; set; }
+        public string? Comments { get; set; }
+        public int CompId { get; set; }
+    }
 }
