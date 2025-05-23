@@ -16,6 +16,7 @@ namespace TracePca.Interface.Audit
         Task RemoveAttachmentDocAsync(int compId, int attachId, int docId, int userId);
         Task UpdateAttachmentDocDescriptionAsync(int compId, int attachId, int docId, int userId, string description);
         Task<AttachmentDetailsDTO> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId);
-       
+        Task<AuditDropDownListDataDTO> LoadUsersByCustomerIdDDLAsync(int custId);
+        Task<bool> SaveEngagementPlanExportDataAsync(EngagementPlanReportExportDetailsDTO dto);
     }
 }

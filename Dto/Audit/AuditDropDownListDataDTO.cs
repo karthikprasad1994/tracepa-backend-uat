@@ -12,6 +12,7 @@
         public List<DropDownListData> AuditWorkpaperList { get; set; }
         public List<DropDownListData> AuditCompletionCheckPointList { get; set; }
         public List<DropDownListData> SignedByList { get; set; }
+        public List<DropDownListData> CustomerUserList { get; set; }
     }
     public class DropDownListData
     {
@@ -24,6 +25,5 @@
         public int ID { get; set; }
         public string Name { get; set; }
         public int AuditTypeID { get; set; }
-
     }
 }

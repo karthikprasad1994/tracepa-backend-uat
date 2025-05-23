@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR.Protocol;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
 
@@ -261,8 +262,41 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpGet("LoadUsersByCustomerIdDDL")]
+        public async Task<IActionResult> LoadUsersByCustomerIdDDL(int custId)
+        {
+            try
+            {
+                var dropdownData = await _engagementInterface.LoadUsersByCustomerIdDDLAsync(custId);
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Customer user dropdown data fetched successfully.",
+                    data = dropdownData
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load Customer user dropdown data.", error = ex.Message });
+            }
+        }
 
-       
+        [HttpPost("SaveEngagementPlanExportData")]
+        public async Task<IActionResult> SaveEngagementPlanExportData([FromBody] EngagementPlanReportExportDetailsDTO dto)
+        {
+            try
+            {
+                var result = await _engagementInterface.SaveEngagementPlanExportDataAsync(dto);
+                if (result)
+                    return Ok(new { success = true, message = "Engagement Plan exported successfully." });
+                else
+                    return BadRequest(new { success = false, message = "Engagement Plan exported failed." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "An error occurred while saving Engagement Plan exported data.", error = ex.Message });
+            }
+        }
     }
 }
 
