@@ -1431,7 +1431,7 @@ namespace TracePca.Service.Communication_with_client
 
 
 
-        public async Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, int drlId)
+        public async Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId)
         {
             var connectionString = _configuration.GetConnectionString(connectionStringName);
             using var connection = new SqlConnection(connectionString);
@@ -1445,7 +1445,7 @@ SELECT
     ATCH_EXT,
     ATCH_Desc,
     ATCH_CreatedBy,
-    FORMAT(ATCH_CREATEDON, @DateFormat) AS ATCH_CREATEDON,
+  FORMAT(ATCH_CREATEDON, 'dd-MMM-yyyy') AS ATCH_CREATEDON,
     ATCH_SIZE,
     ATCH_ReportType,
     CASE 
@@ -1456,16 +1456,14 @@ SELECT
 FROM edt_attachments
 WHERE ATCH_CompID = @CompanyId 
     AND ATCH_ID = @AttachId 
-    AND ATCH_DRLID = @DrlId
     AND ATCH_Status <> 'D' 
-    AND Atch_Vstatus IN ('A', 'AS', 'C')
+    AND Atch_Vstatus IN ('A', 'AS', 'C','DS')
 ORDER BY ATCH_CREATEDON";
 
             var rawData = (await connection.QueryAsync(query, new
             {
                 CompanyId = companyId,
                 AttachId = attachId,
-                DrlId = drlId,
                 
             })).ToList();
 

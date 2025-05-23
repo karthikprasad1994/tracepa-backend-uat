@@ -527,11 +527,11 @@ namespace TracePca.Controllers
         //}
 
         [HttpGet("LoadAttachments")]
-        public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId, int Drlid)
+        public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId)
         {
             try
             {
-                var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId, Drlid);
+                var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId);
 
                 return Ok(new
                 {
