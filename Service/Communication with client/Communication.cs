@@ -313,6 +313,43 @@ namespace TracePca.Service.Communication_with_client
             return await connection.QueryAsync<ReportTypeDto>(sql, parameters);
         }
 
+        public async Task<IEnumerable<DropDownListDto>> LoadDRLClientSideAsync(string connectionKey, int compId, string type, string auditNo)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+
+            // Step 1: Determine the iaudrpttype
+            const string auditTypeQuery = @"
+        SELECT 
+            CASE 
+                WHEN CHARINDEX('Q', @AuditNo) > 0 THEN 1 
+                WHEN CHARINDEX('KY', @AuditNo) > 0 THEN 2 
+                ELSE 3 
+            END";
+
+            var iaudrpttype = await connection.ExecuteScalarAsync<int>(auditTypeQuery, new { AuditNo = auditNo });
+
+            // Step 2: Get the data from Content_Management_Master
+            const string contentQuery = @"
+        SELECT 
+            CMM_ID AS PKID,
+            CMM_Desc AS Name 
+        FROM Content_Management_Master 
+        WHERE CMM_Category = @Type 
+          AND CMM_CompID = @CompId 
+          AND CMM_AudrptType IN (3, @AuditRptType)
+          AND CMM_DelFlag IN ('A','M') 
+        ORDER BY CMM_Desc ASC";
+
+            var parameters = new
+            {
+                Type = type,
+                CompId = compId,
+                AuditRptType = iaudrpttype
+            };
+
+            return await connection.QueryAsync<DropDownListDto>(contentQuery, parameters);
+        }
+
         public async Task<IEnumerable<CustomerUserEmailDto>> GetCustAllUserEmailsAsync(
     string connectionStringName, int companyId, int customerId)
         {
@@ -416,6 +453,62 @@ namespace TracePca.Service.Communication_with_client
             var result = await connection.QueryAsync<DrlDescListDto>(sQuery, new { CompanyId = companyId });
             return result;
         }
+
+        public async Task<List<int>> SaveLoETemplateDetailsAsync(string connectionKey, int companyId, List<LoETemplateDetailDto> details)
+        {
+            const string query = @"
+        MERGE INTO LOE_Template AS target
+        USING (VALUES (@AuditNo, @CabType, @HeadingId, @CompanyId)) 
+               AS source (LOET_AuditNo, LOET_ReportType, LOET_HeadingID, LOET_CompID)
+        ON target.LOET_AuditNo = source.LOET_AuditNo
+           AND target.LOET_ReportType = source.LOET_ReportType
+           AND target.LOET_HeadingID = source.LOET_HeadingID
+           AND target.LOET_CompID = source.LOET_CompID
+        WHEN MATCHED THEN
+            UPDATE SET 
+                LOET_Heading = @Heading,
+                LOET_Description = @Description,
+                LOET_UserID = @UserId,
+                LOET_IPAddress = @IpAddress,
+                LOET_Type = 'CAB'
+        WHEN NOT MATCHED THEN
+            INSERT (
+                LOET_AuditNo, LOET_ReportType, LOET_HeadingID,
+                LOET_Heading, LOET_Description, LOET_UserID,
+                LOET_IPAddress, LOET_Type, LOET_CompID
+            )
+            VALUES (
+                @AuditNo, @CabType, @HeadingId,
+                @Heading, @Description, @UserId,
+                @IpAddress, 'CAB', @CompanyId
+            )
+        OUTPUT inserted.LOET_ID;";
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+
+            var loetIds = new List<int>();
+
+            foreach (var item in details)
+            {
+                var parameters = new
+                {
+                    item.AuditNo,
+                    item.CabType,
+                    item.HeadingId,
+                    item.Heading,
+                    item.Description,
+                    item.UserId,
+                    item.IpAddress,
+                    CompanyId = companyId
+                };
+
+                var loetId = await connection.ExecuteScalarAsync<int>(query, parameters);
+                loetIds.Add(loetId);
+            }
+
+            return loetIds;
+        }
+
 
 
         public async Task<DrlDescReqDto> LoadDRLDescriptionAsync(string connectionStringName, int companyId, int drlId)
@@ -1284,6 +1377,7 @@ ORDER BY ATCH_CREATEDON";
 
             return result;
         }
+
 
         private async Task<string> SaveAuditDocumentAsync(AddFileDto dto, int attachId, IFormFile file, int drlId)
         {

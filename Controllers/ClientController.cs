@@ -241,6 +241,35 @@ namespace TracePca.Controllers
             }
         }
 
+
+      
+            [HttpGet("GetDrl")]
+            public async Task<IActionResult> LoadDRLClientSide([FromQuery] string connectionKey, [FromQuery] int compId, [FromQuery] string type, [FromQuery] string auditNo)
+            {
+                try
+                {
+                    var data = await _AuditInterface.LoadDRLClientSideAsync(connectionKey, compId, type, auditNo);
+
+                    return Ok(new
+                    {
+                        StatusCode = 200,
+                        Message = "DRL Data fetched successfully.",
+                        Data = data
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new
+                    {
+                        StatusCode = 500,
+                        Message = "Failed to load data.",
+                        Error = ex.Message
+                    });
+                }
+            }
+        
+
+
         [HttpGet("GetCustomerUserEmails")]
         public async Task<IActionResult> GetCustomerUserEmails(
     [FromQuery] string connectionStringName,
