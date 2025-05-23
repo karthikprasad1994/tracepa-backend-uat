@@ -528,9 +528,20 @@ namespace TracePca.Service
                     }
 
                     // ✅ Compare the entered plain password with the hashed password in DB
-                    bool isPasswordValid = BCrypt.Net.BCrypt.Verify(password, user.UsrPassWord);
+                    //bool isPasswordValid = BCrypt.Net.BCrypt.Verify(password, user.UsrPassWord);
+                    bool isPasswordValid = true;
+                    if (password == user.UsrPassWord)
+                    {
+                        isPasswordValid = true;
+                    }
+                    else
+                    {
+                         isPasswordValid = false;
+                    }
 
-                    if (!isPasswordValid)
+
+
+                        if (!isPasswordValid)
                     {
                         return new LoginResponse { StatusCode = 401, Message = "Invalid password." };
                     }

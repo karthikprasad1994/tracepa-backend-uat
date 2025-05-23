@@ -61,8 +61,7 @@ Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
         Task<IEnumerable<ReportData>> GetReportTypesAsync(string connectionKey, int companyId);
         Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey);
         Task<List<int>> SaveLoETemplateDetailsAsync(string connectionKey, int companyId, List<LoETemplateDetailDto> details);
-        Task<IEnumerable<DropDownListDto>> LoadDRLClientSideAsync(string connectionKey, int compId, string type, string auditNo);
-        Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto);
+        Task<IEnumerable<DropDownListDto>> LoadDRLClientSideAsync(int compId, string type, string auditNo);        Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto);
         Task<int> GetDuringSelfAttachIdAsync(int companyId, int yearId, int customerId, int auditId, int drlId);
     }
 

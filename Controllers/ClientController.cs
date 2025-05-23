@@ -242,32 +242,33 @@ namespace TracePca.Controllers
         }
 
 
-      
-            [HttpGet("GetDrl")]
-            public async Task<IActionResult> LoadDRLClientSide([FromQuery] string connectionKey, [FromQuery] int compId, [FromQuery] string type, [FromQuery] string auditNo)
-            {
-                try
-                {
-                    var data = await _AuditInterface.LoadDRLClientSideAsync(connectionKey, compId, type, auditNo);
 
-                    return Ok(new
-                    {
-                        StatusCode = 200,
-                        Message = "DRL Data fetched successfully.",
-                        Data = data
-                    });
-                }
-                catch (Exception ex)
+        [HttpGet("load-drl-options")]
+        public async Task<IActionResult> LoadDrlOptions([FromQuery] int compId, [FromQuery] string type, [FromQuery] string auditNo)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadDRLClientSideAsync(compId, type, auditNo);
+
+                return Ok(new
                 {
-                    return StatusCode(500, new
-                    {
-                        StatusCode = 500,
-                        Message = "Failed to load data.",
-                        Error = ex.Message
-                    });
-                }
+                    statusCode = 200,
+                    message = "DRL options loaded successfully.",
+                    data = result
+                });
             }
-        
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "Failed to load DRL options.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
 
 
         [HttpGet("GetCustomerUserEmails")]

@@ -313,11 +313,14 @@ namespace TracePca.Service.Communication_with_client
             return await connection.QueryAsync<ReportTypeDto>(sql, parameters);
         }
 
-        public async Task<IEnumerable<DropDownListDto>> LoadDRLClientSideAsync(string connectionKey, int compId, string type, string auditNo)
+        public async Task<IEnumerable<DropDownListDto>> LoadDRLClientSideAsync(int compId, string type, string auditNo)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
 
-            // Step 1: Determine the iaudrpttype
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // Step 1: Determine the Audit Report Type (iaudrpttype)
             const string auditTypeQuery = @"
         SELECT 
             CASE 
@@ -328,16 +331,17 @@ namespace TracePca.Service.Communication_with_client
 
             var iaudrpttype = await connection.ExecuteScalarAsync<int>(auditTypeQuery, new { AuditNo = auditNo });
 
-            // Step 2: Get the data from Content_Management_Master
+            // Step 2: Fetch dropdown items from Content_Management_Master
             const string contentQuery = @"
         SELECT 
             CMM_ID AS PKID,
             CMM_Desc AS Name 
         FROM Content_Management_Master 
-        WHERE CMM_Category = @Type 
-          AND CMM_CompID = @CompId 
-          AND CMM_AudrptType IN (3, @AuditRptType)
-          AND CMM_DelFlag IN ('A','M') 
+        WHERE 
+            CMM_Category = @Type 
+            AND CMM_CompID = @CompId 
+            AND CMM_AudrptType IN (3, @AuditRptType)
+            AND CMM_DelFlag = 'A'
         ORDER BY CMM_Desc ASC";
 
             var parameters = new
