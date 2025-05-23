@@ -454,6 +454,86 @@ namespace TracePca.Service.Communication_with_client
             return result;
         }
 
+
+        public async Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+
+            const string selectSql = @"
+        SELECT LTD_ID 
+        FROM LOE_Template_Details 
+        WHERE 
+            LTD_LOE_ID = @LoeTemplateId 
+            AND LTD_ReportTypeID = @ReportTypeId 
+            AND LTD_HeadingID = @HeadingId 
+            AND LTD_FormName = @FormName 
+            AND LTD_CompID = @CompanyId";
+
+            var existingId = await connection.ExecuteScalarAsync<int?>(selectSql, new
+            {
+                dto.LoeTemplateId,
+                dto.ReportTypeId,
+                dto.HeadingId,
+                dto.FormName,
+                dto.CompanyId
+            });
+
+            if (existingId.HasValue)
+            {
+                const string updateSql = @"
+            UPDATE LOE_Template_Details 
+            SET 
+                LTD_Heading = @Heading,
+                LTD_Decription = @Description,
+                LTD_UpdatedBy = @UserId,
+                LTD_UpdatedOn = GETDATE()
+            WHERE LTD_ID = @Id";
+
+                await connection.ExecuteAsync(updateSql, new
+                {
+                    Id = existingId.Value,
+                    dto.Heading,
+                    dto.Description,
+                    dto.UserId
+                });
+
+                return (existingId.Value, "Updated");
+            }
+            else
+            {
+                const string maxIdSql = "SELECT ISNULL(MAX(LTD_ID) + 1, 1) FROM LOE_Template_Details";
+                var newId = await connection.ExecuteScalarAsync<int>(maxIdSql);
+
+                const string insertSql = @"
+            INSERT INTO LOE_Template_Details (
+                LTD_ID, LTD_LOE_ID, LTD_ReportTypeID, LTD_HeadingID,
+                LTD_Heading, LTD_Decription, LTD_FormName,
+                LTD_CrBy, LTD_CrOn, LTD_IPAddress, LTD_CompID)
+            VALUES (
+                @Id, @LoeTemplateId, @ReportTypeId, @HeadingId,
+                @Heading, @Description, @FormName,
+                @UserId, GETDATE(), @IpAddress, @CompanyId)";
+
+                await connection.ExecuteAsync(insertSql, new
+                {
+                    Id = newId,
+                    dto.LoeTemplateId,
+                    dto.ReportTypeId,
+                    dto.HeadingId,
+                    dto.Heading,
+                    dto.Description,
+                    dto.FormName,
+                    dto.UserId,
+                    dto.IpAddress,
+                    dto.CompanyId
+                });
+
+                return (newId, "Inserted");
+            }
+        }
+
+
+
         public async Task<List<int>> SaveLoETemplateDetailsAsync(string connectionKey, int companyId, List<LoETemplateDetailDto> details)
         {
             const string query = @"
@@ -1276,6 +1356,38 @@ namespace TracePca.Service.Communication_with_client
                 throw;
             }
         }
+
+
+        public async Task<int> GetDuringSelfAttachIdAsync(int companyId, int yearId, int customerId, int auditId, int drlId)
+        {
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT ISNULL(a.SAR_AttchId, 0)
+        FROM EDT_Attachments ea
+        LEFT JOIN StandardAudit_Audit_DRLLog_RemarksHistory a
+            ON a.SAR_AtthachDocId = ea.ATCH_DOCID
+        WHERE 
+            a.SAR_SA_ID = @AuditId AND 
+            a.SAR_SAC_ID = @CustomerId AND 
+            a.SAR_CompID = @CompanyId AND 
+            a.SAR_DRLId = @DrlId AND 
+            ea.Atch_Vstatus = 'DS'";
+
+            var result = await connection.ExecuteScalarAsync<int>(query, new
+            {
+                AuditId = auditId,
+                CustomerId = customerId,
+                CompanyId = companyId,
+                DrlId = drlId
+            });
+
+            return result;
+        }
+
 
 
 

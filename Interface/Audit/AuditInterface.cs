@@ -23,7 +23,7 @@ namespace TracePca.Interface.Audit
         Task<IEnumerable<DrlDescListDto>> LoadAllDRLDescriptionsAsync(string connectionStringName, int companyId);
          Task<DrlDescReqDto> LoadDRLDescriptionAsync(string connectionStringName, int companyId, int drlId);
         // Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, string dateFormat);
-        Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, int drlId, string dateFormat);
+        Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, int drlId);
 
 
 
@@ -62,6 +62,8 @@ Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
         Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey);
         Task<List<int>> SaveLoETemplateDetailsAsync(string connectionKey, int companyId, List<LoETemplateDetailDto> details);
         Task<IEnumerable<DropDownListDto>> LoadDRLClientSideAsync(string connectionKey, int compId, string type, string auditNo);
+        Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto);
+        Task<int> GetDuringSelfAttachIdAsync(int companyId, int yearId, int customerId, int auditId, int drlId);
     }
 
 

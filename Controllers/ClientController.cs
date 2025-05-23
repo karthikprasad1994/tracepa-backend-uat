@@ -379,6 +379,38 @@ namespace TracePca.Controllers
             }
         }
 
+        [HttpGet("during-self-attach-id")]
+        public async Task<IActionResult> GetDuringSelfAttachId(
+       [FromQuery] int companyId,
+       [FromQuery] int yearId,
+       [FromQuery] int customerId,
+       [FromQuery] int auditId,
+       [FromQuery] int drlId)
+        {
+            try
+            {
+                int attachId = await _AuditInterface.GetDuringSelfAttachIdAsync(companyId, yearId, customerId, auditId, drlId);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = attachId > 0
+                        ? "Attachment ID retrieved successfully."
+                        : "No attachment found for the given criteria.",
+                    data = attachId
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the attachment ID.",
+                    error = ex.Message
+                });
+            }
+        }
+
 
         [HttpGet("LoadDRLDescription")]
         public async Task<IActionResult> LoadDRLDescription(string connectionStringName, int companyId, int drlId)
@@ -405,6 +437,38 @@ namespace TracePca.Controllers
                 });
             }
         }
+
+
+        [HttpPost("Insert/updateTemplate")]
+        public async Task<IActionResult> SaveOrUpdate([FromQuery] string connectionKey, [FromBody] LoETemplateDetailInputDto dto)
+        {
+            try
+            {
+                var (id, action) = await _AuditInterface.SaveOrUpdateLOETemplateDetailsAsync(connectionKey, dto);
+
+                string message = action == "Inserted"
+                    ? "LOE Template details inserted successfully."
+                    : "LOE Template details updated successfully.";
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Id = id,
+                    Action = action,
+                    Message = message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving LOE Template details.",
+                    Error = ex.Message
+                });
+            }
+        }
+
 
         [HttpGet("GetDRLAttachmentInfo")]
         public async Task<IActionResult> GetDRLAttachmentInfo(int compId, int customerId, int drlId)
@@ -462,11 +526,11 @@ namespace TracePca.Controllers
         //}
 
         [HttpGet("LoadAttachments")]
-        public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId, int Drlid, string dateFormat = "dd/MM/yyyy")
+        public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId, int Drlid)
         {
             try
             {
-                var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId, Drlid, dateFormat);
+                var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId, Drlid);
 
                 return Ok(new
                 {
