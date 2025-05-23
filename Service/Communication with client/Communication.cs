@@ -1427,7 +1427,7 @@ namespace TracePca.Service.Communication_with_client
 
 
 
-        public async Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, int drlId, string dateFormat)
+        public async Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, int drlId)
         {
             var connectionString = _configuration.GetConnectionString(connectionStringName);
             using var connection = new SqlConnection(connectionString);
@@ -1462,7 +1462,7 @@ ORDER BY ATCH_CREATEDON";
                 CompanyId = companyId,
                 AttachId = attachId,
                 DrlId = drlId,
-                DateFormat = dateFormat
+                
             })).ToList();
 
             var result = new List<AttachmentDto>();
