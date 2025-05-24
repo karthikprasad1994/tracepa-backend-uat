@@ -51,6 +51,7 @@ builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
 builder.Services.AddScoped<SubCabinetsInterface, SubCabinetsService>();
 builder.Services.AddScoped<FoldersInterface, FoldersService>();
+builder.Services.AddScoped<AuditAndDashboardInterface, DashboardAndSchedule>();
 
 builder.Services.AddScoped<AuditInterface, Communication>();
 

@@ -1,4 +1,5 @@
 ﻿using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace TracePca.Dto.Audit
@@ -8,7 +9,9 @@ namespace TracePca.Dto.Audit
         public int? SrNo { get; set; }                     // SA_ID or row number
         public int? SA_YearID { get; set; }
         public string? FY { get; set; }                    // Fixed from int? to string? for values like '2024-2025'
-        public string? AuditNo { get; set; }               // SA_AuditNo
+        public string? AuditNo { get; set; }   
+        public int SA_AuditTypeID { get; set; }
+        public int AuditID { get; set; }
         public int? CustID { get; set; }                   // Cust_Id
         public string? CustomerName { get; set; }          // Cust_Name
         public string? CustomerShortName { get; set; }     // Short version of Cust_Name
@@ -20,9 +23,12 @@ namespace TracePca.Dto.Audit
         public string? SA_PartnerID { get; set; }
         public string? SA_AdditionalSupportEmployeeID { get; set; }
         public string? SA_ScopeOfAudit { get; set; }
-        public string? AuditDate { get; set; }             // Concatenated Start - End Date
+        public string? AuditDate { get; set; }
+
         public string? SA_RptRvDate { get; set; }
+
         public string? SA_RptFilDate { get; set; }
+
         public string? SA_MRSDate { get; set; }
         public string? SA_StartDate { get; set; }
         public string? SA_ExpCompDate { get; set; }
@@ -97,10 +103,10 @@ namespace TracePca.Dto.Audit
         public int SA_CustID { get; set; }
         public int SA_YearID { get; set; }
         public int SA_AuditTypeID { get; set; }
-        public int? SA_EngagementPartnerID { get; set; }
-        public int? SA_ReviewPartnerID { get; set; }
-        public int? SA_PartnerID { get; set; }
-        public int? SA_AdditionalSupportEmployeeID { get; set; }
+        public string? SA_EngagementPartnerID { get; set; }
+        public string? SA_ReviewPartnerID { get; set; }
+        public string? SA_PartnerID { get; set; }
+        public string? SA_AdditionalSupportEmployeeID { get; set; }
         public string? SA_ScopeOfAudit { get; set; }
         public int SA_Status { get; set; }
         public int SA_AttachID { get; set; }
@@ -111,6 +117,10 @@ namespace TracePca.Dto.Audit
         public DateTime? SA_MRLDate { get; set; }
         public DateTime? SA_FilingDatePCAOB { get; set; }
         public DateTime? SA_BinderCompletedDate { get; set; }
+
+        public DateTime? SA_RptRvDate { get; set; }
+        public DateTime? SA_RptFilDate { get; set; }
+        public DateTime? SA_MRSDate { get; set; }
         public int SA_IntervalId { get; set; }
         public int SA_CrBy { get; set; }
         public int SA_UpdatedBy { get; set; }
@@ -120,6 +130,7 @@ namespace TracePca.Dto.Audit
         public int iOper { get; set; }          // Required for sp
         public List<QuarterAuditDto> Quarters { get; set; } = new List<QuarterAuditDto>();
     }
+
 
     public class QuarterAuditDto
     {
