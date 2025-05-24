@@ -1685,7 +1685,7 @@ VALUES (
 
                 // 8. Update DRL_AttachID and DRL_DocID in Audit_DocRemarksLog
                 await UpdateDrlAttachIdAndDocIdAsync(dto.CustomerId, dto.AuditId, attachId, docId, pkId);
-                await SendEmailWithAttachmentAsync("varunhallur417@gmail.com", filePath);
+                await SendEmailWithAttachmentAsync(dto.EmailId, filePath);
 
                 return "Attachment uploaded, details saved, and email sent successfully.";
 
