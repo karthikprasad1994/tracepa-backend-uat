@@ -1541,7 +1541,7 @@ ORDER BY ATCH_CREATEDON";
         }
 
 
-        private async Task<string> SaveAuditDocumentAsync(AddFileDto dto, int attachId, IFormFile file, int drlId)
+        private async Task<string> SaveAuditDocumentAsync(AddFileDto dto, int attachId, IFormFile file, int requestedId)
         {
             if (file == null || file.Length == 0)
                 throw new ArgumentException("Invalid file.");
@@ -1596,7 +1596,7 @@ VALUES (
                     UserId = dto.UserId,
                     CompId = dto.CompId,
                     ReportType = dto.ReportType,
-                    DrlId = drlId
+                    DrlId = requestedId
                 });
 
                 return fullFilePath;
@@ -1663,7 +1663,8 @@ VALUES (
                 int attachId = await GenerateNextAttachmentIdAsync(dto.CustomerId, dto.AuditId, dto.YearId);
 
                 // 2. Get Requested ID (based on document name)
-                int requestedId = await GetRequestedIdByDocumentNameAsync(dto.DocumentName);
+                //int requestedId = await GetRequestedIdByDocumentNameAsync(dto.DocumentName);
+                int requestedId = dto.DrlId;
                 int drlLogId = await InsertIntoAuditDrlLogAsync(dto, requestedId);
 
                 // 3. Save into Audit_Document
@@ -1678,7 +1679,7 @@ VALUES (
                 // 6. Insert into Audit_DocRemarksLog
                 await InsertIntoAuditDocRemarksLogAsync(dto, requestedId, remarkId, attachId, docId);
 
-                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, drlLogId);
+                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, requestedId);
 
                 // 7. Get DRL_PKID for updating
                 int pkId = await GetDrlPkIdAsync(dto.CustomerId, dto.AuditId, attachId);
@@ -2026,6 +2027,7 @@ VALUES (
                 WorkpaperRef = workpaperRef,
                 WorkpaperId = workpaperId ?? 0 // Default to 0 if null
             });
+            
 
             return count > 0;
         }
@@ -2403,7 +2405,11 @@ VALUES (
         }
 
 
-    }
+
+       
+
+
+}
 }
 
 
