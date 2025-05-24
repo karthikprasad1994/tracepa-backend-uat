@@ -793,10 +793,23 @@ namespace TracePca.Controllers
             var result = await _AuditInterface.UploadAndSaveAttachmentsAsync(dto);
 
             if (result.StartsWith("Error"))
-                return BadRequest(result);
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    Status = 500,
+                    Success = false,
+                    Message = result
+                });
+            }
 
-            return Ok(result);
+            return Ok(new
+            {
+                Status = 200,
+                Success = true,
+                Message = result
+            });
         }
+
 
         [HttpGet("GetCustomerInvoicedetails")]
         public async Task<IActionResult> GetInvoiceDetails([FromQuery] int companyId, [FromQuery] int customerId)
