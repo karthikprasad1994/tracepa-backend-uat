@@ -2,28 +2,22 @@
 
 namespace TracePca.Dto.Audit
 {
-    public class AddFileDto : AddFileDtoBase
+    public class AddFileDtoBase
     {
         public int CustomerId { get; set; }
         public int AuditId { get; set; }
-        // public string FilePath { get; set; }
-        // public string FileName { get; set; }
         public IFormFile File { get; set; }
-        public int UserId { get; set; }
-        public string EmailId { get; set; }
         public string IpAddress { get; set; }
         public int YearId { get; set; }
         [JsonIgnore]
         public string ExportType { get; set; }
-
         public DateOnly RequestedOn { get; set; }
         public DateOnly RespondTime { get; set; }
-        public int  ReportType { get; set; }
+        public int ReportType { get; set; }
         [JsonIgnore]
         public string DocumentName { get; set; }
         public string Remark { get; set; }
         public string Type { get; set; }
-
         public int AuditScheduleId { get; set; }
         public int SubProcessId { get; set; }
         public int CompId { get; set; }
