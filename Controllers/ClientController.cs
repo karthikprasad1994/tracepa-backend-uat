@@ -556,24 +556,35 @@ namespace TracePca.Controllers
         [HttpPost("upload")]
         public async Task<IActionResult> UploadAttachment([FromForm] AddFileDto dto)
         {
-
-
             try
             {
                 var result = await _AuditInterface.UploadAndSaveAttachmentAsync(dto);
 
                 if (result.StartsWith("Error"))
                 {
-                    return StatusCode(500, result); // Internal Server Error
+                    return StatusCode(500, new
+                    {
+                        statusCode = 500,
+                        message = result
+                    });
                 }
 
-                return Ok("File uploaded, Customer details saved Successfully"); // Success
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "File uploaded, Customer details saved Successfully"
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error: {ex.Message}");
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = $"Error: {ex.Message}"
+                });
             }
         }
+
 
 
         [HttpGet("LoadLOEHeading")]
