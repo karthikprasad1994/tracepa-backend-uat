@@ -1,7 +1,12 @@
-﻿namespace TracePca.Dto.Audit
+﻿using System.Text.Json.Serialization;
+
+namespace TracePca.Dto.Audit
 {
     public class LoETemplateDetailInputDto
     {
+
+        [JsonIgnore] 
+        public int Id { get; set; }
         public int LoeTemplateId { get; set; }
         public int ReportTypeId { get; set; }
         public int HeadingId { get; set; }

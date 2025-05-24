@@ -440,7 +440,7 @@ namespace TracePca.Controllers
         }
 
 
-        [HttpPost("Insert/updateTemplate")]
+        [HttpPost("insert-update-template")]
         public async Task<IActionResult> SaveOrUpdate([FromQuery] string connectionKey, [FromBody] LoETemplateDetailInputDto dto)
         {
             try
@@ -453,22 +453,23 @@ namespace TracePca.Controllers
 
                 return Ok(new
                 {
-                    StatusCode = 200,
-                    Id = id,
-                    Action = action,
-                    Message = message
+                    statusCode = 200,
+                    id,
+                    action,
+                    message
                 });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new
                 {
-                    StatusCode = 500,
-                    Message = "An error occurred while saving LOE Template details.",
-                    Error = ex.Message
+                    statusCode = 500,
+                    message = "An error occurred while saving LOE Template details.",
+                    error = ex.Message
                 });
             }
         }
+
 
 
         [HttpGet("GetDRLAttachmentInfo")]

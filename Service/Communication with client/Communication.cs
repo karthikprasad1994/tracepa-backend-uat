@@ -462,9 +462,34 @@ namespace TracePca.Service.Communication_with_client
         public async Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+            await connection.OpenAsync();
 
+            // ✅ If Id is passed, treat this as an update directly
+            if (dto.Id > 0)
+            {
+                const string updateSql = @"
+            UPDATE LOE_Template_Details 
+            SET 
+                LTD_Heading = @Heading,
+                LTD_Decription = @Description,
+                LTD_UpdatedBy = @UserId,
+                LTD_UpdatedOn = GETDATE()
+            WHERE LTD_ID = @Id";
+
+                await connection.ExecuteAsync(updateSql, new
+                {
+                    dto.Id,
+                    dto.Heading,
+                    dto.Description,
+                    dto.UserId
+                });
+
+                return (dto.Id, "Updated");
+            }
+
+            // 🔍 Otherwise check if a matching record exists
             const string selectSql = @"
-        SELECT LTD_ID 
+        SELECT TOP 1 LTD_ID 
         FROM LOE_Template_Details 
         WHERE 
             LTD_LOE_ID = @LoeTemplateId 
@@ -473,7 +498,7 @@ namespace TracePca.Service.Communication_with_client
             AND LTD_FormName = @FormName 
             AND LTD_CompID = @CompanyId";
 
-            var existingId = await connection.ExecuteScalarAsync<int?>(selectSql, new
+            var existingId = await connection.QueryFirstOrDefaultAsync<int?>(selectSql, new
             {
                 dto.LoeTemplateId,
                 dto.ReportTypeId,
@@ -482,7 +507,7 @@ namespace TracePca.Service.Communication_with_client
                 dto.CompanyId
             });
 
-            if (existingId.HasValue)
+            if (existingId.HasValue && existingId.Value > 0)
             {
                 const string updateSql = @"
             UPDATE LOE_Template_Details 
@@ -503,95 +528,118 @@ namespace TracePca.Service.Communication_with_client
 
                 return (existingId.Value, "Updated");
             }
-            else
+
+            // ➕ Insert new
+            const string maxIdSql = "SELECT ISNULL(MAX(LTD_ID), 0) + 1 FROM LOE_Template_Details";
+            var newId = await connection.ExecuteScalarAsync<int>(maxIdSql);
+
+            const string insertSql = @"
+        INSERT INTO LOE_Template_Details (
+            LTD_ID, LTD_LOE_ID, LTD_ReportTypeID, LTD_HeadingID,
+            LTD_Heading, LTD_Decription, LTD_FormName,
+            LTD_CrBy, LTD_CrOn, LTD_IPAddress, LTD_CompID)
+        VALUES (
+            @Id, @LoeTemplateId, @ReportTypeId, @HeadingId,
+            @Heading, @Description, @FormName,
+            @UserId, GETDATE(), @IpAddress, @CompanyId)";
+
+            await connection.ExecuteAsync(insertSql, new
             {
-                const string maxIdSql = "SELECT ISNULL(MAX(LTD_ID) + 1, 1) FROM LOE_Template_Details";
-                var newId = await connection.ExecuteScalarAsync<int>(maxIdSql);
+                Id = newId,
+                dto.LoeTemplateId,
+                dto.ReportTypeId,
+                dto.HeadingId,
+                dto.Heading,
+                dto.Description,
+                dto.FormName,
+                dto.UserId,
+                dto.IpAddress,
+                dto.CompanyId
+            });
 
-                const string insertSql = @"
-            INSERT INTO LOE_Template_Details (
-                LTD_ID, LTD_LOE_ID, LTD_ReportTypeID, LTD_HeadingID,
-                LTD_Heading, LTD_Decription, LTD_FormName,
-                LTD_CrBy, LTD_CrOn, LTD_IPAddress, LTD_CompID)
-            VALUES (
-                @Id, @LoeTemplateId, @ReportTypeId, @HeadingId,
-                @Heading, @Description, @FormName,
-                @UserId, GETDATE(), @IpAddress, @CompanyId)";
-
-                await connection.ExecuteAsync(insertSql, new
-                {
-                    Id = newId,
-                    dto.LoeTemplateId,
-                    dto.ReportTypeId,
-                    dto.HeadingId,
-                    dto.Heading,
-                    dto.Description,
-                    dto.FormName,
-                    dto.UserId,
-                    dto.IpAddress,
-                    dto.CompanyId
-                });
-
-                return (newId, "Inserted");
-            }
+            return (newId, "Inserted");
         }
 
 
 
-        public async Task<List<int>> SaveLoETemplateDetailsAsync(string connectionKey, int companyId, List<LoETemplateDetailDto> details)
-        {
-            const string query = @"
-        MERGE INTO LOE_Template AS target
-        USING (VALUES (@AuditNo, @CabType, @HeadingId, @CompanyId)) 
-               AS source (LOET_AuditNo, LOET_ReportType, LOET_HeadingID, LOET_CompID)
-        ON target.LOET_AuditNo = source.LOET_AuditNo
-           AND target.LOET_ReportType = source.LOET_ReportType
-           AND target.LOET_HeadingID = source.LOET_HeadingID
-           AND target.LOET_CompID = source.LOET_CompID
-        WHEN MATCHED THEN
-            UPDATE SET 
-                LOET_Heading = @Heading,
-                LOET_Description = @Description,
-                LOET_UserID = @UserId,
-                LOET_IPAddress = @IpAddress,
-                LOET_Type = 'CAB'
-        WHEN NOT MATCHED THEN
-            INSERT (
-                LOET_AuditNo, LOET_ReportType, LOET_HeadingID,
-                LOET_Heading, LOET_Description, LOET_UserID,
-                LOET_IPAddress, LOET_Type, LOET_CompID
-            )
-            VALUES (
-                @AuditNo, @CabType, @HeadingId,
-                @Heading, @Description, @UserId,
-                @IpAddress, 'CAB', @CompanyId
-            )
-        OUTPUT inserted.LOET_ID;";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+        //    public async Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto)
+        //    {
+        //        using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+        //        await connection.OpenAsync();
 
-            var loetIds = new List<int>();
+        //        const string selectSql = @"
+        //SELECT TOP 1 LTD_ID 
+        //FROM LOE_Template_Details 
+        //WHERE 
+        //    LTD_LOE_ID = @LoeTemplateId 
+        //    AND LTD_ReportTypeID = @ReportTypeId 
+        //    AND LTD_HeadingID = @HeadingId 
+        //    AND LTD_FormName = @FormName 
+        //    AND LTD_CompID = @CompanyId";
 
-            foreach (var item in details)
-            {
-                var parameters = new
-                {
-                    item.AuditNo,
-                    item.CabType,
-                    item.HeadingId,
-                    item.Heading,
-                    item.Description,
-                    item.UserId,
-                    item.IpAddress,
-                    CompanyId = companyId
-                };
+        //        var existingId = await connection.QueryFirstOrDefaultAsync<int?>(selectSql, new
+        //        {
+        //            dto.LoeTemplateId,
+        //            dto.ReportTypeId,
+        //            dto.HeadingId,
+        //            dto.FormName,
+        //            dto.CompanyId
+        //        });
 
-                var loetId = await connection.ExecuteScalarAsync<int>(query, parameters);
-                loetIds.Add(loetId);
-            }
+        //        if (existingId.HasValue && existingId.Value > 0)
+        //        {
+        //            const string updateSql = @"
+        //    UPDATE LOE_Template_Details 
+        //    SET 
+        //        LTD_Heading = @Heading,
+        //        LTD_Decription = @Description,
+        //        LTD_UpdatedBy = @UserId,
+        //        LTD_UpdatedOn = GETDATE()
+        //    WHERE LTD_ID = @Id";
 
-            return loetIds;
-        }
+        //            await connection.ExecuteAsync(updateSql, new
+        //            {
+        //                Id = existingId.Value,
+        //                dto.Heading,
+        //                dto.Description,
+        //                dto.UserId
+        //            });
+
+        //            return (existingId.Value, "Updated");
+        //        }
+        //        else
+        //        {
+        //            const string maxIdSql = "SELECT ISNULL(MAX(LTD_ID), 0) + 1 FROM LOE_Template_Details";
+        //            var newId = await connection.ExecuteScalarAsync<int>(maxIdSql);
+
+        //            const string insertSql = @"
+        //    INSERT INTO LOE_Template_Details (
+        //        LTD_ID, LTD_LOE_ID, LTD_ReportTypeID, LTD_HeadingID,
+        //        LTD_Heading, LTD_Decription, LTD_FormName,
+        //        LTD_CrBy, LTD_CrOn, LTD_IPAddress, LTD_CompID)
+        //    VALUES (
+        //        @Id, @LoeTemplateId, @ReportTypeId, @HeadingId,
+        //        @Heading, @Description, @FormName,
+        //        @UserId, GETDATE(), @IpAddress, @CompanyId)";
+
+        //            await connection.ExecuteAsync(insertSql, new
+        //            {
+        //                Id = newId,
+        //                dto.LoeTemplateId,
+        //                dto.ReportTypeId,
+        //                dto.HeadingId,
+        //                dto.Heading,
+        //                dto.Description,
+        //                dto.FormName,
+        //                dto.UserId,
+        //                dto.IpAddress,
+        //                dto.CompanyId
+        //            });
+
+        //            return (newId, "Inserted");
+        //        }
+        //    }
 
 
 
@@ -1719,7 +1767,7 @@ VALUES (
                 await connection.ExecuteAsync(
                     @"INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
                 SAR_ID, SAR_SAC_ID, SAR_SA_ID, SAR_DRLId,
-                SAR_Remarks, SAR_Date, SAR_RemarksType, SAR_AttchId, SAR_AtthachDocId, SAR_TimelinetoResOn
+                SAR_Remarks, SAR_Date, SAR_RemarksType, SAR_AttchId, SAR_AtthachDocId, SAR_TimlinetoResOn
             ) VALUES (
                 @RemarkId, @CustomerId, @AuditId, @RequestedId,
                 @Remark, GETDATE(), @Type, @AtchId,  @DocId,  GETDATE()
