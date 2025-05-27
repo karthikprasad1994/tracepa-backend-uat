@@ -21,7 +21,7 @@ namespace TracePca.Dto.Audit
         public int? LOE_ApprovedON { get; set; }
         [JsonIgnore]
         public string? LOE_Delflag { get; set; } = "A";
-        [JsonIgnore]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? LOE_Status { get; set; } = "C";
         public string LOE_IPAddress { get; set; }
         public int LOE_CompID { get; set; }
@@ -141,5 +141,15 @@ namespace TracePca.Dto.Audit
     {
         public string? LAF_OtherExpensesName { get; set; }
         public string? LAF_Charges { get; set; }
+    }
+
+    public class EngagementPlanReportExportDetailsDTO
+    {
+        public int LOEId { get; set; }
+        public int YearId { get; set; }
+        public int CustomerId { get; set; }
+        public List<int> CustomerUsers { get; set; }
+        public string? Comments { get; set; }
+        public int CompId { get; set; }
     }
 }

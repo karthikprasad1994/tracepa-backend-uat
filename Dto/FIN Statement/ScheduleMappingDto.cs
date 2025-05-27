@@ -32,6 +32,7 @@ namespace TracePca.Dto.FIN_Statement
             public string? BranchName { get; set; }
         }
 
+ 
         //GetScheduleHeading
         public class ScheduleHeadingDto
         {
@@ -73,7 +74,9 @@ namespace TracePca.Dto.FIN_Statement
             public decimal ATBU_TR_Credit_Amount { get; set; }
             public decimal ATBU_Closing_Debit_Amount { get; set; }
             public decimal ATBU_Closing_Credit_Amount { get; set; }
+            public string ATBU_DELFLG{ get; set; }
             public int ATBU_CRBY { get; set; }
+            public string ATBU_STATUS { get; set; }
             public int ATBU_UPDATEDBY { get; set; }
             public string? ATBU_IPAddress { get; set; }
             public int ATBU_CompId { get; set; }
@@ -82,14 +85,13 @@ namespace TracePca.Dto.FIN_Statement
             public int ATBU_QuarterId { get; set; }
         }
 
-
         //SaveOrUpdateTrialBalanceUploadDetails
         public class TrailBalanceUploadDetailsDto
         {
-            public int ATBUD_ID { get; set; }
-            public int ATBUD_Masid { get; set; }
-            public string? ATBUD_CODE { get; set; }
-            public string? ATBUD_Description { get; set; }
+            public int? ATBUD_ID { get; set; }
+            public int? ATBUD_Masid { get; set; }
+            public string ATBUD_CODE { get; set; }
+            public string ATBUD_Description { get; set; }
             public int ATBUD_CustId { get; set; }
             public int ATBUD_SChedule_Type { get; set; }
             public int ATBUD_Branchid { get; set; }
@@ -191,11 +193,10 @@ namespace TracePca.Dto.FIN_Statement
 
             // Row data list
             public List<AccTrailBalanceUploadRowDto> Rows { get; set; } = new();
-        }
-
-        public class AccTrailBalanceUploadRowDto
-        {
-            public int ATBU_ID { get; set; }
+            public class AccTrailBalanceUploadRowDto
+            {
+                public int ATBU_ID { get; set; }
+            }
         }
 
         //UploadExcelFile
@@ -230,33 +231,31 @@ namespace TracePca.Dto.FIN_Statement
             public int AtbuQuarterId { get; set; }
 
             public List<TrailBalanceUploadDetailDto> ScheduleItems { get; set; }
+            public class TrailBalanceUploadDetailDto
+            {
+                public int? AtbudId { get; set; }
+                public int AtbudMasid { get; set; }
+                public string AtbudCode { get; set; }
+                public string AtbudDescription { get; set; }
+                public int AtbudCustId { get; set; }
+                public int AtbudScheduleType { get; set; }
+                public int AtbudBranchId { get; set; }
+                public int AtbudQuarterId { get; set; }
+                public int AtbudCompanyType { get; set; }
+                public int AtbudHeadingId { get; set; }
+                public int AtbudSubheadingId { get; set; }
+                public int AtbudItemId { get; set; }
+                public int AtbudSubItemId { get; set; }
+                public string AtbudDelflg { get; set; } = "A";
+                public int AtbudCrBy { get; set; }
+                public int AtbudUpdatedBy { get; set; }
+                public string AtbudStatus { get; set; } = "C";
+                public string AtbudProgress { get; set; } = string.Empty;
+                public string AtbudIpAddress { get; set; } = string.Empty;
+                public int AtbudCompId { get; set; }
+                public int YearId { get; set; }
+            }
         }
-
-        public class TrailBalanceUploadDetailDto
-        {
-            public int? AtbudId { get; set; }
-            public int AtbudMasid { get; set; }
-            public string AtbudCode { get; set; }
-            public string AtbudDescription { get; set; }
-            public int AtbudCustId { get; set; }
-            public int AtbudScheduleType { get; set; }
-            public int AtbudBranchId { get; set; }
-            public int AtbudQuarterId { get; set; }
-            public int AtbudCompanyType { get; set; }
-            public int AtbudHeadingId { get; set; }
-            public int AtbudSubheadingId { get; set; }
-            public int AtbudItemId { get; set; }
-            public int AtbudSubItemId { get; set; }
-            public string AtbudDelflg { get; set; } = "A";
-            public int AtbudCrBy { get; set; }
-            public int AtbudUpdatedBy { get; set; }
-            public string AtbudStatus { get; set; } = "C";
-            public string AtbudProgress { get; set; } = string.Empty;
-            public string AtbudIpAddress { get; set; } = string.Empty;
-            public int AtbudCompId { get; set; }
-            public int YearId { get; set; }
-        }
-
 
         //FreezeForNextDuration
         public class FreezeNextDurationRequestDto
@@ -280,38 +279,36 @@ namespace TracePca.Dto.FIN_Statement
             public int YearId { get; set; }
             public int AtbuBranchId { get; set; }
             public int AtbuQuarterId { get; set; }
-
-            public List<TrailBalanceUploadDetailDto> ScheduleItems { get; set; }
-        }
-
-        public class TrailBalanceUploadDetails1Dto
-        {
-            public int? AtbudId { get; set; }
-            public int AtbudMasid { get; set; }
-            public string AtbudCode { get; set; }
-            public string AtbudDescription { get; set; }
-            public int AtbudCustId { get; set; }
-            public int AtbudScheduleType { get; set; }
-            public int AtbudBranchId { get; set; }
-            public int AtbudQuarterId { get; set; }
-            public int AtbudCompanyType { get; set; }
-            public int AtbudHeadingId { get; set; }
-            public int AtbudSubheadingId { get; set; }
-            public int AtbudItemId { get; set; }
-            public int AtbudSubItemId { get; set; }
-            public string AtbudDelflg { get; set; } = "A";
-            public int AtbudCrBy { get; set; }
-            public int AtbudUpdatedBy { get; set; }
-            public string AtbudStatus { get; set; } = "C";
-            public string AtbudProgress { get; set; } = string.Empty;
-            public string AtbudIpAddress { get; set; } = string.Empty;
-            public int AtbudCompId { get; set; }
-            public int YearId { get; set; }
+            public List<TrailBalanceUploadDetails1Dto> ScheduleItems { get; set; }
+            public class TrailBalanceUploadDetails1Dto
+            {
+                public int? AtbudId { get; set; }
+                public int AtbudMasid { get; set; }
+                public string AtbudCode { get; set; }
+                public string AtbudDescription { get; set; }
+                public int AtbudCustId { get; set; }
+                public int AtbudScheduleType { get; set; }
+                public int AtbudBranchId { get; set; }
+                public int AtbudQuarterId { get; set; }
+                public int AtbudCompanyType { get; set; }
+                public int AtbudHeadingId { get; set; }
+                public int AtbudSubheadingId { get; set; }
+                public int AtbudItemId { get; set; }
+                public int AtbudSubItemId { get; set; }
+                public string AtbudDelflg { get; set; } = "A";
+                public int AtbudCrBy { get; set; }
+                public int AtbudUpdatedBy { get; set; }
+                public string AtbudStatus { get; set; } = "C";
+                public string AtbudProgress { get; set; } = string.Empty;
+                public string AtbudIpAddress { get; set; } = string.Empty;
+                public int AtbudCompId { get; set; }
+                public int YearId { get; set; }
+            }
         }
 
         //DownloadExcelFileAndTemplate
         public class FileDownloadResult
-        {
+         {
             public byte[] FileBytes { get; set; }
             public string FileName { get; set; }
             public string ContentType { get; set; }

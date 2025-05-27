@@ -1,9 +1,15 @@
 ﻿using Dapper;
+
 using ExcelDataReader;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SkiaSharp;
+
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+
 using System.Data;
 using System.Data.Common;
 using System.Text;
@@ -13,7 +19,9 @@ using TracePca.Dto.FIN_Statement;
 using TracePca.Interface;
 using TracePca.Interface.Audit;
 using TracePca.Interface.FIN_Statement;
+
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 using static TracePca.Service.FIN_statement.ScheduleMappingService;
@@ -23,6 +31,7 @@ namespace TracePca.Service.FIN_statement
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+
         private readonly IWebHostEnvironment _env;
         private readonly SqlConnection _db;
 
@@ -31,7 +40,13 @@ namespace TracePca.Service.FIN_statement
             _dbcontext = dbcontext;
             _configuration = configuration;
             _env = env;
-           
+        }  
+
+        public ScheduleMappingService(Trdmyus1Context dbcontext, IConfiguration configuration)
+        {
+            _dbcontext = dbcontext;
+            _configuration = configuration;
+
         }
 
         //GetCustomersName
@@ -103,6 +118,7 @@ namespace TracePca.Service.FIN_statement
             return await connection.QueryAsync<CustBranchDto>(query, new { compId, custId });
         }
 
+
         //GetScheduleHeading
         public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int compId, int custId, int scheduleTypeId)
         {
@@ -150,7 +166,6 @@ namespace TracePca.Service.FIN_statement
             return await connection.QueryAsync<ScheduleSubHeadingDto>(query, new { compId, custId, scheduleTypeId });
         }
 
-
         //GetScheduleItem
         public async Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(int compId, int custId, int scheduleTypeId)
         {
@@ -173,7 +188,6 @@ namespace TracePca.Service.FIN_statement
 
             return await connection.QueryAsync<ScheduleItemDto>(query, new { compId, custId, scheduleTypeId });
         }
-
 
         //GetScheduleSub-Item
         public async Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(int compId, int custId, int scheduleTypeId)
@@ -576,8 +590,75 @@ ORDER BY ATBU_ID;";
             }
         }
 
-        //       //UploadExcelFile
-        //       public async Task<ExcelUploadResultDto> UploadScheduleExcelAsync(
+        // Save mapping 
+        public async Task<int> SaveTrailBalanceExcelUploadAsync(string sAC, TrailBalanceUploadDto dto, int userId)
+        {
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            var builder = new SqlConnectionStringBuilder(connectionString);
+            sAC = builder.InitialCatalog;
+
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var transaction = connection.BeginTransaction();
+            try
+            {
+                using var command = new SqlCommand("spAcc_TrailBalance_Upload", connection, transaction)
+                {
+                    CommandType = CommandType.StoredProcedure
+                };
+
+                // Add input parameters
+                command.Parameters.AddWithValue("@ATBU_ID", (object?)dto.ATBU_ID ?? DBNull.Value);
+                command.Parameters.AddWithValue("@ATBU_CODE", dto.ATBU_CODE ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@ATBU_Description", dto.ATBU_Description ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@ATBU_CustId", dto.ATBU_CustId);
+                command.Parameters.AddWithValue("@ATBU_Opening_Debit_Amount", dto.ATBU_Opening_Debit_Amount);
+                command.Parameters.AddWithValue("@ATBU_Opening_Credit_Amount", dto.ATBU_Opening_Credit_Amount);
+                command.Parameters.AddWithValue("@ATBU_TR_Debit_Amount", dto.ATBU_TR_Debit_Amount);
+                command.Parameters.AddWithValue("@ATBU_TR_Credit_Amount", dto.ATBU_TR_Credit_Amount);
+                command.Parameters.AddWithValue("@ATBU_Closing_Debit_Amount", dto.ATBU_Closing_Debit_Amount);
+                command.Parameters.AddWithValue("@ATBU_Closing_Credit_Amount", dto.ATBU_Closing_Credit_Amount);
+                command.Parameters.AddWithValue("@ATBU_DELFLG", dto.ATBU_DELFLG ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@ATBU_CRBY", dto.ATBU_CRBY);
+                command.Parameters.AddWithValue("@ATBU_STATUS", dto.ATBU_STATUS ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@ATBU_UPDATEDBY", dto.ATBU_UPDATEDBY);
+                command.Parameters.AddWithValue("@ATBU_IPAddress", dto.ATBU_IPAddress ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@ATBU_CompId", dto.ATBU_CompId);
+                command.Parameters.AddWithValue("@ATBU_YEARId", dto.ATBU_YEARId);
+                command.Parameters.AddWithValue("@ATBU_Branchid", dto.ATBU_Branchid);
+                command.Parameters.AddWithValue("@ATBU_QuarterId", dto.ATBU_QuarterId);
+
+                // Output parameters
+                var paramUpdateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
+                {
+                    Direction = ParameterDirection.Output
+                };
+                var paramOper = new SqlParameter("@iOper", SqlDbType.Int)
+                {
+                    Direction = ParameterDirection.Output
+                };
+                command.Parameters.Add(paramUpdateOrSave);
+                command.Parameters.Add(paramOper);
+
+                await command.ExecuteNonQueryAsync();
+                transaction.Commit();
+
+
+
+
+                return (int)(paramOper.Value ?? 0);
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
+
+        //UploadExcelFile
+        //public async Task<ExcelUploadResultDto> UploadScheduleExcelAsync(
         //IFormFile file,
         //int clientId,
         //int branchId,
@@ -654,7 +735,6 @@ ORDER BY ATBU_ID;";
 
         //           return sheetNames;
         //       }
-
 
         //FreezeForPreviousDuration
         public async Task<int[]> FreezePreviousYearTrialBalanceAsync(FreezePreviousDurationRequestDto input)
@@ -953,7 +1033,6 @@ WHERE ATBUD_Description = @AtbudDescription
         }
     }
 }
-
 
 
 

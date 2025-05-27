@@ -30,6 +30,116 @@ namespace TracePca.Controllers
         //    var result = await _AuditInterface.GetCustomerAuditDropdownAsync(companyId);
         //    return Ok(result);
         //}
+        [HttpGet("GetDateFormat")]
+        public async Task<IActionResult> GetDateFormat(string connectionKey, int companyId, string configKey)
+        {
+            try
+            {
+                var format = await _AuditInterface.GetDateFormatAsync(connectionKey, companyId, configKey);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Date format retrieved successfully.",
+                    data = format
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving the date format.",
+                    error = ex.Message
+                });
+            }
+        }
+
+       
+
+            [HttpGet("GetLoeTemplateSignedOn")]
+            public async Task<IActionResult> GetLoeTemplateSignedOn(
+                string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId, string dateFormat)
+            {
+                try
+                {
+                    var approvedOn = await _AuditInterface.GetLoeTemplateSignedOnAsync(
+                        connectionStringName, companyId, auditTypeId, customerId, yearId, dateFormat);
+
+                    return Ok(new
+                    {
+                        status = 200,
+                        message = "Record retrieved successfully.",
+                        data = approvedOn
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new
+                    {
+                        status = 500,
+                        message = "An error occurred while processing your request.",
+                        error = ex.Message
+                    });
+                }
+            }
+
+
+        [HttpGet("GetCustomerFinancialYear")]
+        public async Task<IActionResult> GetCustomerFinancialYear(
+       string connectionKey, int companyId, int customerId)
+        {
+            try
+            {
+                var result = await _AuditInterface.GetCustomerFinancialYearAsync(connectionKey, companyId, customerId);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Financial year retrieved successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while processing your request.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        
+
+            [HttpGet("GetReportTypes")]
+            public async Task<IActionResult> GetReportTypes(string connectionKey, int companyId)
+            {
+                try
+                {
+                    var reportTypes = await _AuditInterface.GetReportTypesAsync(connectionKey, companyId);
+
+                    return Ok(new
+                    {
+                        status = 200,
+                        message = "Report types retrieved successfully.",
+                        data = reportTypes
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new
+                    {
+                        status = 500,
+                        message = "An error occurred while processing your request.",
+                        error = ex.Message
+                    });
+                }
+            }
+        
+
+
 
         [HttpGet("ActiveCustomers")]
         public async Task<IActionResult> GetActiveCustomers([FromQuery] int companyId)
@@ -131,6 +241,36 @@ namespace TracePca.Controllers
             }
         }
 
+
+
+        [HttpGet("load-drl-options")]
+        public async Task<IActionResult> LoadDrlOptions([FromQuery] int compId, [FromQuery] string type, [FromQuery] string auditNo)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadDRLClientSideAsync(compId, type, auditNo);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "DRL options loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "Failed to load DRL options.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+
+
         [HttpGet("GetCustomerUserEmails")]
         public async Task<IActionResult> GetCustomerUserEmails(
     [FromQuery] string connectionStringName,
@@ -215,28 +355,184 @@ namespace TracePca.Controllers
             }
         }
 
+        [HttpGet("GetAllDRLDescriptions")]
+        public async Task<IActionResult> GetAllDRLDescriptions(string connectionStringName, int companyId)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadAllDRLDescriptionsAsync(connectionStringName, companyId);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "All DRL descriptions fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving DRL descriptions.",
+                    data = (object)null
+                });
+            }
+        }
+
+        [HttpGet("during-self-attach-id")]
+        public async Task<IActionResult> GetDuringSelfAttachId(
+       [FromQuery] int companyId,
+       [FromQuery] int yearId,
+       [FromQuery] int customerId,
+       [FromQuery] int auditId,
+       [FromQuery] int drlId)
+        {
+            try
+            {
+                int attachId = await _AuditInterface.GetDuringSelfAttachIdAsync(companyId, yearId, customerId, auditId, drlId);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = attachId > 0
+                        ? "Attachment ID retrieved successfully."
+                        : "No attachment found for the given criteria.",
+                    data = attachId
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the attachment ID.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
         [HttpGet("LoadDRLDescription")]
         public async Task<IActionResult> LoadDRLDescription(string connectionStringName, int companyId, int drlId)
         {
             try
             {
                 var result = await _AuditInterface.LoadDRLDescriptionAsync(connectionStringName, companyId, drlId);
-                return Ok(result);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "DRL description fetched successfully.",
+                    data = result
+                });
             }
             catch (Exception ex)
             {
-                // Log the error if needed
-                return StatusCode(500, "An error occurred while retrieving the DRL description.");
+                // Optionally log the error (ex)
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the DRL description.",
+                    data = (object)null
+                });
             }
         }
 
 
-        [HttpGet("LoadAttachments")]
-        public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId, int Drlid, string dateFormat = "dd/MM/yyyy")
+        [HttpPost("insert-update-template")]
+        public async Task<IActionResult> SaveOrUpdate([FromQuery] string connectionKey, [FromBody] LoETemplateDetailInputDto dto)
         {
             try
             {
-                var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId, Drlid, dateFormat);
+                var (id, action) = await _AuditInterface.SaveOrUpdateLOETemplateDetailsAsync(connectionKey, dto);
+
+                string message = action == "Inserted"
+                    ? "LOE Template details inserted successfully."
+                    : "LOE Template details updated successfully.";
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    id,
+                    action,
+                    message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while saving LOE Template details.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+
+        [HttpGet("GetDRLAttachmentInfo")]
+        public async Task<IActionResult> GetDRLAttachmentInfo(int compId, int customerId, int drlId)
+        {
+            try
+            {
+                var attachments = await _AuditInterface.GetDRLAttachmentInfoAsync(compId, customerId, drlId);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "Data fetched successfully",
+                    Data = attachments
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = $"Error retrieving attachment info: {ex.Message}",
+                    Data = new List<object>() // Empty data on error
+                });
+            }
+        }
+
+        //[HttpPost("GenerateDRLReport")]
+        //public async Task<IActionResult> GenerateDRLReport([FromForm] DRLReportRequest request)
+        //{
+        //    try
+        //    {
+        //        var result = await _drlReportService.SaveDRLLogWithAttachmentAsync(request);
+
+        //        return Ok(new
+        //        {
+        //            StatusCode = 200,
+        //            Message = "DRL log saved and file generated successfully.",
+        //            Data = new
+        //            {
+        //                result.DrlLogId,
+        //                result.AttachmentId,
+        //                result.FilePath
+        //            }
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error generating DRL report");
+        //        return StatusCode(StatusCodes.Status500InternalServerError, new
+        //        {
+        //            StatusCode = 500,
+        //            Message = "An error occurred while generating the DRL report."
+        //        });
+        //    }
+        //}
+
+        [HttpGet("LoadAttachments")]
+        public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId);
 
                 return Ok(new
                 {
@@ -260,24 +556,35 @@ namespace TracePca.Controllers
         [HttpPost("upload")]
         public async Task<IActionResult> UploadAttachment([FromForm] AddFileDto dto)
         {
-
-
             try
             {
                 var result = await _AuditInterface.UploadAndSaveAttachmentAsync(dto);
 
                 if (result.StartsWith("Error"))
                 {
-                    return StatusCode(500, result); // Internal Server Error
+                    return StatusCode(500, new
+                    {
+                        statusCode = 500,
+                        message = result
+                    });
                 }
 
-                return Ok("File uploaded, Customer details saved Successfully"); // Success
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "File uploaded, Customer details saved Successfully"
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error: {ex.Message}");
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = $"Error: {ex.Message}"
+                });
             }
         }
+
 
 
         [HttpGet("LoadLOEHeading")]
@@ -486,12 +793,141 @@ namespace TracePca.Controllers
             var result = await _AuditInterface.UploadAndSaveAttachmentsAsync(dto);
 
             if (result.StartsWith("Error"))
-                return BadRequest(result);
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    Status = 500,
+                    Success = false,
+                    Message = result
+                });
+            }
 
-            return Ok(result);
+            return Ok(new
+            {
+                Status = 200,
+                Success = true,
+                Message = result
+            });
         }
 
 
+        [HttpGet("GetCustomerInvoicedetails")]
+        public async Task<IActionResult> GetInvoiceDetails([FromQuery] int companyId, [FromQuery] int customerId)
+        {
+            var result = await _AuditInterface.GetCustomerDetailsForInvoiceAsync(companyId, customerId);
+
+            if (result == null)
+            {
+                return NotFound(new
+                {
+                    statusCode = 404,
+                    message = "Customer not found"
+                });
+            }
+
+            return Ok(new
+            {
+                statusCode = 200,
+                message = "Customer invoice details fetched successfully",
+                data = result
+            });
+        }
+
+
+        [HttpGet("GetCustomerData")]
+        public async Task<IActionResult> GetCustomerData(
+        [FromQuery] int companyId,
+        [FromQuery] int customerId,
+        [FromQuery] int reportTypeId)
+        {
+            try
+            {
+                var result = await _AuditInterface.GetCustomerDetailsWithTemplatesAsync(companyId, customerId, reportTypeId);
+
+                if (result == null)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "Customer not found or  data available.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Customer data fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "Failed to fetch customer  data.",
+                    error = ex.Message
+                });
+            }
+        }
+
+       
+
+            [HttpGet("GenerateFiles")]
+            public async Task<IActionResult> GenerateCustomerReport(int companyId, int customerId, int reportTypeId)
+            {
+                try
+                {
+                    var (wordPath, pdfPath) = await _AuditInterface.GenerateCustomerReportFilesAsync(companyId, customerId, reportTypeId);
+
+                    var response = new ReportFileResponseDto
+                    {
+                        StatusCode = 200,
+                        Message = "Report files generated successfully.",
+                        WordFilePath = wordPath,
+                        PdfFilePath = pdfPath
+                    };
+
+                    return Ok(response);
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new ReportFileResponseDto
+                    {
+                        StatusCode = 500,
+                        Message = "Failed to generate report: " + ex.Message,
+                        WordFilePath = null,
+                        PdfFilePath = null
+                    });
+                }
+            }
+        
+
+
+
+
+        [HttpPost("GenerateFile")]
+        public async Task<IActionResult> GenerateDrlReport([FromBody] DRLRequestDto request, [FromQuery] string format = "pdf")
+        {
+            try
+            {
+                var (fileBytes, contentType, fileName) = await _AuditInterface.GenerateAndLogDRLReportAsync(request, format);
+
+                return File(fileBytes, contentType, fileName);
+            }
+            catch
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "Failed to generate report"
+                });
+            }
+        }
     }
+
+
 }
+
 

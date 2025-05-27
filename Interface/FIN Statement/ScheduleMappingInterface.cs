@@ -1,7 +1,7 @@
 ﻿using TracePca.Dto.Audit;
 using TracePca.Dto.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
-
+using static TracePca.Dto.FIN_Statement.ScheduleMappingDto.TrailBalanceUploadDto;
 namespace TracePca.Interface.FIN_Statement
 {
     public interface ScheduleMappingInterface
@@ -46,7 +46,7 @@ namespace TracePca.Interface.FIN_Statement
         //SaveScheduleTemplate
         Task<int[]> UploadTrialBalanceExcelAsync(int companyId, AccTrailBalanceUploadBatchDto dto);
 
-        ////UploadExcelFile
+        //UploadExcelFile
         //Task<ExcelUploadResultDto> UploadScheduleExcelAsync(IFormFile file, int clientId, int branchId, int yearId, int quarter, string accessCode, int accessCodeId, string username);
 
         //FreezeForPreviousDuration

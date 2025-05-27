@@ -19,6 +19,8 @@ using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using TracePca.Service.ProfileSetting;
 using TracePca.Interface.ProfileSetting;
+using TracePca.Interface.DigitalFiling;
+using TracePca.Service.DigitalFiling;
 //using TracePca.Interface.AssetMaserInterface;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -39,14 +41,15 @@ builder.Services.AddScoped<AssetRegisterInterface, AssetRegister>();
 builder.Services.AddScoped<LocationSetUpInterface, LocationSeUp>();
 builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAddition>();
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
-
+builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
 
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
-//builder.Services.AddScoped<AuditInterface, Communication>();
+builder.Services.AddScoped<SubCabinetsInterface, SubCabinetsService>();
+builder.Services.AddScoped<FoldersInterface, FoldersService>();
 
 builder.Services.AddScoped<AuditInterface, Communication>();
 

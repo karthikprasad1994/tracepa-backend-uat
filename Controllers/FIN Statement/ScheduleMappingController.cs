@@ -4,7 +4,9 @@ using Microsoft.Extensions.Configuration;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.Audit;
 using TracePca.Interface.FIN_Statement;
+
 using TracePca.Service.FIN_statement;
+
 using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -28,6 +30,7 @@ namespace TracePca.Controllers.FIN_Statement
         [HttpGet("GetCustomersName")]
         public async Task<IActionResult> GetCustomerName([FromQuery] int icompId)
         {
+
             try
             {
                 var result = await _ScheduleMappingService.GetCustomerNameAsync(icompId);
@@ -149,6 +152,7 @@ namespace TracePca.Controllers.FIN_Statement
                         data = (object)null
                     });
                 }
+
                 return Ok(new
                 {
                     statusCode = 200,
@@ -422,7 +426,7 @@ namespace TracePca.Controllers.FIN_Statement
         //GetTotalAmount
         [HttpGet("GetTotalAmount")]
         public async Task<IActionResult> GetCustCOAMasterDetails(
-    int compId, int custId, int yearId, int branchId, int durationId)
+        int compId, int custId, int yearId, int branchId, int durationId)
         {
             try
             {
@@ -524,10 +528,9 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        ////UploadExcelFile
+        //UploadExcelFile
         //[HttpPost("UploadExcelFile")]
-
-        //    public async Task<IActionResult> UploadExcelFile(
+        //public async Task<IActionResult> UploadExcelFile(
         //[FromForm] IFormFile file,
         //[FromForm] int clientId,
         //[FromForm] int branchId,

@@ -15,6 +15,7 @@ using TracePca.Interface;
 using TracePca.Models;
 using TracePca.Models.CustomerRegistration;
 using TracePca.Models.UserModels;
+using Xceed.Document.NET;
 
 namespace TracePca.Service
 {
@@ -135,10 +136,10 @@ namespace TracePca.Service
                 string insertSql = @"
             INSERT INTO MMCS_CustomerRegistration 
             (MCR_ID, MCR_MP_ID, MCR_CustomerName, MCR_CustomerEmail, MCR_CustomerTelephoneNo, 
-             MCR_Status, MCR_TStatus, MCR_CustomerCode, MCR_ProductKey)
+             MCR_Status, MCR_TStatus, MCR_CustomerCode, MCR_ProductKey, MCR_emails)
             VALUES 
             (@McrId, @McrMpId, @McrCustomerName, @McrCustomerEmail, @McrCustomerTelephoneNo, 
-             'A', 'T', @McrCustomerCode, @McrProductKey)";
+             'A', 'T', @McrCustomerCode, @McrProductKey, @MCR_emails)";
 
                 var rowsInserted = await connection.ExecuteAsync(insertSql, new
                 {
@@ -148,7 +149,9 @@ namespace TracePca.Service
                     McrCustomerEmail = registerModel.McrCustomerEmail,
                     McrCustomerTelephoneNo = registerModel.McrCustomerTelephoneNo,
                     McrCustomerCode = newCustomerCode,
-                    McrProductKey = productKey
+                    McrProductKey = productKey,
+                    MCR_Emails = registerModel.McrCustomerEmail + ","
+
                 });
 
                 if (rowsInserted == 0)
@@ -388,7 +391,7 @@ namespace TracePca.Service
 
                     // ✅ Step 7: Generate JWT Token
                     string token = GenerateJwtToken(userDto);
-                  
+
 
                     return new LoginResponse
                     {
@@ -466,54 +469,118 @@ namespace TracePca.Service
         }
 
 
-        public async Task<LoginResponse> LoginUser(string email, string password)
+        public async Task<LoginResponse> LoginUserAsync(string email, string password)
         {
-            var customer = await _customerRegistrationContext.MmcsCustomerRegistrations
-                .Where(c => c.McrCustomerEmail == email)
-                .Select(c => new { c.McrCustomerEmail })
-                .FirstOrDefaultAsync();
-
-            if (customer == null)
+            try
             {
-                return new LoginResponse { StatusCode = 404, Message = "Email not found" };
+                // ✅ Step 1: Format email to match DB format
+                //string formattedEmail = email.Trim().ToLower() + ",";
+
+                //// ✅ Step 2: Get customer code from central DB
+                //var customerCodeResult = await _customerRegistrationContext.MmcsCustomerRegistrations
+                //    .Where(c => c.MCR_emails.ToLower() == formattedEmail)
+                //    .Select(c => new { c.McrCustomerCode })
+                //    .FirstOrDefaultAsync();
+
+                //if (customerCodeResult == null)
+                //{
+                //    return new LoginResponse { StatusCode = 404, Message = "Email not found in customer registration." };
+                //}
+
+                //string customerCode = customerCodeResult.McrCustomerCode;
+
+
+                var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+                await connection.OpenAsync();
+
+                // Step 1: Get single customer code matching email
+                string customerCodeSql = @"
+       SELECT TOP 1 MCR_CustomerCode 
+       FROM mmcs_customerregistration 
+       CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
+       WHERE LTRIM(RTRIM(Emails.value)) = @Email
+   ";
+
+                var customerCode = await connection.QuerySingleOrDefaultAsync<string>(customerCodeSql, new { Email = email });
+                // ✅ Step 3: Build connection string for customer DB
+                string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+                string customerDbConnection = string.Format(connectionStringTemplate, customerCode);
+
+                using (connection = new SqlConnection(customerDbConnection))
+                {
+                    await connection.OpenAsync();
+
+                    // ✅ Step 4: Check for user with email + password
+                    string plainEmail = email.Trim().ToLower(); // No comma added
+
+                    var user = await connection.QueryFirstOrDefaultAsync<LoginDto>(
+    @"SELECT usr_Email AS UsrEmail, usr_Password AS UsrPassWord
+      FROM Sad_UserDetails
+      WHERE LOWER(usr_Email) = @email",
+    new
+    {
+        email = plainEmail
+    });
+
+                    if (user == null)
+                    {
+                        return new LoginResponse { StatusCode = 404, Message = "Invalid email." };
+                    }
+
+                    // ✅ Compare the entered plain password with the hashed password in DB
+                    //bool isPasswordValid = BCrypt.Net.BCrypt.Verify(password, user.UsrPassWord);
+                    bool isPasswordValid = true;
+                    if (password == user.UsrPassWord)
+                    {
+                        isPasswordValid = true;
+                    }
+                    else
+                    {
+                         isPasswordValid = false;
+                    }
+
+
+
+                        if (!isPasswordValid)
+                    {
+                        return new LoginResponse { StatusCode = 401, Message = "Invalid password." };
+                    }
+
+                    // ✅ Step 5: Get user ID
+                    var userId = await connection.QueryFirstOrDefaultAsync<int>(
+                        @"SELECT usr_Id
+                  FROM Sad_UserDetails 
+                  WHERE LOWER(usr_Email) = @email",
+                        new { email = plainEmail });
+
+                    // ✅ Step 6: Generate JWT
+                    string token = GenerateJwtTokens(user);
+
+                    return new LoginResponse
+                    {
+                        StatusCode = 200,
+                        Message = "Login successful",
+                        Token = token,
+                        UsrId = userId
+                    };
+                }
             }
-
-            // ✅ Step 2: Get Password from User Table
-            var user = await _dbcontext.SadUserDetails
-                .Where(u => u.UsrEmail == email)
-                .Select(u => new { u.UsrPassWord, u.UsrEmail }) // Fetch necessary fields
-                .FirstOrDefaultAsync();
-
-            if (user == null)
+            catch (Exception ex)
             {
-                return new LoginResponse { StatusCode = 404, Message = "Invalid Email" };
+                return new LoginResponse
+                {
+                    StatusCode = 500,
+                    Message = $"An error occurred: {ex.Message}"
+                };
             }
-
-            // ✅ Step 3: Create `userDto` with correct assignments
-            var userDto = new LoginDto
-            {
-                UsrEmail = user.UsrEmail, // Assign email from `user`
-                UsrPassWord = user.UsrPassWord      // Assign user ID from `user`
-            };
-            var userId = await _dbcontext.SadUserDetails
-                       .AsNoTracking()
-                       .Where(a => a.UsrEmail == email)
-                       .Select(a => a.UsrId)
-                       .FirstOrDefaultAsync();
-            // ✅ Step 4: Generate JWT token
-            string token = GenerateJwtTokens(userDto);
-
-
-            return new LoginResponse
-            {
-                StatusCode = 200,
-                Message = "Login successful and token saved succeessfully",
-                UsrId = userId, // Corrected: Assign from `user`, not `userId`
-                Token = token // Include token in response
-            };
         }
 
-
+        public SqlConnection GetConnection(string customerCode)
+        {
+            var template = _configuration.GetConnectionString("NewDatabaseTemplate");
+            var finalConnection = string.Format(template, customerCode);
+            return new SqlConnection(finalConnection);
+        }
 
 
         public string GenerateJwtTokens(LoginDto userDto)

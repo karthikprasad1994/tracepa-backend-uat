@@ -148,6 +148,7 @@ public partial class CustomerRegistrationContext : DbContext
                 .HasMaxLength(500)
                 .IsUnicode(false)
                 .HasColumnName("MCR_Address");
+          
             entity.Property(e => e.McrBillingFrequency).HasColumnName("MCR_BillingFrequency");
             entity.Property(e => e.McrCity)
                 .HasMaxLength(250)
