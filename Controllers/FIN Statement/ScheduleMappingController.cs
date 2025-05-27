@@ -4,6 +4,9 @@ using Microsoft.Extensions.Configuration;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.Audit;
 using TracePca.Interface.FIN_Statement;
+
+using TracePca.Service.FIN_statement;
+
 using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -20,13 +23,14 @@ namespace TracePca.Controllers.FIN_Statement
         public ScheduleMappingController(ScheduleMappingInterface ScheduleMappingInterface)
         {
             _ScheduleMappingInterface = ScheduleMappingInterface;
-            _ScheduleMappingService = ScheduleMappingInterface;       
+            _ScheduleMappingService = ScheduleMappingInterface;
         }
 
         //GetCustomersName
         [HttpGet("GetCustomersName")]
         public async Task<IActionResult> GetCustomerName([FromQuery] int icompId)
         {
+
             try
             {
                 var result = await _ScheduleMappingService.GetCustomerNameAsync(icompId);
@@ -167,101 +171,496 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        [HttpPost("headings")]
-        public async Task<IActionResult> GetScheduleHeadings([FromQuery] int compId, int CustId,int ScheduleTypeId)
+        //GetScheduleHeading
+        [HttpGet("GetScheduleHeading")]
+        public async Task<IActionResult> GetScheduleHeadings(int icompId, int icustId, int ischeduleTypeId)
         {
-            var result = await _ScheduleMappingInterface.GetScheduleHeadingsAsync(compId, CustId,ScheduleTypeId);
-            return Ok(result);
-        }
-        [HttpPost("Subheadings")]
-        public async Task<IActionResult> GetSchedulesubHeadings([FromQuery] int compId, int CustId, int ScheduleTypeId)
-        {
-            var result = await _ScheduleMappingInterface.GetSchedulesubHeadingsAsync(compId, CustId, ScheduleTypeId);
-            return Ok(result);
-        }
-        [HttpPost("Items")]
-        public async Task<IActionResult> GetScheduleitem([FromQuery] int compId, int CustId, int ScheduleTypeId)
-        {
-            var result = await _ScheduleMappingInterface.GetScheduleItemAsync(compId, CustId, ScheduleTypeId);
-            return Ok(result);
-        }
-        [HttpPost("SubItem")]
-        public async Task<IActionResult> GetScheduleSubi([FromQuery] int compId, int CustId, int ScheduleTypeId)
-        {
-            var result = await _ScheduleMappingInterface.GetScheduleSubItemAsync(compId, CustId, ScheduleTypeId);
-            return Ok(result);
-        }
-
-
-        [HttpPost("saveTrailbalance")]
-            public async Task<IActionResult> SaveTrailBalance([FromBody] TrailBalanceUploadDto dto)
-            {
-                if (dto == null)
-                    return BadRequest("Invalid data.");
-
-                string dbName = ""; // derive from config or token context if needed
-                int userId = dto.ATBU_CRBY;
-
-                try
-                {
-                    var result = await _ScheduleMappingInterface.SaveTrailBalanceExcelUploadAsync(dbName, dto, userId);
-                    return Ok(new { Success = true, Result = result });
-                }
-                catch (Exception ex)
-                {
-                    return StatusCode(500, new { Success = false, Message = ex.Message });
-                }
-            }
-
-        [HttpPost("saveTrailBalanceDetails")]
-        public async Task<IActionResult> SaveTrailBalance([FromQuery] string dbName, [FromBody] TrailBalanceUploadDetailDto dto)
-        {
-            if (dto == null)
-                return BadRequest("Invalid data.");
-
             try
             {
-                int userId = dto.ATBUD_CRBY; // you may get this from token if needed
-                int result = await _ScheduleMappingInterface.SaveTrailBalanceDetailAsync(dbName, dto, userId);
-                return Ok(new { success = true, id = result });
+                var result = await _ScheduleMappingService.GetScheduleHeadingAsync(icompId, icustId, ischeduleTypeId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No company types found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Company types loaded successfully.",
+                    data = result
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = ex.Message });
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching company types.",
+                    error = ex.Message
+                });
             }
         }
 
-        // GET: api/<ScheduleMappingController>
-        [HttpGet]
-        public IEnumerable<string> Get()
+        //GetScheduleSub-Heading
+        [HttpGet("GetScheduleSubHeading")]
+        public async Task<IActionResult> GetScheduleSubHeading(int icompId, int icustId, int ischeduleTypeId)
         {
-            return new string[] { "value1", "value2" };
+            try
+            {
+                var result = await _ScheduleMappingService.GetScheduleItemAsync(icompId, icustId, ischeduleTypeId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No schedule items found.",
+                        data = new List<object>()
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Schedule items retrieved successfully.",
+                    data = result.Select(item => new
+                    {
+                        id = item.ASI_ID,
+                        name = item.ASI_Name
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving schedule items.",
+                    error = ex.Message
+                });
+            }
         }
 
-        // GET api/<ScheduleMappingController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
+        //GetScheduleItem
+        [HttpGet("GetScheduleItem")]
+        public async Task<IActionResult> GetScheduleItem(int icompId, int icustId, int ischeduleTypeId)
         {
-            return "value";
+            try
+            {
+                var result = await _ScheduleMappingService.GetScheduleItemAsync(icompId, icustId, ischeduleTypeId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No schedule items found.",
+                        data = new List<object>()
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Schedule items retrieved successfully.",
+                    data = result.Select(item => new
+                    {
+                        id = item.ASI_ID,
+                        name = item.ASI_Name
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving schedule items.",
+                    error = ex.Message
+                });
+            }
         }
 
-        // POST api/<ScheduleMappingController>
-        [HttpPost]
-        public void Post([FromBody] string value)
+        //GetScheduleSub-Item
+        [HttpGet("GetScheduleSubItem")]
+        public async Task<IActionResult> GetScheduleSubItem(int icompId, int icustId, int ischeduleTypeId)
         {
+            try
+            {
+                var result = await _ScheduleMappingService.GetScheduleSubItemAsync(icompId, icustId, ischeduleTypeId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No schedule sub items found.",
+                        data = new List<object>()
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Schedule sub items retrieved successfully.",
+                    data = result.Select(item => new
+                    {
+                        id = item.ASSI_ID,
+                        name = item.ASSI_Name
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving schedule items.",
+                    error = ex.Message
+                });
+            }
         }
 
-        // PUT api/<ScheduleMappingController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        //SaveOrUpdateTrialBalanceUpload
+        [HttpPost("SaveOrUpdateTrailBalanceUpload")]
+        public async Task<IActionResult> SaveTrailBalanceUploadAsync([FromQuery] int iCompId, [FromBody] TrailBalanceUploadDto dto)
         {
+            if (dto == null)
+            {
+                return BadRequest(new
+                {
+                    Status = 400,
+                    Message = "Invalid input: DTO is null",
+                    Data = (object)null
+                });
+            }
+
+            try
+            {
+                bool isUpdate = dto.ATBU_ID > 0;
+
+                var result = await _ScheduleMappingService.SaveTrailBalanceUploadAsync(iCompId, dto);
+
+                string successMessage = isUpdate
+                    ? "Trail balance upload details successfully updated."
+                    : "Trail balance upload details successfully created.";
+
+                return Ok(new
+                {
+                    Status = 200,
+                    Message = successMessage,
+                    Data = new
+                    {
+                        UpdateOrSave = result[0],
+                        Oper = result[1],
+                        IsUpdate = isUpdate
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Status = 500,
+                    Message = "An error occurred while processing your request.",
+                    Error = ex.Message,
+                    InnerException = ex.InnerException?.Message
+                });
+            }
         }
 
-        // DELETE api/<ScheduleMappingController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
+        //SaveOrUpdateTrialBalanceUploadDetails
+        [HttpPost("SaveOrUpdateTrailBalanceUploadDetails")]
+        public async Task<IActionResult> SaveTrailBalanceUploadDetailsAsync([FromQuery] int iCompId, [FromBody] TrailBalanceUploadDetailsDto dto)
         {
+            if (dto == null)
+            {
+                return BadRequest(new
+                {
+                    Status = 400,
+                    Message = "Invalid input: DTO is null",
+                    Data = (object)null
+                });
+            }
+
+            try
+            {
+                bool isUpdate = dto.ATBUD_ID > 0;
+
+                var result = await _ScheduleMappingService.SaveTrailBalanceUploadDetailsAsync(iCompId, dto);
+
+                string successMessage = isUpdate
+                    ? "Trail balance upload details successfully updated."
+                    : "Trail balance upload details successfully created.";
+
+                return Ok(new
+                {
+                    Status = 200,
+                    Message = successMessage,
+                    Data = new
+                    {
+                        UpdateOrSave = result[0],
+                        Oper = result[1],
+                        IsUpdate = isUpdate
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Status = 500,
+                    Message = "An error occurred while processing your request.",
+                    Error = ex.Message,
+                    InnerException = ex.InnerException?.Message
+                });
+            }
+        }
+
+        //GetTotalAmount
+        [HttpGet("GetTotalAmount")]
+        public async Task<IActionResult> GetCustCOAMasterDetails(
+        int compId, int custId, int yearId, int branchId, int durationId)
+        {
+            try
+            {
+                var result = await _ScheduleMappingService.GetCustCOAMasterDetailsAsync(compId, custId, yearId, branchId, durationId);
+
+                if (result != null && result.Any())
+                {
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "Data fetched successfully",
+                        data = result
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No data found",
+                        data = Enumerable.Empty<CustCOASummaryDto>()
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching data",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //GetTrialBalance(Grid)
+        [HttpGet("GetTrailBalance(Grid)")]
+        public async Task<IActionResult> GetCustCOADetails(
+    int compId, int custId, int yearId, int scheduleTypeId, int unmapped, int branchId, int durationId)
+        {
+            try
+            {
+                var result = await _ScheduleMappingService.GetCustCOADetailsAsync(compId, custId, yearId, scheduleTypeId, unmapped, branchId, durationId);
+
+                if (result != null && result.Any())
+                {
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "Data fetched successfully",
+                        data = result
+                    });
+                }
+
+                return NotFound(new
+                {
+                    statusCode = 404,
+                    message = "No data found",
+                    data = Enumerable.Empty<CustCOADetailsDto>()
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching data",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //SaveScheduleTemplate
+        [HttpPost("SaveScheduleTemplate")]
+        public async Task<IActionResult> UploadTrialBalance([FromQuery] int companyId, [FromBody] AccTrailBalanceUploadBatchDto dto)
+        {
+            try
+            {
+                var resultIds = await _ScheduleMappingService.UploadTrialBalanceExcelAsync(companyId, dto);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Trial balance uploaded successfully.",
+                    data = new
+                    {
+                        ResultIds = resultIds
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while uploading trial balance.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //UploadExcelFile
+        //[HttpPost("UploadExcelFile")]
+        //public async Task<IActionResult> UploadExcelFile(
+        //[FromForm] IFormFile file,
+        //[FromForm] int clientId,
+        //[FromForm] int branchId,
+        //[FromForm] int yearId,
+        //[FromForm] int quarter,
+        //[FromForm] string accessCode,
+        //[FromForm] int accessCodeId,
+        //[FromForm] string username)
+        //{
+        //    if (file == null || file.Length == 0)
+        //    {
+        //        return BadRequest(new
+        //        {
+        //            status = 400,
+        //            message = "No file uploaded or file is empty.",
+        //            data = (object)null
+        //        });
+        //    }
+
+        //    try
+        //    {
+        //        var result = await _ScheduleMappingService.UploadScheduleExcelAsync(
+        //            file, clientId, branchId, yearId, quarter, accessCode, accessCodeId, username
+        //        );
+
+        //        return Ok(new
+        //        {
+        //            status = 200,
+        //            message = result.Message,
+        //            data = new
+        //            {
+        //                sheetNames = result.SheetNames,
+        //                isExistingData = result.IsExistingData
+        //            }
+        //        });
+        //    }
+        //    catch (ArgumentException ex)
+        //    {
+        //        return BadRequest(new
+        //        {
+        //            status = 400,
+        //            message = ex.Message,
+        //            data = (object)null
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            status = 500,
+        //            message = "An error occurred while uploading the file.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+        //FreezeForPreviousDuration
+        [HttpPost("FreezePreviousDurationTrialBalance")]
+        public async Task<IActionResult> FreezePreviousYearTrialBalance([FromBody] FreezePreviousDurationRequestDto input)
+        {
+            try
+            {
+                var detailIds = await _ScheduleMappingService.FreezePreviousYearTrialBalanceAsync(input);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Previous year trial balance frozen successfully.",
+                    data = new
+                    {
+                        DetailIds = detailIds
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while freezing previous year trial balance.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //FreezrForNextDuration
+        [HttpPost("FreezeNextDuratiionrialBalance")]
+        public async Task<IActionResult> FreezeNextDurationTrialBalance([FromBody] FreezeNextDurationRequestDto input)
+        {
+            try
+            {
+                var detailIds = await _ScheduleMappingService.FreezeNextDurationrialBalanceAsync(input);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Previous year trial balance frozen successfully.",
+                    data = new
+                    {
+                        DetailIds = detailIds
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while freezing previous year trial balance.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //DownloadUploadableExcelAndTemplate
+        [HttpGet("DownloadableExcelFile")]
+        [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
+        [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+        public IActionResult DownloadExcelTemplate()
+        {
+            var result = _ScheduleMappingService.GetExcelTemplate();
+
+            if (result.FileBytes == null)
+                return NotFound("File not found.");
+
+            return File(result.FileBytes, result.ContentType, result.FileName);
         }
     }
 }
+
+
+
 

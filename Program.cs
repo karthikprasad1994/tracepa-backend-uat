@@ -23,7 +23,6 @@ using TracePca.Service.FixedAssetsService;
 using TracePca.Service.ProfileSetting;
 //using TracePca.Interface.AssetMaserInterface;
 
-
 var builder = WebApplication.CreateBuilder(args);
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 // Add services to the container.
@@ -68,6 +67,7 @@ builder.Services.AddScoped<AuditInterface, Communication>();
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 
 
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -98,6 +98,7 @@ builder.Services.AddDbContext<Trdmyus1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection1")));
 builder.Services.AddDbContext<Trdmyus1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection2")));
+
 
 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
