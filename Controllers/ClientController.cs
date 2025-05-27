@@ -999,8 +999,8 @@ namespace TracePca.Controllers
             try
             {
                 var drlId = await _AuditInterface.SaveAuditDataAsync(dto);
-                string message = dto.DrlId == 0 ? "Record inserted successfully." : "Record updated successfully.";
-                return Ok(new { message, drlId });
+                string message = "Record inserted successfully.";
+                return Ok(new { message });
             }
             catch (Exception ex)
             {

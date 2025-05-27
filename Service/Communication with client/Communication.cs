@@ -2924,7 +2924,7 @@ VALUES (
 
         public async Task SaveRemarksHistoryAsync(InsertAuditRemarksDto dto)
         {
-            var sql = @"
+            const string sql = @"
 INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory
 (SAR_ID, SAR_SA_ID, SAR_SAC_ID, SAR_CheckPointIDs, SAR_RemarksType, SAR_Remarks, 
  SAR_RemarksBy, SAR_Date, SAR_IPAddress, SAR_CompID, SAR_EmailIds, SAR_TimlinetoResOn, 
@@ -2933,10 +2933,26 @@ VALUES (
     (SELECT ISNULL(MAX(SAR_ID) + 1, 1) FROM StandardAudit_Audit_DRLLog_RemarksHistory),
     @AuditId, @CustomerId, @CheckPointIds, 'C', @Remark,
     @UserId, GETDATE(), @IpAddress, @CompId, @EmailId, @TimelineToRespondOn,
-    @YearId, 'W', @Id, @AttachId, @DrlId);";
+    @YearId, 'W', @MasId, @AttachId, @DrlId);";
 
             using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await conn.ExecuteAsync(sql, dto);
+
+            await conn.ExecuteAsync(sql, new
+            {
+                dto.AuditId,
+                dto.CustomerId,
+                dto.CheckPointIds,
+                dto.Remark,
+                dto.UserId,
+                dto.IpAddress,
+                dto.CompId,
+                dto.EmailId,
+                dto.TimelineToRespondOn,
+                dto.YearId,
+                MasId = dto.Id,      // Explicit mapping for SAR_MASid
+                dto.AttachId,
+                DrlId = dto.RequestedListId         // ADRL_ID from DRL log
+            });
         }
 
 
