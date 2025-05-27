@@ -585,6 +585,44 @@ namespace TracePca.Controllers
             }
         }
 
+        [HttpGet("GetDRLDetails")]
+        public async Task<IActionResult> LoadDRLDetails(
+      [FromQuery] string sAC,
+      [FromQuery] int compId,
+      [FromQuery] int auditNo,
+      [FromQuery] string checkpointIds,
+      [FromQuery] int custId,
+      [FromQuery] int yearId,
+      [FromQuery] int documentRequestedList,
+      [FromQuery] int isCustLogin,
+      [FromQuery] string format,
+      [FromQuery] string formatSelection)
+        {
+            try
+            {
+                var data = await _AuditInterface.LoadDRLdgAsync(
+                    sAC, compId, auditNo, checkpointIds,
+                    custId, yearId, documentRequestedList, isCustLogin, format, formatSelection);
+
+                return Ok(new
+                {
+                    Success = true,
+                    Message = "DRL details loaded successfully.",
+                    Data = data
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Success = false,
+                    Message = "An error occurred while loading DRL details.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+
 
 
         [HttpGet("LoadLOEHeading")]

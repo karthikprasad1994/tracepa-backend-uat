@@ -1,4 +1,6 @@
-﻿namespace TracePca.Dto.Audit
+﻿using System.Text.Json.Serialization;
+
+namespace TracePca.Dto.Audit
 {
     public class InsertAuditRemarksDto
     {
@@ -21,8 +23,10 @@
 
             // RemarksHistory-specific
             public string CheckPointIds { get; set; } = string.Empty;
-            public int CustRegAccessCodeId { get; set; }
+
+            public int? CustRegAccessCodeId { get; set; }
            public int AttachId { get; set; }
+            [JsonIgnore]
             public int MasId { get; set; }
             public int DrlId { get; set; }
         }

@@ -2933,7 +2933,7 @@ VALUES (
     (SELECT ISNULL(MAX(SAR_ID) + 1, 1) FROM StandardAudit_Audit_DRLLog_RemarksHistory),
     @AuditId, @CustomerId, @CheckPointIds, 'C', @Remark,
     @UserId, GETDATE(), @IpAddress, @CompId, @EmailId, @TimelineToRespondOn,
-    @YearId, 'W', @MasId, @AttachId, @DrlId);";
+    @YearId, 'W', @Id, @AttachId, @DrlId);";
 
             using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await conn.ExecuteAsync(sql, dto);
@@ -2954,6 +2954,130 @@ VALUES (
             return drlId;
         }
 
+
+        public async Task<List<DRLDetailDto>> LoadDRLdgAsync(string sAC, int compId, int auditNo, string checkpointIds, int custId, int yearId, int documentRequestedList, int isCustLogin, string format, string formatSelection)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            int iBA = await GetDRLBeginningoftheAuditIDAsync(sAC, compId);
+            int iCA = await GetDRLNearingCompletionoftheAuditIDAsync(sAC, compId);
+
+            var sql = $@"
+SELECT 
+    CMM_ID, CMM_Desc, DRL_DRLID, DRL_Name, ADRL_ID, ADRL_YearID, ADRL_AuditNo, ADRL_FunID, 
+    ACM_Checkpoint, ADRL_CustID, ADRL_RequestedListID, ADRL_RequestedTypeID, ADRL_RequestedOn, 
+    ADRL_TimlinetoResOn, ADRL_EmailID, ADRL_Comments, ADRL_Status, ADRL_AttachID, ADRL_CompID, 
+    ADRL_ReceivedComments, ADRL_LogStatus, ADRL_ReceivedOn, ADRL_ReportType
+FROM Audit_DRLLog
+LEFT JOIN AuditType_Checklist_Master ON ACM_ID = ADRL_FunID
+LEFT JOIN Content_Management_Master 
+    ON CMM_ID = ADRL_RequestedListID AND CMM_CompID = @CompId AND CMM_ID NOT IN (@iBA, @iCA)
+LEFT JOIN Audit_Doc_Request_List ON DRL_DRLID = ADRL_RequestedTypeID AND DRL_CompID = @CompId
+WHERE ADRL_CompID = @CompId 
+    AND ADRL_YearID = @YearId 
+
+
+
+
+    AND ADRL_RequestedListID NOT IN (@iBA, @iCA)
+    {(auditNo > 0 ? "AND ADRL_AuditNo = @AuditNo" : "")}
+    {(documentRequestedList > 0 ? "AND ADRL_RequestedListID = @DocumentRequestedList" : "")}
+";
+
+            var parameters = new
+            {
+                CompId = compId,
+                YearId = yearId,
+                AuditNo = auditNo,
+                DocumentRequestedList = documentRequestedList,
+                iBA,
+                iCA
+            };
+
+            var data = (await connection.QueryAsync<dynamic>(sql, parameters)).ToList();
+
+            var results = new List<DRLDetailDto>();
+
+            foreach (var row in data)
+            {
+                var dto = new DRLDetailDto
+                {
+                    DRLID = row.ADRL_ID,
+                    CheckPointID = row.ADRL_FunID ?? 0,
+                    CheckPoint = row.ACM_Checkpoint ?? "Others",
+                    DocumentRequestedListID = row.CMM_ID ?? 0,
+                    DocumentRequestedList = row.CMM_Desc ?? "Others",
+                    DocumentRequestedTypeID = row.DRL_DRLID ?? 0,
+                    DocumentRequestedType = row.DRL_Name ?? "Others",
+                    RequestedOn = FormatDate(row.ADRL_RequestedOn, formatSelection),
+                    TimlinetoResOn = FormatDate(row.ADRL_TimlinetoResOn, formatSelection),
+                    EmailID = row.ADRL_EmailID?.Replace(".com", ".com "),
+                    Comments = row.ADRL_Comments,
+                    ReceivedComments = ReplaceSafeSQL(row.ADRL_ReceivedComments),
+                    ReceivedOn = FormatDate(row.ADRL_ReceivedOn, formatSelection),
+                    AttachID = row.ADRL_AttachID ?? 0,
+                    ReportType = row.ADRL_ReportType ?? 0,
+                    Status = row.ADRL_LogStatus switch
+                    {
+                        1 => "Outstanding",
+                        2 => "Acceptable",
+                        3 => "Partially",
+                        4 => "No",
+                        _ => null
+                    }
+                };
+
+                results.Add(dto);
+            }
+
+            return results;
+        }
+
+        private string FormatDate(object dbValue, string format)
+        {
+            if (dbValue == null) return "";
+            if (DateTime.TryParse(dbValue.ToString(), out var dt))
+                return dt.ToString(format);
+            return "";
+        }
+
+        private string ReplaceSafeSQL(string input)
+        {
+            return string.IsNullOrEmpty(input) ? "" : input.Replace("'", "''");
+        }
+
+        public async Task<int> GetDRLBeginningoftheAuditIDAsync(string sFormName, int compId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            const string query = @"
+SELECT CMM_ID 
+FROM Content_Management_Master 
+WHERE CMM_FormName = @FormName 
+  AND CMM_CompID = @CompId 
+  AND CMM_Desc LIKE '%Beginning of the Audit%'";
+
+            var id = await connection.ExecuteScalarAsync<int?>(query, new { FormName = sFormName, CompId = compId });
+            return id ?? 0;
+        }
+
+        public async Task<int> GetDRLNearingCompletionoftheAuditIDAsync(string sFormName, int compId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            const string query = @"
+SELECT CMM_ID 
+FROM Content_Management_Master 
+WHERE CMM_FormName = @FormName 
+  AND CMM_CompID = @CompId 
+  AND CMM_Desc LIKE '%Nearing Completion of the Audit%'";
+
+            var id = await connection.ExecuteScalarAsync<int?>(query, new { FormName = sFormName, CompId = compId });
+            return id ?? 0;
+        }
 
 
     }
