@@ -21,13 +21,13 @@ namespace TracePca.Interface.Audit
         Task<int> GetDuringSelfAttachIdAsync(
     string connectionStringName, int companyId, int yearId, int customerId, int auditId, int drlId);
         Task<IEnumerable<DrlDescListDto>> LoadAllDRLDescriptionsAsync(string connectionStringName, int companyId);
-         Task<DrlDescReqDto> LoadDRLDescriptionAsync(string connectionStringName, int companyId, int drlId);
+        Task<DrlDescReqDto> LoadDRLDescriptionAsync(string connectionStringName, int companyId, int drlId);
         // Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, string dateFormat);
         Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId);
 
 
 
-Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
+        Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
         Task<List<LOEHeadingDto>> LoadLOEHeadingAsync(string sFormName, int compId, int reportTypeId, int loeTemplateId);
 
 
@@ -48,7 +48,7 @@ Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
 
         Task UpdateScheduleCheckPointRemarksAnnexureAsync(UpdateScheduleCheckPointDto dto);
         Task<string> UploadAndSaveAttachmentsAsync(AddFileDto dto);
-    Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndLogDRLReportAsync(DRLRequestDto request, string format);
+        Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndLogDRLReportAsync(DRLRequestDto request, string format);
         Task<CustomerInvoiceDto> GetCustomerDetailsForInvoiceAsync(int companyId, int customerId);
         Task<CustomerDataDto> GetCustomerDetailsWithTemplatesAsync(int companyId, int customerId, int reportTypeId);
         Task<(string WordFilePath, string PdfFilePath)> GenerateCustomerReportFilesAsync(int companyId, int customerId, int reportTypeId);
@@ -62,9 +62,15 @@ Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
         Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey);
         //Task<List<int>> SaveLoETemplateDetailsAsync(string connectionKey, int companyId, List<LoETemplateDetailDto> details);
         Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto);
-        Task<IEnumerable<DropDownListDto>> LoadDRLClientSideAsync(int compId, string type, string auditNo);       
+        Task<IEnumerable<DropDownListDto>> LoadDRLClientSideAsync(int compId, string type, string auditNo);
         Task<int> GetDuringSelfAttachIdAsync(int companyId, int yearId, int customerId, int auditId, int drlId);
+        //Task<int> SaveAuditAllAsync(InsertFileInfoDto dto, int requestedId,
+        //string module, string form, string eventName,
+        //int masterId, string masterName, int subMasterId, string subMasterName,
+        //int attachId);
+        //Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto);
+        Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto);
+
+
     }
-
-
 }

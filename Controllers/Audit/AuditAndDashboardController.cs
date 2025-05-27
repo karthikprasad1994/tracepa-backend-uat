@@ -70,9 +70,9 @@ namespace TracePca.Controllers.Audit
 
 
         [HttpGet("audit-types")]
-        public async Task<IActionResult> GetAuditTypesByCustomer(int compId, string sType, int custId, int FYear, int auditTypeId)
+        public async Task<IActionResult> GetAuditTypesByCustomer(int compId, string sType)
         {
-            var result = await _userService.GetAuditTypesByCustomerAsync(compId, sType, custId, FYear, auditTypeId);     /* sType = 'AT' */
+            var result = await _userService.GetAuditTypesByCustomerAsync(compId, sType);     /* sType = 'AT' */
 
             var response = new
             {

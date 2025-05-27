@@ -1,31 +1,41 @@
-using OfficeOpenXml;
-
-using Microsoft.EntityFrameworkCore;
 using System.Text;
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using OfficeOpenXml;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Interface;
-using TracePca.Service;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using TracePca.Interface.FixedAssetsInterface;
-using TracePca.Service.FixedAssetsService;
-using TracePca.Service.AssetService;
 using TracePca.Interface.AssetMaserInterface;
 using TracePca.Interface.Audit;
+using TracePca.Interface.DigitalFiling;
+using TracePca.Interface.FIN_Statement;
+using TracePca.Interface.FixedAssetsInterface;
+using TracePca.Interface.ProfileSetting;
+using TracePca.Service;
+using TracePca.Service.AssetService;
 using TracePca.Service.Audit;
 using TracePca.Service.Communication_with_client;
-using TracePca.Interface.FIN_Statement;
-using TracePca.Service.FIN_statement;
-using TracePca.Service.ProfileSetting;
-using TracePca.Interface.ProfileSetting;
-using TracePca.Interface.DigitalFiling;
 using TracePca.Service.DigitalFiling;
+using TracePca.Service.FIN_statement;
+using TracePca.Service.FixedAssetsService;
+using TracePca.Service.ProfileSetting;
 //using TracePca.Interface.AssetMaserInterface;
 
 var builder = WebApplication.CreateBuilder(args);
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 // Add services to the container.
+
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 
 builder.Services.AddControllers()
 .AddJsonOptions(options =>
@@ -50,6 +60,7 @@ builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
 builder.Services.AddScoped<SubCabinetsInterface, SubCabinetsService>();
 builder.Services.AddScoped<FoldersInterface, FoldersService>();
+builder.Services.AddScoped<AuditAndDashboardInterface, DashboardAndSchedule>();
 
 builder.Services.AddScoped<AuditInterface, Communication>();
 

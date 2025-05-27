@@ -55,34 +55,34 @@ namespace TracePca.Controllers
             }
         }
 
-       
 
-            [HttpGet("GetLoeTemplateSignedOn")]
-            public async Task<IActionResult> GetLoeTemplateSignedOn(
-                string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId, string dateFormat)
+
+        [HttpGet("GetLoeTemplateSignedOn")]
+        public async Task<IActionResult> GetLoeTemplateSignedOn(
+            string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId, string dateFormat)
+        {
+            try
             {
-                try
-                {
-                    var approvedOn = await _AuditInterface.GetLoeTemplateSignedOnAsync(
-                        connectionStringName, companyId, auditTypeId, customerId, yearId, dateFormat);
+                var approvedOn = await _AuditInterface.GetLoeTemplateSignedOnAsync(
+                    connectionStringName, companyId, auditTypeId, customerId, yearId, dateFormat);
 
-                    return Ok(new
-                    {
-                        status = 200,
-                        message = "Record retrieved successfully.",
-                        data = approvedOn
-                    });
-                }
-                catch (Exception ex)
+                return Ok(new
                 {
-                    return StatusCode(500, new
-                    {
-                        status = 500,
-                        message = "An error occurred while processing your request.",
-                        error = ex.Message
-                    });
-                }
+                    status = 200,
+                    message = "Record retrieved successfully.",
+                    data = approvedOn
+                });
             }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while processing your request.",
+                    error = ex.Message
+                });
+            }
+        }
 
 
         [HttpGet("GetCustomerFinancialYear")]
@@ -111,33 +111,33 @@ namespace TracePca.Controllers
             }
         }
 
-        
 
-            [HttpGet("GetReportTypes")]
-            public async Task<IActionResult> GetReportTypes(string connectionKey, int companyId)
+
+        [HttpGet("GetReportTypes")]
+        public async Task<IActionResult> GetReportTypes(string connectionKey, int companyId)
+        {
+            try
             {
-                try
-                {
-                    var reportTypes = await _AuditInterface.GetReportTypesAsync(connectionKey, companyId);
+                var reportTypes = await _AuditInterface.GetReportTypesAsync(connectionKey, companyId);
 
-                    return Ok(new
-                    {
-                        status = 200,
-                        message = "Report types retrieved successfully.",
-                        data = reportTypes
-                    });
-                }
-                catch (Exception ex)
+                return Ok(new
                 {
-                    return StatusCode(500, new
-                    {
-                        status = 500,
-                        message = "An error occurred while processing your request.",
-                        error = ex.Message
-                    });
-                }
+                    status = 200,
+                    message = "Report types retrieved successfully.",
+                    data = reportTypes
+                });
             }
-        
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while processing your request.",
+                    error = ex.Message
+                });
+            }
+        }
+
 
 
 
@@ -243,7 +243,7 @@ namespace TracePca.Controllers
 
 
 
-        [HttpGet("load-drl-options")]
+        [HttpGet("GetDrl")]
         public async Task<IActionResult> LoadDrlOptions([FromQuery] int compId, [FromQuery] string type, [FromQuery] string auditNo)
         {
             try
@@ -560,7 +560,7 @@ namespace TracePca.Controllers
             {
                 var result = await _AuditInterface.UploadAndSaveAttachmentAsync(dto);
 
-                if (result.StartsWith("Error"))
+                if (result.StartsWith("Error")) 
                 {
                     return StatusCode(500, new
                     {
@@ -637,24 +637,24 @@ namespace TracePca.Controllers
         }
 
 
-        [HttpGet("GetDrlAttachments")]
-        public async Task<IActionResult> GetDrlAttachments(
-            [FromQuery] string connectionStringName,
-            [FromQuery] int companyId,
-            [FromQuery] string categoryType,
-            [FromQuery] string auditNo,
-            [FromQuery] int auditId)
-        {
-            try
-            {
-                var result = await _AuditInterface.LoadOnlyDRLWithAttachmentsAsync(connectionStringName, companyId, categoryType, auditNo, auditId);
-                return Ok(result);
-            }
-            catch (Exception)
-            {
-                return StatusCode(500, "An error occurred while loading DRL attachment data.");
-            }
-        }
+        //[HttpGet("GetDrlAttachments")]
+        //public async Task<IActionResult> GetDrlAttachments(
+        //    [FromQuery] string connectionStringName,
+        //    [FromQuery] int companyId,
+        //    [FromQuery] string categoryType,
+        //    [FromQuery] string auditNo,
+        //    [FromQuery] int auditId)
+        //{
+        //    try
+        //    {
+        //        var result = await _AuditInterface.LoadOnlyDRLWithAttachmentsAsync(connectionStringName, companyId, categoryType, auditNo, auditId);
+        //        return Ok(result);
+        //    }
+        //    catch (Exception)
+        //    {
+        //        return StatusCode(500, "An error occurred while loading DRL attachment data.");
+        //    }
+        //}
 
         [HttpPost("SaveWorkpaper")]
         public async Task<IActionResult> SaveWorkpaper([FromBody] Dto.Audit.WorkpaperDto dto)
@@ -810,6 +810,32 @@ namespace TracePca.Controllers
             });
         }
 
+        //[HttpPost("SaveAll")]
+        //public async Task<IActionResult> SaveAll([FromBody] SaveAuditDataRequest request)
+        //{
+        //    try
+        //    {
+        //        int drlLogId = await _AuditInterface.SaveAuditAllAsync(
+        //            request.Dto,
+        //            request.RequestedId,
+        //            request.Module,
+        //            request.Form,
+        //            request.Event,
+        //            request.MasterId,
+        //            request.MasterName,
+        //            request.SubMasterId,
+        //            request.SubMasterName,
+        //            request.AttachId);
+
+        //        return Ok(new { Success = true, DrlLogId = drlLogId });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new { Success = false, Message = ex.Message });
+        //    }
+        //}
+
+
 
         [HttpGet("GetCustomerInvoicedetails")]
         public async Task<IActionResult> GetInvoiceDetails([FromQuery] int companyId, [FromQuery] int customerId)
@@ -872,37 +898,37 @@ namespace TracePca.Controllers
             }
         }
 
-       
 
-            [HttpGet("GenerateFiles")]
-            public async Task<IActionResult> GenerateCustomerReport(int companyId, int customerId, int reportTypeId)
+
+        [HttpGet("GenerateFiles")]
+        public async Task<IActionResult> GenerateCustomerReport(int companyId, int customerId, int reportTypeId)
+        {
+            try
             {
-                try
-                {
-                    var (wordPath, pdfPath) = await _AuditInterface.GenerateCustomerReportFilesAsync(companyId, customerId, reportTypeId);
+                var (wordPath, pdfPath) = await _AuditInterface.GenerateCustomerReportFilesAsync(companyId, customerId, reportTypeId);
 
-                    var response = new ReportFileResponseDto
-                    {
-                        StatusCode = 200,
-                        Message = "Report files generated successfully.",
-                        WordFilePath = wordPath,
-                        PdfFilePath = pdfPath
-                    };
-
-                    return Ok(response);
-                }
-                catch (Exception ex)
+                var response = new ReportFileResponseDto
                 {
-                    return StatusCode(500, new ReportFileResponseDto
-                    {
-                        StatusCode = 500,
-                        Message = "Failed to generate report: " + ex.Message,
-                        WordFilePath = null,
-                        PdfFilePath = null
-                    });
-                }
+                    StatusCode = 200,
+                    Message = "Report files generated successfully.",
+                    WordFilePath = wordPath,
+                    PdfFilePath = pdfPath
+                };
+
+                return Ok(response);
             }
-        
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ReportFileResponseDto
+                {
+                    StatusCode = 500,
+                    Message = "Failed to generate report: " + ex.Message,
+                    WordFilePath = null,
+                    PdfFilePath = null
+                });
+            }
+        }
+
 
 
 
@@ -925,9 +951,31 @@ namespace TracePca.Controllers
                 });
             }
         }
+
+
+
+
+        [HttpPost("SaveAuditData")]
+        public async Task<IActionResult> SaveAuditDrl([FromBody] InsertAuditRemarksDto dto)
+        {
+            try
+            {
+                var drlId = await _AuditInterface.SaveAuditDataAsync(dto);
+                string message = dto.DrlId == 0 ? "Record inserted successfully." : "Record updated successfully.";
+                return Ok(new { message, drlId });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while saving audit data.", error = ex.Message });
+            }
+        }
+
     }
-
-
 }
+        
+
+
+
+    
 
 
