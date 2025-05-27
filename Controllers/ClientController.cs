@@ -243,7 +243,7 @@ namespace TracePca.Controllers
 
 
 
-        [HttpGet("load-drl-options")]
+        [HttpGet("GetDrl")]
         public async Task<IActionResult> LoadDrlOptions([FromQuery] int compId, [FromQuery] string type, [FromQuery] string auditNo)
         {
             try

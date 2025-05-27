@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using System.Data;
 using System.Data.Common;
 using System.Text;
+using System.Text.RegularExpressions;
 using TracePca.Data;
 using TracePca.Dto.Audit;
 using TracePca.Interface;
@@ -144,14 +145,7 @@ WITH RankedAudit AS (
     WHERE LOE_CompID = @CompId
     {(financialYearId > 0 ? "AND b.SA_YearID = @financialYearId AND LOE_YearId = @financialYearId" : "")}
     {(customerId > 0 ? "AND b.SA_CustID = @customerId AND LOE_CustomerId = @customerId" : "")}
-    {(loginUserIsPartner ? "" : @$"
-    AND (
-        CONCAT(',', SA_AdditionalSupportEmployeeID, ',') LIKE ('%,' + CAST(@iLoginUserID AS VARCHAR) + ',%') OR 
-        CONCAT(',', SA_EngagementPartnerID, ',') LIKE ('%,' + CAST(@iLoginUserID AS VARCHAR) + ',%') OR 
-        CONCAT(',', SA_ReviewPartnerID, ',') LIKE ('%,' + CAST(@iLoginUserID AS VARCHAR) + ',%') OR 
-        CONCAT(',', SA_PartnerID, ',') LIKE ('%,' + CAST(@iLoginUserID AS VARCHAR) + ',%')
-    )")}
-)
+   )
 SELECT 
     ROW_NUMBER() OVER (ORDER BY SrNo DESC) AS SrNo,
     AuditID,
@@ -180,8 +174,6 @@ ORDER BY SrNo";
             var result = await connection.QueryAsync<DashboardAndScheduleDto>(query, parameters);
             return result.ToList();
         }
-
-
 
         public async Task<List<UserDto>> GetUsersByRoleAsync(int compId, string role)
         {
@@ -227,7 +219,7 @@ ORDER BY SrNo";
         }
 
 
-        public async Task<List<AuditTypeCustomerDto>> GetAuditTypesByCustomerAsync(int compId, string sType, int custId, int fyId, int auditTypeId)
+        public async Task<List<AuditTypeCustomerDto>> GetAuditTypesByCustomerAsync(int compId, string sType)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -238,36 +230,12 @@ ORDER BY SrNo";
           AND CMM_CompID = @CompId
           AND CMM_Delflag = 'A'
           AND CMS_KeyComponent = 0
-          AND CMM_ID IN (
-              SELECT LOE_ServiceTypeId
-              FROM SAD_CUST_LOE
-              WHERE LOE_CustomerId = @CustId
-                AND LOE_YearId = @FyId
-          )
-          AND EXISTS (
-              SELECT 1
-              FROM AuditType_Checklist_Master
-              WHERE ACM_AuditTypeID = CMM_ID
-          )
-          AND (
-              CMM_ID NOT IN (
-                  SELECT SA_AuditTypeID
-                  FROM StandardAudit_Schedule
-                  WHERE SA_YearID = @FyId
-                    AND SA_CustID = @CustId
-                    AND SA_CompID = @CompId
-              )
-              OR CMM_ID = @AuditTypeId
-          )
-        ORDER BY CMM_Desc ASC";
+          ORDER BY CMM_Desc ASC";
 
             var result = await connection.QueryAsync<AuditTypeCustomerDto>(query, new
             {
                 CompId = compId,
-                SType = sType,
-                CustId = custId,
-                FyId = fyId,
-                AuditTypeId = auditTypeId
+                SType = sType
             });
 
             return result.ToList();
@@ -489,10 +457,33 @@ GROUP BY
             var result = await connection.QueryAsync<AuditChecklistDto>(sql, parameters);
             return result;
         }
+        private async Task<string> GetCustomerCode(string connectionString, int companyId, int customerId)
+        {
+            var sql = @"SELECT CUST_CODE FROM sad_Customer_master 
+                WHERE Cust_ID = @CustomerId AND Cust_CompID = @CompanyId";
+
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    var result = await connection.ExecuteScalarAsync<string>(sql, new
+                    {
+                        CustomerId = customerId,
+                        CompanyId = companyId
+                    });
+
+                    return Regex.Replace(result ?? string.Empty, @"\s", "").Trim();
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Failed to retrieve customer code", ex);
+            }
+        }
 
         public async Task<int> InsertStandardAuditScheduleWithQuartersAsync(
-      string sAC, StandardAuditScheduleDto dto, int custRegAccessCodeId, int iUserID, string sIPAddress,
-      string sModule, string sForm, string sEvent, int iMasterID, string sMasterName, int iSubMasterID, string sSubMasterName)
+         string sAC, StandardAuditScheduleDto dto, int custRegAccessCodeId, int iUserID, string sIPAddress,
+         string sModule, string sForm, string sEvent, int iMasterID, string sMasterName, int iSubMasterID, string sSubMasterName)
         {
             int insertedId = 0;
 
@@ -507,12 +498,42 @@ GROUP BY
 
             try
             {
+                if (dto.SA_ID == 0)
+                {
+                    // Pass transaction here!
+                    int maxId = await connection.ExecuteScalarAsync<int>(
+                        $"SELECT COUNT(*) + 1 FROM StandardAudit_Schedule WHERE SA_YearID = @YearID",
+                        new { YearID = dto.SA_YearID },
+                        transaction // assign transaction here
+                    );
+
+                    string formattedId = maxId.ToString("D5"); // e.g., 00001
+
+                    // If GetCustomerCode accesses DB, modify it to accept a transaction or connection
+                    // Otherwise, it can be called without transaction if it's safe
+                    string customerPrefix = await GetCustomerCode(connectionString, dto.SA_CompID, dto.SA_CustID);
+
+                    string jobCode = $"{customerPrefix}/AUD/{dto.SA_YearID}/{formattedId}";
+
+                    dto.SA_AuditNo = jobCode;
+                }
+                else
+                {
+                    var auditNo = await connection.ExecuteScalarAsync<string>(
+                        "SELECT SA_AuditNo FROM StandardAudit_Schedule WHERE SA_ID = @SA_ID",
+                        new { dto.SA_ID },
+                        transaction // assign transaction here
+                    );
+
+                    dto.SA_AuditNo = auditNo;
+                }
+
+                // Prepare and execute your stored procedure with transaction
                 using var command = new SqlCommand("spStandardAudit_Schedule", connection, transaction)
                 {
                     CommandType = CommandType.StoredProcedure
                 };
 
-                // Input parameters
                 command.Parameters.AddWithValue("@SA_ID", dto.SA_ID != null ? (object)dto.SA_ID : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_AuditNo", dto.SA_AuditNo ?? (object)DBNull.Value);
                 command.Parameters.AddWithValue("@SA_CustID", dto.SA_CustID != null ? (object)dto.SA_CustID : DBNull.Value);
@@ -527,6 +548,12 @@ GROUP BY
                 command.Parameters.AddWithValue("@SA_AttachID", dto.SA_AttachID != null ? (object)dto.SA_AttachID : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_StartDate", dto.SA_StartDate != null ? (object)dto.SA_StartDate : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_ExpCompDate", dto.SA_ExpCompDate != null ? (object)dto.SA_ExpCompDate : DBNull.Value);
+
+                // Newly added parameters
+                command.Parameters.AddWithValue("@SA_RptRvDate", dto.SA_RptRvDate != null ? (object)dto.SA_RptRvDate : DBNull.Value);
+                command.Parameters.AddWithValue("@SA_RptFilDate", dto.SA_RptFilDate != null ? (object)dto.SA_RptFilDate : DBNull.Value);
+                command.Parameters.AddWithValue("@SA_MRSDate", dto.SA_MRSDate != null ? (object)dto.SA_MRSDate : DBNull.Value);
+
                 command.Parameters.AddWithValue("@SA_AuditOpinionDate", dto.SA_AuditOpinionDate != null ? (object)dto.SA_AuditOpinionDate : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_FilingDateSEC", dto.SA_FilingDateSEC != null ? (object)dto.SA_FilingDateSEC : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_MRLDate", dto.SA_MRLDate != null ? (object)dto.SA_MRLDate : DBNull.Value);
@@ -537,16 +564,17 @@ GROUP BY
                 command.Parameters.AddWithValue("@SA_UpdatedBy", dto.SA_UpdatedBy != null ? (object)dto.SA_UpdatedBy : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_IPAddress", dto.SA_IPAddress ?? (object)DBNull.Value);
                 command.Parameters.AddWithValue("@SA_CompID", dto.SA_CompID != null ? (object)dto.SA_CompID : DBNull.Value);
-                command.Parameters.AddWithValue("@Out_Message", " Succusful");
-                command.Parameters.AddWithValue("@Out_AuditScheduleID", dto.SA_ID != null ? (object)dto.SA_ID : DBNull.Value);
 
-                // Output parameters
+                // Output Parameters
+                command.Parameters.Add("@Out_Message", SqlDbType.VarChar, 100).Direction = ParameterDirection.Output;
+                command.Parameters.Add("@Out_AuditScheduleID", SqlDbType.Int).Direction = ParameterDirection.Output;
+
+
                 var paramUpdateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
                 var paramOper = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
                 command.Parameters.Add(paramUpdateOrSave);
                 command.Parameters.Add(paramOper);
 
-                // Execute the command
                 await command.ExecuteNonQueryAsync();
                 insertedId = (int)paramOper.Value;
 
@@ -577,7 +605,7 @@ GROUP BY
                 throw;
             }
 
-            // Process quarters after transaction
+            // Process quarters after transaction commit
             foreach (var quarter in dto.Quarters ?? Enumerable.Empty<QuarterAuditDto>())
             {
                 await UpdateStandardAuditStartEndDate(sAC, dto.SA_CompID, insertedId, quarter.StartDate, quarter.EndDate, custRegAccessCodeId);

@@ -7,7 +7,7 @@ namespace TracePca.Interface.Audit
         Task<List<DashboardAndScheduleDto>> GetDashboardAuditAsync(
              int? id, int? customerId, int? compId, int? financialYearId, int? loginUserId);
         Task<List<UserDto>> GetUsersByRoleAsync(int compId, string role);
-        Task<List<AuditTypeCustomerDto>> GetAuditTypesByCustomerAsync(int compId, string sType, int custId, int fyId, int auditTypeId);
+        Task<List<AuditTypeCustomerDto>> GetAuditTypesByCustomerAsync(int compId, string sType);
         List<QuarterDto> GenerateQuarters(DateTime? fromDate);
         Task<List<AuditTypeHeadingDto>> LoadAllAuditTypeHeadingsAsync(int compId, int auditTypeId);
         Task<List<AssignedCheckpointDto>> GetAssignedCheckpointsAndTeamMembersAsync(
