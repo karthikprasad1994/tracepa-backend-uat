@@ -1500,6 +1500,7 @@ SELECT
         WHEN Atch_Vstatus = 'AS' THEN 'Not Shared'
         WHEN Atch_Vstatus = 'A' THEN 'Shared'
         WHEN Atch_Vstatus = 'C' THEN 'Received'
+         WHEN Atch_Vstatus = 'DS' THEN 'Received'
     END AS Atch_Vstatus
 FROM edt_attachments
 WHERE ATCH_CompID = @CompanyId 
@@ -1512,7 +1513,7 @@ ORDER BY ATCH_CREATEDON";
             {
                 CompanyId = companyId,
                 AttachId = attachId,
-                
+
             })).ToList();
 
             var result = new List<AttachmentDto>();
@@ -1567,25 +1568,29 @@ ORDER BY ATCH_CREATEDON";
             using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 await connection.OpenAsync();
+                //var maxIdQuery = "SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM Edt_Attachments";
+                //var nextAttachId = attachId; // Use the one passed in
 
-                var maxIdQuery = "SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM Edt_Attachments";
-                var nextAttachId = await connection.ExecuteScalarAsync<int>(maxIdQuery);
+
+
+                //var maxIdQuery = "SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM Edt_Attachments";
+                //var nextAttachId = await connection.ExecuteScalarAsync<int>(maxIdQuery);
 
                 var insertQuery = @"
 INSERT INTO Edt_Attachments (
     ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_Desc, ATCH_SIZE,
     ATCH_AuditID, ATCH_AUDScheduleID, ATCH_CREATEDBY, ATCH_CREATEDON,
-    ATCH_COMPID, ATCH_ReportType, ATCH_drlid, Atch_Vstatus
+    ATCH_COMPID, ATCH_ReportType, ATCH_drlid, Atch_Vstatus, ATCH_Status
 )
 VALUES (
     @AtchId, @DocId, @FileName, @FileExt, @Description, @Size,
     @AuditId, @ScheduleId, @UserId, GETDATE(),
-    @CompId, @ReportType, @DrlId, 'A'
+    @CompId, @ReportType, @DrlId, 'A',  'X'
 );";
 
                 await connection.ExecuteAsync(insertQuery, new
                 {
-                    AtchId = nextAttachId,
+                    AtchId = attachId,
                     DocId = docId,
                     FileName = safeFileName,
                     FileExt = fileExt,
@@ -1603,7 +1608,7 @@ VALUES (
             }
         }
 
-        
+
         private async Task<int> InsertIntoAuditDrlLogAsync(AddFileDto dto, int requestedId)
         {
             using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
@@ -1646,21 +1651,27 @@ VALUES (
             {
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
-                    @"SELECT ISNULL(MAX( ATCH_DOCID), 0) + 1 FROM Edt_Attachments 
-              WHERE ATCH_COMPID = @CustomerId AND ATCH_AuditID = @AuditId",
+                    @"SELECT ISNULL(MAX( ATCH_DOCID), 0) + 1 FROM Edt_Attachments",
                     new { customerId, auditId });
             }
         }
 
 
-       
+
 
         public async Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto)
         {
             try
             {
                 // 1. Generate Next Attachment ID
-                int attachId = await GenerateNextAttachmentIdAsync(dto.CustomerId, dto.AuditId, dto.YearId);
+                //  int attachId = await GenerateNextAttachmentIdAsync(dto.CustomerId, dto.AuditId, dto.YearId);
+                //           int attachId = dto.AtchId > 0
+                //? dto.AtchId
+                //: await GenerateNextAttachmentIdAsync(dto.CustomerId, dto.AuditId, dto.YearId);
+
+                int attachId = dto.AtchId > 0
+      ? dto.AtchId
+      : await GenerateNextAttachmentIdAsync(dto.AuditId);
 
                 // 2. Get Requested ID (based on document name)
                 //int requestedId = await GetRequestedIdByDocumentNameAsync(dto.DocumentName);
@@ -1698,7 +1709,24 @@ VALUES (
                 return $"Error: {ex.Message}";
             }
         }
-        private async Task<int> GenerateNextAttachmentIdAsync(int customerId, int auditId, int YearId)
+        //private async Task<int> GenerateNextAttachmentIdAsync(int customerId, int auditId, int YearId)
+        //{
+        //    using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //    {
+        //        await connection.OpenAsync();
+        //        return await connection.ExecuteScalarAsync<int>(
+        //            @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 
+        //      FROM Edt_Attachments
+        //      LEFT JOIN StandardAudit_Audit_DRLLog_RemarksHistory a 
+        //      ON a.SAR_AttchId = Atch_Id
+        //      WHERE SAR_SAC_ID = @CustomerId 
+        //      AND SAR_SA_ID = @AuditId 
+        //      AND SAR_Yearid = @YearId",
+        //            new { customerId, auditId, YearId });
+        //    }
+        //}
+
+        private async Task<int> GenerateNextAttachmentIdAsync(int auditId)
         {
             using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
@@ -1706,12 +1734,8 @@ VALUES (
                 return await connection.ExecuteScalarAsync<int>(
                     @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 
               FROM Edt_Attachments
-              LEFT JOIN StandardAudit_Audit_DRLLog_RemarksHistory a 
-              ON a.SAR_AttchId = Atch_Id
-              WHERE SAR_SAC_ID = @CustomerId 
-              AND SAR_SA_ID = @AuditId 
-              AND SAR_Yearid = @YearId",
-                    new { customerId, auditId, YearId });
+              WHERE ATCH_AuditId = @AuditId",
+                    new { AuditId = auditId });
             }
         }
 
@@ -1771,7 +1795,7 @@ VALUES (
                 SAR_Remarks, SAR_Date, SAR_RemarksType, SAR_AttchId, SAR_AtthachDocId, SAR_TimlinetoResOn
             ) VALUES (
                 @RemarkId, @CustomerId, @AuditId, @RequestedId,
-                @Remark, GETDATE(), @Type, @AtchId,  @DocId,  GETDATE()
+                @Remark, @RequestedOn, @Type, @AtchId, @DocId, @RespondTime
             )",
                     new
                     {
@@ -1780,13 +1804,20 @@ VALUES (
                         AuditId = dto.AuditId,
                         RequestedId = requestedId,
                         Remark = dto.Remark,
-                        //UserId = dto.UserId,
                         Type = dto.Type,
-                        AtchId = attachId,   // use the parameter
-                        DocId = docId
-                    });
+                        AtchId = attachId,
+                        DocId = docId,
+                        RequestedOn = dto.RequestedOn,
+                        RespondTime = dto.RespondTime
+
+
+                    }
+                );
             }
         }
+
+
+
 
 
         private async Task<int> GetDrlPkIdAsync(int customerId, int auditId, int attachId)
@@ -2027,7 +2058,7 @@ VALUES (
                 WorkpaperRef = workpaperRef,
                 WorkpaperId = workpaperId ?? 0 // Default to 0 if null
             });
-            
+
 
             return count > 0;
         }
@@ -2370,7 +2401,7 @@ VALUES (
             try
             {
                 // 1. Generate Next Attachment ID
-                int attachId = await GenerateNextAttachmentIdAsync(dto.CustomerId, dto.AuditId, dto.YearId);
+                int attachId = await GenerateNextAttachmentIdAsync(dto.AuditId);
 
                 // 2. Get Requested ID (based on document name)
                 int requestedId = await GetRequestedIdByDocumentNameAsync(dto.DocumentName);
@@ -2405,22 +2436,528 @@ VALUES (
         }
 
 
+        //        private async Task<int> InsertAuditDrlLogAsync(InsertFileInfoDto dto, int requestedId)
+        //        {
+        //            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //            {
+        //                await connection.OpenAsync();
 
-       
+        //                var drlLogId = await connection.ExecuteScalarAsync<int>(@"
+        //INSERT INTO Audit_DRLLog (
+        //    ADRL_YearID, ADRL_AuditNo, ADRL_CustID, 
+        //    ADRL_RequestedListID, ADRL_RequestedTypeID, ADRL_RequestedOn, ADRL_TimlinetoResOn,
+        //    ADRL_EmailID, ADRL_Comments,
+        //    ADRL_CrBy, ADRL_UpdatedBy, ADRL_IPAddress, ADRL_CompID, ADRL_ReportType
+        //) VALUES (
+        //    @YearId, @AuditId, @CustomerId,
+        //    @RequestedId, @RequestedTypeId, @RequestedOn, @TimelineToRespondOn,
+        //    @EmailIds, @Remarks,
+        //    @UserId, @UpdatedBy, @IpAddress, @CompId, @ReportType
+        //);
+        //SELECT SCOPE_IDENTITY();",
+        //                    new
+        //                    {
+        //                        YearId = dto.YearId,
+        //                        AuditId = dto.AuditId,
+        //                        CustomerId = dto.CustomerId,
+        //                        RequestedId = requestedId,
+        //                        RequestedTypeId = dto.RequestedTypeId,
+        //                        RequestedOn = DateTime.Now, // or dto.RequestedOn if needed
+        //                        TimelineToRespondOn = dto.TimlineToRespondOn,
+        //                        EmailIds = dto.EmailId,
+        //                        Remarks = dto.Remark,
+        //                        UserId = dto.UserId,
+        //                        UpdatedBy = dto.UpdatedBy,
+        //                        IpAddress = dto.IpAddress,
+        //                        CompId = dto.CompId,
+        //                        ReportType = dto.ReportType
+        //                    });
+
+        //                return Convert.ToInt32(drlLogId);
+        //            }
+        //        }
+
+        //private async Task InsertIntoRemarksLogAsync(InsertFileInfoDto dto, int drlLogId, int attachId)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    await connection.OpenAsync();
+
+        //    await connection.ExecuteAsync(@"
+        //INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
+        //    SAR_ID, SAR_SA_ID, SAR_SAC_ID, SAR_RemarksType,
+        //    SAR_Remarks, SAR_RemarksBy, SAR_Date, SAR_IPAddress,
+        //    SAR_CompID, SAR_EmailIds, SAR_TimlinetoResOn,
+        //    sar_Yearid, SAR_DBFlag, SAR_AttchId, SAR_DRLId
+        //) VALUES (
+        //    (SELECT ISNULL(MAX(SAR_ID), 0) + 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory),
+        //    @AuditId, @CustomerId, 'C',
+        //    @Remark, @UserId, GETDATE(), @IpAddress,
+        //    @CompId, @EmailId, @TimlineToRespondOn,
+        //    @YearId, 'W', @AttachId, @DrlLogId
+        //)", new
+        //    {
+        //        dto.AuditId,
+        //        dto.CustomerId,
+        //        dto.Remark,
+        //        dto.UserId,
+        //        dto.IpAddress,
+        //        dto.CompId,
+        //        dto.EmailId,
+        //        dto.TimlineToRespondOn,
+        //        dto.YearId,
+        //        AttachId = attachId,
+        //        DrlLogId = drlLogId
+        //    });
+        //}
+
+        //private async Task InsertIntoFormOperationLogAsync(InsertFileInfoDto dto, string module, string form, string eventName, int masterId, string masterName, int subMasterId, string subMasterName)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    await connection.OpenAsync();
+
+        //    await connection.ExecuteAsync(@"
+        //INSERT INTO Audit_Log_Form_Operations (
+        //    ALFO_PKID, ALFO_UserID, ALFO_Module, ALFO_Form, ALFO_Event,
+        //    ALFO_MasterID, ALFO_MasterName, ALFO_SubMasterID, ALFO_SubMasterName,
+        //    ALFO_IPAddress, ALFO_CompID
+        //) VALUES (
+        //    (SELECT ISNULL(MAX(ALFO_PKID), 0) + 1 FROM Audit_Log_Form_Operations),
+        //    @UserId, @Module, @Form, @Event,
+        //    @MasterId, @MasterName, @SubMasterId, @SubMasterName,
+        //    @IpAddress, @CompId
+        //)",
+        //        new
+        //        {
+        //            UserId = dto.UserId,
+        //            Module = module,
+        //            Form = form,
+        //            Event = eventName,
+        //            MasterId = masterId,
+        //            MasterName = masterName,
+        //            SubMasterId = subMasterId,
+        //            SubMasterName = subMasterName,
+        //            IpAddress = dto.IpAddress,
+        //            CompId = dto.CompId
+        //        });
+        //}
+
+
+        //public async Task<int> SaveAuditAllAsync(InsertFileInfoDto dto, int requestedId,
+        //string module, string form, string eventName,
+        //int masterId, string masterName, int subMasterId, string subMasterName,
+        //int attachId)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    await connection.OpenAsync();
+
+        //    using var transaction = connection.BeginTransaction();
+
+        //    try
+        //    {
+        //        // Call InsertAuditDrlLogAsync
+        //       // var drlLogId = await InsertAuditDrlLogAsync(connection, transaction, dto, requestedId);
+
+        //        // Call InsertIntoRemarksLogAsync
+        //        await InsertIntoRemarksLogAsync(connection, transaction, dto, drlLogId, attachId);
+
+        //        // Call InsertIntoFormOperationLogAsync
+        //        await InsertIntoFormOperationLogAsync(connection, transaction, dto, module, form, eventName,
+        //            masterId, masterName, subMasterId, subMasterName);
+
+        //        await transaction.CommitAsync();
+
+        //        //return drlLogId;
+        //    }
+        //    catch
+        //    {
+        //        await transaction.RollbackAsync();
+        //        throw;
+        //    }
+        //}
+
+        //        private async Task<int> InsertAuditDrlLogAsync(SqlConnection connection, SqlTransaction transaction, InsertFileInfoDto dto, int requestedId)
+        //        {
+        //            var drlLogId = await connection.ExecuteScalarAsync<int>(@"
+        //INSERT INTO Audit_DRLLog (
+        //    ADRL_YearID, ADRL_AuditNo, ADRL_CustID, 
+        //    ADRL_RequestedListID, ADRL_RequestedTypeID, ADRL_RequestedOn, ADRL_TimlinetoResOn,
+        //    ADRL_EmailID, ADRL_Comments,
+        //    ADRL_CrBy, ADRL_UpdatedBy, ADRL_IPAddress, ADRL_CompID, ADRL_ReportType
+        //) VALUES (
+        //    @YearId, @AuditId, @CustomerId,
+        //    @RequestedId, @RequestedTypeId, @RequestedOn, @TimelineToRespondOn,
+        //    @EmailIds, @Remarks,
+        //    @UserId, @UpdatedBy, @IpAddress, @CompId, @ReportType
+        //);
+        //SELECT CAST(SCOPE_IDENTITY() as int);",
+        //                new
+        //                {
+        //                    YearId = dto.YearId,
+        //                    AuditId = dto.AuditId,
+        //                    CustomerId = dto.CustomerId,
+        //                    RequestedId = requestedId,
+        //                    RequestedTypeId = dto.RequestedTypeId,
+        //                    RequestedOn = DateTime.Now,
+        //                    TimelineToRespondOn = dto.TimlineToRespondOn,
+        //                    EmailIds = dto.EmailId,
+        //                    Remarks = dto.Remark,
+        //                    UserId = dto.UserId,
+        //                    UpdatedBy = dto.UpdatedBy,
+        //                    IpAddress = dto.IpAddress,
+        //                    CompId = dto.CompId,
+        //                    ReportType = dto.ReportType
+        //                }, transaction);
+
+        //            return drlLogId;
+        //        }
+
+        //        private async Task InsertIntoRemarksLogAsync(SqlConnection connection, SqlTransaction transaction, InsertFileInfoDto dto, int drlLogId, int attachId)
+        //        {
+        //            await connection.ExecuteAsync(@"
+        //INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
+        //    SAR_ID, SAR_SA_ID, SAR_SAC_ID, SAR_RemarksType,
+        //    SAR_Remarks, SAR_RemarksBy, SAR_Date, SAR_IPAddress,
+        //    SAR_CompID, SAR_EmailIds, SAR_TimlinetoResOn,
+        //    sar_Yearid, SAR_DBFlag, SAR_AttchId, SAR_DRLId
+        //) VALUES (
+        //    (SELECT ISNULL(MAX(SAR_ID), 0) + 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory),
+        //    @AuditId, @CustomerId, 'C',
+        //    @Remark, @UserId, GETDATE(), @IpAddress,
+        //    @CompId, @EmailId, @TimlineToRespondOn,
+        //    @YearId, 'W', @AttachId, @DrlLogId
+        //)",
+        //                new
+        //                {
+        //                    dto.AuditId,
+        //                    dto.CustomerId,
+        //                    dto.Remark,
+        //                    dto.UserId,
+        //                    dto.IpAddress,
+        //                    dto.CompId,
+        //                    dto.EmailId,
+        //                    dto.TimlineToRespondOn,
+        //                    dto.YearId,
+        //                    AttachId = attachId,
+        //                    DrlLogId = drlLogId
+        //                }, transaction);
+        //        }
+
+        //        private async Task InsertIntoFormOperationLogAsync(SqlConnection connection, SqlTransaction transaction, InsertFileInfoDto dto,
+        //     string module, string form, string eventName,
+        //     int masterId, string masterName, int subMasterId, string subMasterName)
+        //        {
+        //            await connection.ExecuteAsync(@"
+        //INSERT INTO Audit_Log_Form_Operations (
+        //    ALFO_PKID, ALFO_UserID, ALFO_Module, ALFO_Form, ALFO_Event,
+        //    ALFO_MasterID, ALFO_MasterName, ALFO_SubMasterID, ALFO_SubMasterName,
+        //    ALFO_IPAddress, ALFO_CompID
+        //) VALUES (
+        //    (SELECT ISNULL(MAX(ALFO_PKID), 0) + 1 FROM Audit_Log_Form_Operations),
+        //    @UserId, @Module, @Form, @Event,
+        //    @MasterId, @MasterName, @SubMasterId, @SubMasterName,
+        //    @IpAddress, @CompId
+        //)",
+        //                new
+        //                {
+        //                    UserId = dto.UserId,
+        //                    Module = module,
+        //                    Form = form,
+        //                    Event = eventName,
+        //                    MasterId = masterId,
+        //                    MasterName = masterName,
+        //                    SubMasterId = subMasterId,
+        //                    SubMasterName = subMasterName,
+        //                    IpAddress = dto.IpAddress,
+        //                    CompId = dto.CompId
+        //                }, transaction);
+        //        
+
+        //private async Task InsertIntoRemarksLogAsync(InsertFileInfoDto dto, int drlLogId, int attachId)
+        //    {
+        //        using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //        await connection.OpenAsync();
+
+        //        await connection.ExecuteAsync(@"
+        //    INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
+        //        SAR_ID, SAR_SA_ID, SAR_SAC_ID, SAR_RemarksType,
+        //        SAR_Remarks, SAR_RemarksBy, SAR_Date, SAR_IPAddress,
+        //        SAR_CompID, SAR_EmailIds, SAR_TimlinetoResOn,
+        //        sar_Yearid, SAR_DBFlag, SAR_AttchId, SAR_DRLId
+        //    ) VALUES (
+        //        (SELECT ISNULL(MAX(SAR_ID), 0) + 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory),
+        //        @AuditId, @CustomerId, 'C',
+        //        @Remark, @UserId, GETDATE(), @IpAddress,
+        //        @CompId, @EmailId, @TimlineToRespondOn,
+        //        @YearId, 'W', @AttachId, @DrlLogId
+        //    )", new
+        //        {
+        //            dto.AuditId,
+        //            dto.CustomerId,
+        //            dto.Remark,
+        //            dto.UserId,
+        //            dto.IpAddress,
+        //            dto.CompId,
+        //            dto.EmailId,
+        //            dto.TimlineToRespondOn,
+        //            dto.YearId,
+        //            AttachId = attachId,
+        //            DrlLogId = drlLogId
+        //        });
+        //    }
+
+        //    private async Task InsertIntoFormOperationLogAsync(InsertFileInfoDto dto, string module, string form, string eventName, int masterId, string masterName, int subMasterId, string subMasterName)
+        //    {
+        //        using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //        await connection.OpenAsync();
+
+        //        await connection.ExecuteAsync(@"
+        //    INSERT INTO Audit_Log_Form_Operations (
+        //        ALFO_PKID, ALFO_UserID, ALFO_Module, ALFO_Form, ALFO_Event,
+        //        ALFO_MasterID, ALFO_MasterName, ALFO_SubMasterID, ALFO_SubMasterName,
+        //        ALFO_IPAddress, ALFO_CompID
+        //    ) VALUES (
+        //        (SELECT ISNULL(MAX(ALFO_PKID), 0) + 1 FROM Audit_Log_Form_Operations),
+        //        @UserId, @Module, @Form, @Event,
+        //        @MasterId, @MasterName, @SubMasterId, @SubMasterName,
+        //        @IpAddress, @CompId
+        //    )",
+        //            new
+        //            {
+        //                UserId = dto.UserId,
+        //                Module = module,
+        //                Form = form,
+        //                Event = eventName,
+        //                MasterId = masterId,
+        //                MasterName = masterName,
+        //                SubMasterId = subMasterId,
+        //                SubMasterName = subMasterName,
+        //                IpAddress = dto.IpAddress,
+        //                CompId = dto.CompId
+        //            });
+        //    }
+
+        //public async Task<int> SaveOrUpdateAuditDrlLogAsync(InsertAuditRemarksDto dto)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    var parameters = new DynamicParameters();
+
+        //    parameters.Add("@ADRL_ID", dto.DrlId); // Pass actual ID for update
+
+        //    parameters.Add("@ADRL_YearID", dto.YearId);
+        //    parameters.Add("@ADRL_AuditNo", dto.AuditId);
+        //    parameters.Add("@ADRL_FunID", dto.FunctionId);
+        //    parameters.Add("@ADRL_CustID", dto.CustomerId);
+        //    parameters.Add("@ADRL_RequestedListID", dto.RequestedListId);
+        //    parameters.Add("@ADRL_RequestedTypeID", dto.RequestedTypeId);
+        //    parameters.Add("@ADRL_RequestedOn", dto.RequestedOn);
+        //    parameters.Add("@ADRL_TimlinetoResOn", dto.TimelineToRespondOn);
+        //    parameters.Add("@ADRL_EmailID", dto.EmailId);
+        //    parameters.Add("@ADRL_Comments", dto.Remark);
+        //    parameters.Add("@ADRL_CrBy", dto.UserId);
+        //    parameters.Add("@ADRL_UpdatedBy", dto.UpdatedBy);
+        //    parameters.Add("@ADRL_IPAddress", dto.IpAddress);
+        //    parameters.Add("@ADRL_CompID", dto.CompId);
+        //    parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+        //    parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+        //    await connection.ExecuteAsync("spAudit_DRLLog", parameters, commandType: CommandType.StoredProcedure);
+
+        //    return parameters.Get<int>("@iOper");
+        //}
+
+        //public async Task SaveRemarksHistoryAsync(InsertAuditRemarksDto dto)
+        //{
+        //    var sql = @"
+        //INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory
+        //(SAR_ID, SAR_SA_ID, SAR_SAC_ID, SAR_CheckPointIDs, SAR_RemarksType, SAR_Remarks, 
+        // SAR_RemarksBy, SAR_Date, SAR_IPAddress, SAR_CompID, SAR_EmailIds, SAR_TimlinetoResOn, 
+        // sar_Yearid, SAR_DBFlag, SAR_MASid, SAR_AttchId, SAR_DRLId)
+        //VALUES (
+        //    (SELECT ISNULL(MAX(SAR_ID) + 1, 1) FROM StandardAudit_Audit_DRLLog_RemarksHistory),
+        //    @AuditId, @CustomerId, @CheckPointIds, 'C', @Remark,
+        //    @UserId, GETDATE(), @IpAddress, @CompId, @EmailId, @TimelineToRespondOn,
+        //    @YearId, 'W', @MasId, @AttachId, @DrlId);";
+
+        //    using var conn1 = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    using var conn2 = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+        //    await conn1.ExecuteAsync(sql, dto);
+        //    await conn2.ExecuteAsync(sql, dto);
+        //}
+
+        //public async Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto)
+        //{
+        //    // Save or update Audit_DRLLog and receive the actual DRL ID
+        //    int drlId = await SaveOrUpdateAuditDrlLogAsync(dto);
+        //    return drlId;
+        //}
+
+        //public async Task<int> SaveOrUpdateAuditDrlLogAsync(InsertAuditRemarksDto dto)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    var parameters = new DynamicParameters();
+
+        //    // Pass ID (0 for insert, or actual ID for update)
+        //    parameters.Add("@ADRL_ID", dto.DrlId);
+        //    parameters.Add("@ADRL_YearID", dto.YearId);
+        //    parameters.Add("@ADRL_AuditNo", dto.AuditId);
+        //    parameters.Add("@ADRL_FunID", dto.FunctionId);
+        //    parameters.Add("@ADRL_CustID", dto.CustomerId);
+        //    parameters.Add("@ADRL_RequestedListID", dto.RequestedListId);
+        //    parameters.Add("@ADRL_RequestedTypeID", dto.RequestedTypeId);
+        //    parameters.Add("@ADRL_RequestedOn", dto.RequestedOn);
+        //    parameters.Add("@ADRL_TimlinetoResOn", dto.TimelineToRespondOn);
+        //    parameters.Add("@ADRL_EmailID", dto.EmailId);
+        //    parameters.Add("@ADRL_Comments", dto.Remark);
+        //    parameters.Add("@ADRL_CrBy", dto.UserId);
+        //    parameters.Add("@ADRL_UpdatedBy", dto.UpdatedBy);
+        //    parameters.Add("@ADRL_IPAddress", dto.IpAddress);
+        //    parameters.Add("@ADRL_CompID", dto.CompId);
+
+        //    // OUTPUT parameters
+        //    parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output); // 3 = insert, 2 = update
+        //    parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);         // returns DRL_ID
+
+        //    await connection.ExecuteAsync("spAudit_DRLLog", parameters, commandType: CommandType.StoredProcedure);
+
+        //    int operationType = parameters.Get<int>("@iUpdateOrSave");
+        //    int returnedDrlId = parameters.Get<int>("@iOper");
+
+        //    // Insert into RemarksHistory only for new inserts
+        //    if (operationType == 3)
+        //    {
+        //        dto.DrlId = returnedDrlId; // assign the inserted DRL ID
+        //        await SaveRemarksHistoryAsync(dto);
+        //    }
+
+        //    return returnedDrlId;
+        //}
+        public async Task<int> SaveOrUpdateAuditDrlLogAsync(InsertAuditRemarksDto dto)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            // First check if record exists with matching keys
+            var existingId = await connection.QueryFirstOrDefaultAsync<int?>(@"
+        SELECT ADRL_ID FROM Audit_DRLLog 
+        WHERE ADRL_AuditNo = @AuditNo 
+          AND ADRL_FunID = @FunID 
+          AND ADRL_CustID = @CustID
+          AND ADRL_RequestedListID = @RequestedListID
+          AND ADRL_RequestedTypeID = @RequestedTypeID
+          AND ADRL_CompID = @CompID
+          AND ADRL_YearID = @YearID",
+                new
+                {
+                    AuditNo = dto.AuditId,
+                    FunID = dto.FunctionId,
+                    CustID = dto.CustomerId,
+                    RequestedListID = dto.RequestedListId,
+                    RequestedTypeID = dto.RequestedTypeId,
+                    CompID = dto.CompId,
+                    YearID = dto.YearId
+                });
+
+            if (existingId.HasValue)
+            {
+                // Update existing record
+                await connection.ExecuteAsync(@"
+            UPDATE Audit_DRLLog SET 
+                ADRL_RequestedOn = @RequestedOn,
+                ADRL_EmailID = @EmailId,
+                ADRL_Comments = @Remark,
+                ADRL_UpdatedBy = @UpdatedBy,
+                ADRL_UpdatedOn = GETDATE(),
+                ADRL_IPAddress = @IpAddress,
+                ADRL_Status = 'Updated'
+            WHERE ADRL_ID = @Id",
+                    new
+                    {
+                        RequestedOn = dto.RequestedOn,
+                        EmailId = dto.EmailId,
+                        Remark = dto.Remark,
+                        UpdatedBy = dto.UpdatedBy,
+                        IpAddress = dto.IpAddress,
+                        Id = existingId.Value
+                    });
+
+                return existingId.Value;
+            }
+            else
+            {
+                // Insert new record with max+1 ADRL_ID
+                var maxId = await connection.QueryFirstOrDefaultAsync<int?>("SELECT MAX(ADRL_ID) FROM Audit_DRLLog") ?? 0;
+                int newId = maxId + 1;
+
+                await connection.ExecuteAsync(@"
+            INSERT INTO Audit_DRLLog (
+                ADRL_ID, ADRL_YearID, ADRL_AuditNo, ADRL_FunID, ADRL_CustID, 
+                ADRL_RequestedListID, ADRL_RequestedTypeID, ADRL_RequestedOn, ADRL_EmailID,
+                ADRL_Comments, ADRL_CrBy, ADRL_CrOn, ADRL_IPAddress, ADRL_CompID, ADRL_Status
+            ) VALUES (
+                @Id, @YearID, @AuditNo, @FunID, @CustID,
+                @RequestedListID, @RequestedTypeID, @RequestedOn, @EmailId,
+                @Remark, @UserId, GETDATE(), @IpAddress, @CompID, 'Saved'
+            )",
+                    new
+                    {
+                        Id = newId,
+                        YearID = dto.YearId,
+                        AuditNo = dto.AuditId,
+                        FunID = dto.FunctionId,
+                        CustID = dto.CustomerId,
+                        RequestedListID = dto.RequestedListId,
+                        RequestedTypeID = dto.RequestedTypeId,
+                        RequestedOn = dto.RequestedOn,
+                        EmailId = dto.EmailId,
+                        Remark = dto.Remark,
+                        UserId = dto.UserId,
+                        IpAddress = dto.IpAddress,
+                        CompID = dto.CompId
+                    });
+
+                return newId;
+            }
+        }
+
+
+
+        public async Task SaveRemarksHistoryAsync(InsertAuditRemarksDto dto)
+        {
+            var sql = @"
+INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory
+(SAR_ID, SAR_SA_ID, SAR_SAC_ID, SAR_CheckPointIDs, SAR_RemarksType, SAR_Remarks, 
+ SAR_RemarksBy, SAR_Date, SAR_IPAddress, SAR_CompID, SAR_EmailIds, SAR_TimlinetoResOn, 
+ sar_Yearid, SAR_DBFlag, SAR_MASid, SAR_AttchId, SAR_DRLId)
+VALUES (
+    (SELECT ISNULL(MAX(SAR_ID) + 1, 1) FROM StandardAudit_Audit_DRLLog_RemarksHistory),
+    @AuditId, @CustomerId, @CheckPointIds, 'C', @Remark,
+    @UserId, GETDATE(), @IpAddress, @CompId, @EmailId, @TimelineToRespondOn,
+    @YearId, 'W', @MasId, @AttachId, @DrlId);";
+
+            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await conn.ExecuteAsync(sql, dto);
+        }
+
+
+        public async Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto)
+        {
+            // First, save or update the main Audit DRL log and get the ADRL_ID
+            int drlId = await SaveOrUpdateAuditDrlLogAsync(dto);
+
+            // Update the dto with the returned drlId (important for RemarksHistory)
+            dto.DrlId = drlId;
+
+            // Now save remarks history linked to this DRL ID
+            await SaveRemarksHistoryAsync(dto);
+
+            return drlId;
+        }
+
+
+
+    }
 
 
 }
-}
 
-
-    
-
-
-        
-
-
-
-    
-
-
-    
