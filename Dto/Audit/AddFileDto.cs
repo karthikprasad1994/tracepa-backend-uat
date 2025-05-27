@@ -23,7 +23,7 @@ namespace TracePca.Dto.Audit
         public int  ReportType { get; set; }
         [JsonIgnore]
         public string DocumentName { get; set; }
-        public string Remark { get; set; }
+        public string? Remark { get; set; }
         public string Type { get; set; }
 
         public int AuditScheduleId { get; set; }
