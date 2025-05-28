@@ -586,23 +586,11 @@ namespace TracePca.Controllers
         }
 
         [HttpGet("GetDRLDetails")]
-        public async Task<IActionResult> LoadDRLDetails(
-      [FromQuery] string sAC,
-      [FromQuery] int compId,
-      [FromQuery] int auditNo,
-      [FromQuery] string checkpointIds,
-      [FromQuery] int custId,
-      [FromQuery] int yearId,
-      [FromQuery] int documentRequestedList,
-      [FromQuery] int isCustLogin,
-      [FromQuery] string format,
-      [FromQuery] string formatSelection)
+        public async Task<IActionResult> LoadDRLDetails([FromQuery] int compId, [FromQuery] int auditNo)
         {
             try
             {
-                var data = await _AuditInterface.LoadDRLdgAsync(
-                    sAC, compId, auditNo, checkpointIds,
-                    custId, yearId, documentRequestedList, isCustLogin, format, formatSelection);
+                var data = await _AuditInterface.LoadDRLdgAsync(compId, auditNo);
 
                 return Ok(new
                 {
@@ -621,6 +609,7 @@ namespace TracePca.Controllers
                 });
             }
         }
+
 
 
 

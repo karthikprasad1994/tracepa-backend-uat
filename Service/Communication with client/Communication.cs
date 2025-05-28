@@ -3,6 +3,7 @@ using System.Text;
 using Dapper;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Wordprocessing;
 using MailKit.Net.Smtp;
 using MailKit.Security;
@@ -1098,7 +1099,7 @@ namespace TracePca.Service.Communication_with_client
                 {
                     page.Margin(30);
                     page.Size(PageSizes.A4);
-                    page.PageColor(Colors.White);
+                    page.PageColor(QuestPDF.Helpers.Colors.White);
                     page.DefaultTextStyle(x => x.FontSize(12));
 
                     page.Content()
@@ -1237,7 +1238,7 @@ namespace TracePca.Service.Communication_with_client
 
                 void AddParagraph(string text, bool bold = false)
                 {
-                    var run = new Run(new Text(text));
+                    var run = new Run(new DocumentFormat.OpenXml.Wordprocessing.Text(text));
                     if (bold)
                         run.RunProperties = new RunProperties(new Bold());
 
@@ -2922,7 +2923,7 @@ VALUES (
 
 
 
-        public async Task SaveRemarksHistoryAsync(InsertAuditRemarksDto dto)
+        public async Task SaveRemarksHistoryAsync(InsertAuditRemarksDto dto, int masId)
         {
             const string sql = @"
 INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory
@@ -2949,7 +2950,7 @@ VALUES (
                 dto.EmailId,
                 dto.TimelineToRespondOn,
                 dto.YearId,
-                MasId = dto.Id,      // Explicit mapping for SAR_MASid
+                MasId = masId,    // Explicit mapping for SAR_MASid
                 dto.AttachId,
                 DrlId = dto.RequestedListId         // ADRL_ID from DRL log
             });
@@ -2958,28 +2959,29 @@ VALUES (
 
         public async Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto)
         {
-            // First, save or update the main Audit DRL log and get the ADRL_ID
+            // Call once and use the result
             int drlId = await SaveOrUpdateAuditDrlLogAsync(dto);
 
-            // Update the dto with the returned drlId (important for RemarksHistory)
+            // Set DRL_ID in DTO (optional, if needed elsewhere)
             dto.DrlId = drlId;
 
-            // Now save remarks history linked to this DRL ID
-            await SaveRemarksHistoryAsync(dto);
+            // Call once — ADRL_ID → SAR_MASid
+            await SaveRemarksHistoryAsync(dto, masId: drlId);
 
             return drlId;
         }
 
 
-        public async Task<List<DRLDetailDto>> LoadDRLdgAsync(string sAC, int compId, int auditNo, string checkpointIds, int custId, int yearId, int documentRequestedList, int isCustLogin, string format, string formatSelection)
+
+        public async Task<List<DRLDetailDto>> LoadDRLdgAsync(int compId, int auditNo)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
 
-            int iBA = await GetDRLBeginningoftheAuditIDAsync(sAC, compId);
-            int iCA = await GetDRLNearingCompletionoftheAuditIDAsync(sAC, compId);
+            int iBA = await GetDRLBeginningoftheAuditIDAsync(compId);
+            int iCA = await GetDRLNearingCompletionoftheAuditIDAsync(compId);
 
-            var sql = $@"
+            var sql = @"
 SELECT 
     CMM_ID, CMM_Desc, DRL_DRLID, DRL_Name, ADRL_ID, ADRL_YearID, ADRL_AuditNo, ADRL_FunID, 
     ACM_Checkpoint, ADRL_CustID, ADRL_RequestedListID, ADRL_RequestedTypeID, ADRL_RequestedOn, 
@@ -2990,23 +2992,14 @@ LEFT JOIN AuditType_Checklist_Master ON ACM_ID = ADRL_FunID
 LEFT JOIN Content_Management_Master 
     ON CMM_ID = ADRL_RequestedListID AND CMM_CompID = @CompId AND CMM_ID NOT IN (@iBA, @iCA)
 LEFT JOIN Audit_Doc_Request_List ON DRL_DRLID = ADRL_RequestedTypeID AND DRL_CompID = @CompId
-WHERE ADRL_CompID = @CompId 
-    AND ADRL_YearID = @YearId 
-
-
-
-
-    AND ADRL_RequestedListID NOT IN (@iBA, @iCA)
-    {(auditNo > 0 ? "AND ADRL_AuditNo = @AuditNo" : "")}
-    {(documentRequestedList > 0 ? "AND ADRL_RequestedListID = @DocumentRequestedList" : "")}
-";
+WHERE ADRL_CompID = @CompId
+  AND ADRL_AuditNo = @AuditNo
+  AND ADRL_RequestedListID NOT IN (@iBA, @iCA)";
 
             var parameters = new
             {
                 CompId = compId,
-                YearId = yearId,
                 AuditNo = auditNo,
-                DocumentRequestedList = documentRequestedList,
                 iBA,
                 iCA
             };
@@ -3026,12 +3019,12 @@ WHERE ADRL_CompID = @CompId
                     DocumentRequestedList = row.CMM_Desc ?? "Others",
                     DocumentRequestedTypeID = row.DRL_DRLID ?? 0,
                     DocumentRequestedType = row.DRL_Name ?? "Others",
-                    RequestedOn = FormatDate(row.ADRL_RequestedOn, formatSelection),
-                    TimlinetoResOn = FormatDate(row.ADRL_TimlinetoResOn, formatSelection),
+                    RequestedOn = FormatDate(row.ADRL_RequestedOn),
+                    TimlinetoResOn = FormatDate(row.ADRL_TimlinetoResOn),
                     EmailID = row.ADRL_EmailID?.Replace(".com", ".com "),
                     Comments = row.ADRL_Comments,
                     ReceivedComments = ReplaceSafeSQL(row.ADRL_ReceivedComments),
-                    ReceivedOn = FormatDate(row.ADRL_ReceivedOn, formatSelection),
+                    ReceivedOn = FormatDate(row.ADRL_ReceivedOn),
                     AttachID = row.ADRL_AttachID ?? 0,
                     ReportType = row.ADRL_ReportType ?? 0,
                     Status = row.ADRL_LogStatus switch
@@ -3050,11 +3043,11 @@ WHERE ADRL_CompID = @CompId
             return results;
         }
 
-        private string FormatDate(object dbValue, string format)
+        private string FormatDate(object dbValue)
         {
             if (dbValue == null) return "";
             if (DateTime.TryParse(dbValue.ToString(), out var dt))
-                return dt.ToString(format);
+                return dt.ToString("dd/MM/yyyy"); // Default format or change if needed
             return "";
         }
 
@@ -3063,7 +3056,7 @@ WHERE ADRL_CompID = @CompId
             return string.IsNullOrEmpty(input) ? "" : input.Replace("'", "''");
         }
 
-        public async Task<int> GetDRLBeginningoftheAuditIDAsync(string sFormName, int compId)
+        public async Task<int> GetDRLBeginningoftheAuditIDAsync(int compId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
@@ -3071,15 +3064,14 @@ WHERE ADRL_CompID = @CompId
             const string query = @"
 SELECT CMM_ID 
 FROM Content_Management_Master 
-WHERE CMM_FormName = @FormName 
-  AND CMM_CompID = @CompId 
+WHERE CMM_CompID = @CompId 
   AND CMM_Desc LIKE '%Beginning of the Audit%'";
 
-            var id = await connection.ExecuteScalarAsync<int?>(query, new { FormName = sFormName, CompId = compId });
+            var id = await connection.ExecuteScalarAsync<int?>(query, new { CompId = compId });
             return id ?? 0;
         }
 
-        public async Task<int> GetDRLNearingCompletionoftheAuditIDAsync(string sFormName, int compId)
+        public async Task<int> GetDRLNearingCompletionoftheAuditIDAsync(int compId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
@@ -3087,11 +3079,10 @@ WHERE CMM_FormName = @FormName
             const string query = @"
 SELECT CMM_ID 
 FROM Content_Management_Master 
-WHERE CMM_FormName = @FormName 
-  AND CMM_CompID = @CompId 
+WHERE CMM_CompID = @CompId 
   AND CMM_Desc LIKE '%Nearing Completion of the Audit%'";
 
-            var id = await connection.ExecuteScalarAsync<int?>(query, new { FormName = sFormName, CompId = compId });
+            var id = await connection.ExecuteScalarAsync<int?>(query, new { CompId = compId });
             return id ?? 0;
         }
 
