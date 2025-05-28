@@ -11,7 +11,8 @@ namespace TracePca.Interface.Audit
         List<QuarterDto> GenerateQuarters(DateTime? fromDate);
         Task<List<AuditTypeHeadingDto>> LoadAllAuditTypeHeadingsAsync(int compId, int auditTypeId);
         Task<List<AssignedCheckpointDto>> GetAssignedCheckpointsAndTeamMembersAsync(
-          int compId, int auditId, int AuditTypeId, int custId, string heading = "", string? sCheckPoints = null);
+               int compId, int auditId, int auditTypeId, int custId,
+               string sType, string heading, string? sCheckPoints);
 
         Task<int> InsertStandardAuditScheduleWithQuartersAsync(string sAC, StandardAuditScheduleDto dto, int custRegAccessCodeId, int iUserID, string sIPAddress, string sModule, string sForm, string sEvent, int iMasterID, string sMasterName, int iSubMasterID, string sSubMasterName);
         Task<string[]> SaveUpdateStandardAuditChecklistDetailsAsync(StandardAuditChecklistDetailsDto objSACLD);
@@ -22,5 +23,11 @@ namespace TracePca.Interface.Audit
         Task<bool> DeleteSelectedCheckpointsAndTeamMembersAsync(DeleteCheckpointDto dto);
 
         Task<int[]> SaveCustomerMasterAsync(int iCompId, AuditCustomerDetailsDto dto);
+        Task<IEnumerable<AuditChecklistDto>> LoadAuditTypeCheckListAsync(
+        int compId,
+        int auditId,
+        int auditTypeId,
+        string heading);
+        Task<List<AssignedCheckpointDto>> GetAssignedCheckpointsAsync(int auditId, int custId, string heading);
     }
 }
