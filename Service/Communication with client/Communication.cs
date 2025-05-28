@@ -2894,11 +2894,11 @@ VALUES (
             INSERT INTO Audit_DRLLog (
                 ADRL_ID, ADRL_YearID, ADRL_AuditNo, ADRL_FunID, ADRL_CustID, 
                 ADRL_RequestedListID, ADRL_RequestedTypeID, ADRL_RequestedOn, ADRL_EmailID,
-                ADRL_Comments, ADRL_CrBy, ADRL_CrOn, ADRL_IPAddress, ADRL_CompID, ADRL_Status
+                ADRL_Comments, ADRL_CrBy, ADRL_CrOn, ADRL_IPAddress, ADRL_CompID, ADRL_Status, ADRL_TimlinetoResOn
             ) VALUES (
                 @Id, @YearID, @AuditNo, @FunID, @CustID,
                 @RequestedListID, @RequestedTypeID, @RequestedOn, @EmailId,
-                @Remark, @UserId, GETDATE(), @IpAddress, @CompID, 'Saved'
+                @Remark, @UserId, GETDATE(), @IpAddress, @CompID, 'Saved', @TimelineToRespondOn
             )",
                     new
                     {
@@ -2910,6 +2910,7 @@ VALUES (
                         RequestedListID = dto.RequestedListId,
                         RequestedTypeID = dto.RequestedTypeId,
                         RequestedOn = dto.RequestedOn,
+                        TimelineToRespondOn = dto.TimelineToRespondOn,
                         EmailId = dto.EmailId,
                         Remark = dto.Remark,
                         UserId = dto.UserId,
