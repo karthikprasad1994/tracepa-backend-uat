@@ -13,8 +13,8 @@ namespace TracePca.Dto.Audit
             public int RequestedListId { get; set; }
             public int RequestedTypeId { get; set; }
             public string RequestedOn { get; set; } = string.Empty;
-            public string TimelineToRespondOn { get; set; } = string.Empty;
-            public string EmailId { get; set; } = string.Empty;
+           public string TimelineToRespondOn { get; set; } = string.Empty ;
+          public string EmailId { get; set; } = string.Empty;
             public string Remark { get; set; } = string.Empty;
             public int UserId { get; set; }
             public int UpdatedBy { get; set; }
