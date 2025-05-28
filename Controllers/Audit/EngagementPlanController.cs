@@ -281,12 +281,31 @@ namespace TracePca.Controllers.Audit
             }
         }
 
-        [HttpPost("SaveEngagementPlanExportData")]
-        public async Task<IActionResult> SaveEngagementPlanExportData([FromBody] EngagementPlanReportExportDetailsDTO dto)
+        [HttpPost("GenerateAndDownloadReport")]
+        public async Task<IActionResult> GenerateAndDownloadReport(int compId, int epPKid, string format = "pdf")
         {
             try
             {
-                var result = await _engagementInterface.SaveEngagementPlanExportDataAsync(dto);
+                var (fileBytes, contentType, fileName) = await _engagementInterface.GenerateAndDownloadReportAsync(compId, epPKid, format);
+
+                return File(fileBytes, contentType, fileName);
+            }
+            catch
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "Failed to generate report."
+                });
+            }
+        }
+
+        [HttpPost("SendEmailAndSaveEngagementPlanExportData")]
+        public async Task<IActionResult> SendEmailAndSaveEngagementPlanExportData([FromBody] EngagementPlanReportExportDetailsDTO dto)
+        {
+            try
+            {
+                var result = await _engagementInterface.SendEmailAndSaveEngagementPlanExportDataAsync(dto);
                 if (result)
                     return Ok(new { success = true, message = "Engagement Plan exported successfully." });
                 else
@@ -294,7 +313,7 @@ namespace TracePca.Controllers.Audit
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { statusCode = 500, message = "An error occurred while saving Engagement Plan exported data.", error = ex.Message });
+                return StatusCode(500, new { statusCode = 500, message = "An error occurred while sending Engagement Plan exported data.", error = ex.Message });
             }
         }
     }
