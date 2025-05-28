@@ -3012,7 +3012,7 @@ WHERE ADRL_CompID = @CompId
             {
                 var dto = new DRLDetailDto
                 {
-                    DRLID = row.ADRL_ID,
+                    DRLID = row.ADRL_ID ?? 0,
                     CheckPointID = row.ADRL_FunID ?? 0,
                     CheckPoint = row.ACM_Checkpoint ?? "Others",
                     DocumentRequestedListID = row.CMM_ID ?? 0,

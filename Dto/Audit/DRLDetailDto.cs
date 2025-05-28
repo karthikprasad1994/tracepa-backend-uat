@@ -5,7 +5,7 @@ namespace TracePca.Dto.Audit
     public class DRLDetailDto
     {
         
-        public int DRLID { get; set; }
+        public int? DRLID { get; set; }
         public int CheckPointID { get; set; }
         public string CheckPoint { get; set; }
         public string DocumentRequestedList { get; set; }
