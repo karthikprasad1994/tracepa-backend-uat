@@ -124,9 +124,9 @@ namespace TracePca.Dto.Audit
         public string? Frequency { get; set; }
         public string? ProfessionalFees { get; set; }
         public string? EngagementPlanNo { get; set; }
-        public string? AnnexureToLetterOfEngagement { get; set; }        
+        public string? AnnexureToLetterOfEngagement { get; set; }
         public string? CompanyName { get; set; }
-        public DateTime? CurrentDate { get; set; }        
+        public DateTime? CurrentDate { get; set; }
         public List<EngagementPlanTemplateReportDetailsDTO> EngagementTemplateDetails { get; set; } = new List<EngagementPlanTemplateReportDetailsDTO>();
         public List<EngagementPlanAdditionalFeesReportDTO> EngagementAdditionalFees { get; set; } = new List<EngagementPlanAdditionalFeesReportDTO>();
     }
@@ -150,6 +150,9 @@ namespace TracePca.Dto.Audit
         public int CustomerId { get; set; }
         public List<int> CustomerUsers { get; set; }
         public string? Comments { get; set; }
+        public int UserId { get; set; }
+        public int AttachmentId { get; set; }
+        public string? IPAddress { get; set; }
         public int CompId { get; set; }
     }
 }

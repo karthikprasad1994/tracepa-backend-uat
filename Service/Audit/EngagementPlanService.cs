@@ -1,14 +1,21 @@
 ﻿using Dapper;
-
-
+using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using System.Reflection.Metadata.Ecma335;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using TracePca.Data;
 using TracePca.Dto.Audit;
-using TracePca.Dto.DigitalFiling;
 using TracePca.Interface.Audit;
-
+using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
+using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
+using Document = DocumentFormat.OpenXml.Wordprocessing.Document;
+using Paragraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
+using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
+using RunProperties = DocumentFormat.OpenXml.Wordprocessing.RunProperties;
+using WordDoc = DocumentFormat.OpenXml.Wordprocessing.Document;
+using WordprocessingDocument = DocumentFormat.OpenXml.Packaging.WordprocessingDocument;
 
 namespace TracePca.Service.Audit
 {
@@ -354,6 +361,73 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<EngagementPlanReportDetailsDTO> GetEngagementPlanReportDetailsByIdAsync(int compId, int epPKid)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var dto = await connection.QueryFirstOrDefaultAsync<EngagementPlanReportDetailsDTO>(
+                    @"SELECT LOE_Name AS EngagementPlanNo, LOE_YearId AS Year, LOE_CustomerId AS Customer, LOE_ServiceTypeId AS AuditType, LOE_Total AS ProfessionalFees, 
+                    LOE_Frequency AS Frequency FROM SAD_CUST_LOE WHERE LOE_Id = @LOEId AND LOE_CompID = @CompId;",
+                    new { CompId = compId, LOEId = epPKid });
+
+                if (dto == null)
+                    return null;
+
+                dto.Year = await connection.ExecuteScalarAsync<string>("SELECT YMS_ID FROM YEAR_MASTER WHERE YMS_YEARID = @YearId AND YMS_CompID = @CompId;", new { YearId = dto.Year, CompId = compId });
+
+                dto.Customer = await connection.ExecuteScalarAsync<string>("SELECT CUST_NAME FROM SAD_CUSTOMER_MASTER WHERE CUST_ID = @CustId AND CUST_CompID = @CompId;", new { CustId = dto.Customer, CompId = compId });
+
+                dto.CurrencyType = await connection.ExecuteScalarAsync<string>("SELECT CUR_CODE FROM SAD_Currency_Master WHERE CUR_CompID = @CompId;", new { CompId = compId });
+
+                dto.AuditType = await connection.ExecuteScalarAsync<string>(@"SELECT CMM_Desc FROM Content_Management_Master WHERE CMM_Category = 'AT' AND CMM_ID = @AuditType AND CMM_CompID = @CompId;",
+                    new { AuditType = dto.AuditType, CompId = compId });
+
+                var reportTypeId = await connection.ExecuteScalarAsync<int?>(@"SELECT TOP 1 LTD_ReportTypeID FROM LOE_Template_Details WHERE LTD_FormName = 'LOE' AND LTD_LOE_ID = @LOEId AND LTD_CompID = @CompId;",
+                    new { LOEId = epPKid, CompId = compId });
+
+                if (reportTypeId.HasValue)
+                {
+                    dto.ReportType = await connection.ExecuteScalarAsync<string>("SELECT RTM_ReportTypeName FROM SAD_ReportTypeMaster WHERE RTM_Id = @ReportTypeId AND RTM_CompID = @CompId;",
+                        new { ReportTypeId = reportTypeId.Value, CompId = compId });
+                }
+
+                dto.Frequency = dto.Frequency switch
+                {
+                    "1" => "Yearly",
+                    "2" => "Quarterly",
+                    _ => "Unknown"
+                };
+
+                dto.CompanyName = await connection.ExecuteScalarAsync<string>(@"SELECT STUFF((SELECT DISTINCT '; ' + CAST(Company_Name AS VARCHAR(MAX)) FROM Trace_CompanyDetails WHERE Company_CompID = @CompId FOR XML PATH('')), 1, 2, '')",
+                    new { CompId = compId });
+
+                dto.AnnexureToLetterOfEngagement = $"Details of Engagement Estimate for the {dto.ReportType} to {dto.Customer}";
+                dto.Subject = $"Sub: Engagement letter – {dto.ReportType} for the year ended {dto.Year}";
+                dto.CurrentDate = DateTime.Now;
+
+                var templateDetails = await connection.QueryAsync<EngagementPlanTemplateReportDetailsDTO>(
+                    @"SELECT LTD_ReportTypeID, LTD_Heading, LTD_Decription FROM LOE_Template_Details WHERE LTD_FormName = 'LOE' AND LTD_LOE_ID = @LOEId AND LTD_CompID = @CompId;",
+                    new { CompId = compId, LOEId = epPKid });
+
+                dto.EngagementTemplateDetails = templateDetails.ToList();
+
+                var additionalFees = await connection.QueryAsync<EngagementPlanAdditionalFeesReportDTO>(
+                    @"SELECT LAF_OtherExpensesName, LAF_Charges FROM LOE_AdditionalFees WHERE LAF_LOEID = @LOEId AND LAF_CompID = @CompId;",
+                    new { CompId = compId, LOEId = epPKid });
+
+                dto.EngagementAdditionalFees = additionalFees.ToList();
+
+                return dto;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting engagement plan report details by ID", ex);
+            }
+        }
+
         public async Task<List<AttachmentDetailsDTO>> LoadAllAttachmentsByIdAsync(int compId, int attachId)
         {
             try
@@ -502,18 +576,298 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<bool> SaveEngagementPlanExportDataAsync(EngagementPlanReportExportDetailsDTO dto)
+        public async Task<bool> SendEmailAndSaveEngagementPlanExportDataAsync(EngagementPlanReportExportDetailsDTO dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
             try
             {
+                var reportdto = await GetEngagementPlanReportDetailsByIdAsync(dto.CompId, dto.LOEId);
+                if (reportdto == null)
+                    throw new ApplicationException("Engagement Plan data not found for the specified ID.");
+
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var docCountQuery = @"SELECT COUNT(*) FROM Doc_Reviewremarks_History WHERE DRH_Custid = @CustID AND DRH_Loeid = @LOEId AND DRH_Yearid = @YearId";
+                int iDocCount = await connection.ExecuteScalarAsync<int>(docCountQuery, new
+                {
+                    CustID = dto.CustomerId,
+                    LOEId = dto.LOEId,
+                    YearId = dto.YearId
+                });
+
+                var fileBytes = await GeneratePdfAsync(reportdto);
+                var stream = new MemoryStream(fileBytes);
+                var formFile = new FormFile(stream, 0, stream.Length, "File", $"LOE_Report_{iDocCount}.pdf")
+                {
+                    Headers = new HeaderDictionary(),
+                    ContentType = "application/pdf"
+                };
+
+                var dtoFile = new FileAttachmentDTO
+                {
+                    ATCH_ID = dto.AttachmentId,
+                    ATCH_CREATEDBY = dto.UserId,
+                    ATCH_COMPID = dto.CompId,
+                    File = formFile
+                };
+
+                int attachmentId = await UploadAndSaveAttachmentAsync(dtoFile);
+
+                int requestId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(DR_ID), 0) + 1 FROM DocumentRequest WHERE DR_CompId = @CompId", new { CompId = dto.CompId });
+
+                var insertRequestQuery = @"INSERT INTO DocumentRequest ( DR_ID, DR_Custid, DR_DocLoeId_Branchid, DR_DocYearid, DR_DocStatus, DR_DocType, DR_Date, 
+                DR_CreatedBy, DR_CreatedOn, DR_CompId, DR_emailSentTo, DR_IPAddress, DR_Observation, DR_DocDelflag) VALUES (
+                @DR_ID, @DR_Custid, @DR_DocLoeId_Branchid, @DR_DocYearid, 'W', 'C', GETDATE(), @DR_CreatedBy, GETDATE(), @DR_CompId, @DR_emailSentTo, @DR_IPAddress, @DR_Observation, 'LOE');";
+
+                await connection.ExecuteAsync(insertRequestQuery, new
+                {
+                    DR_ID = requestId,
+                    DR_Custid = dto.CustomerId,
+                    DR_DocLoeId_Branchid = dto.LOEId,
+                    DR_DocYearid = dto.YearId,
+                    DR_CreatedBy = dto.UserId,
+                    DR_emailSentTo = dto.CustomerUsers,
+                    DR_CompId = dto.CompId,
+                    DR_IPAddress = dto.IPAddress,
+                    DR_Observation = dto.Comments
+                });
+
+                int newRemarkId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(DRH_ID), 0) + 1 FROM DocumentRemarksHistory");
+                var insertRemarksQuery = @"INSERT INTO DocumentRemarksHistory ( DRH_ID, DRH_MASid, DRH_Custid, DRH_Loeid, DRH_RemarksType, DRH_Remarks, DRH_RemarksBy, 
+                DRH_Status, DRH_Date, DRH_IPAddress, DRH_CompID, DRH_Yearid, DRH_attchmentid) VALUES (
+                @DRH_ID, @DRH_MASid, @DRH_Custid, @DRH_Loeid, 'C', @DRH_Remarks, @DRH_RemarksBy,'W', GETDATE(), @DRH_IPAddress, @DRH_CompID, @DRH_Yearid, @DRH_attchmentid);";
+
+                await connection.ExecuteAsync(insertRemarksQuery, new
+                {
+                    DRH_ID = newRemarkId,
+                    DRH_MASid = requestId,
+                    DRH_Custid = dto.CustomerId,
+                    DRH_Loeid = dto.LOEId,
+                    DRH_Remarks = dto.Comments,
+                    DRH_RemarksBy = dto.UserId,
+                    DRH_IPAddress = dto.IPAddress,
+                    DRH_CompID = dto.CompId,
+                    DRH_Yearid = dto.YearId,
+                    DRH_attchmentid = attachmentId
+                });
+
                 return true;
             }
             catch (Exception ex)
             {
-                throw new ApplicationException("An error occurred while saving or updating the engagement plan data", ex);
+                throw new ApplicationException("An error occurred while saving or updating the engagement plan export data.", ex);
             }
+        }
+
+        public async Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadReportAsync(int compId, int epPKid, string format)
+        {
+            try
+            {
+                var dto = await GetEngagementPlanReportDetailsByIdAsync(compId, epPKid);
+
+                if (dto == null)
+                    throw new ApplicationException("Engagement Plan data not found for the specified ID.");
+
+                byte[] fileBytes;
+                string contentType;
+                string fileName = dto.EngagementPlanNo ?? "LOE_Report";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GeneratePdfAsync(dto);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    fileBytes = await GenerateWordAsync(dto);
+                    contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                    fileName += ".docx";
+                }
+
+                return (fileBytes, contentType, fileName);
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        private async Task<byte[]> GeneratePdfAsync(EngagementPlanReportDetailsDTO dto)
+        {
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10)
+                                  .Text("GeneralReport").FontSize(18).Bold();
+
+                            column.Item().Text($"Ref.No.: {dto.EngagementPlanNo}")
+                                         .FontSize(12).Bold();
+
+                            column.Item().Text($"Date: {dto.CurrentDate:dd MMM yyyy}").FontSize(10);
+                            column.Item().Text(dto.Customer ?? "N/A").FontSize(10);
+                            column.Item().PaddingBottom(10);
+
+                            column.Item().PaddingBottom(10)
+                                 .Text($"Dear: {dto.Customer ?? "Client"}")
+                                 .FontSize(10);
+
+                            column.Item().PaddingBottom(10)
+                                  .Text($"Sub: {dto.Subject ?? "Engagement Letter"}")
+                                  .FontSize(10);
+
+                            if (dto.EngagementTemplateDetails?.Any() == true)
+                            {
+                                foreach (var item in dto.EngagementTemplateDetails)
+                                {
+                                    column.Item().Text("• " + item.LTD_Heading).FontSize(11).Bold();
+                                    if (!string.IsNullOrWhiteSpace(item.LTD_Decription))
+                                        column.Item().Text(item.LTD_Decription).FontSize(10);
+                                    column.Item().PaddingBottom(5);
+                                }
+                            }
+
+                            if (dto.EngagementAdditionalFees?.Any() == true)
+                            {
+                                column.Item().PaddingTop(15).Text("Additional Fees").FontSize(12).Bold().Underline();
+
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(1);
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Element(CellStyle).Text("Expense Name").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).AlignRight().Text("Charges").FontSize(10).Bold();
+                                    });
+
+                                    foreach (var fee in dto.EngagementAdditionalFees)
+                                    {
+                                        table.Cell().Element(CellStyle).Text(fee.LAF_OtherExpensesName ?? "-").FontSize(10);
+                                        table.Cell().Element(CellStyle).AlignRight().Text(fee.LAF_Charges.ToString()).FontSize(10);
+                                    }
+                                    static IContainer CellStyle(IContainer container) =>
+                                        container.BorderBottom(0.5f).PaddingVertical(2);
+                                });
+                            }
+
+
+                            column.Item().PaddingBottom(10)
+                                  .Text($"Details of Engagement Estimate for the Letter of Engagement in {dto.AuditType} to {dto.Customer}")
+                                  .FontSize(10);
+
+                            column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
+                            column.Item().Text(dto.CompanyName ?? "[Company Name]").FontSize(10).Bold();
+                            column.Item().Text("[Firm Name]").FontSize(10);
+                            column.Item().PaddingBottom(10);
+
+                            column.Item().PaddingTop(20).Text("We agree to the terms of the engagement described in this letter.").FontSize(10);
+                            column.Item().Text(dto.Customer ?? "[Client Name]").FontSize(10).Bold();
+                            column.Item().Text("[Client Name]").FontSize(10);
+                            column.Item().PaddingBottom(10);
+                            column.Item().Text("[Signature]").FontSize(10);
+                            column.Item().PaddingBottom(10);
+                            column.Item().Text("[Date]").FontSize(10);
+                        });
+                    });
+                });
+
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
+
+        private async Task<byte[]> GenerateWordAsync(EngagementPlanReportDetailsDTO dto)
+        {
+            return await Task.Run(() =>
+            {
+                using var ms = new MemoryStream();
+                using var doc = WordprocessingDocument.Create(ms, DocumentFormat.OpenXml.WordprocessingDocumentType.Document);
+                var mainPart = doc.AddMainDocumentPart();
+                mainPart.Document = new Document(new Body());
+                var body = mainPart.Document.Body;
+
+                void AddParagraph(string text, bool bold = false, bool italic = false)
+                {
+                    var run = new Run(new Text(text ?? ""));
+                    var props = new RunProperties();
+                    if (bold) props.Append(new Bold());
+                    if (italic) props.Append(new Italic());
+                    if (props.HasChildren) run.PrependChild(props);
+
+                    var para = new Paragraph(run);
+                    body.AppendChild(para);
+                }
+
+                void AddEmptyLine() => body.AppendChild(new Paragraph(new Run(new Text(""))));
+
+                AddParagraph("GeneralReport", bold: true);
+                AddParagraph($"Ref.No.: {dto.EngagementPlanNo}", bold: true);
+                AddParagraph($"Date: {dto.CurrentDate:dd MMM yyyy}");
+                AddParagraph(dto.Customer);
+                AddEmptyLine();
+                AddParagraph($"Dear: {dto.Customer}");
+                AddParagraph($"Sub: {dto.Subject}");
+                AddEmptyLine();
+
+                if (dto.EngagementTemplateDetails?.Any() == true)
+                {
+                    foreach (var item in dto.EngagementTemplateDetails)
+                    {
+                        AddParagraph("• " + item.LTD_Heading, bold: true);
+                        if (!string.IsNullOrWhiteSpace(item.LTD_Decription))
+                            AddParagraph(item.LTD_Decription);
+                        AddEmptyLine();
+                    }
+                }
+
+                AddParagraph($"Details of Engagement Estimate for the Letter of Engagement in {dto.AuditType} to {dto.Customer}");
+                AddEmptyLine();
+
+                if (dto.EngagementAdditionalFees?.Any() == true)
+                {
+                    AddParagraph("Additional Fees", bold: true, italic: true);
+                    foreach (var fee in dto.EngagementAdditionalFees)
+                    {
+                        AddParagraph($"- {fee.LAF_OtherExpensesName}: {fee.LAF_Charges:N2}");
+                    }
+                    AddEmptyLine();
+                }
+
+                AddParagraph("Very truly yours,");
+                AddParagraph(dto.CompanyName, bold: true);
+                AddParagraph("[Firm Name]");
+                AddEmptyLine();
+
+                AddParagraph("We agree to the terms of the engagement described in this letter.");
+                AddParagraph(dto.Customer, bold: true);
+                AddParagraph("[Client Name]");
+                AddEmptyLine();
+                AddParagraph("[Signature]");
+                AddEmptyLine();
+                AddParagraph("[Date]");
+
+                mainPart.Document.Save();
+                return ms.ToArray();
+            });
         }
     }
 }
