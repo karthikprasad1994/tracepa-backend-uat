@@ -7,6 +7,8 @@ namespace TracePca.Dto.Audit
         public int CustomerId { get; set; }
         public int AuditId { get; set; }
         public int AtchId { get; set; }
+
+         public int ReportId { get; set; } 
         // public string FilePath { get; set; }
         // public string FileName { get; set; }
         public IFormFile File { get; set; }

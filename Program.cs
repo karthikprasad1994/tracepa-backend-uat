@@ -57,6 +57,9 @@ builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 builder.Services.AddScoped<JournalEntryInterface, JournalEntryService>();
+builder.Services.AddScoped<ExcelUploadInterface, ExcelUploadService>();
+builder.Services.AddScoped<ScheduleReportInterface, ScheduleReportService>();
+builder.Services.AddScoped<ScheduleNoteInterface, ScheduleNoteService>();
 
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
 builder.Services.AddScoped<SubCabinetsInterface, SubCabinetsService>();
