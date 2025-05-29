@@ -585,6 +585,39 @@ namespace TracePca.Controllers
             }
         }
 
+        [HttpPost("DuringAuditupload")]
+        public async Task<IActionResult> BeginAuditUploadWithReportTypeAsync([FromForm] AddFileDto dto)
+        {
+            try
+            {
+                var result = await _AuditInterface.BeginAuditUploadWithReportTypeAsync(dto);
+
+                if (result.StartsWith("Error"))
+                {
+                    return StatusCode(500, new
+                    {
+                        statusCode = 500,
+                        message = result
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "File uploaded, Customer details saved Successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = $"Error: {ex.Message}"
+                });
+            }
+        }
+
+
         [HttpGet("GetDRLDetails")]
         public async Task<IActionResult> LoadDRLDetails([FromQuery] int compId, [FromQuery] int auditNo)
         {
