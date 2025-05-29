@@ -27,7 +27,7 @@ namespace TracePca.Interface.FIN_Statement
         Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(
         int iCompId, int iScheduleId, int iCustId, int iAccHead);
 
-        //DeleteScheduleTemplate
+        //ScheduleFormatDeleteScheduleTemplate(Grid)
         Task<bool> DeleteScheduleTemplateAsync(
             int iCompId, int iScheduleType, int iCustId, int iSelectedValue, int iMainId);
 
@@ -42,5 +42,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //SaveScheduleFormatSub-ItemAndHeading
         Task<int[]> SaveScheduleSubItemAndTemplateAsync(int iCompId, SaveScheduleFormatSub_ItemDto dto);
+
+        //DeleteScheduleTemplate
+        Task<bool> DeleteInformationAsync(int iCompId, int iScheduleType, int iCustId, int iSelectedValue, int iMainId);
     }
 }

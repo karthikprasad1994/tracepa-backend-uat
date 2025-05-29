@@ -857,7 +857,7 @@ ORDER BY SrNo";
         }
         public async Task<int[]> SaveCustomerMasterAsync(int iCompId, AuditCustomerDetailsDto dto)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection3")))
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 await connection.OpenAsync();
 
