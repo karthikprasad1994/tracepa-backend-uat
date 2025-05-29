@@ -21,8 +21,8 @@ namespace TracePca.Dto.FIN_Statement
         //GetDuration
         public class CustDurationDto
         {
-            public int Branchid { get; set; }
-            public string? BranchName { get; set; }
+            public int Durationid { get; set; }
+            public string? DurationName { get; set; }
         }
 
         //GetBranchName

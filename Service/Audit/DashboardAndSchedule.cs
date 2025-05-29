@@ -336,84 +336,114 @@ ORDER BY SrNo";
             return result;
         }
 
-             public async Task<List<AssignedCheckpointDto>> GetAssignedCheckpointsAndTeamMembersAsync(
-      int compId, int auditId,int AuditTypeId, int custId, string heading = "", string? sCheckPoints = null)
+        public async Task<List<AssignedCheckpointDto>> GetAssignedCheckpointsAndTeamMembersAsync(
+       int compId, int auditId, int auditTypeId, int custId,
+       string sType, string heading, string? sCheckPoints)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
             string sql;
             object parameters;
 
-            if (!string.IsNullOrEmpty(sCheckPoints))
+            switch (sType.ToLower())
             {
-                // Load by specific CheckPoint IDs (sCheckPoints)
-                sql = $@"
-SELECT 
-    DENSE_RANK() OVER (ORDER BY ACM_ID) AS SlNo,
-    ACM_Heading,
-    ACM_ID,
-    ACM_Checkpoint
-FROM AuditType_Checklist_Master
-WHERE 
-    ACM_CompId = @CompId
-    AND ACM_DELFLG = 'A'
-    AND ACM_AuditTypeID = @AuditTypeId
-    {(string.IsNullOrEmpty(heading) ? "" : "AND ACM_Heading = @Heading")}
-    AND (
-        ACM_ID NOT IN (
-            SELECT SAC_CheckPointID 
-            FROM StandardAudit_ScheduleCheckPointList 
-            WHERE SAC_SA_ID = @AuditId 
-              AND SAC_CompID = @CompId
-        )
-        OR ACM_ID IN (
-            SELECT value 
-            FROM STRING_SPLIT(@CheckPoints, ',')
-        )
-    )
-ORDER BY ACM_Heading, ACM_ID";
+                case "heading":
+                    // Filter by heading only
+                    sql = @"
+                SELECT 
+                    DENSE_RANK() OVER (ORDER BY ACM_ID) AS SlNo,
+                    ACM_Heading,
+                    ACM_ID,
+                    ACM_Checkpoint
+                FROM AuditType_Checklist_Master
+                WHERE 
+                    ACM_CompId = @CompId
+                    AND ACM_DELFLG = 'A'
+                    AND ACM_AuditTypeID = @AuditTypeId
+                    AND ACM_Heading = @Heading
+                    AND ACM_ID in (
+                        SELECT SAC_CheckPointID 
+                        FROM StandardAudit_ScheduleCheckPointList 
+                        WHERE SAC_SA_ID = @AuditId 
+                          AND SAC_CompID = @CompId
+                    )
+                ORDER BY ACM_Heading, ACM_ID";
 
-                parameters = new
-                {
-                    AuditTypeId = AuditTypeId,
-                    CompId = compId,
-                    AuditId = auditId,
-                    Heading = heading,
-                    CheckPoints = sCheckPoints
-                };
+                    parameters = new
+                    {
+                        CompId = compId,
+                        AuditTypeId = auditTypeId,
+                        AuditId = auditId,
+                        Heading = heading
+                    };
+                    break;
 
-            }
-            else
-            {
-                // Load by audit ID, customer ID and optionally heading
-                sql = @"
-SELECT 
-    SACD_ID,
-    SACD_CheckpointId,
-    SACD_Heading,
-    ISNULL(usr_FullName, '') AS Employee,
-    SUM(LEN(SACD_CheckpointId) - LEN(REPLACE(SACD_CheckpointId, ',', '')) + 1) AS NoCheckpoints,
-    CASE WHEN SACD_EmpId > 0 THEN 1 ELSE 0 END AS NoEmployee,
-    SACD_TotalHr AS Working_Hours,
-    CASE 
-        WHEN CONVERT(VARCHAR(10), SACD_EndDate, 103) = '01/01/1900' THEN '' 
-        ELSE ISNULL(CONVERT(VARCHAR(10), SACD_EndDate, 103), '') 
-    END AS Timeline
-FROM StandardAudit_Checklist_Details
-LEFT JOIN sad_userdetails a ON SACD_EmpId = usr_Id
-WHERE 
-    SACD_AuditId = @AuditId 
-    AND SACD_CustID = @CustId
-    AND (@Heading = '' OR SACD_Heading = @Heading)
-GROUP BY 
-    SACD_ID, SACD_Heading, SACD_EndDate, SACD_TotalHr, SACD_CheckpointId, usr_FullName, SACD_EmpId";
+                case "checkpoint":
+                    // Filter by checkpoints only
+                    sql = @"
+                SELECT 
+                    DENSE_RANK() OVER (ORDER BY ACM_ID) AS SlNo,
+                    ACM_Heading,
+                    ACM_ID,
+                    ACM_Checkpoint
+                FROM AuditType_Checklist_Master
+                WHERE 
+                    ACM_CompId = @CompId
+                    AND ACM_DELFLG = 'A'
+                    AND ACM_AuditTypeID = @AuditTypeId
+                    AND ACM_ID IN (
+                        SELECT value FROM STRING_SPLIT(@CheckPoints, ',')
+                    )
+                ORDER BY ACM_Heading, ACM_ID";
 
-                parameters = new { AuditId = auditId, CustId = custId, Heading = heading ?? "" };
+                    parameters = new
+                    {
+                        CompId = compId,
+                        AuditTypeId = auditTypeId,
+                        CheckPoints = sCheckPoints
+                    };
+                    break;
+
+                case "assigned":
+                default:
+                    // Load assigned checkpoint details
+                    sql = @"
+                SELECT 
+                    SACD_ID,
+                    SACD_CheckpointId,
+                    SACD_Heading,
+                    ISNULL(usr_FullName, '') AS Employee,
+                    SUM(LEN(SACD_CheckpointId) - LEN(REPLACE(SACD_CheckpointId, ',', '')) + 1) AS NoCheckpoints,
+                    CASE WHEN SACD_EmpId > 0 THEN 1 ELSE 0 END AS NoEmployee,
+                    SACD_TotalHr AS Working_Hours,
+                    CASE 
+                        WHEN CONVERT(VARCHAR(10), SACD_EndDate, 103) = '01/01/1900' THEN '' 
+                        ELSE ISNULL(CONVERT(VARCHAR(10), SACD_EndDate, 103), '') 
+                    END AS Timeline
+                FROM StandardAudit_Checklist_Details
+                LEFT JOIN sad_userdetails a ON SACD_EmpId = usr_Id
+                WHERE 
+                    SACD_AuditId = @AuditId 
+                    AND SACD_CustID = @CustId
+                    AND (@Heading = '' OR SACD_Heading = @Heading)
+                GROUP BY 
+                    SACD_ID, SACD_Heading, SACD_EndDate, SACD_TotalHr, SACD_CheckpointId, usr_FullName, SACD_EmpId";
+
+                    parameters = new
+                    {
+                        AuditId = auditId,
+                        CustId = custId,
+                        Heading = heading ?? ""
+                    };
+                    break;
             }
 
             var result = await connection.QueryAsync<AssignedCheckpointDto>(sql, parameters);
             return result.ToList();
         }
+
+
+
         public async Task<bool> DeleteSelectedCheckpointsAndTeamMembersAsync(DeleteCheckpointDto dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -432,7 +462,7 @@ GROUP BY
                     dto.AuditId,
                     dto.CustomerId,
                     dto.PkId,
-                    dto.CompanyId
+                    dto.CompId
                 });
 
                 return affectedRows > 0;
@@ -769,7 +799,7 @@ GROUP BY
             await cmdChecklist.ExecuteNonQueryAsync();
 
             // Delete Checkpoints if AuditStatus = 1
-            if (objSACLD.AuditStatusID == 1 && objSACLD.CheckPointsAndTeamMemberPKID > 0 && !string.IsNullOrEmpty(objSACLD.SelectedCheckPointsPKID))
+            if (objSACLD.AuditStatusID == 1 && objSACLD.SACD_ID > 0 && !string.IsNullOrEmpty(objSACLD.SelectedCheckPointsPKID))
             {
                 // Construct SQL delete query
                 string sSql = "DELETE FROM StandardAudit_ScheduleCheckPointList " +
@@ -913,6 +943,97 @@ GROUP BY
                 }
             }
         }
+        public async Task<IEnumerable<AuditChecklistDto>> LoadAuditTypeCheckListAsync(
+       int compId,
+       int auditId,
+       int auditTypeId,
+       string heading)
+        {
+            var sql = @"
+            SELECT 
+                DENSE_RANK() OVER (ORDER BY ACM_ID) AS SlNo,
+                ACM_Heading,
+                ACM_ID,
+                ACM_Checkpoint
+            FROM AuditType_Checklist_Master
+            WHERE 
+                ACM_CompId = @CompId
+                AND ACM_DELFLG = 'A'
+                AND ACM_AuditTypeID = @AuditTypeID
+                AND ACM_Heading = @Heading
+                AND ACM_ID NOT IN (
+                    SELECT SAC_CheckPointID 
+                    FROM StandardAudit_ScheduleCheckPointList 
+                    WHERE SAC_SA_ID = @AuditID 
+                      AND SAC_CompID = @CompId
+                )
+            ORDER BY ACM_Heading, ACM_ID";
+
+            var parameters = new
+            {
+                CompId = compId,
+                AuditTypeID = auditTypeId,
+                Heading = heading,
+                AuditID = auditId
+            };
+            var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            return await connection.QueryAsync<AuditChecklistDto>(sql, parameters);
+
+        }
+        public async Task<List<AssignedCheckpointDto>> GetAssignedCheckpointsAsync(
+      int auditId, int custId, string heading)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // Normalize heading input
+            if (heading == "Select Heading")
+            {
+                heading = "";
+            }
+
+            // Start building the base SQL
+            var sql = @"
+    SELECT 
+        SACD_ID,
+        SACD_CheckpointId,
+        SACD_Heading,
+        ISNULL(usr_FullName, '') AS Employee,
+        SUM(LEN(SACD_CheckpointId) - LEN(REPLACE(SACD_CheckpointId, ',', '')) + 1) AS NoCheckpoints,
+        CASE WHEN SACD_EmpId > 0 THEN 1 ELSE 0 END AS NoEmployee,
+        SACD_TotalHr AS Working_Hours,
+        CASE 
+            WHEN CONVERT(VARCHAR(10), SACD_EndDate, 103) = '01/01/1900' THEN '' 
+            ELSE ISNULL(CONVERT(VARCHAR(10), SACD_EndDate, 103), '') 
+        END AS Timeline
+    FROM StandardAudit_Checklist_Details
+    LEFT JOIN sad_userdetails a ON SACD_EmpId = usr_Id
+    WHERE 
+        SACD_AuditId = @AuditId 
+        AND SACD_CustID = @CustId";
+
+            // Append heading filter condition only if valid
+            if (!string.IsNullOrWhiteSpace(heading))
+            {
+                sql += " AND SACD_Heading = @Heading";
+            }
+
+            sql += @"
+    GROUP BY 
+        SACD_ID, SACD_Heading, SACD_EndDate, SACD_TotalHr, SACD_CheckpointId, usr_FullName, SACD_EmpId";
+
+            // Prepare parameters
+            var parameters = new
+            {
+                AuditId = auditId,
+                CustId = custId,
+                Heading = heading
+            };
+
+            var result = await connection.QueryAsync<AssignedCheckpointDto>(sql, parameters);
+            return result.ToList();
+        }
+
+
         public async Task<int> SaveOrUpdateFullAuditSchedule(StandardAuditScheduleDTO dto)
         {
             using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))

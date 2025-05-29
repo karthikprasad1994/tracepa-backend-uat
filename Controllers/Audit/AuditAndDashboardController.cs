@@ -121,12 +121,12 @@ namespace TracePca.Controllers.Audit
         }
         [HttpGet("GetAssignedCheckpoints")]
         public async Task<IActionResult> GetAssignedCheckpoints(
-    int compId, int auditId,int AuditTypeId, int custId, string heading = "", string? sCheckPoints = null)
+    int compId, int auditId,int AuditTypeId, int custId,string sType, string heading , string? sCheckPoints)
         {
             try
             {
                 var result = await _getAssignedCheckPoint.GetAssignedCheckpointsAndTeamMembersAsync(
-                    compId, auditId, AuditTypeId, custId, heading, sCheckPoints);
+                    compId, auditId, AuditTypeId, custId, sType, heading, sCheckPoints);
 
                 return Ok(result);
             }
@@ -209,10 +209,7 @@ namespace TracePca.Controllers.Audit
             }
         }
         [HttpPost("saveOrUpdateChecklist")]
-        public async Task<IActionResult> SaveUpdateAuditChecklistDetails(
-         [FromQuery] string sAC,
-         [FromQuery] int custRegAccessCodeId,
-         [FromBody] StandardAuditChecklistDetailsDto objSACLD)
+        public async Task<IActionResult> SaveUpdateAuditChecklistDetails([FromBody] StandardAuditChecklistDetailsDto objSACLD)
         {
             try
             {
@@ -228,7 +225,39 @@ namespace TracePca.Controllers.Audit
                 return StatusCode(500, new { Message = "An error occurred.", Error = ex.Message });
             }
         }
-         [HttpPost("SaveOrUpdateCustomerMaster")]
+
+        [HttpGet("GetByHeading")]
+        public async Task<IActionResult> GetAssignedCheckpoints(
+    [FromQuery] int compId,
+    [FromQuery] int auditId,
+    [FromQuery] int auditTypeId,
+    [FromQuery] string heading)
+        {
+            try
+            {
+                var result = await _checklistService.LoadAuditTypeCheckListAsync(compId, auditId, auditTypeId, heading);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Server error occurred", error = ex.Message });
+            }
+        }
+        [HttpGet("assigned-checkpoints-Assigned")]
+        public async Task<IActionResult> GetAssignedCheckpoints(int auditId, int custId, string heading)
+        {
+            try
+            {
+                var checkpoints = await _auditService.GetAssignedCheckpointsAsync(auditId, custId, heading);
+                return Ok(checkpoints);
+            }
+            catch (Exception ex)
+            {
+                // You can log the exception here
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+        [HttpPost("SaveOrUpdateCustomerMaster")]
        public async Task<IActionResult> SaveCustomerMasterAsync([FromQuery] int iCompId, [FromBody] AuditCustomerDetailsDto dto)
        {
            if (dto == null)

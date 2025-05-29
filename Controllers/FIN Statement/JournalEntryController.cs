@@ -1,4 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using TracePca.Interface.FIN_Statement;
+using TracePca.Service.FIN_statement;
+using static TracePca.Dto.FIN_Statement.JournalEntryDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -8,36 +11,193 @@ namespace TracePca.Controllers.FIN_Statement
     [ApiController]
     public class JournalEntryController : ControllerBase
     {
-        // GET: api/<JournalEntryController>
-        [HttpGet]
-        public IEnumerable<string> Get()
+        private JournalEntryInterface _JournalEntryInterface;
+        private JournalEntryInterface _JournalEntryService;
+
+        public JournalEntryController(JournalEntryInterface JournalEntryInterface)
         {
-            return new string[] { "value1", "value2" };
+            _JournalEntryInterface = JournalEntryInterface;
+            _JournalEntryService = JournalEntryInterface;
         }
 
-        // GET api/<JournalEntryController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
+        //GetCustomersName
+        [HttpGet("GetCustomersName")]
+        public async Task<IActionResult> GetCustomerName([FromQuery] int icompId)
         {
-            return "value";
+
+            try
+            {
+                var result = await _JournalEntryService.GetCustomerNameAsync(icompId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No company types found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Company types loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching company types.",
+                    error = ex.Message
+                });
+            }
         }
 
-        // POST api/<JournalEntryController>
-        [HttpPost]
-        public void Post([FromBody] string value)
+        //GetFinancialYear
+        [HttpGet("GetFinancialYear")]
+        public async Task<IActionResult> GetFinancialYear([FromQuery] int icompId)
         {
+            try
+            {
+                var result = await _JournalEntryService.GetFinancialYearAsync(icompId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No company types found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Company types loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching company types.",
+                    error = ex.Message
+                });
+            }
         }
 
-        // PUT api/<JournalEntryController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        //GetDuration
+        [HttpGet("GetDuration")]
+        public async Task<IActionResult> GetDuration([FromQuery] int compId, [FromQuery] int custId)
         {
+            try
+            {
+                var data = await _JournalEntryService.GetDurationAsync(compId, custId);
+
+                if (data == null || !data.Any())
+                {
+                    return NotFound(new
+                    {
+                        status = 404,
+                        message = "No duration found for the given customer and company.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Duration loaded successfully.",
+                    data = data
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "Internal server error.",
+                    error = ex.Message
+                });
+            }
         }
 
-        // DELETE api/<JournalEntryController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
+        //GetBranchName
+        [HttpGet("GetBranchName")]
+        public async Task<IActionResult> GetBranchName([FromQuery] int icompId, [FromQuery] int icustId)
         {
+            try
+            {
+                var result = await _JournalEntryService.GetBranchNameAsync(icompId, icustId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No company types found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Company types loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching company types.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //GetJournalEntryInformation
+        [HttpGet("GetJournalEntryInformation")]
+        public async Task<IActionResult> GetJournalEntryInformation(
+        [FromQuery] int compId,
+        [FromQuery] int userId,
+        [FromQuery] string status,
+        [FromQuery] int custId,
+        [FromQuery] int yearId,
+        [FromQuery] int branchId,
+        [FromQuery] string dateFormat,
+        [FromQuery] int durationId)
+        {
+            try
+            {
+                var result = await _JournalEntryService.GetJournalEntryInformationAsync(
+                    compId, userId, status, custId, yearId, branchId, dateFormat, durationId);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = result.Any() ? "Journal entries retrieved successfully." : "No journal entries found.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving journal entries.",
+                    error = ex.Message
+                });
+            }
         }
     }
 }

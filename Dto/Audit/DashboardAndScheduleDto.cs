@@ -321,7 +321,6 @@ namespace TracePca.Dto.Audit
     {
         public int AuditId { get; set; }
         public int CustomerId { get; set; }
-        public int CompanyId { get; set; }
         public int PkId { get; set; }
         public string CheckpointIds { get; set; } // optional if used for logging or extension
         public int CompId { get; set; } // optional if used in logic

@@ -148,7 +148,7 @@ namespace TracePca.Dto.Audit
         public int LOEId { get; set; }
         public int YearId { get; set; }
         public int CustomerId { get; set; }
-        public List<int> CustomerUsers { get; set; }
+        public List<int> CustomerUserIds { get; set; }
         public string? Comments { get; set; }
         public int UserId { get; set; }
         public int AttachmentId { get; set; }

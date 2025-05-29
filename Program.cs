@@ -56,6 +56,7 @@ builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
 
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
+builder.Services.AddScoped<JournalEntryInterface, JournalEntryService>();
 
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
 builder.Services.AddScoped<SubCabinetsInterface, SubCabinetsService>();

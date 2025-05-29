@@ -1,10 +1,14 @@
 ﻿using Dapper;
 using DocumentFormat.OpenXml.Wordprocessing;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using MimeKit;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using System.Linq;
 using TracePca.Data;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
@@ -446,7 +450,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<int> UploadAndSaveAttachmentAsync(FileAttachmentDTO dto)
+        public async Task<(int attachmentId, string relativeFilePath)> UploadAndSaveAttachmentAsync(FileAttachmentDTO dto)
         {
             try
             {
@@ -496,7 +500,7 @@ namespace TracePca.Service.Audit
                     CompId = dto.ATCH_COMPID
                 });
 
-                return attachId;
+                return (attachId, fullFilePath.Replace("\\", "/"));
             }
             catch (Exception ex)
             {
@@ -587,7 +591,7 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
 
-                var docCountQuery = @"SELECT COUNT(*) FROM Doc_Reviewremarks_History WHERE DRH_Custid = @CustID AND DRH_Loeid = @LOEId AND DRH_Yearid = @YearId";
+                var docCountQuery = @"SELECT COUNT(*) + 1 FROM Doc_Reviewremarks_History WHERE DRH_Custid = @CustID AND DRH_Loeid = @LOEId AND DRH_Yearid = @YearId";
                 int iDocCount = await connection.ExecuteScalarAsync<int>(docCountQuery, new
                 {
                     CustID = dto.CustomerId,
@@ -611,11 +615,11 @@ namespace TracePca.Service.Audit
                     File = formFile
                 };
 
-                int attachmentId = await UploadAndSaveAttachmentAsync(dtoFile);
+                var (attachmentId, attachmentPath)  = await UploadAndSaveAttachmentAsync(dtoFile);
 
-                int requestId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(DR_ID), 0) + 1 FROM DocumentRequest WHERE DR_CompId = @CompId", new { CompId = dto.CompId });
+                int requestId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(DR_ID), 0) + 1 FROM Doc_Reviewremarks WHERE DR_CompId = @CompId", new { CompId = dto.CompId });
 
-                var insertRequestQuery = @"INSERT INTO DocumentRequest ( DR_ID, DR_Custid, DR_DocLoeId_Branchid, DR_DocYearid, DR_DocStatus, DR_DocType, DR_Date, 
+                var insertRequestQuery = @"INSERT INTO Doc_Reviewremarks ( DR_ID, DR_Custid, DR_DocLoeId_Branchid, DR_DocYearid, DR_DocStatus, DR_DocType, DR_Date, 
                 DR_CreatedBy, DR_CreatedOn, DR_CompId, DR_emailSentTo, DR_IPAddress, DR_Observation, DR_DocDelflag) VALUES (
                 @DR_ID, @DR_Custid, @DR_DocLoeId_Branchid, @DR_DocYearid, 'W', 'C', GETDATE(), @DR_CreatedBy, GETDATE(), @DR_CompId, @DR_emailSentTo, @DR_IPAddress, @DR_Observation, 'LOE');";
 
@@ -626,14 +630,14 @@ namespace TracePca.Service.Audit
                     DR_DocLoeId_Branchid = dto.LOEId,
                     DR_DocYearid = dto.YearId,
                     DR_CreatedBy = dto.UserId,
-                    DR_emailSentTo = dto.CustomerUsers,
+                    DR_emailSentTo = dto.CustomerUserIds,
                     DR_CompId = dto.CompId,
                     DR_IPAddress = dto.IPAddress,
                     DR_Observation = dto.Comments
                 });
 
-                int newRemarkId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(DRH_ID), 0) + 1 FROM DocumentRemarksHistory");
-                var insertRemarksQuery = @"INSERT INTO DocumentRemarksHistory ( DRH_ID, DRH_MASid, DRH_Custid, DRH_Loeid, DRH_RemarksType, DRH_Remarks, DRH_RemarksBy, 
+                int newRemarkId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(DRH_ID), 0) + 1 FROM Doc_Reviewremarks_History");
+                var insertRemarksQuery = @"INSERT INTO Doc_Reviewremarks_History ( DRH_ID, DRH_MASid, DRH_Custid, DRH_Loeid, DRH_RemarksType, DRH_Remarks, DRH_RemarksBy, 
                 DRH_Status, DRH_Date, DRH_IPAddress, DRH_CompID, DRH_Yearid, DRH_attchmentid) VALUES (
                 @DRH_ID, @DRH_MASid, @DRH_Custid, @DRH_Loeid, 'C', @DRH_Remarks, @DRH_RemarksBy,'W', GETDATE(), @DRH_IPAddress, @DRH_CompID, @DRH_Yearid, @DRH_attchmentid);";
 
@@ -651,7 +655,7 @@ namespace TracePca.Service.Audit
                     DRH_attchmentid = attachmentId
                 });
 
-                return true;
+                return await SendMailAsync(dto, attachmentPath);
             }
             catch (Exception ex)
             {
@@ -712,7 +716,7 @@ namespace TracePca.Service.Audit
                         page.Content().Column(column =>
                         {
                             column.Item().AlignCenter().PaddingBottom(10)
-                                  .Text("GeneralReport").FontSize(18).Bold();
+                                  .Text("Letter of Engagement").FontSize(16).Bold();
 
                             column.Item().Text($"Ref.No.: {dto.EngagementPlanNo}")
                                          .FontSize(12).Bold();
@@ -726,64 +730,83 @@ namespace TracePca.Service.Audit
                                  .FontSize(10);
 
                             column.Item().PaddingBottom(10)
-                                  .Text($"Sub: {dto.Subject ?? "Engagement Letter"}")
+                                  .Text($"{dto.Subject ?? "Engagement Letter"}")
                                   .FontSize(10);
 
                             if (dto.EngagementTemplateDetails?.Any() == true)
                             {
+                                int count = 1;
                                 foreach (var item in dto.EngagementTemplateDetails)
                                 {
-                                    column.Item().Text("• " + item.LTD_Heading).FontSize(11).Bold();
+                                    column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
+
                                     if (!string.IsNullOrWhiteSpace(item.LTD_Decription))
                                         column.Item().Text(item.LTD_Decription).FontSize(10);
+
                                     column.Item().PaddingBottom(5);
+                                    count++;
                                 }
                             }
 
                             if (dto.EngagementAdditionalFees?.Any() == true)
                             {
-                                column.Item().PaddingTop(15).Text("Additional Fees").FontSize(12).Bold().Underline();
+                                column.Item().PaddingTop(10).Text("Additional Fees").FontSize(12).Bold().Underline();
+
+                                column.Item().PaddingBottom(10)
+                                 .Text($"Details of Engagement Estimate for the Letter of Engagement in {dto.AuditType} to {dto.Customer}")
+                                 .FontSize(10);
 
                                 column.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(columns =>
                                     {
+                                        columns.RelativeColumn(1);
                                         columns.RelativeColumn(2);
                                         columns.RelativeColumn(1);
                                     });
 
                                     table.Header(header =>
                                     {
+                                        header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Expense Name").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).AlignRight().Text("Charges").FontSize(10).Bold();
                                     });
 
+                                    int slNo = 1;
+                                    decimal totalCharges = 0;
                                     foreach (var fee in dto.EngagementAdditionalFees)
                                     {
+                                        table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
                                         table.Cell().Element(CellStyle).Text(fee.LAF_OtherExpensesName ?? "-").FontSize(10);
-                                        table.Cell().Element(CellStyle).AlignRight().Text(fee.LAF_Charges.ToString()).FontSize(10);
+
+                                        var displayCharge = decimal.TryParse(fee.LAF_Charges, out var charge) ? charge.ToString("F2") : "0.00";
+                                        table.Cell().Element(CellStyle).AlignRight().Text(displayCharge).FontSize(10);
+
+                                        totalCharges += charge;
+                                        slNo++;
                                     }
+
+                                    table.Cell().Element(CellStyle).Text("");
+                                    table.Cell().Element(CellStyle).Text("Total").FontSize(10).Bold();
+                                    table.Cell().Element(CellStyle).AlignRight().Text(totalCharges.ToString("F2")).FontSize(10).Bold();
+
                                     static IContainer CellStyle(IContainer container) =>
                                         container.BorderBottom(0.5f).PaddingVertical(2);
                                 });
                             }
 
 
-                            column.Item().PaddingBottom(10)
-                                  .Text($"Details of Engagement Estimate for the Letter of Engagement in {dto.AuditType} to {dto.Customer}")
-                                  .FontSize(10);
-
                             column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
                             column.Item().Text(dto.CompanyName ?? "[Company Name]").FontSize(10).Bold();
                             column.Item().Text("[Firm Name]").FontSize(10);
-                            column.Item().PaddingBottom(10);
-
-                            column.Item().PaddingTop(20).Text("We agree to the terms of the engagement described in this letter.").FontSize(10);
+                            column.Item().PaddingBottom(30);
+                            column.Item().PaddingTop(10).PaddingBottom(10).LineHorizontal(1).LineColor(Colors.Black);
+                            column.Item().PaddingBottom(20).Text("We agree to the terms of the engagement described in this letter.").FontSize(10);
                             column.Item().Text(dto.Customer ?? "[Client Name]").FontSize(10).Bold();
                             column.Item().Text("[Client Name]").FontSize(10);
-                            column.Item().PaddingBottom(10);
+                            column.Item().PaddingBottom(20);
                             column.Item().Text("[Signature]").FontSize(10);
-                            column.Item().PaddingBottom(10);
+                            column.Item().PaddingBottom(20);
                             column.Item().Text("[Date]").FontSize(10);
                         });
                     });
@@ -819,23 +842,26 @@ namespace TracePca.Service.Audit
 
                 void AddEmptyLine() => body.AppendChild(new Paragraph(new Run(new Text(""))));
 
-                AddParagraph("GeneralReport", bold: true);
+                AddParagraph("Letter of Engagement", bold: true);
                 AddParagraph($"Ref.No.: {dto.EngagementPlanNo}", bold: true);
                 AddParagraph($"Date: {dto.CurrentDate:dd MMM yyyy}");
                 AddParagraph(dto.Customer);
                 AddEmptyLine();
+
                 AddParagraph($"Dear: {dto.Customer}");
-                AddParagraph($"Sub: {dto.Subject}");
+                AddParagraph($"{dto.Subject}");
                 AddEmptyLine();
 
                 if (dto.EngagementTemplateDetails?.Any() == true)
                 {
+                    int count = 1;
                     foreach (var item in dto.EngagementTemplateDetails)
                     {
-                        AddParagraph("• " + item.LTD_Heading, bold: true);
+                        AddParagraph($"{count}. {item.LTD_Heading}", bold: true);
                         if (!string.IsNullOrWhiteSpace(item.LTD_Decription))
                             AddParagraph(item.LTD_Decription);
                         AddEmptyLine();
+                        count++;
                     }
                 }
 
@@ -845,10 +871,16 @@ namespace TracePca.Service.Audit
                 if (dto.EngagementAdditionalFees?.Any() == true)
                 {
                     AddParagraph("Additional Fees", bold: true, italic: true);
+                    decimal total = 0;
+                    int slNo = 1;
                     foreach (var fee in dto.EngagementAdditionalFees)
                     {
-                        AddParagraph($"- {fee.LAF_OtherExpensesName}: {fee.LAF_Charges:N2}");
+                        var charge = decimal.TryParse(fee.LAF_Charges, out var parsed) ? parsed : 0;
+                        total += charge;
+                        AddParagraph($"{slNo}. {fee.LAF_OtherExpensesName}: {charge:N2}");
+                        slNo++;
                     }
+                    AddParagraph($"Total: {total:N2}", bold: true);
                     AddEmptyLine();
                 }
 
@@ -868,6 +900,85 @@ namespace TracePca.Service.Audit
                 mainPart.Document.Save();
                 return ms.ToArray();
             });
+        }
+
+        private async Task<bool> SendMailAsync(EngagementPlanReportExportDetailsDTO dto, string attachmentPath)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var emailList = (await connection.QueryAsync<string>(@"SELECT usr_Email FROM Sad_UserDetails WHERE USR_ID IN @UserIds", new { UserIds = dto.CustomerUserIds })
+                        ).Where(email => !string.IsNullOrWhiteSpace(email)).Distinct().ToList();
+                var reportDetails = await GetEngagementPlanReportDetailsByIdAsync(dto.CompId, dto.LOEId);
+
+                string subject = $"Intimation mail To Review The LOE for Client - {reportDetails.Customer}";
+
+                string htmlBody = $@"
+                    <!DOCTYPE html><html><head><style>
+                        table, th, td {{ border: 1px solid black; border-collapse: collapse; }}
+                    </style></head><body>
+                        <p style='font-size:15px;font-family:Calibri,sans-serif;text-align:center;'>Dear Sir/Ma'am</p>
+                        <table style='width:100%;border:1px solid black;'>
+                            <tr>
+                                <td style='padding:10px;text-align:center;'>
+                                    <strong>Client Name:</strong> {reportDetails.Customer}<br/>
+                                    <strong>LOE No.:</strong> {reportDetails.EngagementPlanNo}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style='padding:10px;'>
+                                    <strong>Comments:</strong><br/>
+                                    {System.Net.WebUtility.HtmlEncode(dto.Comments)}                                
+                                </td>
+                            </tr>
+                        </table>
+                        <p style='font-size:15px;font-family:Calibri,sans-serif;text-align:center;'>
+                            <strong>Click Here: </strong>
+                            <a href='https://tracemkt.multimedia.interactivedns.com/'>
+                                tracemkt
+                            </a>
+                        </p>
+                        <p>Please login to TRACe PA website using the above link and credentials shared with you.</p>
+                        <p>Home page of the application will show you the list of documents to review.</p>
+                        <br/>
+                        <p>Thanks,<br/>TRACe PA Team</p>
+                    </body></html>";
+
+                var message = new MimeMessage();
+                message.From.Add(new MailboxAddress("TRACe PA Team", "trace@mmcspl.com"));
+                foreach (var bcc in emailList.Distinct())
+                {
+                    message.Bcc.Add(MailboxAddress.Parse(bcc));
+                }
+
+                message.Subject = subject;
+                var builder = new BodyBuilder { HtmlBody = htmlBody };
+                if (!string.IsNullOrEmpty(attachmentPath) && File.Exists(attachmentPath))
+                {
+                    builder.Attachments.Add(attachmentPath);
+                }
+                message.Body = builder.ToMessageBody();
+
+                var smtpServer = _configuration["EmailSettings:SmtpServer"];
+                var smtpPort = int.Parse(_configuration["EmailSettings:SmtpPort"]);
+                var smtpUser = _configuration["EmailSettings:SmtpUser"];
+                var smtpPassword = _configuration["EmailSettings:SmtpPassword"];
+                var fromEmail = _configuration["EmailSettings:FromEmail"];
+
+                using var client = new SmtpClient();
+                await client.ConnectAsync(smtpServer, smtpPort, SecureSocketOptions.StartTls);
+                await client.AuthenticateAsync(fromEmail, smtpPassword);//(smtpUser, smtpPassword);
+                await client.SendAsync(message);
+                await client.DisconnectAsync(true);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while sending the email.", ex);
+            }
         }
     }
 }

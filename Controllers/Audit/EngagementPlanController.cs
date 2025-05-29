@@ -181,10 +181,10 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var result = await _engagementInterface.UploadAndSaveAttachmentAsync(dto);
-                if (result > 0)
+                var (attachmentId, relativeFilePath) = await _engagementInterface.UploadAndSaveAttachmentAsync(dto);
+                if (attachmentId > 0)
                 {
-                    return Ok(new { success = true, message = "File uploaded and saved successfully.", data = result });
+                    return Ok(new { success = true, message = "File uploaded and saved successfully.", data = attachmentId });
                 }
                 else
                 {
