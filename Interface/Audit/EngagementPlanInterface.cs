@@ -12,7 +12,7 @@ namespace TracePca.Interface.Audit
         Task<int> SaveOrUpdateEngagementPlanDataAsync(EngagementPlanDetailsDTO dto);
         Task<bool> ApproveEngagementPlanAsync(int compId, int epPKid, int approvedBy);
         Task<List<AttachmentDetailsDTO>> LoadAllAttachmentsByIdAsync(int compId, int attachId);
-        Task<int> UploadAndSaveAttachmentAsync(FileAttachmentDTO dto);
+        Task<(int attachmentId, string relativeFilePath)> UploadAndSaveAttachmentAsync(FileAttachmentDTO dto);
         Task RemoveAttachmentDocAsync(int compId, int attachId, int docId, int userId);
         Task UpdateAttachmentDocDescriptionAsync(int compId, int attachId, int docId, int userId, string description);
         Task<AttachmentDetailsDTO> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId);
