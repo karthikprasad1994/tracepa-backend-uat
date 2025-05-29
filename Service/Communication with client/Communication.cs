@@ -2870,7 +2870,10 @@ VALUES (
                 ADRL_UpdatedBy = @UpdatedBy,
                 ADRL_UpdatedOn = GETDATE(),
                 ADRL_IPAddress = @IpAddress,
-                ADRL_Status = 'Updated'
+                ADRL_Status = 'Updated',
+                ADRL_TimlinetoResOn = '@TimelineToRespondOn'
+               
+                
             WHERE ADRL_ID = @Id",
                     new
                     {
@@ -2879,7 +2882,9 @@ VALUES (
                         Remark = dto.Remark,
                         UpdatedBy = dto.UpdatedBy,
                         IpAddress = dto.IpAddress,
+                        TimelineToRespondOn = dto.TimelineToRespondOn,
                         Id = existingId.Value
+
                     });
 
                 return existingId.Value;
@@ -2898,7 +2903,7 @@ VALUES (
             ) VALUES (
                 @Id, @YearID, @AuditNo, @FunID, @CustID,
                 @RequestedListID, @RequestedTypeID, @RequestedOn, @EmailId,
-                @Remark, @UserId, GETDATE(), @IpAddress, @CompID, 'Saved', @TimelineToRespondOn
+                @Remark, @UserId, GETDATE(), @IpAddress, @CompID, 'Saved', GETDATE()
             )",
                     new
                     {
@@ -2918,6 +2923,8 @@ VALUES (
                         CompID = dto.CompId
                     });
 
+                await SaveRemarksHistoryAsync(dto, masId: newId);
+
                 return newId;
             }
         }
@@ -2934,7 +2941,7 @@ INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory
 VALUES (
     (SELECT ISNULL(MAX(SAR_ID) + 1, 1) FROM StandardAudit_Audit_DRLLog_RemarksHistory),
     @AuditId, @CustomerId, @CheckPointIds, 'C', @Remark,
-    @UserId, GETDATE(), @IpAddress, @CompId, @EmailId, @TimelineToRespondOn,
+    @UserId, GETDATE(), @IpAddress, @CompId, @EmailId, GETDATE(),
     @YearId, 'W', @MasId, @AttachId, @DrlId);";
 
             using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -2949,7 +2956,7 @@ VALUES (
                 dto.IpAddress,
                 dto.CompId,
                 dto.EmailId,
-                dto.TimelineToRespondOn,
+                //dto.TimelineToRespondOn,
                 dto.YearId,
                 MasId = masId,    // Explicit mapping for SAR_MASid
                 dto.AttachId,
@@ -3044,12 +3051,15 @@ WHERE ADRL_CompID = @CompId
             return results;
         }
 
-        private string FormatDate(object dbValue)
+        private string FormatDate(object dateObj)
         {
-            if (dbValue == null) return "";
-            if (DateTime.TryParse(dbValue.ToString(), out var dt))
-                return dt.ToString("dd/MM/yyyy"); // Default format or change if needed
-            return "";
+            if (dateObj == null || dateObj == DBNull.Value)
+                return string.Empty;
+
+            if (DateTime.TryParse(dateObj.ToString(), out DateTime date))
+                return date.ToString("yyyy-MM-dd"); // or any desired format
+
+            return string.Empty;
         }
 
         private string ReplaceSafeSQL(string input)
