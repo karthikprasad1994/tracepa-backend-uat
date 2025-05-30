@@ -258,7 +258,7 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //
+        //ScheduleFormatDeleteScheduleTemplate(Grid)
         [HttpDelete("DeleteSchedulesTemplate")]
         public async Task<IActionResult> DeleteScheduleTemplateAsync(int iCompId, int scheduleType, int custId, int selectedValue, int mainId)
         {
@@ -481,6 +481,33 @@ namespace TracePca.Controllers.FIN_Statement
                     Error = ex.Message,
                     InnerException = ex.InnerException?.Message
                 });
+            }
+        }
+
+        //DeleteScheduleTemplate
+        [HttpDelete("DeleteScheduleTemplate")]
+        public async Task<IActionResult> DeleteInformation([FromBody] DeleteScheduleTemplateRequestDto request)
+        {
+            if (request == null)
+                return BadRequest("Invalid request.");
+
+            try
+            {
+                var result = await _ScheduleFormatService.DeleteInformationAsync(
+                    request.CompanyId,
+                    request.ScheduleType,
+                    request.CustomerId,
+                    request.SelectedValue,
+                    request.MainId);
+
+                if (result)
+                    return Ok(new { Success = true, Message = "Deleted successfully." });
+                else
+                    return StatusCode(500, new { Success = false, Message = "Deletion failed." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Success = false, Message = $"An error occurred: {ex.Message}" });
             }
         }
     }

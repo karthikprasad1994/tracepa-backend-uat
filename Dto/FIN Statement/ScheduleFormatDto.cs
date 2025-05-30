@@ -53,7 +53,7 @@
             public string AccHeadName { get; set; }
         }
 
-        //ScheduleFormatDeleteTemplate
+        //ScheduleFormatDeleteScheduleTemplate(Grid)
         public class DeleteScheduleTemplateDto
         {
             public int StatusCode { get; set; }
@@ -203,6 +203,16 @@
             public string? AST_Schedule_type { get; set; }
             public string? AST_Companytype { get; set; }
             public string? AST_Company_limit { get; set; }
+        }
+
+        //DeleteScheduleTemplate
+        public class DeleteScheduleTemplateRequestDto
+        {
+            public int CompanyId { get; set; }
+            public int ScheduleType { get; set; }
+            public int CustomerId { get; set; }
+            public int SelectedValue { get; set; } 
+            public int MainId { get; set; } 
         }
     }
 }
