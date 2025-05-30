@@ -1031,10 +1031,40 @@ namespace TracePca.Controllers
         }
 
 
+        [HttpGet("GetDrlId")]
+        public async Task<IActionResult> GetRequestedIdByExportType([FromQuery] int exportType)
+        {
+            if (exportType != 1 && exportType != 3)
+            {
+                return BadRequest("Invalid export type. Only 1 and 3 are supported.");
+            }
 
+            var requestedId = await _AuditInterface.GetRequestedIdByExportTypeAsync(exportType);
+            return Ok(new { RequestedId = requestedId });
+        }
+
+
+        [HttpGet("GetAttachId")]
+        public async Task<IActionResult> GetMaxAttachmentId(
+    [FromQuery] int customerId,    // Customer ID (SAR_SAC_ID)
+    [FromQuery] int auditId,       // Audit ID (SAR_SA_ID)
+    [FromQuery] int yearId,        // Year ID (sar_Yearid)
+    [FromQuery] int exportType)    // Export Type (1 or 3)
+        {
+            if (exportType != 1 && exportType != 3)
+            {
+                return BadRequest("Invalid exportType. Only 1 or 3 allowed.");
+            }
+
+            var maxId = await _AuditInterface.GetMaxAttachmentIdAsync(customerId, auditId, yearId, exportType);
+
+            return Ok(new { MaxAttachmentId = maxId });
+        }
 
     }
+
 }
+
         
 
 

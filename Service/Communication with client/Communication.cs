@@ -1586,7 +1586,7 @@ INSERT INTO Edt_Attachments (
 VALUES (
     @AtchId, @DocId, @FileName, @FileExt, @Description, @Size,
     @AuditId, @ScheduleId, @UserId, GETDATE(),
-    @CompId, @ReportType, @DrlId, 'A',  'X'
+    @CompId, @ReportType , @DrlId, 'A',  'X'
 );";
 
                 await connection.ExecuteAsync(insertQuery, new
@@ -1793,10 +1793,10 @@ VALUES (
                 await connection.ExecuteAsync(
                     @"INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
                 SAR_ID, SAR_SAC_ID, SAR_SA_ID, SAR_DRLId,
-                SAR_Remarks, SAR_Date, SAR_RemarksType, SAR_AttchId, SAR_AtthachDocId, SAR_TimlinetoResOn
+                SAR_Remarks, SAR_Date, SAR_RemarksType, SAR_AttchId, SAR_AtthachDocId, SAR_TimlinetoResOn, SAR_ReportType
             ) VALUES (
                 @RemarkId, @CustomerId, @AuditId, @RequestedId,
-                @Remark, @RequestedOn, @Type, @AtchId, @DocId, @RespondTime
+                @Remark, @RequestedOn, @Type, @AtchId, @DocId, @RespondTime, @ReportType 
             )",
                     new
                     {
@@ -1809,8 +1809,9 @@ VALUES (
                         AtchId = attachId,
                         DocId = docId,
                         RequestedOn = dto.RequestedOn,
-                        RespondTime = dto.RespondTime
+                        RespondTime = dto.RespondTime,
 
+                        ReportType = dto.ReportType
 
                     }
                 );
@@ -1931,14 +1932,12 @@ VALUES (
 INSERT INTO Edt_Attachments (
     ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_Desc, ATCH_SIZE,
     ATCH_AuditID, ATCH_AUDScheduleID, ATCH_CREATEDBY, ATCH_CREATEDON,
-    ATCH_COMPID, ATCH_ReportType, ATCH_drlid, Atch_Vstatus, ATCH_Status,
-    ATCH_ReportType
+    ATCH_COMPID, ATCH_ReportType, ATCH_drlid, Atch_Vstatus, ATCH_Status
 )
 VALUES (
     @AtchId, @DocId, @FileName, @FileExt, @Description, @Size,
     @AuditId, @ScheduleId, @UserId, GETDATE(),
     @CompId, @ReportId, @DrlId, 'A', 'X'
-    
 );";
 
                 await connection.ExecuteAsync(insertQuery, new
@@ -1953,14 +1952,14 @@ VALUES (
                     ScheduleId = dto.AuditScheduleId,
                     UserId = dto.UserId,
                     CompId = dto.CompId,
-                    ReportType = dto.ReportType,
-                    DrlId = requestedId,
-                    ReportId = dto.ReportId
+                    ReportId = reportId,
+                    DrlId = requestedId
                 });
 
                 return fullFilePath;
             }
         }
+
 
 
 
@@ -2009,47 +2008,46 @@ VALUES (
             {
                 await connection.OpenAsync();
                 await connection.ExecuteAsync(
-                    @"INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
-                SAR_ID,
-                SAR_SAC_ID,
-                SAR_SA_ID,
-                SAR_DRLId,
-                SAR_Remarks,
-                SAR_Date,
-                SAR_RemarksType,
-                SAR_AttchId,
-                SAR_AtthachDocId,
-                SAR_TimlinetoResOn,
-                SAR_ReportType
-            )
-            VALUES (
-                @RemarkId,
-                @CustomerId,
-                @AuditId,
-                @RequestedId,
-                @Remark,
-                @RequestedOn,
-                @Type,
-                @AtchId,
-                @DocId,
-                @RespondTime,
-                @ReportTypeId
-            )",
-                    new
-                    {
-                        RemarkId = remarkId,
-                        CustomerId = dto.CustomerId,
-                        AuditId = dto.AuditId,
-                        RequestedId = requestedId,
-                        Remark = dto.Remark,
-                        RequestedOn = dto.RequestedOn,
-                        Type = dto.Type,
-                        AtchId = attachId,
-                        DocId = docId,
-                        RespondTime = dto.RespondTime,
-                        ReportTypeId = dto.ReportId // assumes dto has ReportTypeId
-                    }
-                );
+                @"INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
+            SAR_ID,
+            SAR_SAC_ID,
+            SAR_SA_ID,
+            SAR_DRLId,
+            SAR_Remarks,
+            SAR_Date,
+            SAR_RemarksType,
+            SAR_AttchId,
+            SAR_AttachDocId,   -- ✅ fixed typo here
+            SAR_TimlinetoResOn,
+            SAR_ReportType
+        )
+        VALUES (
+            @RemarkId,
+            @CustomerId,
+            @AuditId,
+            @RequestedId,
+            @Remark,
+            @RequestedOn,
+            @Type,
+            @AtchId,
+            @DocId,
+            @RespondTime,
+            @ReportTypeId
+        )",
+                new
+                {
+                    RemarkId = remarkId,
+                    CustomerId = dto.CustomerId,
+                    AuditId = dto.AuditId,
+                    RequestedId = requestedId,
+                    Remark = dto.Remark,
+                    RequestedOn = dto.RequestedOn,
+                    Type = dto.Type,
+                    AtchId = attachId,
+                    DocId = docId,
+                    RespondTime = dto.RespondTime,
+                    ReportTypeId = dto.ReportId
+                });
             }
         }
 
@@ -2065,17 +2063,13 @@ VALUES (
                     ? dto.AtchId
                     : await GenerateNextAttachmentIdAsync(dto.AuditId);
 
-                // Insert into Audit_DRLLog (with reportId) and get the new DRL log ID
-                int drlLogId = await InsertIntoAuditDrlLogAsync(dto, dto.DrlId, dto.ReportId);
-
                 int docId = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
                 int remarkId = await GenerateNextRemarkIdAsync(dto.CustomerId, dto.AuditId);
 
-                // Use drlLogId (newly created DRL log id) here instead of requestedId
-                await InsertIntoBeginingAuditDocRemarksLogAsync(dto, drlLogId, remarkId, attachId, docId);
+                // Use dto.DrlId directly, assuming it’s already passed from the front-end or fetched earlier
+                await InsertIntoBeginingAuditDocRemarksLogAsync(dto, dto.DrlId, remarkId, attachId, docId);
 
-                // Save file to disk and insert Edt_Attachments record using drlLogId
-                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, drlLogId, dto.ReportId);
+                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, dto.DrlId, dto.ReportId);
 
                 int pkId = await GetDrlPkIdAsync(dto.CustomerId, dto.AuditId, attachId);
                 await UpdateDrlAttachIdAndDocIdAsync(dto.CustomerId, dto.AuditId, attachId, docId, pkId);
@@ -2089,6 +2083,7 @@ VALUES (
                 return $"Error: {ex.Message}";
             }
         }
+
 
 
 
@@ -3127,7 +3122,7 @@ VALUES (
                 dto.IpAddress,
                 dto.CompId,
                 dto.EmailId,
-                //dto.TimelineToRespondOn,
+                dto.TimelineToRespondOn,
                 dto.YearId,
                 MasId = masId,    // Explicit mapping for SAR_MASid
                 dto.AttachId,
@@ -3269,6 +3264,58 @@ WHERE CMM_CompID = @CompId
 
             var id = await connection.ExecuteScalarAsync<int?>(query, new { CompId = compId });
             return id ?? 0;
+        }
+
+
+        public async Task<int> GetRequestedIdByExportTypeAsync(int exportType)
+        {
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                await connection.OpenAsync();
+
+                string description = exportType switch
+                {
+                    1 => "Beginning of the Audit",
+                    3 => "Nearing completion of the Audit",
+                    _ => null
+                };
+
+                if (string.IsNullOrEmpty(description))
+                    return 0;
+
+                var query = @"
+            SELECT ISNULL(cmm_ID, 0)
+            FROM Content_Management_Master cmm
+            LEFT JOIN Audit_DRLLog a ON a.ADRL_RequestedListID = cmm.cmm_ID
+            WHERE cmm_Category = 'DRL' AND cmm_Desc = @Description";
+
+                return await connection.ExecuteScalarAsync<int>(query, new { Description = description });
+            }
+        }
+
+        public async Task<int> GetMaxAttachmentIdAsync(int customerId, int auditId, int yearId, int exportType)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            const string query = @"
+        SELECT ISNULL(MAX(ATCH_ID), 0) 
+        FROM Edt_Attachments ea
+        LEFT JOIN StandardAudit_Audit_DRLLog_RemarksHistory a ON a.SAR_AttchId = ea.ATCH_ID
+        WHERE a.SAR_SAC_ID = @CustomerId
+          AND a.SAR_SA_ID = @AuditId
+          AND a.sar_Yearid = @YearId
+          AND ea.ATCH_FLAG = @ExportType";
+
+            var maxId = await connection.ExecuteScalarAsync<int>(query, new
+            {
+                CustomerId = customerId,
+                AuditId = auditId,
+                YearId = yearId,
+                ExportType = exportType
+            });
+
+            return maxId;
         }
 
 
