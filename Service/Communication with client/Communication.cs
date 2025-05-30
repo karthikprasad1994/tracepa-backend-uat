@@ -1937,7 +1937,7 @@ INSERT INTO Edt_Attachments (
 VALUES (
     @AtchId, @DocId, @FileName, @FileExt, @Description, @Size,
     @AuditId, @ScheduleId, @UserId, GETDATE(),
-    @CompId, @ReportId, @DrlId, 'A', 'X'
+    @CompId, @ReportType, @DrlId, 'A', 'X'
 );";
 
                 await connection.ExecuteAsync(insertQuery, new
