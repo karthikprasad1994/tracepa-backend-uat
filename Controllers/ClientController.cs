@@ -585,37 +585,37 @@ namespace TracePca.Controllers
             }
         }
 
-        [HttpPost("DuringAuditupload")]
-        public async Task<IActionResult> BeginAuditUploadWithReportTypeAsync([FromForm] AddFileDto dto)
-        {
-            try
-            {
-                var result = await _AuditInterface.BeginAuditUploadWithReportTypeAsync(dto);
+        //[HttpPost("DuringAuditupload")]
+        //public async Task<IActionResult> BeginAuditUploadWithReportTypeAsync([FromForm] AddFileDto dto)
+        //{
+        //    try
+        //    {
+        //        var result = await _AuditInterface.BeginAuditUploadWithReportTypeAsync(dto);
 
-                if (result.StartsWith("Error"))
-                {
-                    return StatusCode(500, new
-                    {
-                        statusCode = 500,
-                        message = result
-                    });
-                }
+        //        if (result.StartsWith("Error"))
+        //        {
+        //            return StatusCode(500, new
+        //            {
+        //                statusCode = 500,
+        //                message = result
+        //            });
+        //        }
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "File uploaded, Customer details saved Successfully"
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = $"Error: {ex.Message}"
-                });
-            }
-        }
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "File uploaded, Customer details saved Successfully"
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = $"Error: {ex.Message}"
+        //        });
+        //    }
+        //}
 
 
         [HttpGet("GetDRLDetails")]
@@ -990,6 +990,42 @@ namespace TracePca.Controllers
         }
 
 
+        [HttpGet("CustomerUsers")]
+        public async Task<IActionResult> GetCustomerUsers(int customerId)
+        {
+            try
+            {
+                var result = await _AuditInterface.GetAllCustomerUsersAsync(customerId);
+
+                if (result != null && result.Any())
+                {
+                    return Ok(new
+                    {
+                        status = 200,
+                        message = "Customer users fetched successfully.",
+                        data = result
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        status = 404,
+                        message = "No users found for the specified customer.",
+                        data = Enumerable.Empty<CustomerUserDto>()
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while fetching customer users.",
+                    error = ex.Message
+                });
+            }
+        }
 
 
 

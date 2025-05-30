@@ -13,6 +13,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using MimeKit;
 using MimeKit.Utils;
+using OfficeOpenXml.Table.PivotTable;
 using Org.BouncyCastle.Asn1.Ocsp;
 using Org.BouncyCastle.Tls;
 using QuestPDF.Fluent;
@@ -1091,6 +1092,9 @@ namespace TracePca.Service.Communication_with_client
         // PDF (QuestPDF)
         private void GeneratePdf(CustomerDataDto data, string filePath)
         {
+
+
+
             QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
             QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
             QuestPDF.Fluent.Document.Create(container =>
@@ -1543,7 +1547,7 @@ ORDER BY ATCH_CREATEDON";
         }
 
 
-        private async Task<string> SaveAuditDocumentAsync(AddFileDto dto, int attachId, IFormFile file, int requestedId)
+        private async Task<string> SaveAuditDocumentAsync(AddFileDto dto, int attachId, IFormFile file, int requestedId,  int reportid)
         {
             if (file == null || file.Length == 0)
                 throw new ArgumentException("Invalid file.");
@@ -1586,7 +1590,7 @@ INSERT INTO Edt_Attachments (
 VALUES (
     @AtchId, @DocId, @FileName, @FileExt, @Description, @Size,
     @AuditId, @ScheduleId, @UserId, GETDATE(),
-    @CompId, @ReportType , @DrlId, 'A',  'X'
+    @CompId, @ReportType, @DrlId, 'A',  'X'
 );";
 
                 await connection.ExecuteAsync(insertQuery, new
@@ -1601,7 +1605,7 @@ VALUES (
                     ScheduleId = dto.AuditScheduleId,
                     UserId = dto.UserId,
                     CompId = dto.CompId,
-                    ReportType = dto.ReportType,
+                    ReportType = reportid,
                     DrlId = requestedId
                 });
 
@@ -1691,7 +1695,7 @@ VALUES (
                 // 6. Insert into Audit_DocRemarksLog
                 await InsertIntoAuditDocRemarksLogAsync(dto, requestedId, remarkId, attachId, docId);
 
-                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, requestedId);
+                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, requestedId, dto.ReportType);
 
                 // 7. Get DRL_PKID for updating
                 int pkId = await GetDrlPkIdAsync(dto.CustomerId, dto.AuditId, attachId);
@@ -1901,188 +1905,188 @@ VALUES (
 
         }
 
-        private async Task<string> SaveAuditDocumentAsync(AddFileDto dto, int attachId, IFormFile file, int requestedId, int reportId)
-        {
-            if (file == null || file.Length == 0)
-                throw new ArgumentException("Invalid file.");
+//        private async Task<string> SaveAuditDocumentAsync(AddFileDto dto, int attachId, IFormFile file, int requestedId, int reportId)
+//        {
+//            if (file == null || file.Length == 0)
+//                throw new ArgumentException("Invalid file.");
 
-            var safeFileName = Path.GetFileName(file.FileName);
-            var fileExt = Path.GetExtension(safeFileName)?.TrimStart('.');
-            var relativeFolder = Path.Combine("Uploads", "Documents");
-            var absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+//            var safeFileName = Path.GetFileName(file.FileName);
+//            var fileExt = Path.GetExtension(safeFileName)?.TrimStart('.');
+//            var relativeFolder = Path.Combine("Uploads", "Documents");
+//            var absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
 
-            if (!Directory.Exists(absoluteFolder))
-                Directory.CreateDirectory(absoluteFolder);
+//            if (!Directory.Exists(absoluteFolder))
+//                Directory.CreateDirectory(absoluteFolder);
 
-            var uniqueFileName = $"{Guid.NewGuid()}_{safeFileName}";
-            var fullFilePath = Path.Combine(absoluteFolder, uniqueFileName);
+//            var uniqueFileName = $"{Guid.NewGuid()}_{safeFileName}";
+//            var fullFilePath = Path.Combine(absoluteFolder, uniqueFileName);
 
-            using (var stream = new FileStream(fullFilePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
+//            using (var stream = new FileStream(fullFilePath, FileMode.Create))
+//            {
+//                await file.CopyToAsync(stream);
+//            }
 
-            var docId = await GenerateNextDocIdAsync(dto.CustomerId, dto.AuditId);
+//            var docId = await GenerateNextDocIdAsync(dto.CustomerId, dto.AuditId);
 
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
-                await connection.OpenAsync();
+//            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+//            {
+//                await connection.OpenAsync();
 
-                var insertQuery = @"
-INSERT INTO Edt_Attachments (
-    ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_Desc, ATCH_SIZE,
-    ATCH_AuditID, ATCH_AUDScheduleID, ATCH_CREATEDBY, ATCH_CREATEDON,
-    ATCH_COMPID, ATCH_ReportType, ATCH_drlid, Atch_Vstatus, ATCH_Status
-)
-VALUES (
-    @AtchId, @DocId, @FileName, @FileExt, @Description, @Size,
-    @AuditId, @ScheduleId, @UserId, GETDATE(),
-    @CompId, @ReportType, @DrlId, 'A', 'X'
-);";
+//                var insertQuery = @"
+//INSERT INTO Edt_Attachments (
+//    ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_Desc, ATCH_SIZE,
+//    ATCH_AuditID, ATCH_AUDScheduleID, ATCH_CREATEDBY, ATCH_CREATEDON,
+//    ATCH_COMPID, ATCH_ReportType, ATCH_drlid, Atch_Vstatus, ATCH_Status
+//)
+//VALUES (
+//    @AtchId, @DocId, @FileName, @FileExt, @Description, @Size,
+//    @AuditId, @ScheduleId, @UserId, GETDATE(),
+//    @CompId, @ReportType, @DrlId, 'A', 'X'
+//);";
 
-                await connection.ExecuteAsync(insertQuery, new
-                {
-                    AtchId = attachId,
-                    DocId = docId,
-                    FileName = safeFileName,
-                    FileExt = fileExt,
-                    Description = dto.Remark,
-                    Size = file.Length,
-                    AuditId = dto.AuditId,
-                    ScheduleId = dto.AuditScheduleId,
-                    UserId = dto.UserId,
-                    CompId = dto.CompId,
-                    ReportId = reportId,
-                    DrlId = requestedId
-                });
+//                await connection.ExecuteAsync(insertQuery, new
+//                {
+//                    AtchId = attachId,
+//                    DocId = docId,
+//                    FileName = safeFileName,
+//                    FileExt = fileExt,
+//                    Description = dto.Remark,
+//                    Size = file.Length,
+//                    AuditId = dto.AuditId,
+//                    ScheduleId = dto.AuditScheduleId,
+//                    UserId = dto.UserId,
+//                    CompId = dto.CompId,
+//                    ReportId = reportId,
+//                    DrlId = requestedId
+//                });
 
-                return fullFilePath;
-            }
-        }
-
-
-
-
-        public async Task<int> InsertIntoAuditDrlLogAsync(AddFileDto dto, int requestedId, int reportTypeId)
-        {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
-                await connection.OpenAsync();
-
-                var sql = @"
-        INSERT INTO Audit_DRLLog (
-            ADRL_AuditId,
-            ADRL_CustomerId,
-            ADRL_RequestedId,
-            ADRL_Date,
-            ADRL_Status,
-            ADRL_ReportType
-        )
-        VALUES (
-            @AuditId,
-            @CustomerId,
-            @RequestedId,
-            GETDATE(),
-            'Uploaded',
-            @ReportTypeId
-        );
-        SELECT SCOPE_IDENTITY();";
-
-                var parameters = new
-                {
-                    AuditId = dto.AuditId,
-                    CustomerId = dto.CustomerId,
-                    RequestedId = requestedId,
-                    ReportTypeId = reportTypeId
-                };
-
-                var insertedId = await connection.ExecuteScalarAsync<int>(sql, parameters);
-                return insertedId;
-            }
-        }
-
-
-        private async Task InsertIntoBeginingAuditDocRemarksLogAsync(AddFileDto dto, int requestedId, int remarkId, int attachId, int docId)
-        {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
-                await connection.OpenAsync();
-                await connection.ExecuteAsync(
-                @"INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
-            SAR_ID,
-            SAR_SAC_ID,
-            SAR_SA_ID,
-            SAR_DRLId,
-            SAR_Remarks,
-            SAR_Date,
-            SAR_RemarksType,
-            SAR_AttchId,
-            SAR_AttachDocId,   -- ✅ fixed typo here
-            SAR_TimlinetoResOn,
-            SAR_ReportType
-        )
-        VALUES (
-            @RemarkId,
-            @CustomerId,
-            @AuditId,
-            @RequestedId,
-            @Remark,
-            @RequestedOn,
-            @Type,
-            @AtchId,
-            @DocId,
-            @RespondTime,
-            @ReportTypeId
-        )",
-                new
-                {
-                    RemarkId = remarkId,
-                    CustomerId = dto.CustomerId,
-                    AuditId = dto.AuditId,
-                    RequestedId = requestedId,
-                    Remark = dto.Remark,
-                    RequestedOn = dto.RequestedOn,
-                    Type = dto.Type,
-                    AtchId = attachId,
-                    DocId = docId,
-                    RespondTime = dto.RespondTime,
-                    ReportTypeId = dto.ReportId
-                });
-            }
-        }
+//                return fullFilePath;
+//            }
+//        }
 
 
 
 
+//        public async Task<int> InsertIntoAuditDrlLogAsync(AddFileDto dto, int requestedId, int reportTypeId)
+//        {
+//            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+//            {
+//                await connection.OpenAsync();
 
-        public async Task<string> BeginAuditUploadWithReportTypeAsync(AddFileDto dto)
-        {
-            try
-            {
-                int attachId = dto.AtchId > 0
-                    ? dto.AtchId
-                    : await GenerateNextAttachmentIdAsync(dto.AuditId);
+//                var sql = @"
+//        INSERT INTO Audit_DRLLog (
+//            ADRL_AuditId,
+//            ADRL_CustomerId,
+//            ADRL_RequestedId,
+//            ADRL_Date,
+//            ADRL_Status,
+//            ADRL_ReportType
+//        )
+//        VALUES (
+//            @AuditId,
+//            @CustomerId,
+//            @RequestedId,
+//            GETDATE(),
+//            'Uploaded',
+//            @ReportTypeId
+//        );
+//        SELECT SCOPE_IDENTITY();";
 
-                int docId = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
-                int remarkId = await GenerateNextRemarkIdAsync(dto.CustomerId, dto.AuditId);
+//                var parameters = new
+//                {
+//                    AuditId = dto.AuditId,
+//                    CustomerId = dto.CustomerId,
+//                    RequestedId = requestedId,
+//                    ReportTypeId = reportTypeId
+//                };
 
-                // Use dto.DrlId directly, assuming it’s already passed from the front-end or fetched earlier
-                await InsertIntoBeginingAuditDocRemarksLogAsync(dto, dto.DrlId, remarkId, attachId, docId);
+//                var insertedId = await connection.ExecuteScalarAsync<int>(sql, parameters);
+//                return insertedId;
+//            }
+//        }
 
-                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, dto.DrlId, dto.ReportId);
 
-                int pkId = await GetDrlPkIdAsync(dto.CustomerId, dto.AuditId, attachId);
-                await UpdateDrlAttachIdAndDocIdAsync(dto.CustomerId, dto.AuditId, attachId, docId, pkId);
+//        private async Task InsertIntoBeginingAuditDocRemarksLogAsync(AddFileDto dto, int requestedId, int remarkId, int attachId, int docId)
+//        {
+//            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+//            {
+//                await connection.OpenAsync();
+//                await connection.ExecuteAsync(
+//                @"INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
+//            SAR_ID,
+//            SAR_SAC_ID,
+//            SAR_SA_ID,
+//            SAR_DRLId,
+//            SAR_Remarks,
+//            SAR_Date,
+//            SAR_RemarksType,
+//            SAR_AttchId,
+//            SAR_AttachDocId,   -- ✅ fixed typo here
+//            SAR_TimlinetoResOn,
+//            SAR_ReportType
+//        )
+//        VALUES (
+//            @RemarkId,
+//            @CustomerId,
+//            @AuditId,
+//            @RequestedId,
+//            @Remark,
+//            @RequestedOn,
+//            @Type,
+//            @AtchId,
+//            @DocId,
+//            @RespondTime,
+//            @ReportTypeId
+//        )",
+//                new
+//                {
+//                    RemarkId = remarkId,
+//                    CustomerId = dto.CustomerId,
+//                    AuditId = dto.AuditId,
+//                    RequestedId = requestedId,
+//                    Remark = dto.Remark,
+//                    RequestedOn = dto.RequestedOn,
+//                    Type = dto.Type,
+//                    AtchId = attachId,
+//                    DocId = docId,
+//                    RespondTime = dto.RespondTime,
+//                    ReportTypeId = dto.ReportId
+//                });
+//            }
+//        }
 
-                await SendEmailWithAttachmentAsync(dto.EmailId, filePath);
 
-                return "Attachment uploaded, details saved, and email sent successfully.";
-            }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
-        }
+
+
+
+//        public async Task<string> BeginAuditUploadWithReportTypeAsync(AddFileDto dto)
+//        {
+//            try
+//            {
+//                int attachId = dto.AtchId > 0
+//                    ? dto.AtchId
+//                    : await GenerateNextAttachmentIdAsync(dto.AuditId);
+
+//                int docId = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
+//                int remarkId = await GenerateNextRemarkIdAsync(dto.CustomerId, dto.AuditId);
+
+//                // Use dto.DrlId directly, assuming it’s already passed from the front-end or fetched earlier
+//                await InsertIntoBeginingAuditDocRemarksLogAsync(dto, dto.DrlId, remarkId, attachId, docId);
+
+//                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, dto.DrlId, dto.ReportId);
+
+//                int pkId = await GetDrlPkIdAsync(dto.CustomerId, dto.AuditId, attachId);
+//                await UpdateDrlAttachIdAndDocIdAsync(dto.CustomerId, dto.AuditId, attachId, docId, pkId);
+
+//                await SendEmailWithAttachmentAsync(dto.EmailId, filePath);
+
+//                return "Attachment uploaded, details saved, and email sent successfully.";
+//            }
+//            catch (Exception ex)
+//            {
+//                return $"Error: {ex.Message}";
+//            }
+//        }
 
 
 
@@ -2577,7 +2581,7 @@ VALUES (
                 int drlLogId = await InsertIntoAuditDrlLogAsync(dto, requestedId);
 
                 // 4. Save the attachment and get the path (insert into Edt_Attachments)
-                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, drlLogId);
+                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, drlLogId, dto.ReportType);
 
                 // 5. Get latest DocId for this customer and audit
                 int docId = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
@@ -3317,6 +3321,21 @@ WHERE CMM_CompID = @CompId
 
             return maxId;
         }
+
+        public async Task<IEnumerable<CustomerUserDto>> GetAllCustomerUsersAsync(int customerId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            string query = @"
+        SELECT usr_FullName AS UsrFullName, 
+               usr_Id AS UsrId
+        FROM Sad_UserDetails
+        WHERE usr_Type = 'C'
+          AND usr_CompanyId = @CustomerId";
+
+            return await connection.QueryAsync<CustomerUserDto>(query, new { CustomerId = customerId });
+        }
+
 
 
     }

@@ -72,9 +72,10 @@ namespace TracePca.Interface.Audit
         Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto);
 
         Task<List<DRLDetailDto>> LoadDRLdgAsync(int compId, int auditNo);
-        Task<string> BeginAuditUploadWithReportTypeAsync(AddFileDto dto);
+       // Task<string> BeginAuditUploadWithReportTypeAsync(AddFileDto dto);
         Task<int> GetRequestedIdByExportTypeAsync(int exportType);
         Task<int> GetMaxAttachmentIdAsync(int customerId, int auditId, int yearId, int exportType);
+        Task<IEnumerable<CustomerUserDto>> GetAllCustomerUsersAsync(int customerId);
 
     }
 }
