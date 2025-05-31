@@ -1034,9 +1034,13 @@ namespace TracePca.Controllers
         {
             try
             {
-                var (fileBytes, contentType, fileName) = await _AuditInterface.GenerateAndLogDRLReportAsync(request, format);
+                await _AuditInterface.GenerateAndLogDRLReportAsync(request, format);
 
-                return File(fileBytes, contentType, fileName);
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "File exported successfully"
+                });
             }
             catch
             {
