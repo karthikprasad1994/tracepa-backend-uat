@@ -3327,7 +3327,7 @@ WHERE CMM_CompID = @CompId
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
             string query = @"
-        SELECT usr_FullName AS UsrFullName, 
+        SELECT usr_FullName AS UsrFullName,  usr_Email AS Email,
                usr_Id AS UsrId
         FROM Sad_UserDetails
         WHERE usr_Type = 'C'
