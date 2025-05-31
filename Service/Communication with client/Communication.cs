@@ -1,4 +1,6 @@
 ﻿using System.Data;
+using System.Net;
+using System.Net.Mail;
 using System.Text;
 using Dapper;
 using DocumentFormat.OpenXml;
@@ -1270,6 +1272,52 @@ namespace TracePca.Service.Communication_with_client
                 return ms.ToArray();
             });
         }
+
+        //public async Task SendDRLReportEmailAsync(string emailTo, string attachmentFilePath)
+        //{
+        //    try
+        //    {
+        //        using (var message = new MailMessage())
+        //        {
+        //            message.To.Add(emailTo);
+        //            message.Subject = "DRL Report Document";
+        //            message.Body = @"
+        //        <html>
+        //        <body>
+        //            <p>Dear User,</p>
+        //            <p>Please find the attached DRL report document.</p>
+        //            <p>Regards,<br/>Your Company</p>
+        //        </body>
+        //        </html>";
+        //            message.IsBodyHtml = true;
+
+        //            if (!string.IsNullOrEmpty(attachmentFilePath) && File.Exists(attachmentFilePath))
+        //            {
+        //                var attachment = new Attachment(attachmentFilePath);
+        //                message.Attachments.Add(attachment);
+        //            }
+
+        //            using (var smtp = new SmtpClient())
+        //            {
+        //                smtp.Host = "your-smtp-host";         // e.g., smtp.office365.com
+        //                smtp.Port = 587;                      // or 25/465
+        //                smtp.EnableSsl = true;
+        //                smtp.Credentials = new NetworkCredential("your-email@example.com", "your-password");
+
+        //                await smtp.SendMailAsync(message);
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        // Optional: Log the email error here
+        //        Console.WriteLine($"Error sending DRL report email: {ex.Message}");
+        //        throw;
+        //    }
+        //}
+
+
+
         public async Task<int> SaveDRLLogWithAttachmentAsync(DRLLogDto dto, string filePath, string fileType)
         {
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
@@ -1887,7 +1935,7 @@ VALUES (
 
             message.Body = builder.ToMessageBody();
 
-            using var client = new SmtpClient();
+            using var client = new MailKit.Net.Smtp.SmtpClient();
             try
             {
                 await client.ConnectAsync("smtp.gmail.com", 465, SecureSocketOptions.SslOnConnect);

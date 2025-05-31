@@ -21,9 +21,12 @@ using TracePca.Service.DigitalFiling;
 using TracePca.Service.FIN_statement;
 using TracePca.Service.FixedAssetsService;
 using TracePca.Service.ProfileSetting;
+using QuestPDF.Infrastructure;
 //using TracePca.Interface.AssetMaserInterface;
 
+
 var builder = WebApplication.CreateBuilder(args);
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 // Add services to the container.
 
