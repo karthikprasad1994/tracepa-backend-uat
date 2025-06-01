@@ -1,4 +1,5 @@
 ﻿using Dapper;
+using DocumentFormat.OpenXml.Drawing.Charts;
 using DocumentFormat.OpenXml.Wordprocessing;
 using MailKit.Net.Smtp;
 using MailKit.Security;
@@ -590,72 +591,88 @@ namespace TracePca.Service.Audit
 
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
+                using var transaction = connection.BeginTransaction();
 
-                var docCountQuery = @"SELECT COUNT(*) + 1 FROM Doc_Reviewremarks_History WHERE DRH_Custid = @CustID AND DRH_Loeid = @LOEId AND DRH_Yearid = @YearId";
-                int iDocCount = await connection.ExecuteScalarAsync<int>(docCountQuery, new
+                try
                 {
-                    CustID = dto.CustomerId,
-                    LOEId = dto.LOEId,
-                    YearId = dto.YearId
-                });
+                    var docCountQuery = @"SELECT COUNT(*) + 1 FROM Doc_Reviewremarks_History WHERE DRH_Custid = @CustID AND DRH_Loeid = @LOEId AND DRH_Yearid = @YearId";
+                    int iDocCount = await connection.ExecuteScalarAsync<int>(docCountQuery, new
+                    {
+                        CustID = dto.CustomerId,
+                        LOEId = dto.LOEId,
+                        YearId = dto.YearId
+                    }, transaction);
 
-                var fileBytes = await GeneratePdfAsync(reportdto);
-                var stream = new MemoryStream(fileBytes);
-                var formFile = new FormFile(stream, 0, stream.Length, "File", $"LOE_Report_{iDocCount}.pdf")
+                    var fileBytes = await GeneratePdfAsync(reportdto);
+                    var stream = new MemoryStream(fileBytes);
+                    var formFile = new FormFile(stream, 0, stream.Length, "File", $"LOE_Report_{iDocCount}.pdf")
+                    {
+                        Headers = new HeaderDictionary(),
+                        ContentType = "application/pdf"
+                    };
+
+                    var dtoFile = new FileAttachmentDTO
+                    {
+                        ATCH_ID = dto.AttachmentId,
+                        ATCH_CREATEDBY = dto.UserId,
+                        ATCH_COMPID = dto.CompId,
+                        File = formFile
+                    };
+
+                    var (attachmentId, attachmentPath) = await UploadAndSaveAttachmentAsync(dtoFile);
+
+                    int attachId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(LOE_AttachID, 0) FROM LOE_Template WHERE LOET_LOEID = @LOE_Id", new { LOE_Id = dto.LOEId }, transaction);
+
+                    if (attachId == 0)
+                    {
+                        await connection.ExecuteAsync(@"UPDATE LOE_Template SET LOE_AttachID = @LOE_AttachID WHERE LOET_LOEID = @LOE_Id;", new { LOE_AttachID = attachmentId, LOE_Id = dto.LOEId }, transaction);
+                    }
+
+                    int requestId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(DR_ID), 0) + 1 FROM Doc_Reviewremarks WHERE DR_CompId = @CompId", new { CompId = dto.CompId }, transaction);
+
+                    var insertRequestQuery = @"INSERT INTO Doc_Reviewremarks (DR_ID, DR_Custid, DR_DocLoeId_Branchid, DR_DocYearid, DR_DocStatus, DR_DocType, DR_Date, DR_CreatedBy, DR_CreatedOn, DR_CompId, DR_emailSentTo, DR_IPAddress, DR_Observation, DR_DocDelflag) 
+                        VALUES (@DR_ID, @DR_Custid, @DR_DocLoeId_Branchid, @DR_DocYearid, 'W', 'C', GETDATE(), @DR_CreatedBy, GETDATE(), @DR_CompId, @DR_emailSentTo, @DR_IPAddress, @DR_Observation, 'LOE');";
+
+                    await connection.ExecuteAsync(insertRequestQuery, new
+                    {
+                        DR_ID = requestId,
+                        DR_Custid = dto.CustomerId,
+                        DR_DocLoeId_Branchid = dto.LOEId,
+                        DR_DocYearid = dto.YearId,
+                        DR_CreatedBy = dto.UserId,
+                        DR_emailSentTo = dto.CustomerUserIds,
+                        DR_CompId = dto.CompId,
+                        DR_IPAddress = dto.IPAddress,
+                        DR_Observation = dto.Comments
+                    }, transaction);
+
+                    int newRemarkId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(DRH_ID), 0) + 1 FROM Doc_Reviewremarks_History", transaction: transaction);
+                    var insertRemarksQuery = @"INSERT INTO Doc_Reviewremarks_History (DRH_ID, DRH_MASid, DRH_Custid, DRH_Loeid, DRH_RemarksType, DRH_Remarks, DRH_RemarksBy, DRH_Status, DRH_Date, DRH_IPAddress, DRH_CompID, DRH_Yearid, DRH_attchmentid) 
+                         VALUES (@DRH_ID, @DRH_MASid, @DRH_Custid, @DRH_Loeid, 'C', @DRH_Remarks, @DRH_RemarksBy, 'W', GETDATE(), @DRH_IPAddress, @DRH_CompID, @DRH_Yearid, @DRH_attchmentid);";
+
+                    await connection.ExecuteAsync(insertRemarksQuery, new
+                    {
+                        DRH_ID = newRemarkId,
+                        DRH_MASid = requestId,
+                        DRH_Custid = dto.CustomerId,
+                        DRH_Loeid = dto.LOEId,
+                        DRH_Remarks = dto.Comments,
+                        DRH_RemarksBy = dto.UserId,
+                        DRH_IPAddress = dto.IPAddress,
+                        DRH_CompID = dto.CompId,
+                        DRH_Yearid = dto.YearId,
+                        DRH_attchmentid = attachmentId
+                    }, transaction);
+
+                    transaction.Commit();
+
+                    return await SendMailAsync(dto, attachmentPath);
+                }
+                catch
                 {
-                    Headers = new HeaderDictionary(),
-                    ContentType = "application/pdf"
-                };
-
-                var dtoFile = new FileAttachmentDTO
-                {
-                    ATCH_ID = dto.AttachmentId,
-                    ATCH_CREATEDBY = dto.UserId,
-                    ATCH_COMPID = dto.CompId,
-                    File = formFile
-                };
-
-                var (attachmentId, attachmentPath)  = await UploadAndSaveAttachmentAsync(dtoFile);
-
-                int requestId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(DR_ID), 0) + 1 FROM Doc_Reviewremarks WHERE DR_CompId = @CompId", new { CompId = dto.CompId });
-
-                var insertRequestQuery = @"INSERT INTO Doc_Reviewremarks ( DR_ID, DR_Custid, DR_DocLoeId_Branchid, DR_DocYearid, DR_DocStatus, DR_DocType, DR_Date, 
-                DR_CreatedBy, DR_CreatedOn, DR_CompId, DR_emailSentTo, DR_IPAddress, DR_Observation, DR_DocDelflag) VALUES (
-                @DR_ID, @DR_Custid, @DR_DocLoeId_Branchid, @DR_DocYearid, 'W', 'C', GETDATE(), @DR_CreatedBy, GETDATE(), @DR_CompId, @DR_emailSentTo, @DR_IPAddress, @DR_Observation, 'LOE');";
-
-                await connection.ExecuteAsync(insertRequestQuery, new
-                {
-                    DR_ID = requestId,
-                    DR_Custid = dto.CustomerId,
-                    DR_DocLoeId_Branchid = dto.LOEId,
-                    DR_DocYearid = dto.YearId,
-                    DR_CreatedBy = dto.UserId,
-                    DR_emailSentTo = dto.CustomerUserIds,
-                    DR_CompId = dto.CompId,
-                    DR_IPAddress = dto.IPAddress,
-                    DR_Observation = dto.Comments
-                });
-
-                int newRemarkId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(DRH_ID), 0) + 1 FROM Doc_Reviewremarks_History");
-                var insertRemarksQuery = @"INSERT INTO Doc_Reviewremarks_History ( DRH_ID, DRH_MASid, DRH_Custid, DRH_Loeid, DRH_RemarksType, DRH_Remarks, DRH_RemarksBy, 
-                DRH_Status, DRH_Date, DRH_IPAddress, DRH_CompID, DRH_Yearid, DRH_attchmentid) VALUES (
-                @DRH_ID, @DRH_MASid, @DRH_Custid, @DRH_Loeid, 'C', @DRH_Remarks, @DRH_RemarksBy,'W', GETDATE(), @DRH_IPAddress, @DRH_CompID, @DRH_Yearid, @DRH_attchmentid);";
-
-                await connection.ExecuteAsync(insertRemarksQuery, new
-                {
-                    DRH_ID = newRemarkId,
-                    DRH_MASid = requestId,
-                    DRH_Custid = dto.CustomerId,
-                    DRH_Loeid = dto.LOEId,
-                    DRH_Remarks = dto.Comments,
-                    DRH_RemarksBy = dto.UserId,
-                    DRH_IPAddress = dto.IPAddress,
-                    DRH_CompID = dto.CompId,
-                    DRH_Yearid = dto.YearId,
-                    DRH_attchmentid = attachmentId
-                });
-
-                return await SendMailAsync(dto, attachmentPath);
+                    transaction.Rollback();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -715,23 +732,12 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10)
-                                  .Text("Letter of Engagement").FontSize(16).Bold();
-
-                            column.Item().Text($"Ref.No.: {dto.EngagementPlanNo}")
-                                         .FontSize(12).Bold();
-
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Letter of Engagement").FontSize(16).Bold();
+                            column.Item().Text($"Ref.No.: {dto.EngagementPlanNo}").FontSize(12).Bold();
                             column.Item().Text($"Date: {dto.CurrentDate:dd MMM yyyy}").FontSize(10);
-                            column.Item().Text(dto.Customer ?? "N/A").FontSize(10);
-                            column.Item().PaddingBottom(10);
-
-                            column.Item().PaddingBottom(10)
-                                 .Text($"Dear: {dto.Customer ?? "Client"}")
-                                 .FontSize(10);
-
-                            column.Item().PaddingBottom(10)
-                                  .Text($"{dto.Subject ?? "Engagement Letter"}")
-                                  .FontSize(10);
+                            column.Item().PaddingBottom(10).Text(dto.Customer ?? "N/A").FontSize(10);
+                            column.Item().PaddingBottom(10).Text($"Dear: {dto.Customer ?? "Client"}").FontSize(10);
+                            column.Item().PaddingBottom(10).Text($"{dto.Subject ?? "Sub: Engagement Letter"}").FontSize(10);
 
                             if (dto.EngagementTemplateDetails?.Any() == true)
                             {
@@ -739,7 +745,6 @@ namespace TracePca.Service.Audit
                                 foreach (var item in dto.EngagementTemplateDetails)
                                 {
                                     column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
-
                                     if (!string.IsNullOrWhiteSpace(item.LTD_Decription))
                                         column.Item().Text(item.LTD_Decription).FontSize(10);
 
@@ -751,10 +756,7 @@ namespace TracePca.Service.Audit
                             if (dto.EngagementAdditionalFees?.Any() == true)
                             {
                                 column.Item().PaddingTop(10).Text("Additional Fees").FontSize(12).Bold().Underline();
-
-                                column.Item().PaddingBottom(10)
-                                 .Text($"Details of Engagement Estimate for the Letter of Engagement in {dto.AuditType} to {dto.Customer}")
-                                 .FontSize(10);
+                                column.Item().PaddingBottom(10).Text($"Details of Engagement Estimate for the Letter of Engagement in {dto.AuditType} to {dto.Customer}").FontSize(10);
 
                                 column.Item().Table(table =>
                                 {
@@ -769,7 +771,7 @@ namespace TracePca.Service.Audit
                                     {
                                         header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Expense Name").FontSize(10).Bold();
-                                        header.Cell().Element(CellStyle).AlignRight().Text("Charges").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).AlignRight().Text($"Charges In {dto.CurrencyType}").FontSize(10).Bold();
                                     });
 
                                     int slNo = 1;
@@ -778,10 +780,8 @@ namespace TracePca.Service.Audit
                                     {
                                         table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
                                         table.Cell().Element(CellStyle).Text(fee.LAF_OtherExpensesName ?? "-").FontSize(10);
-
                                         var displayCharge = decimal.TryParse(fee.LAF_Charges, out var charge) ? charge.ToString("F2") : "0.00";
                                         table.Cell().Element(CellStyle).AlignRight().Text(displayCharge).FontSize(10);
-
                                         totalCharges += charge;
                                         slNo++;
                                     }
@@ -790,11 +790,9 @@ namespace TracePca.Service.Audit
                                     table.Cell().Element(CellStyle).Text("Total").FontSize(10).Bold();
                                     table.Cell().Element(CellStyle).AlignRight().Text(totalCharges.ToString("F2")).FontSize(10).Bold();
 
-                                    static IContainer CellStyle(IContainer container) =>
-                                        container.BorderBottom(0.5f).PaddingVertical(2);
+                                    static IContainer CellStyle(IContainer container) => container.BorderBottom(0.5f).PaddingVertical(2);
                                 });
                             }
-
 
                             column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
                             column.Item().Text(dto.CompanyName ?? "[Company Name]").FontSize(10).Bold();
