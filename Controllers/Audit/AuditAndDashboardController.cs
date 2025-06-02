@@ -68,20 +68,11 @@ namespace TracePca.Controllers.Audit
             return Ok(response);
         }
 
-
-        [HttpGet("audit-types")]
-        public async Task<IActionResult> GetAuditTypesByCustomer(int compId, string sType)
+         [HttpPost("audit-types")]
+        public async Task<IActionResult> LoadAuditTypeCompliance([FromBody] AuditTypeRequestDto req)
         {
-            var result = await _userService.GetAuditTypesByCustomerAsync(compId, sType);     /* sType = 'AT' */
-
-            var response = new
-            {
-                Status = 200,
-                msg = result != null && result.Any() ? "Fetched Successfully" : "No data found",
-                data = result ?? new List<AuditTypeCustomerDto>()
-            };
-
-            return Ok(response);
+            var result = await _auditService.LoadAuditTypeComplianceDetailsAsync(req);
+            return Ok(result);
         }
 
         [HttpGet("generate")]
@@ -331,6 +322,20 @@ namespace TracePca.Controllers.Audit
                     Error = ex.Message
                 });
             }
+
+        }
+        [HttpGet("details")]
+        public async Task<IActionResult> GetCustomerDetails(int iACID, int iCustId)
+        {
+            var result = await _service.GetCustomerDetailsAsync(iACID, iCustId);
+            return Ok(result);
+        }
+
+        [HttpGet("Load-IndustryType")]
+        public async Task<IActionResult> GetGeneralMasters([FromQuery] int iACID, [FromQuery] string sType)
+        {
+            var result = await _service.LoadGeneralMastersAsync(iACID, sType);
+            return Ok(result);
         }
     }
 }

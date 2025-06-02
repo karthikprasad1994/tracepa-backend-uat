@@ -25,9 +25,9 @@ namespace TracePca.Dto.Audit
         public string? SA_ScopeOfAudit { get; set; }
         public string? AuditDate { get; set; }
 
-        public string? SA_RptRvDate { get; set; }
+        //public string? SA_RptRvDate { get; set; }
 
-        public string? SA_RptFilDate { get; set; }
+        //public string? SA_RptFilDate { get; set; }
 
         public string? SA_MRSDate { get; set; }
         public string? SA_StartDate { get; set; }
@@ -49,11 +49,6 @@ namespace TracePca.Dto.Audit
     {
         public int UserId { get; set; }
         public string? FullName { get; set; }
-    }
-    public class AuditTypeCustomerDto
-    {
-        public int PKID { get; set; }
-        public string? Name { get; set; }
     }
     public class QuarterDto
     {
@@ -189,6 +184,9 @@ namespace TracePca.Dto.Audit
         public string PartnerIDs { get; set; } // Varchar(500)
         public string SupportEmployeeIDs { get; set; } // Varchar(500)
         public string ScopeOfAudit { get; set; } // Varchar(5000)
+        public DateTime? SA_RptRvDate { get; set; } // Report Review Date
+        public DateTime? SA_RptFilDate { get; set; } // Report Filing Date
+
         public int Status { get; set; } // SA_Status
         public int AttachID { get; set; } // SA_AttachID
         public DateTime? FromDate { get; set; } // SA_StartDate
@@ -369,4 +367,29 @@ namespace TracePca.Dto.Audit
         public int Cust_FY { get; set; }
         public int Cust_DurtnId { get; set; }
     }
+    public class GeneralMasterDto
+    {
+        public int Cmm_ID { get; set; }
+        public string Cmm_Desc { get; set; }
+    }
+    public class AuditTypeCustomerDto
+    {
+        public int PKID { get; set; }
+        public string? Name { get; set; }
+    }
+    public class AuditTypeRequestDto
+    {
+        public string Type { get; set; }
+        public int CompanyId { get; set; }
+        public int FinancialYearId { get; set; }
+        public int CustomerId { get; set; }
+        public int AuditTypeId { get; set; }
+    }
+    public class CustomerDetailsDto
+    {
+        public string FinancialYear { get; set; }
+        public string CIKRegistrationNo { get; set; }
+        public string Address { get; set; }
+    }
+
 }

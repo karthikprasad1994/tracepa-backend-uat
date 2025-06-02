@@ -1189,11 +1189,12 @@ namespace TracePca.Service.Communication_with_client
                 {
                     container.Page(page =>
                     {
-                        page.Size(595, 842); // A4 size manually specified
+                        page.Size(595, 842); // A4 size
                         page.Margin(40);
 
                         page.Content().Column(column =>
                         {
+                            // Header
                             column.Item().AlignCenter().PaddingBottom(10)
                                   .Text("GeneralReport").FontSize(18).Bold();
 
@@ -1205,18 +1206,35 @@ namespace TracePca.Service.Communication_with_client
                             column.Item().Text(request.Address).FontSize(10);
                             column.Item().PaddingBottom(10);
 
+                            // Title
                             column.Item().PaddingBottom(10)
                                   .Text(request.Title)
                                   .FontSize(14).Bold().Underline();
 
+                            // Template Items
                             foreach (var item in request.TemplateItems)
                             {
                                 column.Item().Text("• " + item.Heading).FontSize(11).Bold();
+
                                 if (!string.IsNullOrWhiteSpace(item.Description))
-                                    column.Item().Text(item.Description).FontSize(10);
+                                {
+                                    // Split multiline description by newline
+                                    var lines = item.Description
+                                                    .Replace("\r\n", "\n")
+                                                    .Replace("\r", "")
+                                                    .Split('\n');
+
+                                    foreach (var line in lines)
+                                    {
+                                        if (!string.IsNullOrWhiteSpace(line))
+                                            column.Item().Text(line.Trim()).FontSize(10);
+                                    }
+                                }
+
                                 column.Item().PaddingBottom(5);
                             }
 
+                            // Footer
                             column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
                             column.Item().Text("M.S. Madhava Rao").FontSize(10).Bold();
                             column.Item().Text("Chartered Accountant").FontSize(10);
