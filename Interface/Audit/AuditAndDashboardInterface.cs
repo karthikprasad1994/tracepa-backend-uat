@@ -1,4 +1,5 @@
-﻿using TracePca.Dto.Audit;
+﻿using System.Data;
+using TracePca.Dto.Audit;
 
 namespace TracePca.Interface.Audit
 {
@@ -7,7 +8,7 @@ namespace TracePca.Interface.Audit
         Task<List<DashboardAndScheduleDto>> GetDashboardAuditAsync(
              int? id, int? customerId, int? compId, int? financialYearId, int? loginUserId);
         Task<List<UserDto>> GetUsersByRoleAsync(int compId, string role);
-        Task<List<AuditTypeCustomerDto>> GetAuditTypesByCustomerAsync(int compId, string sType);
+        Task<List<AuditTypeCustomerDto>> LoadAuditTypeComplianceDetailsAsync(AuditTypeRequestDto req);
         List<QuarterDto> GenerateQuarters(DateTime? fromDate);
         Task<List<AuditTypeHeadingDto>> LoadAllAuditTypeHeadingsAsync(int compId, int auditTypeId);
         Task<List<AssignedCheckpointDto>> GetAssignedCheckpointsAndTeamMembersAsync(
@@ -29,5 +30,7 @@ namespace TracePca.Interface.Audit
         int auditTypeId,
         string heading);
         Task<List<AssignedCheckpointDto>> GetAssignedCheckpointsAsync(int auditId, int custId, string heading);
+        Task<IEnumerable<GeneralMasterDto>> LoadGeneralMastersAsync(int iACID, string sType);
+        Task<CustomerDetailsDto> GetCustomerDetailsAsync(int iACID, int iCustId);
     }
 }

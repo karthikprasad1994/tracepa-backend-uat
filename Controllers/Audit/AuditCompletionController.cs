@@ -177,5 +177,24 @@ namespace TracePca.Controllers.Audit
                 return StatusCode(500, new { statusCode = 500, message = "An error occurred while saving or updating audit completion data.", error = ex.Message });
             }
         }
+
+        [HttpPost("GenerateAndDownloadReport")]
+        public async Task<IActionResult> GenerateAndDownloadReport(int compId, int auditId, string format = "pdf")
+        {
+            try
+            {
+                var (fileBytes, contentType, fileName) = await _auditCompletionInterface.GenerateAndDownloadReportAsync(compId, auditId, format);
+
+                return File(fileBytes, contentType, fileName);
+            }
+            catch
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "Failed to generate report."
+                });
+            }
+        }
     }
 }
