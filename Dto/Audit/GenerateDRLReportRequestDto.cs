@@ -8,6 +8,8 @@
         public int ExportType { get; set; } // 1 or 2
         public int YearId { get; set; }
         public int AuditNo { get; set; }
+        public int AttachId { get; set; }
+        public string Status { get; set; }
         public int RequestedTypeId { get; set; }
         public DateTime TimelineToRespond { get; set; }
         public string EmailIds { get; set; }

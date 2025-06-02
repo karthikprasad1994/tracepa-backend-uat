@@ -76,6 +76,12 @@ namespace TracePca.Interface.Audit
         Task<int> GetRequestedIdByExportTypeAsync(int exportType);
         Task<int> GetMaxAttachmentIdAsync(int customerId, int auditId, int yearId, int exportType);
         Task<IEnumerable<CustomerUserDto>> GetAllCustomerUsersAsync(int customerId);
+         Task<List<int>> GetAttachIdsAsync(string connectionStringName, int companyId);
+
+        Task<List<AttachmentDto>> LoadAllAttachmentsAsync(
+             string connectionStringName,
+             int companyId,
+             int attachId);
 
     }
 }

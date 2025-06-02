@@ -3,6 +3,8 @@
     public class DRLLogDto
     {
         public int Id { get; set; }
+        public int AttachId { get; set; }
+        public string Status { get; set; }
         public int YearId { get; set; }
         public int AuditNo { get; set; }
         public int CustomerId { get; set; }

@@ -1091,19 +1091,85 @@ namespace TracePca.Controllers
     [FromQuery] int yearId,        // Year ID (sar_Yearid)
     [FromQuery] int exportType)    // Export Type (1 or 3)
         {
-            if (exportType != 1 && exportType != 3)
-            {
-                return BadRequest("Invalid exportType. Only 1 or 3 allowed.");
-            }
+           
 
             var maxId = await _AuditInterface.GetMaxAttachmentIdAsync(customerId, auditId, yearId, exportType);
 
             return Ok(new { MaxAttachmentId = maxId });
         }
 
+        [HttpGet("GetAllAttachIds")]
+        public async Task<IActionResult> GetDistinctAttachIds([FromQuery] int companyId)
+        {
+            if (companyId <= 0)
+            {
+                return BadRequest("Invalid companyId.");
+            }
+
+            string connectionStringName = "DefaultConnection";
+
+            var attachIds = await _AuditInterface.GetAttachIdsAsync(connectionStringName, companyId);
+            if (attachIds == null || !attachIds.Any())
+            {
+                return NotFound(new { Message = "No attachment IDs found for the specified company." });
+            }
+
+            return Ok(new
+            {
+                StatusCode = 200,
+                Message = "Attachment IDs fetched successfully.",
+                Data = attachIds
+            });
+        }
+
+
+
+
+        [HttpGet("GetStandardAttachments")]
+            public async Task<IActionResult> LoadAllAttachments(
+                [FromQuery] string connectionStringName,
+                [FromQuery] int companyId,
+                [FromQuery] int attachId)
+                
+            {
+                try
+                {
+                    var data = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId);
+
+                    if (data == null || !data.Any())
+                    {
+                        return NotFound(new
+                        {
+                            StatusCode = 404,
+                            Message = "No attachments found.",
+                            Data = new List<AttachmentDto>()
+                        });
+                    }
+
+                    return Ok(new
+                    {
+                        StatusCode = 200,
+                        Message = "Attachments loaded successfully.",
+                        Data = data
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new
+                    {
+                        StatusCode = 500,
+                        Message = "An error occurred while loading attachments.",
+                        Error = ex.Message
+                    });
+                }
+            }
+        }
+
+
+
     }
 
-}
+
 
         
 
