@@ -3,7 +3,7 @@ namespace TracePca.Dto
 {
     public class AssignWorkpaperDto
     {
-        public int SACId { get; set; }
+        public List<int> SACId { get; set; } = new();
         public int CompanyId { get; set; }
         public int AuditId { get; set; }
         public string CheckPointId { get; set; }

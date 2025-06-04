@@ -83,5 +83,16 @@ namespace TracePca.Interface.Audit
              int companyId,
              int attachId);
 
+        Task<IEnumerable<StandardAuditCheckpointDto>> LoadSelectedStandardAuditCheckPointDetailsAsync(
+   string connStr, int compId, int auditId, int empId, bool isPartner, int headingId, string heading);
+
+        Task<ConductAuditWorkpaperDto?> LoadSelectedConductAuditWorkPapersDetailsAsync(
+    string connStrName, int compId, int auditId, int workpaperId);
+
+        Task<IEnumerable<DrlRemarksHistoryDto>> LoadSelectedDRLCheckPointRemarksHistoryDetailsAsync(
+   string connStrName, int compId, int auditId, int reportType, int customerId);
+
+        Task<int?> GetSACIdAsync(CheckPointIdentifierDto dto);
+
     }
 }

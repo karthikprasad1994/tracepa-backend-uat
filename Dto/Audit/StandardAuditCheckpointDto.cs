@@ -1,12 +1,11 @@
 ﻿namespace TracePca.Dto.Audit
 {
-    public class AuditCheckPointDto
+    public class StandardAuditCheckpointDto
     {
-        public int SAC_ID { get; set; }
-        public int AuditID { get; set; }
+        public int AuditId { get; set; }
         public int SrNo { get; set; }
         public int ConductAuditCheckPointPKId { get; set; }
-        public string CheckPointID { get; set; }
+        public int CheckPointID { get; set; }
         public string Heading { get; set; }
         public string CheckPoint { get; set; }
         public string Assertions { get; set; }

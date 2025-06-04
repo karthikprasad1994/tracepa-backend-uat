@@ -560,7 +560,7 @@ namespace TracePca.Controllers
             {
                 var result = await _AuditInterface.UploadAndSaveAttachmentAsync(dto);
 
-                if (result.StartsWith("Error")) 
+                if (result.StartsWith("Error"))
                 {
                     return StatusCode(500, new
                     {
@@ -1091,7 +1091,7 @@ namespace TracePca.Controllers
     [FromQuery] int yearId,        // Year ID (sar_Yearid)
     [FromQuery] int exportType)    // Export Type (1 or 3)
         {
-           
+
 
             var maxId = await _AuditInterface.GetMaxAttachmentIdAsync(customerId, auditId, yearId, exportType);
 
@@ -1126,48 +1126,215 @@ namespace TracePca.Controllers
 
 
         [HttpGet("GetStandardAttachments")]
-            public async Task<IActionResult> LoadAllAttachments(
+        public async Task<IActionResult> LoadAllAttachments(
                 [FromQuery] string connectionStringName,
                 [FromQuery] int companyId,
                 [FromQuery] int attachId)
-                
+
+        {
+            try
             {
-                try
+                var data = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId);
+
+                if (data == null || !data.Any())
                 {
-                    var data = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId);
-
-                    if (data == null || !data.Any())
+                    return NotFound(new
                     {
-                        return NotFound(new
-                        {
-                            StatusCode = 404,
-                            Message = "No attachments found.",
-                            Data = new List<AttachmentDto>()
-                        });
-                    }
-
-                    return Ok(new
-                    {
-                        StatusCode = 200,
-                        Message = "Attachments loaded successfully.",
-                        Data = data
+                        StatusCode = 404,
+                        Message = "No attachments found.",
+                        Data = new List<AttachmentDto>()
                     });
                 }
-                catch (Exception ex)
+
+                return Ok(new
                 {
-                    return StatusCode(500, new
-                    {
-                        StatusCode = 500,
-                        Message = "An error occurred while loading attachments.",
-                        Error = ex.Message
-                    });
-                }
+                    StatusCode = 200,
+                    Message = "Attachments loaded successfully.",
+                    Data = data
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while loading attachments.",
+                    Error = ex.Message
+                });
             }
         }
 
 
 
+
+        [HttpGet("load-checkpoints")]
+        public async Task<IActionResult> LoadSelectedStandardAuditCheckPointDetails(
+            [FromQuery] string connectionKey,
+            [FromQuery] int compId,
+            [FromQuery] int auditId,
+            [FromQuery] int empId,
+            [FromQuery] bool isPartner,
+
+            [FromQuery] int headingId = 0,
+            [FromQuery] string heading = "")
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadSelectedStandardAuditCheckPointDetailsAsync(
+                    connectionKey, compId, auditId, empId, isPartner, headingId, heading);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Checkpoints loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while loading checkpoints.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("GetWorkpaperDetails")]
+        public async Task<IActionResult> GetWorkpaperDetails(
+      [FromQuery] string connStrName,
+      [FromQuery] int compId,
+      [FromQuery] int auditId,
+      [FromQuery] int workpaperId)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadSelectedConductAuditWorkPapersDetailsAsync(connStrName, compId, auditId, workpaperId);
+
+                if (result == null)
+                {
+                    return NotFound(new
+                    {
+                        status = 404,
+                        message = "Workpaper details not found."
+                    });
+                }
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Workpaper details loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving workpaper details.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("remarks-history")]
+        public async Task<IActionResult> GetRemarksHistory(
+       [FromQuery] string connStrName,
+       [FromQuery] int compId,
+       [FromQuery] int auditId,
+       [FromQuery] int reportType,
+       [FromQuery] int customerId)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadSelectedDRLCheckPointRemarksHistoryDetailsAsync(
+                    connStrName, compId, auditId, reportType, customerId);
+
+                if (result != null && result.Any())
+                {
+                    return Ok(new
+                    {
+                        Status = "Success",
+                        Message = "Remarks history fetched successfully.",
+                        Data = result
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        Status = "NotFound",
+                        Message = "No remarks history found.",
+                        Data = new List<DrlRemarksHistoryDto>()
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Status = "Error",
+                    Message = $"An error occurred: {ex.Message}"
+                });
+            }
+
+        }
+
+
+       
+
+            [HttpPost("get-sacid")]
+            public async Task<IActionResult> GetSACId([FromBody] CheckPointIdentifierDto dto)
+            {
+                if (dto == null || string.IsNullOrWhiteSpace(dto.CheckPointId))
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "Invalid input data.",
+                        data = (int?)null
+                    });
+                }
+
+                var sacId = await _AuditInterface.GetSACIdAsync(dto);
+
+                if (sacId.HasValue)
+                {
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "SAC_ID retrieved successfully.",
+                        data = sacId.Value
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "SAC_ID not found for the given input.",
+                        data = (int?)null
+                    });
+                }
+            }
+        }
+
     }
+
+        
+
+
+
+
+    
+
+
+
+
 
 
 
