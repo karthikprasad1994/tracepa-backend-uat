@@ -8,6 +8,8 @@ namespace TracePca.Dto.Audit
         public int AuditId { get; set; }
         public int AtchId { get; set; }
 
+       // public int DocId { get; set; }
+
       //   public int ReportId { get; set; } 
         // public string FilePath { get; set; }
         // public string FileName { get; set; }
@@ -35,5 +37,12 @@ namespace TracePca.Dto.Audit
         public int SubProcessId { get; set; }
         public int CompId { get; set; }
         public int DrlId { get; set; }
+
+        [System.Text.Json.Serialization.JsonIgnore]
+        
+        public int AdrlId { get; set; }
+
+
+
     }
 }

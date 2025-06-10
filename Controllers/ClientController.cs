@@ -1074,10 +1074,7 @@ namespace TracePca.Controllers
         [HttpGet("GetDrlId")]
         public async Task<IActionResult> GetRequestedIdByExportType([FromQuery] int exportType)
         {
-            if (exportType != 1 && exportType != 3)
-            {
-                return BadRequest("Invalid export type. Only 1 and 3 are supported.");
-            }
+          
 
             var requestedId = await _AuditInterface.GetRequestedIdByExportTypeAsync(exportType);
             return Ok(new { RequestedId = requestedId });

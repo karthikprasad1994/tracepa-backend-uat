@@ -1,0 +1,19 @@
+{
+  "yearId": 1,
+  "auditId": 2,
+  "functionId": 1,
+  "customerId": 10,
+  "requestedListId": 8,
+  "requestedTypeId": 9,
+  "requestedOn": "string",
+  "timelineToRespondOn": "28-5-2025",
+  "emailId": "string",
+  "remark": "string",
+  "userId": 0,
+  "updatedBy": 0,
+  "ipAddress": "string",
+  "compId": 0,
+  "checkPointIds": "string",
+  "custRegAccessCodeId": 0,
+  "attachId": 0
+}
