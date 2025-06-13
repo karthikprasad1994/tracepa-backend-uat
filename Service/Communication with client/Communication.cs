@@ -1653,6 +1653,25 @@ ORDER BY ATCH_CREATEDON";
             return result;
         }
 
+        private async Task<int> GetOrCreateAttachmentIdAsync(int drlId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            var existingId = await connection.ExecuteScalarAsync<int?>(
+                @"SELECT TOP 1 ATCH_ID FROM Edt_Attachments WHERE ATCH_DRLID = @DrlId",
+                new { DrlId = drlId });
+
+            if (existingId.HasValue)
+                return existingId.Value;
+
+            var newId = await connection.ExecuteScalarAsync<int>(
+                @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM Edt_Attachments");
+
+            return newId;
+        }
+
+
         private async Task<int?> GetExistingAttachmentIdByDrlIdAsync(int drlId)
         {
             const string sql = "SELECT TOP 1 ATCH_ID FROM Edt_Attachments WHERE ATCH_drlid = @DrlId ORDER BY ATCH_ID";
@@ -1688,6 +1707,7 @@ ORDER BY ATCH_CREATEDON";
             var docId = await GenerateNextDocIdAsync(dto.CustomerId, dto.AuditId);
 
             int newAttachId = attachId;
+           // int newAttachId = await GetOrCreateAttachmentIdAsync(requestedId);
 
             // If attachId is zero or not passed, try to get existing ATCH_ID by DRL ID
             if (newAttachId == 0)
@@ -1998,7 +2018,7 @@ VALUES (
                                 }
                                 dto.AtchId = attachId;
                             }
-
+                            //int newAttachId = await GetOrCreateAttachmentIdAsync(dto.DrlId);
                             // Save file and insert into Edt_Attachments
                             filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, dto.DrlId, dto.ReportType);
 
