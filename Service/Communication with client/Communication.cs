@@ -3545,7 +3545,7 @@ VALUES (
 
             var sql = @"
 SELECT 
-    CMM_ID, CMM_Desc, DRL_DRLID, DRL_Name, ADRL_ID, ADRL_YearID, ADRL_AuditNo, ADRL_FunID, 
+    CMM_ID, CMM_Desc, DRL_DRLID, DRL_Name, ADRL_ID AS DrlpkId, ADRL_YearID, ADRL_AuditNo, ADRL_FunID, 
     ACM_Checkpoint, ADRL_CustID, ADRL_RequestedListID, ADRL_RequestedTypeID, ADRL_RequestedOn, 
     ADRL_TimlinetoResOn, ADRL_EmailID, ADRL_Comments, ADRL_Status, ADRL_AttachID, ADRL_CompID, 
     ADRL_ReceivedComments, ADRL_LogStatus, ADRL_ReceivedOn, ADRL_ReportType
@@ -3559,6 +3559,9 @@ WHERE ADRL_CompID = @CompId
   AND ADRL_RequestedListID NOT IN (@iBA, @iCA)";
 
             var parameters = new
+
+
+
             {
                 CompId = compId,
                 AuditNo = auditNo,
@@ -3574,7 +3577,9 @@ WHERE ADRL_CompID = @CompId
             {
                 var dto = new DRLDetailDto
                 {
-                    DRLID = row.ADRL_ID ?? 0,
+
+                    DrlpkId = row.DrlpkId ?? 0,  // ✅ Correctly mapping the PK
+                    DRLID = row.DRL_DRLID ?? 0,
                     CheckPointID = row.ADRL_FunID ?? 0,
                     CheckPoint = row.ACM_Checkpoint ?? "Others",
                     DocumentRequestedListID = row.CMM_ID ?? 0,

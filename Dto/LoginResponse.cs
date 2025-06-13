@@ -10,5 +10,8 @@
 
         public string? MCR_emails { get; set; }
 
+        public int? YmsId { get; set; }
+        public string YmsYearId { get; set; }
+
     }
 }

@@ -329,6 +329,9 @@ namespace TracePca.Service
 
 
 
+
+
+
         public async Task<LoginResponse> AuthenticateUserAsync(string email, string password)
         {
             try
@@ -389,8 +392,27 @@ namespace TracePca.Service
                         .Select(a => a.UsrId)
                         .FirstOrDefaultAsync();
 
+                
+
                     // ✅ Step 7: Generate JWT Token
                     string token = GenerateJwtToken(userDto);
+                    int? ymsId = null;
+                    string ymsYearId = null;
+
+                    using (var connection = new SqlConnection(newDbConnectionString))
+                    {
+                        await connection.OpenAsync();
+
+                        const string query = @"SELECT YMS_ID, YMS_YEARID FROM Year_Master WHERE YMS_Default = 1";
+
+                        var yearResult = await connection.QueryFirstOrDefaultAsync<YearDto>(query);
+
+                        //if (yearResult != null)
+                        //{
+                        //    ymsId = yearResult.YMS_ID;           // int?
+                        //    ymsYearId = yearResult.YMS_YEARID;
+                        //}
+                    }
 
 
                     return new LoginResponse
@@ -398,7 +420,9 @@ namespace TracePca.Service
                         StatusCode = 200,
                         Message = "Login successful",
                         Token = token,
-                        UsrId = userId
+                        UsrId = userId,
+                       // YmsId = ymsId,
+                        //YmsYearId = ymsYearId
                     };
                 }
             }
