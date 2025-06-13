@@ -56,6 +56,7 @@ builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAd
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
 builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
+builder.Services.AddScoped<ConductAuditInterface, ConductAuditService>();
 
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
