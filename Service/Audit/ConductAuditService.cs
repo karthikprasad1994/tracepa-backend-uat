@@ -471,7 +471,7 @@ namespace TracePca.Service.Audit
                 WHERE SAC_SA_ID = @AuditId AND SAC_CompID = @CompId";
             if (!string.IsNullOrWhiteSpace(heading))
             {
-                sqlCA += @"AND ACM_ID IN (SELECT ACM_ID FROM AuditType_Checklist_Master WHERE ACM_Heading = @Heading AND ACM_CompId = @CompId AND ACM_DELFLG = 'A')";
+                sqlCA += @" AND ACM_ID IN (SELECT ACM_ID FROM AuditType_Checklist_Master WHERE ACM_Heading = @Heading AND ACM_CompId = @CompId AND ACM_DELFLG = 'A')";
             }
             if (isPartner == 0 && !string.IsNullOrWhiteSpace(checkpointIds))
             {
