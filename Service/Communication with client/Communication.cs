@@ -1672,14 +1672,14 @@ ORDER BY ATCH_CREATEDON";
         }
 
 
-        private async Task<int?> GetExistingAttachmentIdByDrlIdAsync(int drlId)
+        private async Task<int?> GetExistingAttachmentIdByDrlIdAsync(int drlId, int auditId)
         {
-            const string sql = "SELECT TOP 1 ATCH_ID FROM Edt_Attachments WHERE ATCH_drlid = @DrlId ORDER BY ATCH_ID";
+            const string sql = "SELECT TOP 1 ATCH_ID FROM Edt_Attachments WHERE ATCH_drlid = @DrlId AND ATCH_AuditID = @AuditId ORDER BY ATCH_ID";
 
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
 
-            return await connection.ExecuteScalarAsync<int?>(sql, new { DrlId = drlId });
+            return await connection.ExecuteScalarAsync<int?>(sql, new { DrlId = drlId, AuditId = auditId });
         }
 
 
@@ -1712,7 +1712,7 @@ ORDER BY ATCH_CREATEDON";
             // If attachId is zero or not passed, try to get existing ATCH_ID by DRL ID
             if (newAttachId == 0)
             {
-                var existingAttachId = await GetExistingAttachmentIdByDrlIdAsync(requestedId);
+                var existingAttachId = await GetExistingAttachmentIdByDrlIdAsync(requestedId, dto.AuditId);
                 if (existingAttachId.HasValue)
                 {
                     newAttachId = existingAttachId.Value;
@@ -1863,8 +1863,6 @@ VALUES (
         }
 
 
-
-
         private async Task<int> InsertIntoAuditDrlLogAsync(AddFileDto dto, int requestedId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -2006,7 +2004,7 @@ VALUES (
                             if (attachId <= 0)
                             {
                                 // Try to reuse existing ATCH_ID for this DRLID
-                                var existingAttachId = await GetExistingAttachmentIdByDrlIdAsync(dto.DrlId);
+                                var existingAttachId = await GetExistingAttachmentIdByDrlIdAsync(dto.DrlId, dto.AuditId);
                                 if (existingAttachId.HasValue)
                                 {
                                     attachId = existingAttachId.Value;
