@@ -241,5 +241,43 @@ namespace TracePca.Controllers.Audit
                 return StatusCode(500, new { success = false, message = $"An error occurred while updating the attachment description: {ex.Message}" });
             }
         }
+
+        [HttpPost("GenerateAndDownloadWorkpapersReport")]
+        public async Task<IActionResult> GenerateAndDownloadWorkpapersReport(int compId, int auditId, string format = "pdf")
+        {
+            try
+            {
+                var (fileBytes, contentType, fileName) = await _conductAuditInterface.GenerateAndDownloadWorkpapersReportAsync(compId, auditId, format);
+
+                return File(fileBytes, contentType, fileName);
+            }
+            catch
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "Failed to generate report."
+                });
+            }
+        }
+
+        [HttpPost("GenerateAndDownloadCheckPointsReport")]
+        public async Task<IActionResult> GenerateAndDownloadCheckPointsReport(int compId, int auditId, string format = "pdf")
+        {
+            try
+            {
+                var (fileBytes, contentType, fileName) = await _conductAuditInterface.GenerateAndDownloadCheckPointsReportAsync(compId, auditId, format);
+
+                return File(fileBytes, contentType, fileName);
+            }
+            catch
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "Failed to generate report."
+                });
+            }
+        }
     }
 }

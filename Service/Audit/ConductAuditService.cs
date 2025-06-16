@@ -5,6 +5,18 @@ using TracePca.Data;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
+using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
+using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
+using Colors = QuestPDF.Helpers.Colors;
+using Document = DocumentFormat.OpenXml.Wordprocessing.Document;
+using Paragraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
+using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
+using RunProperties = DocumentFormat.OpenXml.Wordprocessing.RunProperties;
+using WordDoc = DocumentFormat.OpenXml.Wordprocessing.Document;
+using WordprocessingDocument = DocumentFormat.OpenXml.Packaging.WordprocessingDocument;
 
 namespace TracePca.Service.Audit
 {
@@ -12,11 +24,13 @@ namespace TracePca.Service.Audit
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+        private readonly AuditCompletionInterface _auditCompletionInterface;
 
-        public ConductAuditService(Trdmyus1Context dbcontext, IConfiguration configuration)
+        public ConductAuditService(Trdmyus1Context dbcontext, IConfiguration configuration, AuditCompletionInterface auditCompletionInterface)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
+            _auditCompletionInterface = auditCompletionInterface;
         }
 
         public async Task<AuditDropDownListDataDTO> LoadAllAuditDDLDataAsync(int compId)
@@ -355,7 +369,7 @@ namespace TracePca.Service.Audit
                     CASE WHEN a.SSW_Status = 1 THEN 'Open' WHEN a.SSW_Status = 2 THEN 'WIP' WHEN a.SSW_Status = 3 THEN 'Closed' ELSE NULL END AS SSW_StatusName, a.SSW_AttachID,
                     ISNULL((SELECT Count(*) FROM edt_attachments WHERE ATCH_CompID = @CompId AND ATCH_ID = a.SSW_AttachID), 0) As SSW_AttachCount,
                     a.SSW_CrBy,b.usr_FullName AS SSW_CrByName, a.SSW_CrOn, a.SSW_ReviewedBy,c.usr_FullName AS SSW_ReviewedByName, a.SSW_ReviewedOn, a.SSW_UpdatedBy, c.usr_FullName AS SSW_UpdatedByName, a.SSW_UpdatedOn, 
-                    a.SSW_IPAddress, a.SSW_CompID FROM StandardAudit_ScheduleConduct_WorkPaper a 
+                    a.SSW_IPAddress, a.SSW_CompID FROM StandardAudit_ScheduleConduct_WorkPaper a
                     LEFT JOIN sad_userdetails b ON b.Usr_ID = a.SSW_CrBy
                     LEFT JOIN sad_userdetails c ON c.Usr_ID = a.SSW_UpdatedBy
                     LEFT JOIN sad_userdetails d ON d.Usr_ID = a.SSW_ReviewedBy
@@ -482,6 +496,331 @@ namespace TracePca.Service.Audit
             var results = new List<ConductAuditDetailsDTO>();
             results = (await connection.QueryAsync<ConductAuditDetailsDTO>(sqlCA, new { AuditId = auditId, CompId = compId, Heading = heading })).ToList();
             return results;
+        }
+
+        public async Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadWorkpapersReportAsync(int compId, int auditId, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string fileName = "Audit_Workpaper";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GenerateWorkpapersPdfAsync(compId, auditId);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string relativeFolder = Path.Combine("Uploads", "Audit").ToString();
+                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+                string fullFilePath = Path.Combine(absoluteFolder, "Audit_Workpaper.pdf");
+                await File.WriteAllBytesAsync(fullFilePath, fileBytes);
+
+                return (fileBytes, contentType, fileName);
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        public async Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadCheckPointsReportAsync(int compId, int auditId, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string fileName = "Conduct_Audit";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GenerateCheckPointsPdfAsync(compId, auditId);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string relativeFolder = Path.Combine("Uploads", "Audit").ToString();
+                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+                string fullFilePath = Path.Combine(absoluteFolder, "Conduct_Audit.pdf");
+                await File.WriteAllBytesAsync(fullFilePath, fileBytes);
+
+                return (fileBytes, contentType, fileName);
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        private async Task<byte[]> GenerateWorkpapersPdfAsync(int compId, int auditId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            var result = await connection.QueryFirstOrDefaultAsync<(int EpPkId, int CustID, string CustName, string YearName, string AuditNo)>(
+                @"SELECT LOE.LOE_ID AS EpPkId, SA.SA_CustID As CustID, CUST.CUST_NAME As CustName, YMS.YMS_ID AS YearName, SA_AuditNo + ' - ' + CMA.CMM_Desc As AuditNo FROM StandardAudit_Schedule AS SA
+                  LEFT JOIN SAD_CUST_LOE AS LOE ON LOE.LOE_CustomerId = SA.SA_CustID AND LOE.LOE_YearId = SA.SA_YearID AND LOE.LOE_ServiceTypeId = SA.SA_AuditTyPeId
+                  LEFT JOIN SAD_CUSTOMER_MASTER AS CUST ON SA.SA_CustID = CUST_ID 
+                  LEFT JOIN YEAR_MASTER AS YMS ON YMS.YMS_YEARID = SA.SA_YearID
+                  LEFT JOIN Content_Management_Master CMA On CMA.cmm_ID = SA.SA_AuditTypeID
+                  WHERE LOE.LOE_CompID = @CompId AND SA.SA_ID = @AuditId;", new { CompId = compId, AuditId = auditId });
+
+            List<ConductAuditWorkPaperDTO> dtoCAWP = await _auditCompletionInterface.LoadConductAuditWorkPapersAsync(compId, auditId);
+
+            var reportTypeList = await connection.QueryAsync<DropDownListData>(@"SELECT RTM_Id AS ID, RTM_ReportTypeName As Name FROM SAD_ReportTypeMaster
+                    WHERE RTM_TemplateId = 4 And RTM_DelFlag = 'A' AND RTM_CompID = @CompId ORDER BY RTM_ReportTypeName", new { CompId = compId }); //RTM_TemplateId = 4 And RTM_AudrptType = 3
+
+            var allDtoCAEs = new Dictionary<int, List<CommunicationWithClientTemplateReportDetailsDTO>>();
+            foreach (var reportType in reportTypeList)
+            {
+                var dtoCAE = (await connection.QueryAsync<CommunicationWithClientTemplateReportDetailsDTO>(
+                    @"SELECT LTD_ReportTypeID, LTD_Heading, LTD_Decription FROM LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = @ReportTypeID AND LTD_LOE_ID = @LOEId AND LTD_CompID = @CompId;",
+                    new { CompId = compId, ReportTypeID = reportType.ID, LOEId = auditId })).ToList();
+                if (dtoCAE.Count > 0)
+                {
+                    allDtoCAEs[reportType.ID] = dtoCAE;
+                }
+            }
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Work Paper Report").FontSize(16).Bold();
+                            column.Item().Text(text =>
+                            {
+                                text.Span("Client Name: ").FontSize(10).Bold();
+                                text.Span(result.CustName).FontSize(10);
+                            });
+                            column.Item().Text(text =>
+                            {
+                                text.Span("Audit No: ").FontSize(10).Bold();
+                                text.Span(result.AuditNo).FontSize(10);
+                            });
+
+                            column.Item().PaddingBottom(10);
+
+                            if (dtoCAWP.Any() == true)
+                            {
+                                column.Item().PaddingBottom(15).Table(table =>
+                                {
+                                    foreach (var details in dtoCAWP)
+                                    {
+                                        table.ColumnsDefinition(columns =>
+                                        {
+                                            columns.RelativeColumn(1);
+                                            columns.RelativeColumn(2);
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Workpaper Name:").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.WorkpaperRef);
+
+                                        table.Cell().Element(CellStyle).Text("Created By and Date:").Bold();
+                                        table.Cell().Element(CellStyle).Text($"{details.CreatedBy}, {details.CreatedOn}");
+
+                                        table.Cell().Element(CellStyle).Text("Workpaper No:").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.WorkpaperNo);
+
+                                        table.Cell().Element(CellStyle).Text("Reviewed By and Date:").Bold();
+                                        table.Cell().Element(CellStyle).Text($"{details.ReviewedBy}, {details.ReviewedOn}");
+
+                                        table.Cell().Element(CellStyle).Text("Type of Test:").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.TypeOfTest);
+
+                                        table.Cell().Element(CellStyle).Text("Status:").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Status);
+
+                                        table.Cell().Element(CellStyle).Text("Notes/Steps:").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Notes);
+
+                                        table.Cell().Element(CellStyle).Text("Deviations/Exceptions Noted:").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Deviations);
+
+                                        table.Cell().Element(CellStyle).Text("Critical Audit Matter(CAM):").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.CriticalAuditMatter);
+
+                                        table.Cell().Element(CellStyle).Text("Conclusion:").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Conclusion);
+
+                                        table.Cell().Element(CellStyle).Text("Attachments:").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.AttachNames);
+
+                                        table.Cell().Element(CellStyle).Text("").Bold();
+                                        table.Cell().Element(CellStyle).Text("");
+                                    }
+                                    static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                                });
+                            }
+
+                            column.Item().PaddingBottom(10);
+                        });
+                    });
+                });
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
+
+        private async Task<byte[]> GenerateCheckPointsPdfAsync(int compId, int auditId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            var result = await connection.QueryFirstOrDefaultAsync<(int EpPkId, int CustID, string CustName, string YearName, string AuditNo)>(
+                @"SELECT LOE.LOE_ID AS EpPkId, SA.SA_CustID As CustID, CUST.CUST_NAME As CustName, YMS.YMS_ID AS YearName, SA_AuditNo + ' - ' + CMA.CMM_Desc As AuditNo FROM StandardAudit_Schedule AS SA
+                  LEFT JOIN SAD_CUST_LOE AS LOE ON LOE.LOE_CustomerId = SA.SA_CustID AND LOE.LOE_YearId = SA.SA_YearID AND LOE.LOE_ServiceTypeId = SA.SA_AuditTyPeId
+                  LEFT JOIN SAD_CUSTOMER_MASTER AS CUST ON SA.SA_CustID = CUST_ID 
+                  LEFT JOIN YEAR_MASTER AS YMS ON YMS.YMS_YEARID = SA.SA_YearID
+                  LEFT JOIN Content_Management_Master CMA On CMA.cmm_ID = SA.SA_AuditTypeID
+                  WHERE LOE.LOE_CompID = @CompId AND SA.SA_ID = @AuditId;", new { CompId = compId, AuditId = auditId });
+
+            List<ConductAuditReportDetailDTO> dtoCA = await _auditCompletionInterface.GetConductAuditReportAsync(compId, auditId);
+            List<ConductAuditObservationDTO> dtoCAO = await _auditCompletionInterface.GetConductAuditObservationsAsync(compId, auditId);
+
+            var reportTypeList = await connection.QueryAsync<DropDownListData>(@"SELECT RTM_Id AS ID, RTM_ReportTypeName As Name FROM SAD_ReportTypeMaster
+                    WHERE RTM_TemplateId = 4 And RTM_DelFlag = 'A' AND RTM_CompID = @CompId ORDER BY RTM_ReportTypeName", new { CompId = compId }); //RTM_TemplateId = 4 And RTM_AudrptType = 3
+
+            var allDtoCAEs = new Dictionary<int, List<CommunicationWithClientTemplateReportDetailsDTO>>();
+            foreach (var reportType in reportTypeList)
+            {
+                var dtoCAE = (await connection.QueryAsync<CommunicationWithClientTemplateReportDetailsDTO>(
+                    @"SELECT LTD_ReportTypeID, LTD_Heading, LTD_Decription FROM LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = @ReportTypeID AND LTD_LOE_ID = @LOEId AND LTD_CompID = @CompId;",
+                    new { CompId = compId, ReportTypeID = reportType.ID, LOEId = auditId })).ToList();
+                if (dtoCAE.Count > 0)
+                {
+                    allDtoCAEs[reportType.ID] = dtoCAE;
+                }
+            }
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Report").FontSize(16).Bold();
+                            column.Item().Text(text =>
+                            {
+                                text.Span("Client Name: ").FontSize(10).Bold();
+                                text.Span(result.CustName).FontSize(10);
+                            });
+                            column.Item().Text(text =>
+                            {
+                                text.Span("Audit No: ").FontSize(10).Bold();
+                                text.Span(result.AuditNo).FontSize(10);
+                            });
+
+                            column.Item().PaddingBottom(10);
+
+                            if (dtoCA.Any() == true)
+                            {
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(0.5f);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(1);
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Heading").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Check Point").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Comments").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Annexures").FontSize(10).Bold();
+                                    });
+
+                                    int slNo = 1;
+                                    foreach (var details in dtoCA)
+                                    {
+                                        table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Heading.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.CheckPoints.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Comments.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Annexures.ToString()).FontSize(10);
+                                        slNo++;
+                                    }
+                                    static IContainer CellStyle(IContainer container) =>
+                                        container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                                });
+                            }
+
+                            column.Item().PaddingBottom(10);
+
+                            if (dtoCAO.Any() == true)
+                            {
+                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Observation Details").FontSize(14).Bold();
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(0.5f);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Check Point").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Observations").FontSize(10).Bold();
+                                    });
+
+                                    int slNo = 1;
+                                    foreach (var details in dtoCAO)
+                                    {
+                                        table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.CheckPoint.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Observations.ToString()).FontSize(10);
+                                        slNo++;
+                                    }
+                                    static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                                });
+                            }
+                        });
+                    });
+                });
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
         }
     }
 }
