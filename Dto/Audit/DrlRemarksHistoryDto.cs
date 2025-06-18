@@ -2,6 +2,7 @@
 {
     public class DrlRemarksHistoryDto
     {
+        public int SarId { get; set; }
         public string Role { get; set; }
         public string RemarksBy { get; set; }
         public string Remarks { get; set; }

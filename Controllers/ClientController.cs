@@ -1317,10 +1317,44 @@ namespace TracePca.Controllers
                         data = (int?)null
                     });
                 }
+
+            }
+
+        [HttpPut("UpdateAttachmentDescription")]
+        public async Task<IActionResult> UpdateAllRemarks([FromBody] UpdateAttachmentDescriptionDto dto)
+        {
+            try
+            {
+                var result = await _AuditInterface.UpdateAttachmentDescriptionOnlyAsync(dto);
+
+                if (result)
+                {
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "Description updated successfully"
+                    });
+                }
+
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "Failed to update description"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = $"Error: {ex.Message}"
+                });
             }
         }
 
     }
+
+}
 
         
 

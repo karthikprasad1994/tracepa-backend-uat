@@ -247,9 +247,8 @@ namespace TracePca.Service.Communication_with_client
             return await connection.QueryAsync<Dto.Audit.CustomerDto>(query, new { CompanyId = companyId });
         }
 
-
         public async Task<IEnumerable<AuditScheduleDto>> LoadScheduledAuditNosAsync(
-     string connectionStringName, int companyId, int financialYearId, int customerId)
+    string connectionStringName, int companyId, int financialYearId, int customerId)
         {
             var connectionString = _configuration.GetConnectionString(connectionStringName);
             using var connection = new SqlConnection(connectionString);
@@ -276,6 +275,37 @@ namespace TracePca.Service.Communication_with_client
                 CustomerId = customerId
             });
         }
+
+
+
+     //   public async Task<IEnumerable<AuditScheduleDto>> LoadScheduledAuditNosAsync(
+     //string connectionStringName, int companyId, int financialYearId, int customerId)
+     //   {
+     //       var connectionString = _configuration.GetConnectionString(connectionStringName);
+     //       using var connection = new SqlConnection(connectionString);
+     //       await connection.OpenAsync();
+
+     //       var sql = @"
+     //   SELECT SA_ID, SA_AuditNo + ' - ' + CMM_Desc AS SA_AuditNo
+     //   FROM StandardAudit_Schedule
+     //   LEFT JOIN Content_Management_Master ON CMM_ID = SA_AuditTypeID
+     //   WHERE SA_CompID = @CompanyId";
+
+     //       if (financialYearId > 0)
+     //           sql += " AND SA_YearID = @FinancialYearId";
+
+     //       if (customerId > 0)
+     //           sql += " AND SA_CustID = @CustomerId";
+
+     //       sql += " ORDER BY SA_ID DESC";
+                                                                                  
+     //       return await connection.QueryAsync<AuditScheduleDto>(sql, new)
+     //       {
+     //           CompanyId = companyId,
+     //           FinancialYearId = financialYearId,                                                                                         
+     //           CustomerId = customerId
+     //       });
+     //   }
 
 
         public async Task<IEnumerable<ReportTypeDto>> LoadAllReportTypeDetailsDRLAsync(
@@ -2105,8 +2135,7 @@ VALUES (
                     {
                         var nextId = await connection.ExecuteScalarAsync<int>(
                             @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 
-                      FROM Edt_Attachments WITH (TABLOCKX, HOLDLOCK)
-                      WHERE ATCH_AuditId = @AuditId",
+                      FROM Edt_Attachments",
                             new { AuditId = auditId },
                             transaction: transaction);
 
@@ -3943,7 +3972,8 @@ WHERE
             await connection.OpenAsync();
 
             var sql = @"
-        SELECT 
+        SELECT
+            SAR_ID AS SarId,
             b.Mas_Description AS Role,
             Usr_FullName AS RemarksBy,
             SAR_Remarks AS Remarks,
@@ -3955,9 +3985,9 @@ WHERE
             END AS Comments
         FROM StandardAudit_Audit_DRLLog_RemarksHistory
         LEFT JOIN sad_userdetails ON Usr_ID = SAR_RemarksBy
-4564
+
  LEFT JOIN SAD_GrpOrLvl_General_Master b ON b.Mas_ID = Usr_Role
-        WHERE SAR_SA_ID = @AuditId4
+        WHERE SAR_SA_ID = @AuditId
 
           AND SAR_CompID = @CompId
           AND SAR_SAC_ID = @CustomerId";
@@ -3995,6 +4025,37 @@ WHERE
             await connection.OpenAsync();
 
             return await connection.ExecuteScalarAsync<int?>(sql, dto);
+        }
+
+
+        public async Task<bool> UpdateAttachmentDescriptionOnlyAsync(UpdateAttachmentDescriptionDto dto)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                // Update only the Edt_Attachments table
+                const string updateAttachmentSql = @"
+            UPDATE Edt_Attachments
+            SET ATCH_Desc = @Description
+            WHERE ATCH_DOCID = @DocId";
+
+                var rowsAffected = await connection.ExecuteAsync(updateAttachmentSql, new
+                {
+                    Description = dto.Description,
+                    DocId = dto.DocId
+                }, transaction);
+
+                await transaction.CommitAsync();
+                return rowsAffected > 0;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
 

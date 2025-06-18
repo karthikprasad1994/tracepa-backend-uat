@@ -93,6 +93,7 @@ namespace TracePca.Interface.Audit
    string connStrName, int compId, int auditId, int reportType, int customerId);
 
         Task<int?> GetSACIdAsync(CheckPointIdentifierDto dto);
+        Task<bool> UpdateAttachmentDescriptionOnlyAsync(UpdateAttachmentDescriptionDto dto);
 
     }
 }

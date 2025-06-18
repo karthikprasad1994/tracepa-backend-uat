@@ -10,8 +10,8 @@
 
         public string? MCR_emails { get; set; }
 
-        public int? YmsId { get; set; }
-        public string YmsYearId { get; set; }
+        public string? YmsId { get; set; }           // should be int? ✅
+        public int? YmsYearId { get; set; }
 
     }
 }

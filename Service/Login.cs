@@ -1,4 +1,5 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
+using System.IO.Pipelines;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -397,22 +398,7 @@ namespace TracePca.Service
                     // ✅ Step 7: Generate JWT Token
                     string token = GenerateJwtToken(userDto);
                     int? ymsId = null;
-                    string ymsYearId = null;
-
-                    using (var connection = new SqlConnection(newDbConnectionString))
-                    {
-                        await connection.OpenAsync();
-
-                        const string query = @"SELECT YMS_ID, YMS_YEARID FROM Year_Master WHERE YMS_Default = 1";
-
-                        var yearResult = await connection.QueryFirstOrDefaultAsync<YearDto>(query);
-
-                        //if (yearResult != null)
-                        //{
-                        //    ymsId = yearResult.YMS_ID;           // int?
-                        //    ymsYearId = yearResult.YMS_YEARID;
-                        //}
-                    }
+                   
 
 
                     return new LoginResponse
@@ -421,8 +407,7 @@ namespace TracePca.Service
                         Message = "Login successful",
                         Token = token,
                         UsrId = userId,
-                       // YmsId = ymsId,
-                        //YmsYearId = ymsYearId
+                       
                     };
                 }
             }
@@ -579,13 +564,32 @@ namespace TracePca.Service
 
                     // ✅ Step 6: Generate JWT
                     string token = GenerateJwtTokens(user);
+                    string? ymsId = null;
+                    int? ymsYearId = null;
+
+                    using (var yearConnection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                    {
+                        await yearConnection.OpenAsync();
+
+                        const string query = @"SELECT YMS_ID, YMS_YEARID FROM Year_Master WHERE YMS_Default = 1";
+
+                        var yearResult = await yearConnection.QueryFirstOrDefaultAsync<YearDto>(query);
+
+                        if (yearResult != null)
+                        {
+                            ymsId = yearResult.YMS_ID;
+                            ymsYearId = yearResult.YMS_YEARID;
+                        }
+                    }
 
                     return new LoginResponse
                     {
                         StatusCode = 200,
                         Message = "Login successful",
                         Token = token,
-                        UsrId = userId
+                        UsrId = userId,
+                        YmsId = ymsId,
+                        YmsYearId = ymsYearId
                     };
                 }
             }
