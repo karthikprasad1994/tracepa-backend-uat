@@ -14,3 +14,4 @@ obj/
 *.tmp
 /Uploads/Audit/4
 /Tempfolder
+/wwwroot/temp
