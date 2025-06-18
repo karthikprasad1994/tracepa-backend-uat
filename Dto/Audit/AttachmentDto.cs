@@ -16,5 +16,7 @@
         public string Extention { get; set; }
         public string Type { get; set; }
         public string Status { get; set; }
+
+        public int? ReportType { get; set; }
     }
 }

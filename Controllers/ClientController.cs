@@ -4,6 +4,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using OfficeOpenXml.Table.PivotTable;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
@@ -528,11 +529,11 @@ namespace TracePca.Controllers
         //}
 
         [HttpGet("LoadAttachments")]
-        public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId)
+        public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId,int ReportType)
         {
             try
             {
-                var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId);
+                var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId, ReportType);
 
                 return Ok(new
                 {
@@ -1126,12 +1127,12 @@ namespace TracePca.Controllers
         public async Task<IActionResult> LoadAllAttachments(
                 [FromQuery] string connectionStringName,
                 [FromQuery] int companyId,
-                [FromQuery] int attachId)
+                [FromQuery] int attachId,int ReportType)
 
         {
             try
             {
-                var data = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId);
+                var data = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId, ReportType);
 
                 if (data == null || !data.Any())
                 {

@@ -1618,7 +1618,7 @@ namespace TracePca.Service.Communication_with_client
 
 
 
-        public async Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId)
+        public async Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, int ReportType)
         {
             var connectionString = _configuration.GetConnectionString(connectionStringName);
             using var connection = new SqlConnection(connectionString);
@@ -1626,33 +1626,42 @@ namespace TracePca.Service.Communication_with_client
 
             var query = @"
 SELECT 
-     ATCH_ID,
+    ATCH_ID,
     Atch_DocID,
     ATCH_DRLID,
     ATCH_FNAME,
     ATCH_EXT,
     ATCH_Desc,
     ATCH_CreatedBy,
-  FORMAT(ATCH_CREATEDON, 'dd-MMM-yyyy') AS ATCH_CREATEDON,
+    FORMAT(ATCH_CREATEDON, 'dd-MMM-yyyy') AS ATCH_CREATEDON,
     ATCH_SIZE,
     ATCH_ReportType,
     CASE 
         WHEN Atch_Vstatus = 'AS' THEN 'Not Shared'
         WHEN Atch_Vstatus = 'A' THEN 'Shared'
         WHEN Atch_Vstatus = 'C' THEN 'Received'
-         WHEN Atch_Vstatus = 'DS' THEN 'Received'
+        WHEN Atch_Vstatus = 'DS' THEN 'Received'
     END AS Atch_Vstatus
 FROM edt_attachments
 WHERE ATCH_CompID = @CompanyId 
-    AND ATCH_ID = @AttachId 
-    AND ATCH_Status <> 'D' 
-    AND Atch_Vstatus IN ('A', 'AS', 'C','DS')
+  AND ATCH_ID = @AttachId 
+  AND ATCH_Status <> 'D' 
+";
+
+            if (ReportType > 0)
+            {
+                query += " AND ATCH_ReportType = @ReportType";
+            }
+
+            query += @"
+  AND Atch_Vstatus IN ('A', 'AS', 'C', 'DS')
 ORDER BY ATCH_CREATEDON";
 
             var rawData = (await connection.QueryAsync(query, new
             {
                 CompanyId = companyId,
                 AttachId = attachId,
+                ReportType = ReportType,
 
             })).ToList();
 
