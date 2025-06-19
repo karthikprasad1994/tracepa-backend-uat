@@ -23,7 +23,7 @@ namespace TracePca.Interface.Audit
         Task<IEnumerable<DrlDescListDto>> LoadAllDRLDescriptionsAsync(string connectionStringName, int companyId);
         Task<DrlDescReqDto> LoadDRLDescriptionAsync(string connectionStringName, int companyId, int drlId);
         // Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, string dateFormat);
-        Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId);
+        Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId,int ReportType);
 
 
 
@@ -72,7 +72,29 @@ namespace TracePca.Interface.Audit
         Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto);
 
         Task<List<DRLDetailDto>> LoadDRLdgAsync(int compId, int auditNo);
-        Task<string> BeginAuditUploadWithReportTypeAsync(AddFileDto dto);
+       // Task<string> BeginAuditUploadWithReportTypeAsync(AddFileDto dto);
+        Task<int> GetRequestedIdByExportTypeAsync(int exportType);
+        Task<int> GetMaxAttachmentIdAsync(int customerId, int auditId, int yearId, int exportType);
+        Task<IEnumerable<CustomerUserDto>> GetAllCustomerUsersAsync(int customerId);
+         Task<List<int>> GetAttachIdsAsync(string connectionStringName, int companyId);
+
+        Task<List<AttachmentDto>> LoadAllAttachmentsAsync(
+             string connectionStringName,
+             int companyId,
+             int attachId);
+
+        Task<IEnumerable<StandardAuditCheckpointDto>> LoadSelectedStandardAuditCheckPointDetailsAsync(
+   string connStr, int compId, int auditId, int empId, bool isPartner, int headingId, string heading);
+
+        Task<ConductAuditWorkpaperDto?> LoadSelectedConductAuditWorkPapersDetailsAsync(
+    string connStrName, int compId, int auditId, int workpaperId);
+
+        Task<IEnumerable<DrlRemarksHistoryDto>> LoadSelectedDRLCheckPointRemarksHistoryDetailsAsync(
+   string connStrName, int compId, int auditId, int reportType, int customerId);
+
+        Task<int?> GetSACIdAsync(CheckPointIdentifierDto dto);
+        Task<bool> UpdateAttachmentDescriptionOnlyAsync(UpdateAttachmentDescriptionDto dto);
+        Task<(bool IsSuccess, string Message)> UpdateDrlStatusAsync(UpdateDrlStatusDto dto);
 
     }
 }

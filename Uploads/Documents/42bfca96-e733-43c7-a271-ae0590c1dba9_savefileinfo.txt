@@ -1,0 +1,219 @@
+Public Function LoadDRLdg(ByVal sAC As String, ByVal iACID As Integer, ByVal iAuditNo As Integer, ByVal sCheckPointIDs As String, ByVal iCustID As Integer, ByVal iYearID As Integer, ByVal iDocumentRequestedList As Integer, ByVal IsCustLogin As Integer, ByVal sFormat As String, ByVal sFormatSelection As String) As DataTable
+     Dim sSql As String
+     Dim dtTab As New DataTable, dt As New DataTable
+     Dim dRow As DataRow
+     Try
+         dt.Columns.Add("DRLID")
+         dt.Columns.Add("CheckPointID")
+         dt.Columns.Add("CheckPoint")
+         dt.Columns.Add("DocumentRequestedList")
+         dt.Columns.Add("DocumentRequestedType")
+         dt.Columns.Add("DocumentRequestedListID")
+         dt.Columns.Add("DocumentRequestedTypeID")
+         dt.Columns.Add("EmailID")
+         dt.Columns.Add("RequestedOn")
+         dt.Columns.Add("TimlinetoResOn")
+         dt.Columns.Add("Comments")
+         dt.Columns.Add("Status")
+         dt.Columns.Add("ReceivedComments")
+         dt.Columns.Add("ReceivedOn")
+         dt.Columns.Add("AttachID")
+         dt.Columns.Add("ReportType")
+
+         Dim iBA As Integer = GetDRLBeginningoftheAuditID(sAC, iACID)
+         Dim iCA As Integer = GetDRLNearingCompletionoftheAuditID(sAC, iACID)
+
+         sSql = "select CMM_ID,CMM_Desc,DRL_DRLID,DRL_Name,ADRL_ID,ADRL_YearID,ADRL_AuditNo,ADRL_FunID,ACM_Checkpoint,ADRL_CustID,ADRL_RequestedListID,ADRL_RequestedTypeID,ADRL_RequestedOn, ADRL_TimlinetoResOn,"
+         sSql = sSql & " ADRL_EmailID,ADRL_Comments,ADRL_Status,ADRL_AttachID,ADRL_CompID,ADRL_ReceivedComments,ADRL_LogStatus,ADRL_ReceivedOn,ADRL_ReportType From Audit_DRLLog"
+         sSql = sSql & " Left Join AuditType_Checklist_Master On ACM_ID=ADRL_FunID"
+         sSql = sSql & " Left Join Content_Management_Master On CMM_ID=ADRL_RequestedListID And CMM_CompID=" & iACID & " And CMM_ID Not In (" & iBA & "," & iCA & ")"
+         sSql = sSql & " Left Join Audit_Doc_Request_List On DRL_DRLID=ADRL_RequestedTypeID And DRL_CompID=" & iACID & " "
+         sSql = sSql & " Where ADRL_CompID = " & iACID & " And ADRL_YearID=" & iYearID & " And ADRL_RequestedListID Not In (" & iBA & "," & iCA & ")"
+         If iAuditNo > 0 Then
+             sSql = sSql & " And ADRL_AuditNo = " & iAuditNo & ""
+         End If
+         If IsCustLogin = 0 Then
+             'If sCheckPointIDs <> "" Then
+             '    sSql = sSql & " And (ADRL_FunID in (" & sCheckPointIDs & ")"
+             'End If
+             'If sCheckPointIDs = "" Then
+             '    sSql = sSql & " And (ADRL_FunID=0"
+             'End If
+         End If
+         'sSql = sSql & " Or ADRL_RequestedListID=" & iDocumentRequestedList & ")"
+         If iDocumentRequestedList > 0 Then
+             sSql = sSql & " And ADRL_RequestedListID=" & iDocumentRequestedList & ""
+         End If
+         dtTab = objDBL.SQLExecuteDataTable(sAC, sSql)
+         If dtTab.Rows.Count > 0 Then
+             For i = 0 To dtTab.Rows.Count - 1
+                 dRow = dt.NewRow
+                 dRow("DRLID") = dtTab.Rows(i)("ADRL_ID")
+                 If IsDBNull(dtTab.Rows(i)("ADRL_FunID")) = False Then
+                     dRow("CheckPointID") = dtTab.Rows(i)("ADRL_FunID")
+                 Else
+                     dRow("CheckPointID") = 0
+                 End If
+                 If IsDBNull(dtTab.Rows(i)("ACM_Checkpoint")) = False Then
+                     dRow("CheckPoint") = dtTab.Rows(i)("ACM_Checkpoint")
+                 Else
+                     dRow("CheckPoint") = "Others"
+                 End If
+                 If IsDBNull(dtTab.Rows(i)("CMM_Desc")) = False Then
+                     dRow("DocumentRequestedListID") = dtTab.Rows(i)("CMM_ID")
+                     dRow("DocumentRequestedList") = dtTab.Rows(i)("CMM_Desc")
+                 Else
+                     dRow("DocumentRequestedListID") = 0
+                     dRow("DocumentRequestedList") = "Others"
+                 End If
+                 If IsDBNull(dtTab.Rows(i)("DRL_Name")) = False Then
+                     dRow("DocumentRequestedTypeID") = dtTab.Rows(i)("DRL_DRLID")
+                     dRow("DocumentRequestedType") = dtTab.Rows(i)("DRL_Name")
+                 Else
+                     dRow("DocumentRequestedTypeID") = 0
+                 End If
+                 If IsDBNull(dtTab.Rows(i)("ADRL_RequestedOn")) = False Then
+                     Try
+                         dRow("RequestedOn") = objclsGRACeGeneral.FormatDtForRDBMS(dtTab.Rows(i)("ADRL_RequestedOn").ToString(), sFormatSelection)
+                     Catch ex As Exception
+                         dRow("RequestedOn") = ""
+                     End Try
+                 End If
+                 If IsDBNull(dtTab.Rows(i)("ADRL_TimlinetoResOn")) = False Then
+                     Try
+                         dRow("TimlinetoResOn") = objclsGRACeGeneral.FormatDtForRDBMS(dtTab.Rows(i)("ADRL_TimlinetoResOn").ToString(), sFormatSelection)
+                     Catch ex As Exception
+                         dRow("TimlinetoResOn") = ""
+                     End Try
+                 End If
+                 If IsDBNull(dtTab.Rows(i)("ADRL_EmailID")) = False Then
+                     Dim modifiedEmails As String = dtTab.Rows(i)("ADRL_EmailID").ToString().Replace(".com", ".com ")
+                     dRow("EmailID") = modifiedEmails      'Varun
+                 End If
+                 If IsDBNull(dtTab.Rows(i)("ADRL_Comments")) = False Then
+                     dRow("Comments") = dtTab.Rows(i)("ADRL_Comments")
+                 End If
+                 If IsDBNull(dtTab.Rows(i)("ADRL_ReceivedComments")) = False Then
+                     dRow("ReceivedComments") = objclsGRACeGeneral.ReplaceSafeSQL(dtTab.Rows(i)("ADRL_ReceivedComments"))
+                 End If
+                 If IsDBNull(dtTab.Rows(i)("ADRL_ReceivedOn")) = False Then
+                     Try
+                         dRow("ReceivedOn") = objclsGRACeGeneral.FormatDtForRDBMS(dtTab.Rows(i)("ADRL_ReceivedOn").ToString(), sFormatSelection)
+                     Catch ex As Exception
+                         dRow("ReceivedOn") = ""
+                     End Try
+                 End If
+                 If IsDBNull(dtTab.Rows(i)("ADRL_AttachID")) = False Then
+                     dRow("AttachID") = dtTab.Rows(i)("ADRL_AttachID")
+                 Else
+                     dRow("AttachID") = 0
+                 End If
+                 If IsDBNull(dtTab.Rows(i)("ADRL_ReportType")) = False Then
+                     dRow("ReportType") = dtTab.Rows(i)("ADRL_ReportType")
+                 Else
+                     dRow("ReportType") = 0
+                 End If
+                 If IsDBNull(dtTab.Rows(i)("ADRL_LogStatus")) = False Then
+                     If dtTab.Rows(i)("ADRL_LogStatus") = 1 Then
+                         dRow("Status") = "Outstanding"
+                     ElseIf dtTab.Rows(i)("ADRL_LogStatus") = 2 Then
+                         dRow("Status") = "Acceptable"
+                     ElseIf dtTab.Rows(i)("ADRL_LogStatus") = 3 Then
+                         dRow("Status") = "Partially"
+                     ElseIf dtTab.Rows(i)("ADRL_LogStatus") = 4 Then
+                         dRow("Status") = "No"
+                     End If
+                 End If
+                 dt.Rows.Add(dRow)
+             Next
+         End If
+         Return dt
+     Catch ex As Exception
+         Throw
+     End Try
+ End Function
+
+
+
+
+Private Sub imgbtnSave_Click(sender As Object, e As ImageClickEventArgs) Handles imgbtnSave.Click
+    Dim objDRLLog As New str_DRLLog
+    Dim Array() As String
+    Dim iDRLPKID As Integer = 0
+    Try
+        If Not ValidateDropDownListSelectedIndex(ddlCustomerName, "Select Client Name.") Then ddlCustomerName.Focus() : Exit Try
+        If Not ValidateDropDownListSelectedIndex(ddlAuditNo, "Select Audit No.") Then ddlAuditNo.Focus() : Exit Try
+
+        If ddlDocumentRequestedList.SelectedIndex = 0 Then 'Not lstCheckPoint.Items.Cast(Of ListItem)().Any(Function(item) item.Selected) AndAlso
+            lblError.Text = "Select Document Request List." : lblDRLLogDetailsValidationMsg.Text = "Select Document Request List." ' Or Check Point
+            ScriptManager.RegisterStartupScript(Me, Me.GetType(), "Modal", "$('#divMsgType').addClass('alert alert-warning');$('#ModalDRLLogDetailsValidation').modal('show');", True)
+            Exit Try
+        End If
+
+        If chkSendMail.Checked AndAlso Not lstEmailID.Items.Cast(Of ListItem)().Any(Function(item) item.Selected) Then
+            lblError.Text = "Select Email." : lblDRLLogDetailsValidationMsg.Text = "Select Email."
+            ScriptManager.RegisterStartupScript(Me, Me.GetType(), "Modal", "$('#divMsgType').addClass('alert alert-warning');$('#ModalDRLLogDetailsValidation').modal('show');", True)
+            Exit Try
+        End If
+
+        If txtComment.Text.Trim.Length > 8000 Then
+            lblMsg.Text = "Specific request for client exceeded maximum size(max 8000 characters)." : lblDRLLogDetailsValidationMsg.Text = "Specific request for client exceeded maximum size(max 8000 characters)."
+            txtDescription.Focus()
+            ScriptManager.RegisterStartupScript(Me, Me.GetType(), "Modal", "$('#divMsgType').addClass('alert alert-warning');$('#ModalDRLLogDetailsValidation').modal('show');", True)
+            Exit Try
+        End If
+
+        Dim selectedEmailIDs As String = String.Join(";", lstEmailID.Items.Cast(Of ListItem)().Where(Function(item) item.Selected).Select(Function(item) item.Text))
+        Dim iDocumentRequestedListID As Integer = If(ddlDocumentRequestedList.SelectedIndex > 0, ddlDocumentRequestedList.SelectedValue, 0)
+        Dim iFinancialYearID As Integer = Session("YearId")
+        objDRLLog.iADRL_YearID = iFinancialYearID
+        objDRLLog.iADRL_AuditNo = ddlAuditNo.SelectedValue
+        objDRLLog.iADRL_CustID = ddlCustomerName.SelectedValue
+        objDRLLog.iADRL_RequestedListID = iDocumentRequestedListID
+        objDRLLog.iADRL_RequestedTypeID = 0
+        objDRLLog.sADRL_RequestedOn = txtRequestedOn.Text
+        objDRLLog.sADRL_TimlinetoResOn = txtRespondDate.Text
+        objDRLLog.sADRL_EmailID = objclsGRACeGeneral.SafeSQL(selectedEmailIDs)
+        objDRLLog.sADRL_Comments = objclsGRACeGeneral.SafeSQL(txtComment.Text.Trim)
+        objDRLLog.iADRL_CrBy = Session("UserID")
+        objDRLLog.iADRL_UpdatedBy = Session("UserID")
+        objDRLLog.sADRL_IPAddress = Session("IPAddress")
+        objDRLLog.iADRL_CompID = Session("AccessCodeID")
+
+        Dim sCheckPointIDs As String = ""
+        'If Not lstCheckPoint.Items.Cast(Of ListItem)().Any(Function(item) item.Selected) = False Then
+        '    For j = 0 To lstCheckPoint.Items.Count - 1
+        '        If lstCheckPoint.Items(j).Selected = True Then
+        '            sCheckPointIDs = sCheckPointIDs & "," & lstCheckPoint.Items(j).Value
+        '            objDRLLog.iADRL_FunID = lstCheckPoint.Items(j).Value
+        '            iDRLPKID = objclsDRLLog.CheckAndGetDRLPKID(Session("AccessCode"), Session("AccessCodeID"), iFinancialYearID, ddlCustomerName.SelectedValue, ddlAuditNo.SelectedValue, iDocumentRequestedListID, lstCheckPoint.Items(j).Value)
+        '            If iDRLPKID = 0 Then objDRLLog.iADRL_ID = 0 Else objDRLLog.iADRL_ID = iDRLPKID
+        '            Array = objclsDRLLog.SaveDRLLogReceivedList_Details(Session("AccessCode"), objDRLLog, sSession.CustRegAccessCodeId)
+        '            objclsDRLLog.SaveStandardAudit_Audit_DRLLog_RemarksHistory(Session("AccessCode"), Session("AccessCodeID"), ddlAuditNo.SelectedValue, ddlCustomerName.SelectedValue, objDRLLog.iADRL_FunID, objclsGRACeGeneral.SafeSQL(txtComment.Text), Session("UserID"), Session("IPAddress"), objDRLLog.sADRL_EmailID, objDRLLog.sADRL_TimlinetoResOn, Session("YearId"), sSession.CustRegAccessCodeId, Array(1), iAttachID)
+        '            objclsGeneralFunctions.SaveGRACeFormOperations(Session("AccessCode"), Session("AccessCodeID"), Session("UserID"), "Audit", "DRL Log", "Saved", ddlAuditNo.SelectedValue, ddlAuditNo.SelectedItem.Text, lstCheckPoint.Items(j).Value, iDocumentRequestedListID, Session("IPAddress"))
+        '            If chkSendMail.Checked = True Then SendMail(Array(1))
+        '        End If
+        '    Next
+        'Else
+        iDRLPKID = objclsDRLLog.CheckAndGetDRLPKID(Session("AccessCode"), Session("AccessCodeID"), iFinancialYearID, ddlCustomerName.SelectedValue, ddlAuditNo.SelectedValue, iDocumentRequestedListID, 0)
+        If iDRLPKID = 0 Then objDRLLog.iADRL_ID = 0 Else objDRLLog.iADRL_ID = iDRLPKID
+        Array = objclsDRLLog.SaveDRLLogReceivedList_Details(Session("AccessCode"), objDRLLog, sSession.CustRegAccessCodeId)
+        objclsDRLLog.SaveStandardAudit_Audit_DRLLog_RemarksHistory(Session("AccessCode"), Session("AccessCodeID"), ddlAuditNo.SelectedValue, ddlCustomerName.SelectedValue, 0, objclsGRACeGeneral.SafeSQL(txtComment.Text), Session("UserID"), Session("IPAddress"), objDRLLog.sADRL_EmailID, objDRLLog.sADRL_TimlinetoResOn, Session("YearId"), sSession.CustRegAccessCodeId, Array(1), iAttachID, iDocumentRequestedListID)
+        objclsGeneralFunctions.SaveGRACeFormOperations(Session("AccessCode"), Session("AccessCodeID"), Session("UserID"), "Audit", "DRL Log", "Saved", ddlAuditNo.SelectedValue, ddlAuditNo.SelectedItem.Text, 0, iDocumentRequestedListID, Session("IPAddress"))
+        If chkSendMail.Checked = True Then SendMail(Array(1))
+        'End If
+        objclsStandardAudit.UpdateStandardAuditStatus(Session("AccessCode"), Session("AccessCodeID"), ddlAuditNo.SelectedValue, 2, sSession.CustRegAccessCodeId)
+        iAttachID = 0
+        If iAttachID = 0 Then
+            objclsDRLLog.UpdateDRLAttch(Session("AccessCode"), Session("AccessCodeID"), ddlAuditNo.SelectedValue, ddlCustomerName.SelectedValue, iDocumentRequestedListID, iAttachID, iDocID, Array(1), Session("UserId"))
+        End If
+        BindDRLLogDetails(ddlCustomerName.SelectedValue, ddlAuditNo.SelectedValue, sCheckPointIDs.TrimStart(","c).TrimEnd(","c), iDocumentRequestedListID)
+        imgbtnSave.Visible = False : imgbtnUpdate.Visible = True
+        lblError.Text = "Successfully Saved." : lblDRLLogDetailsValidationMsg.Text = "Successfully Saved."
+        ScriptManager.RegisterStartupScript(Me, Me.GetType(), "Modal", "$('#divMsgType').addClass('alert alert-success');$('#ModalDRLLogDetailsValidation').modal('show');", True)
+    Catch ex As Exception
+        lblError.Text = objErrorClass.GetErrorMessages(Session("AccessCode"), ex.Message)
+        Components.AppException.LogError(Session("AccessCode"), ex.Message, sFormName, "imgbtnSave_Click" & " & Error_Line = '" & objclsGeneralFunctions.GetLineNumber(ex) & "'" & "")
+
+    End Try
+End Sub

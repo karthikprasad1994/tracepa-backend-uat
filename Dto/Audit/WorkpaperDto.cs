@@ -23,6 +23,7 @@ namespace TracePca.Dto.Audit
         public int CreatedBy { get; set; }
         public string IPAddress { get; set; }
         public int CompanyId { get; set; }
-        public int CustomerAccessCodeId { get; set; }
+        
+        //public int CustomerAccessCodeId { get; set; }
     }
 }

@@ -3,6 +3,8 @@
     public class AttachmentDto
     {
         public int SrNo { get; set; }
+
+        public int PkId { get; set; }
         public int AtchID { get; set; }
         public int DrlId { get; set; }
         public string FName { get; set; }
@@ -14,5 +16,7 @@
         public string Extention { get; set; }
         public string Type { get; set; }
         public string Status { get; set; }
+
+        public int? ReportType { get; set; }
     }
 }

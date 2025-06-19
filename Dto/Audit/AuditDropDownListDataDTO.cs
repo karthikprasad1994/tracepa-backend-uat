@@ -13,6 +13,13 @@
         public List<DropDownListData> AuditCompletionCheckPointList { get; set; }
         public List<DropDownListData> SignedByList { get; set; }
         public List<DropDownListData> CustomerUserList { get; set; }
+        public List<DropDownListData> WorkpaperCheckList { get; set; }
+        public List<DropDownListData> TypeofTestList { get; set; }
+        public List<DropDownListData> ExceededMaterialityList { get; set; }
+        public List<DropDownListData> WorkPaperStatusList { get; set; }
+        public List<DropDownListData> TestResultList { get; set; }
+        public List<DropDownListData> AuditCheckPointHeadingList { get; set; }
+        public List<DropDownListData> DRLWithAttachmentsList { get; set; }        
     }
     public class DropDownListData
     {

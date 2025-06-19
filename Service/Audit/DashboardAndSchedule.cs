@@ -41,11 +41,11 @@ namespace TracePca.Service.Audit
       AND (usr_DelFlag = 'A' OR usr_DelFlag = 'B' OR usr_DelFlag = 'L') 
       AND Usr_ID = @UserId";
 
-             parameters = new
+            parameters = new
             {
                 CompId = compId,   // <-- Make sure iCompId is defined with the company ID
                 UserId = loginUserId   // <-- Assuming this is the correct user ID to check
-             };
+            };
 
             // Execute the query and check if any records exist
             var Partner = await connection.QueryFirstOrDefaultAsync<int?>(sSql, parameters);
@@ -219,25 +219,53 @@ ORDER BY SrNo";
         }
 
 
-        public async Task<List<AuditTypeCustomerDto>> GetAuditTypesByCustomerAsync(int compId, string sType)
+        public async Task<List<AuditTypeCustomerDto>> LoadAuditTypeComplianceDetailsAsync(AuditTypeRequestDto req)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
-        SELECT CMM_ID AS PKID, CMM_Desc AS Name
-        FROM Content_Management_Master
-        WHERE CMM_Category = @SType
-          AND CMM_CompID = @CompId
-          AND CMM_Delflag = 'A'
-          AND CMS_KeyComponent = 0
-          ORDER BY CMM_Desc ASC";
+            var sql = new StringBuilder();
+            sql.Append(@"
+        SELECT CMM_ID AS PKID, CMM_Desc AS Name 
+        FROM Content_Management_Master 
+        WHERE CMM_Category = @Type 
+        AND CMM_CompID = @CompanyId 
+        AND CMM_Delflag = 'A' 
+        AND CMS_KeyComponent = 0 
+        AND CMM_ID IN (
+            SELECT LOE_ServiceTypeId 
+            FROM SAD_CUST_LOE 
+            WHERE LOE_CustomerId = @CustomerId 
+            AND LOE_YearId = @FinancialYearId
+        )
+        AND EXISTS (
+            SELECT 1 
+            FROM AuditType_Checklist_Master 
+            WHERE ACM_AuditTypeID = CMM_ID
+        )
+        AND (
+            CMM_ID NOT IN (
+                SELECT SA_AuditTypeID 
+                FROM StandardAudit_Schedule 
+                WHERE SA_YearID = @FinancialYearId 
+                AND SA_CustID = @CustomerId 
+                AND SA_CompID = @CompanyId
+            )");
 
-            var result = await connection.QueryAsync<AuditTypeCustomerDto>(query, new
+            if (req.AuditTypeId > 0)
+                sql.Append(" OR CMM_ID = @AuditTypeId ");
+
+            sql.Append(") ORDER BY CMM_Desc ASC");
+
+            var parameters = new
             {
-                CompId = compId,
-                SType = sType
-            });
+                req.Type,
+                req.CompanyId,
+                req.FinancialYearId,
+                req.CustomerId,
+                req.AuditTypeId
+            };
 
+            var result = await connection.QueryAsync<AuditTypeCustomerDto>(sql.ToString(), parameters);
             return result.ToList();
         }
 
@@ -360,14 +388,7 @@ ORDER BY SrNo";
                     ACM_CompId = @CompId
                     AND ACM_DELFLG = 'A'
                     AND ACM_AuditTypeID = @AuditTypeId
-                    AND ACM_Heading = @Heading
-                    AND ACM_ID in (
-                        SELECT SAC_CheckPointID 
-                        FROM StandardAudit_ScheduleCheckPointList 
-                        WHERE SAC_SA_ID = @AuditId 
-                          AND SAC_CompID = @CompId
-                    )
-                ORDER BY ACM_Heading, ACM_ID";
+                      ORDER BY ACM_Heading, ACM_ID";
 
                     parameters = new
                     {
@@ -1038,15 +1059,25 @@ ORDER BY SrNo";
         {
             using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
+                string AuditNo = dto.AuditNo;
+                int SA_AuditNo = int.Parse(AuditNo);
+
                 await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
                     {
+                        var auditNo = await connection.ExecuteScalarAsync<string>(
+                       "SELECT SA_AuditNo FROM StandardAudit_Schedule WHERE SA_ID = @SA_AuditNo",
+                       new { SA_AuditNo },
+                       transaction // assign transaction here
+                   );
+
+                        dto.AuditNo = auditNo;
                         // 1. Save/Update Audit Schedule via Stored Procedure
                         var parameters = new DynamicParameters();
                         parameters.Add("@SA_ID", dto.SA_ID);
-                        parameters.Add("@SA_AuditNo", dto.AuditNo);
+                        parameters.Add("@SA_AuditNo", dto.AuditNo + "Q" + dto.IntervalId);
                         parameters.Add("@SA_CustID", dto.CustID);
                         parameters.Add("@SA_YearID", dto.YearID);
                         parameters.Add("@SA_AuditTypeID", dto.AuditTypeID);
@@ -1059,6 +1090,9 @@ ORDER BY SrNo";
                         parameters.Add("@SA_AttachID", dto.AttachID);
                         parameters.Add("@SA_StartDate", dto.FromDate);
                         parameters.Add("@SA_ExpCompDate", dto.ToDate);
+                        parameters.Add("@SA_RptRvDate", dto.ReportReviewDate);         // MISSING
+                        parameters.Add("@SA_RptFilDate", dto.ReportFilingDate);         // MISSING
+                        parameters.Add("@SA_MRSDate", dto.DateForMRS);                  // MISSING
                         parameters.Add("@SA_AuditOpinionDate", dto.ReportReviewDate);
                         parameters.Add("@SA_FilingDateSEC", dto.ReportFilingDate);
                         parameters.Add("@SA_MRLDate", dto.DateForMRS);
@@ -1069,13 +1103,16 @@ ORDER BY SrNo";
                         parameters.Add("@SA_UpdatedBy", dto.UserID);
                         parameters.Add("@SA_IPAddress", dto.IPAddress);
                         parameters.Add("@SA_CompID", dto.CompID);
+
+                        // OUTPUT parameters
                         parameters.Add("@iUpdateOrSave", 2, direction: ParameterDirection.InputOutput);
                         parameters.Add("@iOper", 1, direction: ParameterDirection.InputOutput);
                         parameters.Add("@Out_Message", dbType: DbType.String, size: 200, direction: ParameterDirection.Output);
                         parameters.Add("@Out_AuditScheduleID", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
                         await connection.ExecuteAsync("spStandardAudit_Schedule", parameters, transaction, commandType: CommandType.StoredProcedure);
-                        int newAuditScheduleId = parameters.Get<int>("@SA_ID");
+                        int newAuditScheduleId = dto.SAI_SA_ID; // Gets 1 from "AUD2025-001"
+
 
                         // 2. Update SA_StartDate and SA_ExpCompDate
                         string updateScheduleSql = "UPDATE StandardAudit_Schedule SET SA_StartDate = @StartDate, SA_ExpCompDate = @ExpCompDate WHERE SA_ID = @AuditID AND SA_CompID = @CompID";
@@ -1163,14 +1200,22 @@ ORDER BY SrNo";
                         }
 
                         // 5. Checkpoint Sync
-                        string checkpointQuery = "SELECT SAC_ID FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @AuditId AND SAC_CompID = @CompId";
-                        var checkpointRows = (await connection.QueryAsync<int>(checkpointQuery, new
+                        string checklistQuery = @"
+    SELECT SACD_ID 
+    FROM StandardAudit_Checklist_Details 
+    WHERE SACD_CustId = @CustId 
+      AND SACD_AuditId = @AuditScheduleId 
+      AND SACD_CompId = @CompId";
+
+                        var checklistRows = (await connection.QueryAsync<int>(checklistQuery, new
                         {
-                            AuditId = dto.SA_ID,
+                            CustId = dto.CustID,
+                            AuditScheduleId = newAuditScheduleId,
                             CompId = dto.CompID
                         }, transaction)).ToList();
 
-                        foreach (var sacId in checkpointRows)
+
+                        foreach (var sacId in checklistRows)
                         {
                             int newSAC_ID = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(SAC_ID) + 1, 1) FROM StandardAudit_ScheduleCheckPointList", transaction: transaction);
 
@@ -1205,11 +1250,84 @@ ORDER BY SrNo";
                 }
             }
         }
+        public async Task<CustomerDetailsDto> GetCustomerDetailsAsync(int iACID, int iCustId)
+        {
+            var result = new CustomerDetailsDto();
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            // 1. Financial Year
+            var fyQuery = @"
+            SELECT CASE 
+                WHEN ISNULL(CUST_FY, '0') = 1 THEN 'Jan 1st to Dec 31st'
+                WHEN ISNULL(CUST_FY, '0') = 2 THEN 'Feb 1st to Jan 31st'
+                WHEN ISNULL(CUST_FY, '0') = 3 THEN 'Mar 1st to Feb 28th'
+                WHEN ISNULL(CUST_FY, '0') = 4 THEN 'Apr 1st to May 31st'
+                WHEN ISNULL(CUST_FY, '0') = 5 THEN 'May 1st to Apr 30th'
+                WHEN ISNULL(CUST_FY, '0') = 6 THEN 'Jun 1st to May 31st'
+                WHEN ISNULL(CUST_FY, '0') = 7 THEN 'Jul 1st to Jun 30th'
+                WHEN ISNULL(CUST_FY, '0') = 8 THEN 'Aug 1st to Jul 31st'
+                WHEN ISNULL(CUST_FY, '0') = 9 THEN 'Sep 1st to Aug 31st'
+                WHEN ISNULL(CUST_FY, '0') = 10 THEN 'Oct 1st to Sep 30th'
+                WHEN ISNULL(CUST_FY, '0') = 11 THEN 'Nov 1st to Oct 31st'
+                WHEN ISNULL(CUST_FY, '0') = 12 THEN 'Dec 1st to Jan 31st'
+                ELSE '-' END AS CUST_FY_Text
+            FROM SAD_CUSTOMER_MASTER
+            WHERE CUST_ID = @CustID AND CUST_CompID = @CompID";
+
+            using var cmdFY = new SqlCommand(fyQuery, connection);
+            cmdFY.Parameters.AddWithValue("@CustID", iCustId);
+            cmdFY.Parameters.AddWithValue("@CompID", iACID);
+            result.FinancialYear = (await cmdFY.ExecuteScalarAsync())?.ToString();
+
+            // 2. CIK Registration No
+            var cikQuery = "SELECT ISNULL(CUSt_BranchID, '') FROM SAD_CUSTOMER_MASTER WHERE CUST_ID = @CustID AND CUST_CompID = @CompID";
+            using var cmdCIK = new SqlCommand(cikQuery, connection);
+            cmdCIK.Parameters.AddWithValue("@CustID", iCustId);
+            cmdCIK.Parameters.AddWithValue("@CompID", iACID);
+            result.CIKRegistrationNo = (await cmdCIK.ExecuteScalarAsync())?.ToString();
+
+            // 3. Address
+            var addressQuery = "SELECT CUST_ADDRESS, CUST_CITY, CUST_STATE, CUST_PIN FROM SAD_CUSTOMER_MASTER WHERE CUST_ID = @CustID AND CUST_CompID = @CompID";
+            using var cmdAddr = new SqlCommand(addressQuery, connection);
+            cmdAddr.Parameters.AddWithValue("@CustID", iCustId);
+            cmdAddr.Parameters.AddWithValue("@CompID", iACID);
+
+            using var reader = await cmdAddr.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                var addressParts = new List<string>();
+                if (!reader.IsDBNull(0)) addressParts.Add(reader.GetString(0));
+                if (!reader.IsDBNull(1)) addressParts.Add(reader.GetString(1));
+                if (!reader.IsDBNull(2)) addressParts.Add(reader.GetString(2));
+                if (!reader.IsDBNull(3)) addressParts.Add(reader.GetString(3));
+                result.Address = string.Join(", ", addressParts);
+            }
+
+            return result;
+        }
+        public async Task<IEnumerable<GeneralMasterDto>> LoadGeneralMastersAsync(int iACID, string sType)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            var query = @"SELECT cmm_ID, cmm_Desc 
+                      FROM Content_Management_Master 
+                      WHERE CMM_CompID = @CompID 
+                      AND cmm_Category = @Category 
+                      AND cmm_Delflag = 'A' 
+                      ORDER BY cmm_Desc ASC";
+
+            return await connection.QueryAsync<GeneralMasterDto>(query, new
+            {
+                CompID = iACID,
+                Category = sType
+            });
+        }
     }
 }
 
-    
-    
+
+
 
 
 

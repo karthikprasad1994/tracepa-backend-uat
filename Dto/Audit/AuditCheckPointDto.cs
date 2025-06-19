@@ -2,6 +2,7 @@
 {
     public class AuditCheckPointDto
     {
+        public int SAC_ID { get; set; }
         public int AuditID { get; set; }
         public int SrNo { get; set; }
         public int ConductAuditCheckPointPKId { get; set; }

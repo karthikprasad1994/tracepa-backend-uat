@@ -4,6 +4,7 @@ namespace TracePca.Dto.Audit
 {
     public class DRLDetailDto
     {
+        public int? DrlpkId { get; set; }
         
         public int? DRLID { get; set; }
         public int CheckPointID { get; set; }

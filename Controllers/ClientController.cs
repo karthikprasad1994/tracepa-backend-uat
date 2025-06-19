@@ -4,6 +4,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using OfficeOpenXml.Table.PivotTable;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
@@ -528,11 +529,11 @@ namespace TracePca.Controllers
         //}
 
         [HttpGet("LoadAttachments")]
-        public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId)
+        public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId,int ReportType)
         {
             try
             {
-                var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId);
+                var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId, ReportType);
 
                 return Ok(new
                 {
@@ -560,38 +561,6 @@ namespace TracePca.Controllers
             {
                 var result = await _AuditInterface.UploadAndSaveAttachmentAsync(dto);
 
-                if (result.StartsWith("Error")) 
-                {
-                    return StatusCode(500, new
-                    {
-                        statusCode = 500,
-                        message = result
-                    });
-                }
-
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "File uploaded, Customer details saved Successfully"
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = $"Error: {ex.Message}"
-                });
-            }
-        }
-
-        [HttpPost("DuringAuditupload")]
-        public async Task<IActionResult> BeginAuditUploadWithReportTypeAsync([FromForm] AddFileDto dto)
-        {
-            try
-            {
-                var result = await _AuditInterface.BeginAuditUploadWithReportTypeAsync(dto);
-
                 if (result.StartsWith("Error"))
                 {
                     return StatusCode(500, new
@@ -616,6 +585,52 @@ namespace TracePca.Controllers
                 });
             }
         }
+
+
+
+        [HttpPut("update")]
+        public async Task<IActionResult> UpdateDrlStatus([FromBody] UpdateDrlStatusDto dto)
+        {
+            var (isSuccess, message) = await _AuditInterface.UpdateDrlStatusAsync(dto);
+
+            if (isSuccess)
+                return Ok(new { StatusCode = 200, Message = message });
+            else
+                return StatusCode(500, new { StatusCode = 500, Message = message });
+        }
+
+
+        //[HttpPost("DuringAuditupload")]
+        //public async Task<IActionResult> BeginAuditUploadWithReportTypeAsync([FromForm] AddFileDto dto)
+        //{
+        //    try
+        //    {
+        //        var result = await _AuditInterface.BeginAuditUploadWithReportTypeAsync(dto);
+
+        //        if (result.StartsWith("Error"))
+        //        {
+        //            return StatusCode(500, new
+        //            {
+        //                statusCode = 500,
+        //                message = result
+        //            });
+        //        }
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "File uploaded, Customer details saved Successfully"
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = $"Error: {ex.Message}"
+        //        });
+        //    }
+        //}
 
 
         [HttpGet("GetDRLDetails")]
@@ -990,6 +1005,42 @@ namespace TracePca.Controllers
         }
 
 
+        [HttpGet("CustomerUsers")]
+        public async Task<IActionResult> GetCustomerUsers(int customerId)
+        {
+            try
+            {
+                var result = await _AuditInterface.GetAllCustomerUsersAsync(customerId);
+
+                if (result != null && result.Any())
+                {
+                    return Ok(new
+                    {
+                        status = 200,
+                        message = "Customer users fetched successfully.",
+                        data = result
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        status = 404,
+                        message = "No users found for the specified customer.",
+                        data = Enumerable.Empty<CustomerUserDto>()
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while fetching customer users.",
+                    error = ex.Message
+                });
+            }
+        }
 
 
 
@@ -998,9 +1049,13 @@ namespace TracePca.Controllers
         {
             try
             {
-                var (fileBytes, contentType, fileName) = await _AuditInterface.GenerateAndLogDRLReportAsync(request, format);
+                await _AuditInterface.GenerateAndLogDRLReportAsync(request, format);
 
-                return File(fileBytes, contentType, fileName);
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "File exported successfully"
+                });
             }
             catch
             {
@@ -1031,10 +1086,304 @@ namespace TracePca.Controllers
         }
 
 
+        [HttpGet("GetDrlId")]
+        public async Task<IActionResult> GetRequestedIdByExportType([FromQuery] int exportType)
+        {
+          
 
+            var requestedId = await _AuditInterface.GetRequestedIdByExportTypeAsync(exportType);
+            return Ok(new { RequestedId = requestedId });
+        }
+
+
+        [HttpGet("GetAttachId")]
+        public async Task<IActionResult> GetMaxAttachmentId(
+    [FromQuery] int customerId,    // Customer ID (SAR_SAC_ID)
+    [FromQuery] int auditId,       // Audit ID (SAR_SA_ID)
+    [FromQuery] int yearId,        // Year ID (sar_Yearid)
+    [FromQuery] int exportType)    // Export Type (1 or 3)
+        {
+
+
+            var maxId = await _AuditInterface.GetMaxAttachmentIdAsync(customerId, auditId, yearId, exportType);
+
+            return Ok(new { MaxAttachmentId = maxId });
+        }
+
+        [HttpGet("GetAllAttachIds")]
+        public async Task<IActionResult> GetDistinctAttachIds([FromQuery] int companyId)
+        {
+            if (companyId <= 0)
+            {
+                return BadRequest("Invalid companyId.");
+            }
+
+            string connectionStringName = "DefaultConnection";
+
+            var attachIds = await _AuditInterface.GetAttachIdsAsync(connectionStringName, companyId);
+            if (attachIds == null || !attachIds.Any())
+            {
+                return NotFound(new { Message = "No attachment IDs found for the specified company." });
+            }
+
+            return Ok(new
+            {
+                StatusCode = 200,
+                Message = "Attachment IDs fetched successfully.",
+                Data = attachIds
+            });
+        }
+
+
+
+
+        [HttpGet("GetStandardAttachments")]
+        public async Task<IActionResult> LoadAllAttachments(
+                [FromQuery] string connectionStringName,
+                [FromQuery] int companyId,
+                [FromQuery] int attachId,int ReportType)
+
+        {
+            try
+            {
+                var data = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId, ReportType);
+
+                if (data == null || !data.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = "No attachments found.",
+                        Data = new List<AttachmentDto>()
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "Attachments loaded successfully.",
+                    Data = data
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while loading attachments.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+
+
+
+        [HttpGet("load-checkpoints")]
+        public async Task<IActionResult> LoadSelectedStandardAuditCheckPointDetails(
+            [FromQuery] string connectionKey,
+            [FromQuery] int compId,
+            [FromQuery] int auditId,
+            [FromQuery] int empId,
+            [FromQuery] bool isPartner,
+
+            [FromQuery] int headingId = 0,
+            [FromQuery] string heading = "")
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadSelectedStandardAuditCheckPointDetailsAsync(
+                    connectionKey, compId, auditId, empId, isPartner, headingId, heading);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Checkpoints loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while loading checkpoints.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("GetWorkpaperDetails")]
+        public async Task<IActionResult> GetWorkpaperDetails(
+      [FromQuery] string connStrName,
+      [FromQuery] int compId,
+      [FromQuery] int auditId,
+      [FromQuery] int workpaperId)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadSelectedConductAuditWorkPapersDetailsAsync(connStrName, compId, auditId, workpaperId);
+
+                if (result == null)
+                {
+                    return NotFound(new
+                    {
+                        status = 404,
+                        message = "Workpaper details not found."
+                    });
+                }
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Workpaper details loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving workpaper details.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("remarks-history")]
+        public async Task<IActionResult> GetRemarksHistory(
+       [FromQuery] string connStrName,
+       [FromQuery] int compId,
+       [FromQuery] int auditId,
+       [FromQuery] int reportType,
+       [FromQuery] int customerId)
+        {
+            try
+            {
+                var result = await _AuditInterface.LoadSelectedDRLCheckPointRemarksHistoryDetailsAsync(
+                    connStrName, compId, auditId, reportType, customerId);
+
+                if (result != null && result.Any())
+                {
+                    return Ok(new
+                    {
+                        Status = "Success",
+                        Message = "Remarks history fetched successfully.",
+                        Data = result
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        Status = "NotFound",
+                        Message = "No remarks history found.",
+                        Data = new List<DrlRemarksHistoryDto>()
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Status = "Error",
+                    Message = $"An error occurred: {ex.Message}"
+                });
+            }
+
+        }
+
+
+       
+
+            [HttpPost("get-sacid")]
+            public async Task<IActionResult> GetSACId([FromBody] CheckPointIdentifierDto dto)
+            {
+                if (dto == null || string.IsNullOrWhiteSpace(dto.CheckPointId))
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "Invalid input data.",
+                        data = (int?)null
+                    });
+                }
+
+                var sacId = await _AuditInterface.GetSACIdAsync(dto);
+
+                if (sacId.HasValue)
+                {
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "SAC_ID retrieved successfully.",
+                        data = sacId.Value
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "SAC_ID not found for the given input.",
+                        data = (int?)null
+                    });
+                }
+
+            }
+
+        [HttpPut("UpdateAttachmentDescription")]
+        public async Task<IActionResult> UpdateAllRemarks([FromBody] UpdateAttachmentDescriptionDto dto)
+        {
+            try
+            {
+                var result = await _AuditInterface.UpdateAttachmentDescriptionOnlyAsync(dto);
+
+                if (result)
+                {
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "Description updated successfully"
+                    });
+                }
+
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "Failed to update description"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = $"Error: {ex.Message}"
+                });
+            }
+        }
 
     }
+
 }
+
+        
+
+
+
+
+    
+
+
+
+
+
+
+
         
 
 
