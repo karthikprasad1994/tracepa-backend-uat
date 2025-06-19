@@ -586,6 +586,20 @@ namespace TracePca.Controllers
             }
         }
 
+
+
+        [HttpPut("update")]
+        public async Task<IActionResult> UpdateDrlStatus([FromBody] UpdateDrlStatusDto dto)
+        {
+            var (isSuccess, message) = await _AuditInterface.UpdateDrlStatusAsync(dto);
+
+            if (isSuccess)
+                return Ok(new { StatusCode = 200, Message = message });
+            else
+                return StatusCode(500, new { StatusCode = 500, Message = message });
+        }
+
+
         //[HttpPost("DuringAuditupload")]
         //public async Task<IActionResult> BeginAuditUploadWithReportTypeAsync([FromForm] AddFileDto dto)
         //{

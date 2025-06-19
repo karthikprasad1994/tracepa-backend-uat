@@ -28,6 +28,7 @@ using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
 using Xceed.Document.NET;
 using Xceed.Words.NET;
+//using static Org.BouncyCastle.Math.EC.ECCurve;
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
 using Paragraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
@@ -2269,6 +2270,69 @@ VALUES (
               SET SAR_AttchId = @AttachId, SAR_AtthachDocId = @DocId
               WHERE SAR_SAC_ID = @CustomerId AND SAR_SA_ID = @AuditId AND SAR_ID = @PkId",
                     new { AttachId = attachId, DocId = docId, CustomerId = customerId, AuditId = auditId, PkId = pkId });
+            }
+        }
+
+        public async Task<(bool IsSuccess, string Message)> UpdateDrlStatusAsync(UpdateDrlStatusDto dto)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                // Step 1: Update Attachment Status
+                string updateAttachmentSql = @"
+            UPDATE Edt_Attachments 
+            SET Atch_Vstatus = @Status 
+            WHERE ATCH_DOCID = @DocId 
+              AND ATCH_Status <> 'D'";
+
+                await connection.ExecuteAsync(updateAttachmentSql, new { dto.Status, dto.DocId }, transaction);
+
+                // Step 2: Update Remarks History
+                string updateRemarksSql = @"
+            UPDATE StandardAudit_Audit_DRLLog_RemarksHistory
+            SET SAR_Remarks = @Remarks,
+                SAR_MasId = @DrlPkId,
+                SAR_TimlinetoResOn = @Timeline,
+                SAR_EmailIds = @EmailIds
+            WHERE SAR_SAC_ID = @CustomerId 
+              AND sar_Yearid = @YearId
+              AND SAR_CompID = @CompId
+              AND SAR_AtthachDocId = @DocId";
+
+                await connection.ExecuteAsync(updateRemarksSql, dto, transaction);
+
+                // Step 3: Update Audit_DRLLog based on ADRL_ID, ADRL_CustID, ADRL_AuditNo
+                string updateDrlLogSql = @"
+            UPDATE Audit_DRLLog
+            SET ADRL_RequestedOn = @Timeline,
+                ADRL_EmailID = @EmailIds,
+                ADRL_Comments = @Remarks,
+                ADRL_Status = @Status
+            WHERE ADRL_ID = @AdrlId
+              AND ADRL_CustID = @CustomerId
+              AND ADRL_AuditNo = @AuditId";
+
+                await connection.ExecuteAsync(updateDrlLogSql, new
+                {
+                    
+                    EmailIds = dto.EmailIds,
+                    Remarks = dto.Remarks,
+                    Status = dto.Status,
+                    dto.AdrlId,
+                    dto.CustomerId,
+                    dto.AuditId
+                }, transaction);
+
+                await transaction.CommitAsync();
+                return (true, "DRL status updated successfully.");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return (false, "Failed to update DRL status.");
             }
         }
 
