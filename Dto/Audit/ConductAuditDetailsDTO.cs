@@ -42,7 +42,7 @@ namespace TracePca.Dto.Audit
         public string? SSW_TypeOfTestName { get; set; }
         public string? SSW_Observation { get; set; }
         public string? SSW_Conclusion { get; set; }
-        public string? SSW_Status { get; set; }
+        public int SSW_Status { get; set; }
         public string? SSW_StatusName { get; set; }
         public int SSW_AttachID { get; set; }
         public int SSW_AttachCount { get; set; }

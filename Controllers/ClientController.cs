@@ -588,7 +588,7 @@ namespace TracePca.Controllers
 
 
 
-        [HttpPut("update")]
+        [HttpPut("UpdateStatus")]
         public async Task<IActionResult> UpdateDrlStatus([FromBody] UpdateDrlStatusDto dto)
         {
             var (isSuccess, message) = await _AuditInterface.UpdateDrlStatusAsync(dto);

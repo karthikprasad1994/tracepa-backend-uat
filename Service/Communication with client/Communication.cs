@@ -2020,6 +2020,19 @@ VALUES (
         }
 
 
+        private async Task<string> GetAuditNoByIdAsync(int auditId)
+        {
+            const string query = @"
+        SELECT TOP 1 SA_AuditNo
+        FROM StandardAudit_Audit
+        WHERE SA_ID = @AuditId";
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            return await connection.ExecuteScalarAsync<string>(query, new { AuditId = auditId }) ?? "N/A";
+        }
+
 
 
 
@@ -2079,6 +2092,7 @@ VALUES (
                         await InsertIntoAuditDocRemarksLogAsync(dto, requestedId, remarkId, attachId, docIdForRemarks, adrlId);
 
                         await transaction.CommitAsync();
+
                         return "Attachment upload (if provided), details saved, and email sent successfully.";
                     }
                     catch (Exception ex)
@@ -2281,55 +2295,56 @@ VALUES (
 
             try
             {
-                // Step 1: Update Attachment Status
-                string updateAttachmentSql = @"
-            UPDATE Edt_Attachments 
-            SET Atch_Vstatus = @Status 
-            WHERE ATCH_DOCID = @DocId 
-              AND ATCH_Status <> 'D'";
+                var parameters = new DynamicParameters();
+                parameters.Add("@Status", dto.Status);
+                parameters.Add("@Remarks", dto.Remarks);
+                parameters.Add("@Timeline", dto.Timeline);
+                parameters.Add("@CustomerId", dto.CustomerId);
+                parameters.Add("@YearId", dto.YearId);
+                parameters.Add("@CompId", dto.CompId);
+                parameters.Add("@Reporttype", dto.Reporttype);
 
-                await connection.ExecuteAsync(updateAttachmentSql, new { dto.Status, dto.DocId }, transaction);
+                // ✅ Join multiple email IDs into a single comma-separated string
+                parameters.Add("@EmailIds", string.Join(",", dto.EmailIds));
+
+                // Step 1: Update Edt_Attachments
+                string updateAttachmentSql = @"
+        UPDATE Edt_Attachments 
+        SET Atch_Vstatus = @Status
+        WHERE ATCH_ReportType IN @Reporttype
+          AND ATCH_Status <> 'D'";
+
+                await connection.ExecuteAsync(updateAttachmentSql, parameters, transaction);
 
                 // Step 2: Update Remarks History
                 string updateRemarksSql = @"
-            UPDATE StandardAudit_Audit_DRLLog_RemarksHistory
-            SET SAR_Remarks = @Remarks,
-                SAR_MasId = @DrlPkId,
-                SAR_TimlinetoResOn = @Timeline,
-                SAR_EmailIds = @EmailIds
-            WHERE SAR_SAC_ID = @CustomerId 
-              AND sar_Yearid = @YearId
-              AND SAR_CompID = @CompId
-              AND SAR_AtthachDocId = @DocId";
+        UPDATE StandardAudit_Audit_DRLLog_RemarksHistory
+        SET SAR_Remarks = @Remarks,
+            SAR_TimlinetoResOn = @Timeline,
+            SAR_EmailIds = @EmailIds
+        WHERE SAR_ReportType IN @Reporttype
+          AND SAR_SAC_ID = @CustomerId
+          AND SAR_Yearid = @YearId
+          AND SAR_CompID = @CompId";
 
-                await connection.ExecuteAsync(updateRemarksSql, dto, transaction);
+                await connection.ExecuteAsync(updateRemarksSql, parameters, transaction);
 
-                // Step 3: Update Audit_DRLLog based on ADRL_ID, ADRL_CustID, ADRL_AuditNo
+                // Step 3: Update Audit_DRLLog
                 string updateDrlLogSql = @"
-            UPDATE Audit_DRLLog
-            SET ADRL_RequestedOn = @Timeline,
-                ADRL_EmailID = @EmailIds,
-                ADRL_Comments = @Remarks,
-                ADRL_Status = @Status
-            WHERE ADRL_ID = @AdrlId
-              AND ADRL_CustID = @CustomerId
-              AND ADRL_AuditNo = @AuditId";
+        UPDATE Audit_DRLLog
+        SET ADRL_RequestedOn = @Timeline,
+            ADRL_EmailID = @EmailIds,
+            ADRL_Comments = @Remarks,
+            ADRL_Status = @Status
+        WHERE ADRL_ReportType IN @Reporttype
+          AND ADRL_CustID = @CustomerId";
 
-                await connection.ExecuteAsync(updateDrlLogSql, new
-                {
-                    
-                    EmailIds = dto.EmailIds,
-                    Remarks = dto.Remarks,
-                    Status = dto.Status,
-                    dto.AdrlId,
-                    dto.CustomerId,
-                    dto.AuditId
-                }, transaction);
+                await connection.ExecuteAsync(updateDrlLogSql, parameters, transaction);
 
                 await transaction.CommitAsync();
                 return (true, "DRL status updated successfully.");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 await transaction.RollbackAsync();
                 return (false, "Failed to update DRL status.");
