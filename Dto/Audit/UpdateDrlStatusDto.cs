@@ -13,26 +13,22 @@ namespace TracePca.Dto.Audit
         [Required]
         public int CompId { get; set; }          // SAR_CompID
 
-        [Required]
-        public int DocId { get; set; }           // SAR_AtthachDocId
+          // SAR_AtthachDocId
 
-        [Required]
-        public int DrlPkId { get; set; }        // SAR_MasId (iDRLPKID in VB)
+           // SAR_MasId (iDRLPKID in VB)
 
-        [Required]
-        public string Remarks { get; set; }      // SAR_Remarks
+        
+        public string?  Remarks { get; set; }      // SAR_Remarks
 
         [Required]
         public string Timeline { get; set; }     // SAR_TimlinetoResOn
 
         [Required]
-        public string EmailIds { get; set; }     // SAR_EmailIds
+        public List<string> EmailIds { get; set; } = new();    // SAR_EmailIds
 
         public string Status { get; set; } = "A"; // Atch_Vstatus (default 'A')
 
-        public int ADRL_RequestedListID { get; set; }
-
-        public  int AuditId { get; set; }
+        public List<string> Reporttype { get; set; } = new();
 
 
     }

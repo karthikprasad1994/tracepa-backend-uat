@@ -2299,13 +2299,15 @@ VALUES (
                 parameters.Add("@Status", dto.Status);
                 parameters.Add("@Remarks", dto.Remarks);
                 parameters.Add("@Timeline", dto.Timeline);
-                parameters.Add("@EmailIds", dto.EmailIds);
                 parameters.Add("@CustomerId", dto.CustomerId);
                 parameters.Add("@YearId", dto.YearId);
                 parameters.Add("@CompId", dto.CompId);
-                parameters.Add("@Reporttype", dto.Reporttype); // List<string>
+                parameters.Add("@Reporttype", dto.Reporttype);
 
-                // Step 1: Update Attachment Status
+                // ✅ Join multiple email IDs into a single comma-separated string
+                parameters.Add("@EmailIds", string.Join(",", dto.EmailIds));
+
+                // Step 1: Update Edt_Attachments
                 string updateAttachmentSql = @"
         UPDATE Edt_Attachments 
         SET Atch_Vstatus = @Status
@@ -2348,6 +2350,7 @@ VALUES (
                 return (false, "Failed to update DRL status.");
             }
         }
+
 
 
 
