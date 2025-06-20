@@ -30,7 +30,7 @@ namespace TracePca.Dto.Audit
 
         public string Status { get; set; } = "A"; // Atch_Vstatus (default 'A')
 
-        public int AdrlId { get; set; }
+        public int ADRL_RequestedListID { get; set; }
 
         public  int AuditId { get; set; }
 
