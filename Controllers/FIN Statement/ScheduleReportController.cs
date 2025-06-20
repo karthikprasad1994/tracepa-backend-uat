@@ -308,23 +308,45 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //LoadButton
-        [HttpGet("Generate")]
-        public async Task<IActionResult> GenerateReport(
-        [FromQuery] int reportType,
-        [FromQuery] int scheduleTypeId,
-        [FromQuery] int accountId,
-        [FromQuery] int customerId,
-        [FromQuery] int yearId)
+        [HttpGet("Load")]
+        public async Task<IActionResult> LoadReport(
+    [FromQuery] int reportType,
+    [FromQuery] int scheduleTypeId,
+    [FromQuery] int accountId,
+    [FromQuery] int customerId,
+    [FromQuery] int yearId)
         {
+            if (reportType <= 0 || scheduleTypeId <= 0 || accountId <= 0 || customerId <= 0 || yearId <= 0)
+            {
+                return BadRequest(new
+                {
+                    Status = 400,
+                    Message = "Invalid parameters: all values are required and must be greater than zero.",
+                    Data = (object)null
+                });
+            }
+
             try
             {
                 var result = await _ScheduleReportService.GenerateReportAsync(
                     reportType, scheduleTypeId, accountId, customerId, yearId);
-                return Ok(result);
+
+                return Ok(new
+                {
+                    Status = 200,
+                    Message = "Report loaded successfully.",
+                    Data = result
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal Server Error: {ex.Message}");
+                return StatusCode(500, new
+                {
+                    Status = 500,
+                    Message = "An error occurred while loading the report.",
+                    Error = ex.Message,
+                    InnerException = ex.InnerException?.Message
+                });
             }
         }
     }
