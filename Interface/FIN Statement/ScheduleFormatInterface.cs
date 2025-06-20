@@ -45,5 +45,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //DeleteScheduleTemplate
         Task<bool> DeleteInformationAsync(int iCompId, int iScheduleType, int iCustId, int iSelectedValue, int iMainId);
+
+        //SaveOrUpdateScheduleHeadingAlias
+        Task<int[]> SaveScheduleHeadingAliasAsync(ScheduleHeadingAliasDto dto);
     }
 }

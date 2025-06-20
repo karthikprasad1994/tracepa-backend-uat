@@ -127,9 +127,9 @@
             public int AST_UPDATEDBY { get; set; }
             public string AST_IPAddress { get; set; }
             public int AST_YEARId { get; set; }
-            public string AST_Schedule_type { get; set; }
-            public string AST_Companytype { get; set; }
-            public string AST_Company_limit { get; set; }
+            public int AST_Schedule_type { get; set; }
+            public int AST_Companytype { get; set; }
+            public int AST_Company_limit { get; set; }
         }
 
         //SaveScheduleFormatItem
@@ -200,9 +200,9 @@
             public int AST_UPDATEDBY { get; set; }
             public string? AST_IPAddress { get; set; }
             public int AST_YEARId { get; set; }
-            public string? AST_Schedule_type { get; set; }
-            public string? AST_Companytype { get; set; }
-            public string? AST_Company_limit { get; set; }
+            public int AST_Schedule_type { get; set; }
+            public int AST_Companytype { get; set; }
+            public int AST_Company_limit { get; set; }
         }
 
         //DeleteScheduleTemplate
@@ -213,6 +213,22 @@
             public int CustomerId { get; set; }
             public int SelectedValue { get; set; } 
             public int MainId { get; set; } 
+        }
+
+        //SaveOrUpdateScheduleHeadingAlias
+        public class ScheduleHeadingAliasDto
+        {
+            public int AGA_ID { get; set; }
+            public string AGA_Description { get; set; }
+            public int AGA_GLID { get; set; }
+            public string AGA_GLDESC { get; set; }
+            public int AGA_GrpLevel { get; set; }
+            public int AGA_scheduletype { get; set; }
+            public int AGA_Orgtype { get; set; }
+            public int AGA_Compid { get; set; }
+            public string AGA_Status { get; set; }
+            public int AGA_Createdby { get; set; }
+            public string AGA_IPAddress { get; set; }
         }
     }
 }

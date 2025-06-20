@@ -118,7 +118,6 @@ namespace TracePca.Service.FIN_statement
             return await connection.QueryAsync<CustBranchDto>(query, new { compId, custId });
         }
 
-
         //GetScheduleHeading
         public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int compId, int custId, int scheduleTypeId)
         {
@@ -141,7 +140,6 @@ namespace TracePca.Service.FIN_statement
 
             return await connection.QueryAsync<ScheduleHeadingDto>(query, new { compId, custId, scheduleTypeId });
         }
-
 
         //GetScheduleSub-Heading
         public async Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(int compId, int custId, int scheduleTypeId)

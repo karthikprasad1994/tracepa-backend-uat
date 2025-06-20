@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TracePca.Interface.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.ScheduleFormatDto;
+using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -508,6 +509,54 @@ namespace TracePca.Controllers.FIN_Statement
             catch (Exception ex)
             {
                 return StatusCode(500, new { Success = false, Message = $"An error occurred: {ex.Message}" });
+            }
+        }
+
+        //SaveOrUpdateScheduleHeadingAlias
+        [HttpPost("SaveOrUpdateScheduleHeadingAlias")]
+        public async Task<IActionResult> SaveOrUpdateScheduleHeadingAlias([FromBody] ScheduleHeadingAliasDto dto)
+        {
+            if (dto == null)
+            {
+                return BadRequest(new
+                {
+                    Status = 400,
+                    Message = "Invalid input: DTO is null",
+                    Data = (object)null
+                });
+            }
+
+            try
+            {
+                bool isUpdate = dto.AGA_ID > 0;
+
+                var result = await _ScheduleFormatService.SaveScheduleHeadingAliasAsync(dto);
+
+                string successMessage = isUpdate
+                    ? "Schedule Heading Alias successfully updated."
+                    : "Schedule Heading Alias successfully created.";
+
+                return Ok(new
+                {
+                    Status = 200,
+                    Message = successMessage,
+                    Data = new
+                    {
+                        UpdateOrSave = result[0],
+                        Oper = result[1],
+                        IsUpdate = isUpdate
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Status = 500,
+                    Message = "An error occurred while processing your request.",
+                    Error = ex.Message,
+                    InnerException = ex.InnerException?.Message
+                });
             }
         }
     }
