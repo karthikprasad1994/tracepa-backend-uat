@@ -178,13 +178,13 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
 
-                var nextSerialNo = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT COUNT(*) + 1 FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID = @AuditId", new { AuditId = auditId });
+                var nextSerialNo = await connection.QueryFirstOrDefaultAsync<string>(@"SELECT RIGHT('000' + CAST(COUNT(*) + 1 AS VARCHAR(3)), 3) FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID = @AuditId", new { AuditId = auditId });
                 var auditNo = await connection.QueryFirstOrDefaultAsync<string>(@"SELECT SA_AuditNo FROM StandardAudit_Schedule WHERE SA_ID = @AuditId", new { AuditId = auditId });
 
                 if (string.IsNullOrEmpty(auditNo))
                     throw new Exception("Audit number not found for the given Audit ID.");
 
-                string wpName = $"WP_{auditNo}_{nextSerialNo}";
+                string wpName = $"{auditNo}/WP{nextSerialNo}";
                 return wpName;
             }
             catch (Exception ex)
@@ -277,15 +277,22 @@ namespace TracePca.Service.Audit
                 else
                 {
                     dto.SSW_WorkpaperNo = await GenerateWorkpaperNoync(dto.SSW_CompID ?? 0, dto.SSW_SA_ID ?? 0);
-                    await connection.ExecuteAsync(@"DECLARE @SSW_ID INT; SELECT @SSW_ID = ISNULL(MAX(SSW_ID), 0) + 1 FROM StandardAudit_ScheduleConduct_WorkPaper;
-                    INSERT INTO StandardAudit_ScheduleConduct_WorkPaper (SSW_ID, SSW_SA_ID, SSW_WorkpaperNo, SSW_WorkpaperRef, SSW_TypeOfTest, SSW_WPCheckListID, SSW_DRLID,
+                    var newId = await connection.QuerySingleAsync<int>(@"
+                    DECLARE @SSW_ID INT;
+                    SELECT @SSW_ID = ISNULL(MAX(SSW_ID), 0) + 1 FROM StandardAudit_ScheduleConduct_WorkPaper;
+
+                    INSERT INTO StandardAudit_ScheduleConduct_WorkPaper(
+                        SSW_ID, SSW_SA_ID, SSW_WorkpaperNo, SSW_WorkpaperRef, SSW_TypeOfTest, SSW_WPCheckListID, SSW_DRLID,
                         SSW_ExceededMateriality, SSW_AuditorHoursSpent, SSW_Observation, SSW_NotesSteps, SSW_CriticalAuditMatter, SSW_Conclusion,
                         SSW_Status, SSW_AttachID, SSW_CrBy, SSW_CrOn, SSW_IPAddress, SSW_CompID
                     ) VALUES (
-                        @SSW_ID, @SSW_SA_ID, @SSW_WorkpaperNo, @SSW_WorkpaperRef, @SSW_TypeOfTest, @SSW_WPCheckListID, @SSW_DRLID, @SSW_ExceededMateriality, @SSW_AuditorHoursSpent, 
-                        @SSW_Observation, @SSW_NotesSteps, @SSW_CriticalAuditMatter, @SSW_Conclusion, @SSW_Status, @SSW_AttachID, @SSW_CrBy, GETDATE(), @SSW_IPAddress, @SSW_CompID);", new
+                        @SSW_ID, @SSW_SA_ID, @SSW_WorkpaperNo, @SSW_WorkpaperRef, @SSW_TypeOfTest, @SSW_WPCheckListID, @SSW_DRLID,
+                        @SSW_ExceededMateriality, @SSW_AuditorHoursSpent, @SSW_Observation, @SSW_NotesSteps, @SSW_CriticalAuditMatter, @SSW_Conclusion,
+                        @SSW_Status, @SSW_AttachID, @SSW_CrBy, GETDATE(), @SSW_IPAddress, @SSW_CompID
+                    );
+
+                    SELECT @SSW_ID;", new
                     {
-                        dto.SSW_ID,
                         dto.SSW_SA_ID,
                         dto.SSW_WorkpaperNo,
                         dto.SSW_WorkpaperRef,
@@ -304,6 +311,8 @@ namespace TracePca.Service.Audit
                         dto.SSW_IPAddress,
                         dto.SSW_CompID
                     }, transaction);
+
+                    dto.SSW_ID = newId;
                 }
 
                 await transaction.CommitAsync();
@@ -330,11 +339,11 @@ namespace TracePca.Service.Audit
                     a.SSW_Observation, a.SSW_Conclusion, a.SSW_ReviewerComments, a.SSW_ExceededMateriality,
                     CASE WHEN a.SSW_ExceededMateriality = 1 THEN 'Yes' WHEN a.SSW_ExceededMateriality = 2 THEN 'No' WHEN a.SSW_ExceededMateriality = 3 THEN 'NA' ELSE NULL END AS SSW_ExceededMaterialityName,
                     a.SSW_AuditorHoursSpent, a.SSW_NotesSteps, a.SSW_CriticalAuditMatter, a.SSW_WPCheckListID, a.SSW_Status, a.SSW_DRLID, 
-                    ISNULL((SELECT Count(*) FROM edt_attachments WHERE ATCH_CompID = @CompId AND ATCH_ID in (SELECT ADRL_AttachID FROM Audit_DRLLog WHERE ADRL_AuditNo = @AuditId AND ADRL_CompID = @CompId And ADRL_RequestedListID = a.SSW_DRLID)), 0) As SSW_DRLAttachmentCount,
-                    ISNULL((SELECT ADRL_AttachID FROM Audit_DRLLog WHERE ADRL_AuditNo = @AuditId AND ADRL_CompID = @CompId And ADRL_RequestedListID = a.SSW_DRLID), 0) As SSW_DRLAttachmentID,
+                    ISNULL((SELECT Count(*) FROM edt_attachments WHERE ATCH_CompID = @CompId AND ATCH_ID in (SELECT ADRL_AttachID FROM Audit_DRLLog WHERE ADRL_AuditNo = @AuditId AND ADRL_CompID = @CompId And ADRL_RequestedListID > 0 And ADRL_RequestedListID = a.SSW_DRLID)), 0) As SSW_DRLAttachmentCount,
+                    ISNULL((SELECT ADRL_AttachID FROM Audit_DRLLog WHERE ADRL_AuditNo = @AuditId AND ADRL_CompID = @CompId And ADRL_RequestedListID > 0 And ADRL_RequestedListID = a.SSW_DRLID), 0) As SSW_DRLAttachmentID,
                     CASE WHEN a.SSW_Status = 1 THEN 'Open' WHEN a.SSW_Status = 2 THEN 'WIP' WHEN a.SSW_Status = 3 THEN 'Closed' ELSE NULL END AS SSW_StatusName, a.SSW_AttachID,
 					ISNULL((SELECT Count(*) FROM edt_attachments WHERE ATCH_CompID = @CompId AND ATCH_ID = a.SSW_AttachID), 0) As SSW_AttachCount,
-                    a.SSW_CrBy,b.usr_FullName AS SSW_CrByName, a.SSW_CrOn, a.SSW_ReviewedBy,d.usr_FullName AS SSW_ReviewedByName, a.SSW_ReviewedOn, a.SSW_UpdatedBy, c.usr_FullName AS SSW_UpdatedByName, a.SSW_UpdatedOn, 
+                    a.SSW_CrBy,b.usr_FullName AS SSW_CrByName, a.SSW_CrOn, ISNULL(a.SSW_ReviewedBy, 0) AS SSW_ReviewedBy,ISNULL(d.usr_FullName, '') AS SSW_ReviewedByName, ISNULL(a.SSW_ReviewedOn, '') AS SSW_ReviewedOn, ISNULL(a.SSW_UpdatedBy, 0) AS SSW_UpdatedBy, ISNULL(c.usr_FullName, '') AS SSW_UpdatedByName, ISNULL(a.SSW_UpdatedOn, '') AS SSW_UpdatedOn, 
                     a.SSW_IPAddress, a.SSW_CompID FROM StandardAudit_ScheduleConduct_WorkPaper a 
                     LEFT JOIN sad_userdetails b ON b.Usr_ID = a.SSW_CrBy
                     LEFT JOIN sad_userdetails c ON c.Usr_ID = a.SSW_UpdatedBy
@@ -364,11 +373,11 @@ namespace TracePca.Service.Audit
                     a.SSW_Observation, a.SSW_Conclusion, a.SSW_ReviewerComments, a.SSW_ExceededMateriality,
                     CASE WHEN a.SSW_ExceededMateriality = 1 THEN 'Yes' WHEN a.SSW_ExceededMateriality = 2 THEN 'No' WHEN a.SSW_ExceededMateriality = 3 THEN 'NA' ELSE NULL END AS SSW_ExceededMaterialityName,
                     a.SSW_AuditorHoursSpent, a.SSW_NotesSteps, a.SSW_CriticalAuditMatter, a.SSW_WPCheckListID, a.SSW_Status, a.SSW_DRLID, 
-                    ISNULL((SELECT Count(*) FROM edt_attachments WHERE ATCH_CompID = @CompId AND ATCH_ID in (SELECT ADRL_AttachID FROM Audit_DRLLog WHERE ADRL_AuditNo = @AuditId AND ADRL_CompID = @CompId And ADRL_RequestedListID = a.SSW_DRLID)), 0) As SSW_DRLAttachmentCount,
-                    ISNULL((SELECT ADRL_AttachID FROM Audit_DRLLog WHERE ADRL_AuditNo = @AuditId AND ADRL_CompID = @CompId And ADRL_RequestedListID = a.SSW_DRLID), 0) As SSW_DRLAttachmentID,
+                    ISNULL((SELECT Count(*) FROM edt_attachments WHERE ATCH_CompID = @CompId AND ATCH_ID in (SELECT ADRL_AttachID FROM Audit_DRLLog WHERE ADRL_AuditNo = @AuditId AND ADRL_CompID = @CompId And ADRL_RequestedListID > 0 And ADRL_RequestedListID = a.SSW_DRLID)), 0) As SSW_DRLAttachmentCount,
+                    ISNULL((SELECT ADRL_AttachID FROM Audit_DRLLog WHERE ADRL_AuditNo = @AuditId AND ADRL_CompID = @CompId And ADRL_RequestedListID > 0 And ADRL_RequestedListID = a.SSW_DRLID), 0) As SSW_DRLAttachmentID,
                     CASE WHEN a.SSW_Status = 1 THEN 'Open' WHEN a.SSW_Status = 2 THEN 'WIP' WHEN a.SSW_Status = 3 THEN 'Closed' ELSE NULL END AS SSW_StatusName, a.SSW_AttachID,
                     ISNULL((SELECT Count(*) FROM edt_attachments WHERE ATCH_CompID = @CompId AND ATCH_ID = a.SSW_AttachID), 0) As SSW_AttachCount,
-                    a.SSW_CrBy,b.usr_FullName AS SSW_CrByName, a.SSW_CrOn, a.SSW_ReviewedBy,c.usr_FullName AS SSW_ReviewedByName, a.SSW_ReviewedOn, a.SSW_UpdatedBy, c.usr_FullName AS SSW_UpdatedByName, a.SSW_UpdatedOn, 
+                    a.SSW_CrBy,b.usr_FullName AS SSW_CrByName, a.SSW_CrOn, ISNULL(a.SSW_ReviewedBy, 0) AS SSW_ReviewedBy,ISNULL(d.usr_FullName, '') AS SSW_ReviewedByName, ISNULL(a.SSW_ReviewedOn, '') AS SSW_ReviewedOn, ISNULL(a.SSW_UpdatedBy, 0) AS SSW_UpdatedBy, ISNULL(c.usr_FullName, '') AS SSW_UpdatedByName, ISNULL(a.SSW_UpdatedOn, '') AS SSW_UpdatedOn, 
                     a.SSW_IPAddress, a.SSW_CompID FROM StandardAudit_ScheduleConduct_WorkPaper a
                     LEFT JOIN sad_userdetails b ON b.Usr_ID = a.SSW_CrBy
                     LEFT JOIN sad_userdetails c ON c.Usr_ID = a.SSW_UpdatedBy

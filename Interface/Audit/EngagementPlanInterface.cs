@@ -19,6 +19,7 @@ namespace TracePca.Interface.Audit
         Task<AuditDropDownListDataDTO> LoadUsersByCustomerIdDDLAsync(int custId);
         Task<EngagementPlanReportDetailsDTO> GetEngagementPlanReportDetailsByIdAsync(int compId, int epPKid);
         Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadReportAsync(int compId, int epPKid, string format);
+        Task<string> GenerateReportAndGetURLPathAsync(int compId, int epPKid, string format);
         Task<bool> SendEmailAndSaveEngagementPlanExportDataAsync(EngagementPlanReportExportDetailsDTO dto);
     }
 }

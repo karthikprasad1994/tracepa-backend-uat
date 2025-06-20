@@ -222,7 +222,9 @@ namespace TracePca.Service.FIN_statement
         //LoadButton
         public async Task<IEnumerable<ReportDto>> GenerateReportAsync(int reportType, int scheduleTypeId, int accountId, int customerId, int yearId)
         {
-            var sql = GetQueryByReportType(reportType, scheduleTypeId);
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var sql = GetQueryByReportType(reportType, scheduleTypeId); 
 
             var parameters = new
             {
@@ -233,7 +235,11 @@ namespace TracePca.Service.FIN_statement
                 PreviousYearId = yearId - 1
             };
 
-            return await _db.QueryAsync<ReportDto>(sql, parameters);
+            await connection.OpenAsync();
+
+            var result = await connection.QueryAsync<ReportDto>(sql, parameters);
+
+            return result;
         }
 
         private string GetQueryByReportType(int reportType, int scheduleTypeId)
@@ -245,7 +251,6 @@ namespace TracePca.Service.FIN_statement
 
             throw new InvalidOperationException("Invalid report or schedule type.");
         }
-
 
         private string SummaryPLQuery() => @"
 SELECT DISTINCT ATBUD_Headingid,

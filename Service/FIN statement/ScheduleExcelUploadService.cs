@@ -4,15 +4,15 @@ using System.Data;
 using System.Data.Common;
 using TracePca.Data;
 using TracePca.Interface.FIN_Statement;
-using static TracePca.Dto.FIN_Statement.ExcelUploadDto;
+using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
 namespace TracePca.Service.FIN_statement
 {
-    public class ExcelUploadService : ExcelUploadInterface
+    public class ScheduleExcelUploadService : ScheduleExcelUploadInterface
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
 
-        public ExcelUploadService(Trdmyus1Context dbcontext, IConfiguration configuration)
+        public ScheduleExcelUploadService(Trdmyus1Context dbcontext, IConfiguration configuration)
         {
             _configuration = configuration;
             _dbcontext = dbcontext;
@@ -62,8 +62,8 @@ namespace TracePca.Service.FIN_statement
 
             var query = @"
         SELECT 
-            YMS_YEARID,
-            YMS_ID 
+            YMS_YEARID AS Year_Id,
+            YMS_ID As Id
         FROM YEAR_MASTER 
         WHERE YMS_FROMDATE < DATEADD(year, +1, GETDATE()) 
           AND YMS_CompId = @CompID 
@@ -75,19 +75,15 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetDuration
-        public async Task<IEnumerable<CustDurationDto>> GetDurationAsync(int compId, int custId)
+        public async Task<int?> GetCustomerDurationIdAsync(int compId, int custId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            var query = "SELECT Cust_DurtnId FROM SAD_CUSTOMER_MASTER WHERE CUST_CompID = @CompId AND CUST_ID = @CustId";
 
-            var query = @"
-        SELECT 
-            ISNULL(Cust_DurtnId, 0) AS Cust_DurtnId  
-        FROM SAD_CUSTOMER_MASTER 
-        WHERE Cust_CompID = @compId AND cust_id = @custId";
+            var parameters = new { CompId = compId, CustId = custId };
+            var result = await connection.QueryFirstOrDefaultAsync<int?>(query, parameters);
 
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<CustDurationDto>(query, new { compId, custId });
+            return result;
         }
 
         //GetBranchName
@@ -152,6 +148,7 @@ namespace TracePca.Service.FIN_statement
             }
             return results.ToArray();
         }
+
         //ScheduleHeading
         private async Task<int> GetOrSaveHeadingAsync(UploadExcelRequestDto request, ExcelRowDto row, int accountHeadId, SqlConnection conn, SqlTransaction tran)
         {
@@ -201,6 +198,7 @@ WHERE ASH_Name = @Heading
             var newHeadingId = (int)(await saveCmd.ExecuteScalarAsync() ?? 0);
             return newHeadingId;
         }
+
         //ScheduleSub-Heading
         private async Task<int> GetOrSaveSubHeadingAsync(
     UploadExcelRequestDto request,

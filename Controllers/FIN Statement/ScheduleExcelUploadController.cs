@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
-using static TracePca.Dto.FIN_Statement.ExcelUploadDto;
+using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -9,15 +9,15 @@ namespace TracePca.Controllers.FIN_Statement
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ExcelUploadController : ControllerBase
+    public class ScheduleExcelUploadController : ControllerBase
     {
-        private ExcelUploadInterface _ExcelUploadInterface;
-        private ExcelUploadInterface _ExcelUploadService;
+        private ScheduleExcelUploadInterface _ScheduleExcelUploadInterface;
+        private ScheduleExcelUploadInterface _ScheduleExcelUploadService;
 
-        public ExcelUploadController(ExcelUploadInterface ExcelUploadInterface)
+        public ScheduleExcelUploadController(ScheduleExcelUploadInterface ExcelUploadInterface)
         {
-            _ExcelUploadInterface = ExcelUploadInterface;
-            _ExcelUploadService = ExcelUploadInterface;
+            _ScheduleExcelUploadInterface = ExcelUploadInterface;
+            _ScheduleExcelUploadService = ExcelUploadInterface;
         }
         //DownloadUploadableExcelAndTemplate
         [HttpGet("DownloadableExcelFile")]
@@ -25,7 +25,7 @@ namespace TracePca.Controllers.FIN_Statement
         [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
         public IActionResult DownloadExcelTemplate()
         {
-            var result = _ExcelUploadService.GetExcelTemplate();
+            var result = _ScheduleExcelUploadService.GetExcelTemplate();
 
             if (result.FileBytes == null)
                 return NotFound("File not found.");
@@ -40,14 +40,14 @@ namespace TracePca.Controllers.FIN_Statement
 
             try
             {
-                var result = await _ExcelUploadService.GetCustomerNameAsync(icompId);
+                var result = await _ScheduleExcelUploadService.GetCustomerNameAsync(icompId);
 
                 if (result == null || !result.Any())
                 {
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No company types found.",
+                        message = "No Customer name found.",
                         data = (object)null
                     });
                 }
@@ -55,7 +55,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Company types loaded successfully.",
+                    message = "ustomer name loaded successfully.",
                     data = result
                 });
             }
@@ -76,14 +76,14 @@ namespace TracePca.Controllers.FIN_Statement
         {
             try
             {
-                var result = await _ExcelUploadService.GetFinancialYearAsync(icompId);
+                var result = await _ScheduleExcelUploadService.GetFinancialYearAsync(icompId);
 
                 if (result == null || !result.Any())
                 {
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No company types found.",
+                        message = "No Financial types found.",
                         data = (object)null
                     });
                 }
@@ -91,7 +91,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Company types loaded successfully.",
+                    message = "Financial types loaded successfully.",
                     data = result
                 });
             }
@@ -107,39 +107,16 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //GetDuration
-        [HttpGet("GetDuration")]
-        public async Task<IActionResult> GetDuration([FromQuery] int compId, [FromQuery] int custId)
+        [HttpGet("duration-id")]
+        public async Task<IActionResult> GetCustomerDurationId([FromQuery] int compId, [FromQuery] int custId)
         {
-            try
+            var durationId = await _ScheduleExcelUploadService.GetCustomerDurationIdAsync(compId, custId);
+            if (durationId == null)
             {
-                var data = await _ExcelUploadService.GetDurationAsync(compId, custId);
-
-                if (data == null || !data.Any())
-                {
-                    return NotFound(new
-                    {
-                        status = 404,
-                        message = "No duration found for the given customer and company.",
-                        data = (object)null
-                    });
-                }
-
-                return Ok(new
-                {
-                    status = 200,
-                    message = "Duration loaded successfully.",
-                    data = data
-                });
+                return NotFound("Duration ID not found.");
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    status = 500,
-                    message = "Internal server error.",
-                    error = ex.Message
-                });
-            }
+
+            return Ok(new { Cust_DurtnId = durationId });
         }
 
         //GetBranchName
@@ -148,14 +125,14 @@ namespace TracePca.Controllers.FIN_Statement
         {
             try
             {
-                var result = await _ExcelUploadService.GetBranchNameAsync(icompId, icustId);
+                var result = await _ScheduleExcelUploadService.GetBranchNameAsync(icompId, icustId);
 
                 if (result == null || !result.Any())
                 {
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No company types found.",
+                        message = "No Branch name found.",
                         data = (object)null
                     });
                 }
@@ -163,7 +140,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Company types loaded successfully.",
+                    message = "Branch name loaded successfully.",
                     data = result
                 });
             }
@@ -193,7 +170,7 @@ namespace TracePca.Controllers.FIN_Statement
             }
             try
             {
-                int[] result = await _ExcelUploadService.SaveAllInformationAsync(request);
+                int[] result = await _ScheduleExcelUploadService.SaveAllInformationAsync(request);
 
                 if (result != null && result.Length > 0 && result[0] > 0)
                 {

@@ -22,12 +22,7 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var dropdownData = await _engagementInterface.LoadAllDDLDataAsync(compId);
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "All dropdown data fetched successfully.",
-                    data = dropdownData
-                });
+                return Ok(new { statusCode = 200, message = "All dropdown data fetched successfully.", data = dropdownData });
             }
             catch (Exception ex)
             {
@@ -41,12 +36,7 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var dropdownData = await _engagementInterface.LoadEngagementPlanDDLAsync(compId, yearId, custId);
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Engagement Plan dropdown data fetched successfully.",
-                    data = dropdownData
-                });
+                return Ok(new { statusCode = 200, message = "Engagement Plan dropdown data fetched successfully.", data = dropdownData });
             }
             catch (Exception ex)
             {
@@ -63,12 +53,7 @@ namespace TracePca.Controllers.Audit
                 if (result == null || !result.Any())
                     return NotFound(new { statusCode = 404, message = "No report type details found." });
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Report type details fetched successfully.",
-                    data = result
-                });
+                return Ok(new { statusCode = 200, message = "Report type details fetched successfully.", data = result });
             }
             catch (Exception ex)
             {
@@ -85,12 +70,7 @@ namespace TracePca.Controllers.Audit
                 if (result == null)
                     return NotFound(new { statusCode = 404, message = "No Engagement Plan details found." });
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Engagement Plan details fetched successfully.",
-                    data = result
-                });
+                return Ok(new { statusCode = 200, message = "Engagement Plan details fetched successfully.", data = result });
             }
             catch (Exception ex)
             {
@@ -107,12 +87,7 @@ namespace TracePca.Controllers.Audit
                 if (result == null)
                     return NotFound(new { statusCode = 404, message = "No Engagement Plan details found." });
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Engagement Plan details fetched successfully.",
-                    data = result
-                });
+                return Ok(new { statusCode = 200, message = "Engagement Plan details fetched successfully.", data = result });
             }
             catch (Exception ex)
             {
@@ -268,12 +243,7 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var dropdownData = await _engagementInterface.LoadUsersByCustomerIdDDLAsync(custId);
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Customer user dropdown data fetched successfully.",
-                    data = dropdownData
-                });
+                return Ok(new { statusCode = 200, message = "Customer user dropdown data fetched successfully.", data = dropdownData });
             }
             catch (Exception ex)
             {
@@ -287,16 +257,25 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var (fileBytes, contentType, fileName) = await _engagementInterface.GenerateAndDownloadReportAsync(compId, epPKid, format);
-
                 return File(fileBytes, contentType, fileName);
             }
             catch
             {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "Failed to generate report."
-                });
+                return StatusCode(500, new { statusCode = 500, message = "Failed to generate report." });
+            }
+        }
+
+        [HttpPost("GenerateReportAndGetURLPath")]
+        public async Task<IActionResult> GenerateReportAndGetURLPath(int compId, int epPKid, string format = "pdf")
+        {
+            try
+            {
+                var url = await _engagementInterface.GenerateReportAndGetURLPathAsync(compId, epPKid, format);
+                return Ok(new { statusCode = 200, message = "Engagement Plan report generated successfully. Download URL is available.", fileUrl = url });
+            }
+            catch
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to generate report." });
             }
         }
 

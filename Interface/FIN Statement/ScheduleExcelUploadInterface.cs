@@ -1,8 +1,8 @@
-﻿using static TracePca.Dto.FIN_Statement.ExcelUploadDto;
+﻿using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
 
 namespace TracePca.Interface.FIN_Statement
 {
-    public interface ExcelUploadInterface
+    public interface ScheduleExcelUploadInterface
     {
         //DownloadUploadableExcelAndTemplate
         FileDownloadResult GetExcelTemplate();
@@ -14,8 +14,8 @@ namespace TracePca.Interface.FIN_Statement
         Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int icompId);
 
         //GetDuration
-        Task<IEnumerable<CustDurationDto>> GetDurationAsync(int compId, int custId);
-
+        Task<int?> GetCustomerDurationIdAsync(int compId, int custId);
+        
         //GetBranchName
         Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int compId, int custId);
 

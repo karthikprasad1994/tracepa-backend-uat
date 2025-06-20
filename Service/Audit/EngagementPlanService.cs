@@ -28,11 +28,13 @@ namespace TracePca.Service.Audit
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor HttpContextAccessor;
 
-        public EngagementPlanService(Trdmyus1Context dbcontext, IConfiguration configuration)
+        public EngagementPlanService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
+            HttpContextAccessor = httpContextAccessor;
         }
 
         public async Task<AuditDropDownListDataDTO> LoadAllDDLDataAsync(int compId)
@@ -707,6 +709,58 @@ namespace TracePca.Service.Audit
                 }
 
                 return (fileBytes, contentType, fileName);
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        public async Task<string> GenerateReportAndGetURLPathAsync(int compId, int epPKid, string format)
+        {
+            try
+            {
+                var dto = await GetEngagementPlanReportDetailsByIdAsync(compId, epPKid);
+
+                if (dto == null)
+                    throw new ApplicationException("Engagement Plan data not found for the specified ID.");
+
+                byte[] fileBytes;
+                string extension;
+                string contentType;
+                string rawName = dto.EngagementPlanNo ?? "LOE_Report";
+                string fileName = rawName.Replace("/", "_").Replace("\\", "_");
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GeneratePdfAsync(dto);
+                    contentType = "application/pdf";
+                    extension = ".pdf";
+                }
+                else
+                {
+                    fileBytes = await GenerateWordAsync(dto);
+                    contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                    extension = ".docx";
+                }
+                fileName += extension;
+
+                var tempPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "temp");
+                if (!Directory.Exists(tempPath))
+                    Directory.CreateDirectory(tempPath);
+
+                var filePath = Path.Combine(tempPath, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+
+                string baseUrl = $"{HttpContextAccessor.HttpContext.Request.Scheme}://{HttpContextAccessor.HttpContext.Request.Host}";
+                string downloadUrl = $"{baseUrl}/temp/{fileName}";
+
+                return downloadUrl;
             }
             catch (Exception ex)
             {
