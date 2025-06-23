@@ -7,7 +7,7 @@
         public string CompanyName { get; set; }
         public string Address { get; set; }
         public int AttachId { get; set; }
-        public string Status { get; set; }
+        public string? Status { get; set; }
 
         public int ExportType { get; set; } // 1 = Beginning, 2 = Nearing completion
         public int FinancialYearId { get; set; }

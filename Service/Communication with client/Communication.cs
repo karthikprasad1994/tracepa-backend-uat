@@ -3924,6 +3924,8 @@ WHERE CMM_CompID = @CompId
         LEFT JOIN StandardAudit_Audit_DRLLog_RemarksHistory a ON a.SAR_AttchId = ATCH_ID
         WHERE SAR_SAC_ID = @CustomerId
           AND SAR_SA_ID = @AuditId
+         AND sar_Yearid = @YearId 
+
           
           AND ATCH_ReportType = @ReportTypeId";
 
