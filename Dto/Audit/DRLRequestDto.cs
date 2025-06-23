@@ -7,7 +7,7 @@
         public string CompanyName { get; set; }
         public string Address { get; set; }
         public int AttachId { get; set; }
-        public string? Status { get; set; }
+        public string Status { get; set; }
 
         public int ExportType { get; set; } // 1 = Beginning, 2 = Nearing completion
         public int FinancialYearId { get; set; }
@@ -22,6 +22,7 @@
         public string IPAddress { get; set; }
         public int CompanyId { get; set; }
         public int ReportType { get; set; }
+        public int RequestedListId { get; set; }
 
         public List<DRLTemplateItem> TemplateItems { get; set; }
     }

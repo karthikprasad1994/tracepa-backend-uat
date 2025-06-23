@@ -1173,6 +1173,9 @@ namespace TracePca.Service.Communication_with_client
             var requestedId = await GetRequestedIdAsync(request.ExportType);
             var existingId = await CheckAndGetDRLPKIDAsync(request.FinancialYearId, request.CustomerId, request.AuditNo, requestedId);
 
+            var generatedFileName = $"DRL_{request.CustomerId}_{DateTime.Now:yyyyMMddHHmmss}.{format}";
+            var tempFilePath = Path.Combine(Path.GetTempPath(), generatedFileName);
+
             var drlLog = new DRLLogDto
             {
                 Id = existingId,
@@ -1192,28 +1195,18 @@ namespace TracePca.Service.Communication_with_client
                 ReportType = request.ReportType
             };
 
-            await SaveDRLLogAsync(drlLog);
+            // Save DRL log, attachments, remarks, and generate the report file
+            var drlId = await SaveDRLLogWithAttachmentAsync(drlLog, tempFilePath, format);
 
+            // Read the generated file
+            var fileBytes = await File.ReadAllBytesAsync(tempFilePath);
+            var contentType = format.ToLower() == "pdf"
+                ? "application/pdf"
+                : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-            byte[] fileBytes;
-            string contentType;
-            string fileName = request.ReferenceNumber ?? "DRL_Report";
-
-            if (format.ToLower() == "pdf")
-            {
-                fileBytes = await GeneratePdfAsync(request);
-                contentType = "application/pdf";
-                fileName += ".pdf";
-            }
-            else
-            {
-                fileBytes = await GenerateWordAsync(request);
-                contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-                fileName += ".docx";
-            }
-
-            return (fileBytes, contentType, fileName);
+            return (fileBytes, contentType, generatedFileName);
         }
+
 
         private async Task<byte[]> GeneratePdfAsync(DRLRequestDto request)
         {
@@ -1427,6 +1420,8 @@ namespace TracePca.Service.Communication_with_client
                 UPDATE Audit_DRLLog SET
                     ADRL_RequestedOn = @RequestedOn,
                     ADRL_TimlinetoResOn = @TimelineToRespond,
+                    ADRL_RequestedListID = @RequestedListId,
+                    
                     ADRL_EmailID = @EmailIds,
                     ADRL_Comments = @Comments,
                     ADRL_UpdatedBy = @UpdatedBy,
@@ -1456,13 +1451,12 @@ namespace TracePca.Service.Communication_with_client
                 Directory.CreateDirectory(outputFolder);
 
                 var fileName = Path.GetFileName(filePath);
-                var generatedFilePath = Path.Combine(outputFolder, fileName);
+                var generatedFilePath = filePath; // Use the temp path passed in
 
                 if (fileType.ToLower() == "pdf")
                     GeneratePdf(customerData, generatedFilePath);
                 else
                     GenerateWord(customerData, generatedFilePath);
-
                 // 4. Save metadata in EDT_ATTACHMENTS
                 //var attachId = await connection.ExecuteScalarAsync<int>(
                 //    @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
@@ -1471,6 +1465,26 @@ namespace TracePca.Service.Communication_with_client
                 var docId = await connection.ExecuteScalarAsync<int>(
                     @"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
                     new { CompanyId = dto.CompanyId }, transaction);
+
+
+                var preAttachId = await connection.ExecuteScalarAsync<int>(
+                  @"SELECT ATCH_ID FROM EDT_ATTACHMENTS WHERE ATCH_ReportType = @ReportType",
+                  new { ReportType = dto.ReportType }, transaction);
+                var AttachId = 0;
+
+                if (preAttachId == 0)
+                {
+                    AttachId = await connection.ExecuteScalarAsync<int>(
+                     @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
+                     new { CompanyId = dto.CompanyId }, transaction);
+                }
+                else
+                {
+                    AttachId = preAttachId;
+                }
+
+                   
+
 
                 var extension = Path.GetExtension(fileName)?.TrimStart('.') ?? "unk";
                 var fileSize = new FileInfo(generatedFilePath).Length;
@@ -1481,19 +1495,21 @@ namespace TracePca.Service.Communication_with_client
                 ATCH_CREATEDBY, ATCH_MODIFIEDBY, ATCH_VERSION,
                 ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename,
                 ATCH_CREATEDON, ATCH_Status, ATCH_CompID,
-                Atch_Vstatus, ATCH_ReportType
+                Atch_Vstatus, ATCH_ReportType, ATCH_AuditID, 
+               ATCH_drlid
+
             )
             VALUES (
                 @AttachId, @DocId, @FileName, @Extension,
                 @CreatedBy, @CreatedBy, 1,
                 @Flag, @Size, 0, 0,
                 GETDATE(), 'X', @CompanyId,
-                @Status, @ReportType
+                @Status, @ReportType, @AuditNo, @RequestedListId
             );";
 
                 await connection.ExecuteAsync(insertAttach, new
                 {
-                    AttachId = dto.AttachId,
+                    AttachId = AttachId,
                     DocId = docId,
                     FileName = fileName.Length > 95 ? fileName.Substring(0, 95) : fileName.Replace("&", " and"),
                     Extension = extension,
@@ -1501,14 +1517,18 @@ namespace TracePca.Service.Communication_with_client
                     Flag = 1,
                     Size = fileSize,
                     CompanyId = dto.CompanyId,
-                    ReportType = dto.ReportType
+                    ReportType = dto.ReportType,
+                    Status = dto.Status,
+                    AuditNo = dto.AuditNo,
+                    RequestedListId = dto.RequestedListId
+
                 }, transaction);
 
                 // 5. Generate next Remark ID
                 var remarkId = await connection.ExecuteScalarAsync<int>(
                     @"SELECT ISNULL(MAX(SAR_ID), 0) + 1 
       FROM StandardAudit_Audit_DRLLog_RemarksHistory 
-      WHERE SAR_SAC_ID = @CustomerId AND SAR_SA_ID = @AuditId",
+      WHERE SAR_SAC_ID = @CustomerId AND SAR_SA_ID = @AuditNo",
                     new { dto.CustomerId, dto.AuditNo }, transaction);
 
                 // 6. Insert into Remarks History
@@ -1518,7 +1538,7 @@ namespace TracePca.Service.Communication_with_client
         SAR_Remarks, SAR_Date, SAR_RemarksType,
         SAR_AttchId, SAR_AtthachDocId, SAR_TimlinetoResOn, SAR_ReportType
     ) VALUES (
-        @RemarkId, @CustomerId, @AuditId, @DRLId,
+        @RemarkId, @CustomerId, @AuditNo, @RequestedListId,
         @Remark, @RequestedOn, @Type,
         @AttachId, @DocId, @TimelineToRespond, @ReportType
     )",
@@ -1526,7 +1546,7 @@ namespace TracePca.Service.Communication_with_client
                     {
                         RemarkId = remarkId,
                         CustomerId = dto.CustomerId,
-                        AuditId = dto.AuditNo,
+                        AuditNo = dto.AuditNo,
                         DRLId = drlId,
                         Remark = dto.Comments, // or dto.Remark if that's available
                         RequestedOn = dto.RequestedOn,
@@ -1534,7 +1554,9 @@ namespace TracePca.Service.Communication_with_client
                         AttachId = dto.AttachId,
                         DocId = docId,
                         TimelineToRespond = dto.TimelineToRespond,
-                        ReportType = dto.ReportType
+                        ReportType = dto.ReportType,
+                        RequestedListId = dto.RequestedListId
+
                     }, transaction);
 
 
