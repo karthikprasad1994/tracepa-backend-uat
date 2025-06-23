@@ -12,7 +12,7 @@
         public int RequestedTypeId { get; set; }
         public DateTime RequestedOn { get; set; }
         public DateTime TimelineToRespond { get; set; }
-        public string EmailIds { get; set; }
+        public List<string> EmailIds { get; set; }
         public string Comments { get; set; }
         public int CreatedBy { get; set; }
         public int UpdatedBy { get; set; }

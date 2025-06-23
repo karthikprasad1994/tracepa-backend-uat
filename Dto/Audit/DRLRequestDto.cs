@@ -15,7 +15,7 @@
         public int AuditNo { get; set; }
         public string RequestedOn { get; set; }
         public string TimelineToRespond { get; set; }
-        public string EmailIds { get; set; }
+        public List<string> EmailIds { get; set; }
         public string Comments { get; set; }
         public int CreatedBy { get; set; }
         public int UpdatedBy { get; set; }
