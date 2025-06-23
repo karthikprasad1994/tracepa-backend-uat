@@ -450,7 +450,7 @@ namespace TracePca.Service.Audit
         {
             if (dto == null) throw new ArgumentNullException(nameof(dto));
             const string query = @"UPDATE StandardAudit_ScheduleCheckPointList SET SAC_ConductedBy = @SAC_ConductedBy, SAC_LastUpdatedOn = GETDATE(), SAC_Annexure = @SAC_Annexure, SAC_Remarks = @SAC_Remarks,
-                    SAC_ReviewerRemarks = @SAC_ReviewerRemarks, SAC_AttachID = @SAC_AttachID WHERE SAC_ID = @SAC_ID AND SAC_SA_ID = @SAC_SA_ID AND SAC_CheckPointID = @SAC_CheckPointID AND SAC_CompID = @SAC_CompID;";
+                    SAC_TestResult = @SAC_TestResult, SAC_AttachID = @SAC_AttachID WHERE SAC_ID = @SAC_ID AND SAC_SA_ID = @SAC_SA_ID AND SAC_CheckPointID = @SAC_CheckPointID AND SAC_CompID = @SAC_CompID;";
             try
             {
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
