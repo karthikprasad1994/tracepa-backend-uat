@@ -1134,6 +1134,19 @@ namespace TracePca.Controllers
             });
         }
 
+        [HttpGet("get-max-attachment-id")]
+        public async Task<IActionResult> GetMaxAttachmentId([FromQuery] GetMaxAttachmentIdRequest request)
+        {
+            var maxId = await _AuditInterface.GetMaxAttachmentIdAsync(request);
+            return Ok(new
+            {
+                statusCode = 200,
+                message = "Max Attachment ID fetched successfully.",
+                data = maxId
+            });
+        }
+
+
 
 
 

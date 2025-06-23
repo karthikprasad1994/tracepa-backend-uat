@@ -1944,7 +1944,6 @@ VALUES (
                 SET 
                     ADRL_YearID = @YearId,
                     ADRL_EmailID = @EmailIds,
-                    ADRL_Comments = @Remarks,
                     ADRL_CrBy = @UserId,
                     ADRL_IPAddress = @IpAddress,
                     ADRL_CompID = @CompId,
@@ -1978,14 +1977,14 @@ VALUES (
                     ADRL_ID,
                     ADRL_YearID, ADRL_AuditNo, ADRL_CustID, 
                     ADRL_RequestedListID, ADRL_EmailID, ADRL_Comments,
-                    ADRL_CrBy, ADRL_IPAddress, ADRL_CompID, 
+                    ADRL_CrBy, ADRL_IPAddress, ADRL_CompID, ADRL_Status,
                     ADRL_ReportType, ADRL_RequestedOn, ADRL_UpdatedOn, ADRL_AttachID
                 ) 
                 VALUES (
                     @AdrlId,
                     @YearId, @AuditId, @CustomerId,
                     @RequestedId, @EmailIds, @Remarks,
-                    @UserId, @IpAddress, @CompId, 
+                    @UserId, @IpAddress, @CompId, @Status,
                     @ReportType, GETDATE(), GETDATE(), @AttachId
                 );";
 
@@ -2001,6 +2000,7 @@ VALUES (
                         UserId = dto.UserId,
                         IpAddress = dto.IpAddress,
                         CompId = dto.CompId,
+                        Status = dto.Status,
                         ReportType = dto.ReportType,
                         AttachId = dto.AtchId
                     }, transaction);
@@ -2229,10 +2229,11 @@ VALUES (
                     @"INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory
 
 (
-                SAR_ID, SAR_SAC_ID, SAR_SA_ID, SAR_DRLId,
+                SAR_ID, SAR_SAC_ID, SAR_SA_ID, SAR_DRLId, sar_Yearid,
+
                 SAR_Remarks, SAR_Date, SAR_RemarksType, SAR_AttchId, SAR_AtthachDocId, SAR_TimlinetoResOn, SAR_ReportType, SAR_MASid
             ) VALUES (
-                @RemarkId, @CustomerId, @AuditId, @RequestedId,
+                @RemarkId, @CustomerId, @AuditId, @RequestedId,  @YearId,
                 @Remark, @RequestedOn, @Type, @AtchId, @DocId, @RespondTime, @ReportType, @AdrlId
             )",
                     new
@@ -2247,6 +2248,7 @@ VALUES (
                         DocId = docId,
                         RequestedOn = dto.RequestedOn,
                         RespondTime = dto.RespondTime,
+                        YearId = dto.YearId,
 
                         ReportType = dto.ReportType,
                         AdrlId = adrlId
@@ -2329,6 +2331,9 @@ VALUES (
 
                 await connection.ExecuteAsync(updateRemarksSql, parameters, transaction);
 
+
+
+
                 // Step 3: Update Audit_DRLLog
                 string updateDrlLogSql = @"
         UPDATE Audit_DRLLog
@@ -2337,11 +2342,18 @@ VALUES (
             ADRL_Comments = @Remarks,
             ADRL_Status = @Status
         WHERE ADRL_ReportType IN @Reporttype
+         AND ADRL_YearID = @YearId
+           AND ADRL_CompID = @CompId
           AND ADRL_CustID = @CustomerId";
 
                 await connection.ExecuteAsync(updateDrlLogSql, parameters, transaction);
 
                 await transaction.CommitAsync();
+                var auditInfo = await GetAuditInfoByIdAsync(dto.CustomerId);
+                foreach (var email in dto.EmailIds)
+                {
+                    await SendAuditLifecycleEmailAsync(email, auditInfo.AuditNo, auditInfo.AuditName, dto.Remarks);
+                }
                 return (true, "DRL status updated successfully.");
             }
             catch (Exception)
@@ -2350,6 +2362,79 @@ VALUES (
                 return (false, "Failed to update DRL status.");
             }
         }
+
+
+        private async Task<(string AuditNo, string AuditName)> GetAuditInfoByIdAsync(int auditId)
+        {
+            const string query = @"
+SELECT TOP 1 SA_AuditNo,  SA_ScopeOfAudit 
+FROM StandardAudit_Schedule 
+WHERE SA_ID = @AuditId";
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            var result = await connection.QueryFirstOrDefaultAsync(query, new { AuditId = auditId });
+
+            if (result != null)
+            {
+                return (result.SA_AuditNo ?? "N/A", result.SA_ScopeOfAudit ?? "N/A");
+            }
+
+            return ("N/A", "N/A");
+
+
+        }
+
+        private async Task SendAuditLifecycleEmailAsync(string toEmail, string auditNo, string auditName, string remarks)
+        {
+            var subject = $"Intimation mail for Nearing completion of the Audit - {auditNo}";
+
+            var body = $@"
+<p><strong>Intimation mail</strong></p>
+
+<p><strong>Document Requested</strong></p>
+
+<p>Greetings from TRACe PA.</p>
+
+<p>This mail is an intimation for sharing the documents requested by the Auditor's office.</p>
+
+<p><strong>Audit No.</strong>: {auditNo} - {auditName}</p>
+
+<p><strong>Document Requested List</strong> :</p>
+
+<p><strong>Comments</strong> :</p>
+
+<p>{remarks}</p>
+
+<p>Please login to TRACe PA website using the link and credentials shared with you.</p>
+
+<p><a href='https://tracepacust-user.multimedia.interactivedns.com/'>Click Here</a></p>
+
+<p>Home page of the application will show you the list of documents requested by the auditor. Upload all the requested documents using links provided.</p>
+
+<br/>
+<p>Thanks,</p>
+<p>TRACe PA Team</p>
+";
+
+            using var message = new MailMessage();
+            message.From = new MailAddress("trace@mmcspl.com");
+            message.To.Add(new MailAddress(toEmail));
+            message.Subject = subject;
+            message.Body = body;
+            message.IsBodyHtml = true;
+
+            using var smtpClient = new System.Net.Mail.SmtpClient("mail.mmcspl.com")
+            {
+                Port = 587,
+                Credentials = new NetworkCredential("trace@mmcspl.com", "Trace@123"),
+                EnableSsl = false
+            };
+
+            await smtpClient.SendMailAsync(message);
+        }
+
 
 
 
@@ -3830,6 +3915,22 @@ WHERE CMM_CompID = @CompId
 
             return maxId;
         }
+
+        public async Task<int?> GetMaxAttachmentIdAsync(GetMaxAttachmentIdRequest request)
+        {
+            const string query = @"
+        SELECT MAX(ATCH_ID)
+        FROM Edt_Attachments
+        LEFT JOIN StandardAudit_Audit_DRLLog_RemarksHistory a ON a.SAR_AttchId = ATCH_ID
+        WHERE SAR_SAC_ID = @CustomerId
+          AND SAR_SA_ID = @AuditId
+          
+          AND ATCH_ReportType = @ReportTypeId";
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            return await connection.ExecuteScalarAsync<int?>(query, request);
+        }
+
 
         public async Task<IEnumerable<CustomerUserDto>> GetAllCustomerUsersAsync(int customerId)
         {
