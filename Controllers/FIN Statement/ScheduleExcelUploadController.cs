@@ -11,12 +11,12 @@ namespace TracePca.Controllers.FIN_Statement
     [ApiController]
     public class ScheduleExcelUploadController : ControllerBase
     {
-        private ScheduleExcelUploadInterface _ScheduleExcelUploadInterface;
+       // private ScheduleExcelUploadInterface _ScheduleExcelUploadInterface;
         private ScheduleExcelUploadInterface _ScheduleExcelUploadService;
 
         public ScheduleExcelUploadController(ScheduleExcelUploadInterface ExcelUploadInterface)
         {
-            _ScheduleExcelUploadInterface = ExcelUploadInterface;
+          //  _ScheduleExcelUploadInterface = ExcelUploadInterface;
             _ScheduleExcelUploadService = ExcelUploadInterface;
         }
         //DownloadUploadableExcelAndTemplate
