@@ -1,6 +1,6 @@
 ﻿namespace TracePca.Dto.FIN_Statement
 {
-    public class ExcelUploadDto
+    public class ScheduleExcelUploadDto
     {
         //DownloadExcelFileAndTemplate
         public class FileDownloadResult
@@ -20,16 +20,16 @@
         //GetFinancialYear
         public class FinancialYearDto
         {
-            public int YMS_YEARID { get; set; }
-            public string? YMS_ID { get; set; }
+            public int Year_Id { get; set; }
+            public string? Id { get; set; }
         }
 
         //GetDuration
         public class CustDurationDto
         {
-            public int Durationid { get; set; }
-            public string? DurationName { get; set; }
+            public int Cust_DurtnId { get; set; }
         }
+
 
         //GetBranchName
         public class CustBranchDto

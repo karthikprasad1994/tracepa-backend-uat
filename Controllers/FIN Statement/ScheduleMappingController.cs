@@ -76,7 +76,7 @@ namespace TracePca.Controllers.FIN_Statement
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No company types found.",
+                        message = "No Financial year types found.",
                         data = (object)null
                     });
                 }
@@ -84,7 +84,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Company types loaded successfully.",
+                    message = "Financial year loaded successfully.",
                     data = result
                 });
             }
@@ -148,7 +148,7 @@ namespace TracePca.Controllers.FIN_Statement
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No company types found.",
+                        message = "No Branch name found.",
                         data = (object)null
                     });
                 }
@@ -156,7 +156,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Company types loaded successfully.",
+                    message = "Branch name loaded successfully.",
                     data = result
                 });
             }
@@ -184,7 +184,7 @@ namespace TracePca.Controllers.FIN_Statement
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No company types found.",
+                        message = "No Heading types found.",
                         data = (object)null
                     });
                 }
@@ -192,7 +192,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Company types loaded successfully.",
+                    message = "Heading types loaded successfully.",
                     data = result
                 });
             }
@@ -220,7 +220,7 @@ namespace TracePca.Controllers.FIN_Statement
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No schedule items found.",
+                        message = "No Sub-Heading items found.",
                         data = new List<object>()
                     });
                 }
@@ -228,7 +228,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Schedule items retrieved successfully.",
+                    message = "Sub-Heading retrieved successfully.",
                     data = result.Select(item => new
                     {
                         id = item.ASI_ID,

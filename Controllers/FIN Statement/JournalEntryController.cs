@@ -34,7 +34,7 @@ namespace TracePca.Controllers.FIN_Statement
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No company types found.",
+                        message = "No Customer name found.",
                         data = (object)null
                     });
                 }
@@ -42,7 +42,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Company types loaded successfully.",
+                    message = "Customer name loaded successfully.",
                     data = result
                 });
             }
@@ -70,7 +70,7 @@ namespace TracePca.Controllers.FIN_Statement
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No company types found.",
+                        message = "No Financial year found.",
                         data = (object)null
                     });
                 }
@@ -78,7 +78,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Company types loaded successfully.",
+                    message = "Financial year loaded successfully.",
                     data = result
                 });
             }
@@ -142,7 +142,7 @@ namespace TracePca.Controllers.FIN_Statement
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No company types found.",
+                        message = "No Branch types found.",
                         data = (object)null
                     });
                 }
@@ -150,7 +150,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Company types loaded successfully.",
+                    message = "Branch types loaded successfully.",
                     data = result
                 });
             }

@@ -33,6 +33,12 @@ ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
+        options.JsonSerializerOptions.PropertyNamingPolicy = null;
+    });
+
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
@@ -61,7 +67,7 @@ builder.Services.AddScoped<ConductAuditInterface, ConductAuditService>();
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 builder.Services.AddScoped<JournalEntryInterface, JournalEntryService>();
-builder.Services.AddScoped<ExcelUploadInterface, ExcelUploadService>();
+builder.Services.AddScoped<ScheduleExcelUploadInterface, ScheduleExcelUploadService>();
 builder.Services.AddScoped<ScheduleReportInterface, ScheduleReportService>();
 builder.Services.AddScoped<ScheduleNoteInterface, ScheduleNoteService>();
 
