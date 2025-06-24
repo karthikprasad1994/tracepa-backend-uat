@@ -13,12 +13,14 @@
         public DateTime RequestedOn { get; set; }
         public DateTime TimelineToRespond { get; set; }
         public string EmailIds { get; set; }
-       // public List<string> EmailIds { get; set; }
+        // public List<string> EmailIds { get; set; }
         public string Comments { get; set; }
         public int CreatedBy { get; set; }
         public int UpdatedBy { get; set; }
         public string IPAddress { get; set; }
         public int CompanyId { get; set; }
         public int ReportType { get; set; }
+
+        
     }
 }
