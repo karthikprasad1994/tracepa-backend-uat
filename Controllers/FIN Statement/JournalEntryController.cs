@@ -94,39 +94,16 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //GetDuration
-        [HttpGet("GetDuration")]
-        public async Task<IActionResult> GetDuration([FromQuery] int compId, [FromQuery] int custId)
+        [HttpGet("GetDurationId")]
+        public async Task<IActionResult> GetCustomerDurationId([FromQuery] int compId, [FromQuery] int custId)
         {
-            try
+            var durationId = await _JournalEntryService.GetCustomerDurationIdAsync(compId, custId);
+            if (durationId == null)
             {
-                var data = await _JournalEntryService.GetDurationAsync(compId, custId);
-
-                if (data == null || !data.Any())
-                {
-                    return NotFound(new
-                    {
-                        status = 404,
-                        message = "No duration found for the given customer and company.",
-                        data = (object)null
-                    });
-                }
-
-                return Ok(new
-                {
-                    status = 200,
-                    message = "Duration loaded successfully.",
-                    data = data
-                });
+                return NotFound("Duration ID not found.");
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    status = 500,
-                    message = "Internal server error.",
-                    error = ex.Message
-                });
-            }
+
+            return Ok(new { Cust_DurtnId = durationId });
         }
 
         //GetBranchName

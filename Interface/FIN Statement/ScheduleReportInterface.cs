@@ -31,6 +31,15 @@ namespace TracePca.Interface.FIN_Statement
         Task<string> GetDateFormatSelectionAsync(int companyId, string configKey);
 
         //LoadButton
-        Task<IEnumerable<ReportDto>> GenerateReportAsync(int reportType, int scheduleTypeId, int accountId, int customerId, int yearId);
+        Task<IEnumerable<ReportDto>> GenerateReportAsync(
+        int reportType,
+        int scheduleTypeId,
+        int accountId,
+        int customerId,
+        int yearId,
+        string? branchIds = null,
+        string? subHeadingIds = null,
+        string? itemIds = null);
+        byte[] ExportToExcel(IEnumerable<ReportDto> data);
     }
 }

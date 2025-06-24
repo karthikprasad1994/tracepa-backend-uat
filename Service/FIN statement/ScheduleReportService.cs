@@ -1,5 +1,6 @@
 ﻿using System.Data;
 using System.Text;
+using ClosedXML.Excel;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
@@ -220,11 +221,19 @@ namespace TracePca.Service.FIN_statement
         }
 
         //LoadButton
-        public async Task<IEnumerable<ReportDto>> GenerateReportAsync(int reportType, int scheduleTypeId, int accountId, int customerId, int yearId)
+        public async Task<IEnumerable<ReportDto>> GenerateReportAsync(
+    int reportType,
+    int scheduleTypeId,
+    int accountId,
+    int customerId,
+    int yearId,
+    string? branchIds = null,
+    string? subHeadingIds = null,
+    string? itemIds = null)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            var sql = GetQueryByReportType(reportType, scheduleTypeId); 
+            var sql = GetQueryByReportType(reportType, scheduleTypeId, branchIds, subHeadingIds, itemIds);
 
             var parameters = new
             {
@@ -242,17 +251,61 @@ namespace TracePca.Service.FIN_statement
             return result;
         }
 
-        private string GetQueryByReportType(int reportType, int scheduleTypeId)
+        public byte[] ExportToExcel(IEnumerable<ReportDto> data)
         {
-            if (reportType == 1 && scheduleTypeId == 3) return SummaryPLQuery();
-            if (reportType == 1 && scheduleTypeId == 4) return SummaryBalanceSheetQuery();
-            if (reportType == 2 && scheduleTypeId == 3) return DetailedPLQuery();
-            if (reportType == 2 && scheduleTypeId == 4) return DetailedBalanceSheetQuery();
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Report");
+            var currentRow = 1;
 
-            throw new InvalidOperationException("Invalid report or schedule type.");
+            worksheet.Cell(currentRow, 1).Value = "SrNo";
+            worksheet.Cell(currentRow, 2).Value = "HeadingName";
+            worksheet.Cell(currentRow, 3).Value = "HeaderSLNo";
+            worksheet.Cell(currentRow, 4).Value = "SubHeaderSLNo";
+            worksheet.Cell(currentRow, 5).Value = "Notes";
+            worksheet.Cell(currentRow, 6).Value = "PrevYearTotal";
+
+            foreach (var row in data)
+            {
+                currentRow++;
+                worksheet.Cell(currentRow, 1).Value = row.SrNo;
+                worksheet.Cell(currentRow, 2).Value = row.HeadingName;
+                worksheet.Cell(currentRow, 3).Value = row.HeaderSLNo;
+                worksheet.Cell(currentRow, 4).Value = row.SubHeaderSLNo;
+                worksheet.Cell(currentRow, 5).Value = row.Notes;
+                worksheet.Cell(currentRow, 6).Value = row.PrevYearTotal;
+            }
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return stream.ToArray();
         }
 
-        private string SummaryPLQuery() => @"
+        private string GetQueryByReportType(int reportType, int scheduleTypeId, string? branches, string? subHeadings, string? items)
+        {
+            return (reportType, scheduleTypeId) switch
+            {
+                (1, 3) => SummaryPLQuery(branches, subHeadings, items),
+                (1, 4) => SummaryBalanceSheetQuery(branches, subHeadings, items),
+                (2, 3) => DetailedPLQuery(branches, subHeadings, items),
+                (2, 4) => DetailedBalanceSheetQuery(branches, subHeadings, items),
+                _ => throw new InvalidOperationException("Invalid report or schedule type.")
+            };
+        }
+
+        private string BuildOptionalFilters(string? branches, string? subHeadings, string? items)
+        {
+            var filters = new List<string>();
+            if (!string.IsNullOrWhiteSpace(branches))
+                filters.Add($"bud.Atbud_Branchnameid IN ({branches})");
+            if (!string.IsNullOrWhiteSpace(subHeadings))
+                filters.Add($"bud.ATBUD_Subheading IN ({subHeadings})");
+            if (!string.IsNullOrWhiteSpace(items))
+                filters.Add($"bud.ATBUD_itemid IN ({items})");
+
+            return filters.Count > 0 ? " AND " + string.Join(" AND ", filters) : string.Empty;
+        }
+
+        private string SummaryPLQuery(string? branches, string? subHeadings, string? items) => $@"
 SELECT DISTINCT ATBUD_Headingid,
        ASH_Name AS HeadingName,
        FORMAT(SUM(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 'N2') AS HeaderSLNo,
@@ -275,9 +328,10 @@ WHERE bud.ATBUD_Schedule_type = @ScheduleTypeId
       SELECT 1 FROM ACC_ScheduleTemplates s
       WHERE s.AST_HeadingID = bud.ATBUD_Headingid AND s.AST_AccHeadId IN (1, 2)
   )
+{BuildOptionalFilters(branches, subHeadings, items)}
 GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes";
 
-        private string SummaryBalanceSheetQuery() => @"
+        private string SummaryBalanceSheetQuery(string? branches, string? subHeadings, string? items) => @"
 SELECT AST_HeadingID AS SrNo,
        ASH_Name AS HeadingName,
        NULL AS HeaderSLNo,
@@ -292,7 +346,7 @@ WHERE AST_Schedule_type = @ScheduleTypeId
 GROUP BY AST_HeadingID, ASH_Name
 ORDER BY AST_HeadingID";
 
-        private string DetailedPLQuery() => @"
+        private string DetailedPLQuery(string? branches, string? subHeadings, string? items) => $@"
 SELECT DISTINCT ATBUD_Headingid,
        ASH_Name AS HeadingName,
        FORMAT(SUM(d.ATBU_Closing_TotalCredit_Amount), 'N2') AS HeaderSLNo,
@@ -310,9 +364,10 @@ WHERE bud.ATBUD_Schedule_type = @ScheduleTypeId
       SELECT 1 FROM ACC_ScheduleTemplates s
       WHERE s.AST_HeadingID = bud.ATBUD_Headingid AND s.AST_AccHeadId = 1
   )
+{BuildOptionalFilters(branches, subHeadings, items)}
 GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes";
 
-        private string DetailedBalanceSheetQuery() => @"
+        private string DetailedBalanceSheetQuery(string? branches, string? subHeadings, string? items) => $@"
 SELECT DISTINCT ATBUD_Headingid,
        ASH_Name AS HeadingName,
        FORMAT(SUM(d.ATBU_Closing_TotalDebit_Amount), 'N2') AS HeaderSLNo,
@@ -330,6 +385,7 @@ WHERE bud.ATBUD_Schedule_type = @ScheduleTypeId
       SELECT 1 FROM ACC_ScheduleTemplates s
       WHERE s.AST_HeadingID = bud.ATBUD_Headingid AND s.AST_AccHeadId = 2
   )
+{BuildOptionalFilters(branches, subHeadings, items)}
 GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes";
     }
 }

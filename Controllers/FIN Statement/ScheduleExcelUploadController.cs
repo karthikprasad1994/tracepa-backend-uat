@@ -107,7 +107,7 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //GetDuration
-        [HttpGet("duration-id")]
+        [HttpGet("GetDurationId")]
         public async Task<IActionResult> GetCustomerDurationId([FromQuery] int compId, [FromQuery] int custId)
         {
             var durationId = await _ScheduleExcelUploadService.GetCustomerDurationIdAsync(compId, custId);

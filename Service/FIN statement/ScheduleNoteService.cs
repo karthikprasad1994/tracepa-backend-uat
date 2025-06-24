@@ -42,8 +42,8 @@ namespace TracePca.Service.FIN_statement
 
             var query = @"
         SELECT 
-            YMS_YEARID,
-            YMS_ID 
+            YMS_YEARID as YearId,
+            YMS_ID as Id
         FROM YEAR_MASTER 
         WHERE YMS_FROMDATE < DATEADD(year, +1, GETDATE()) 
           AND YMS_CompId = @CompID 

@@ -12,8 +12,8 @@
         //GetFinancialYear
         public class FinancialYearDto
         {
-            public int YMS_YEARID { get; set; }
-            public string? YMS_ID { get; set; }
+            public int Year_Id { get; set; }
+            public string? Id { get; set; }
         }
 
         //GetSubHeadingname(Notes For SubHeading)

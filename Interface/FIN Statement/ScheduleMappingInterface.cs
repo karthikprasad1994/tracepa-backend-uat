@@ -1,7 +1,6 @@
 ﻿using TracePca.Dto.Audit;
 using TracePca.Dto.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
-using static TracePca.Dto.FIN_Statement.ScheduleMappingDto.TrailBalanceUploadDto;
 namespace TracePca.Interface.FIN_Statement
 {
     public interface ScheduleMappingInterface
@@ -30,11 +29,11 @@ namespace TracePca.Interface.FIN_Statement
         //GetScheduleSub-Item
         Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(int compId, int custId, int scheduleTypeId);
 
-        //SaveOrUpdateTrialBalanceUpload
-        Task<int[]> SaveTrailBalanceUploadAsync(int iCompId, TrailBalanceUploadDto dto);
+        ////SaveOrUpdateTrialBalanceUpload
+        //Task<int[]> SaveTrailBalanceUploadAsync(int iCompId, TrailBalanceUploadDto dto);
 
-        //SaveOrUpdateTrialBalanceUploadDetails
-        Task<int[]> SaveTrailBalanceUploadDetailsAsync(int iCompId, TrailBalanceUploadDetailsDto dto);
+        ////SaveOrUpdateTrialBalanceUploadDetails
+        //Task<int[]> SaveTrailBalanceUploadDetailsAsync(int iCompId, TrailBalanceUploadDetailsDto dto);
 
         //GetTotalAmount
         Task<IEnumerable<CustCOASummaryDto>> GetCustCOAMasterDetailsAsync(int compId, int custId, int yearId, int branchId, int durationId);
@@ -57,5 +56,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //DownloadUploadableExcelAndTemplate
         FileDownloadResult GetExcelTemplate();
+
+        //SaveTrailBalanceDetails
+        Task<int[]> SaveTrailBalanceDetailsAsync(int iCompId, TrailBalanceDetailsDto HeaderDto);
     }
 }

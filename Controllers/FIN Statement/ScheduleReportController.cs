@@ -308,34 +308,28 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //LoadButton
-        [HttpGet("Load")]
+        [HttpGet("LoadReport")]
         public async Task<IActionResult> LoadReport(
-    [FromQuery] int reportType,
-    [FromQuery] int scheduleTypeId,
-    [FromQuery] int accountId,
-    [FromQuery] int customerId,
-    [FromQuery] int yearId)
+        [FromQuery] int reportType,
+        [FromQuery] int scheduleTypeId,
+        [FromQuery] int accountId,
+        [FromQuery] int customerId,
+        [FromQuery] int yearId,
+        [FromQuery] string? branchIds,
+        [FromQuery] string? subHeadingIds,
+        [FromQuery] string? itemIds)
         {
-            if (reportType <= 0 || scheduleTypeId <= 0 || accountId <= 0 || customerId <= 0 || yearId <= 0)
-            {
-                return BadRequest(new
-                {
-                    Status = 400,
-                    Message = "Invalid parameters: all values are required and must be greater than zero.",
-                    Data = (object)null
-                });
-            }
-
             try
             {
-                var result = await _ScheduleReportService.GenerateReportAsync(
-                    reportType, scheduleTypeId, accountId, customerId, yearId);
+                var data = await _ScheduleReportService.GenerateReportAsync(
+                    reportType, scheduleTypeId, accountId, customerId, yearId,
+                    branchIds, subHeadingIds, itemIds);
 
                 return Ok(new
                 {
                     Status = 200,
-                    Message = "Report loaded successfully.",
-                    Data = result
+                    Message = "Report generated successfully.",
+                    Data = data
                 });
             }
             catch (Exception ex)
@@ -343,9 +337,44 @@ namespace TracePca.Controllers.FIN_Statement
                 return StatusCode(500, new
                 {
                     Status = 500,
-                    Message = "An error occurred while loading the report.",
+                    Message = "An error occurred while generating the report.",
                     Error = ex.Message,
-                    InnerException = ex.InnerException?.Message
+                    Inner = ex.InnerException?.Message
+                });
+            }
+        }
+
+        [HttpGet("ExportReport")]
+        public async Task<IActionResult> ExportReportToExcel(
+            [FromQuery] int reportType,
+            [FromQuery] int scheduleTypeId,
+            [FromQuery] int accountId,
+            [FromQuery] int customerId,
+            [FromQuery] int yearId,
+            [FromQuery] string? branchIds,
+            [FromQuery] string? subHeadingIds,
+            [FromQuery] string? itemIds)
+        {
+            try
+            {
+                var data = await _ScheduleReportService.GenerateReportAsync(
+                    reportType, scheduleTypeId, accountId, customerId, yearId,
+                    branchIds, subHeadingIds, itemIds);
+
+                var excelFile = _ScheduleReportService.ExportToExcel(data);
+
+                return File(excelFile,
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            "Report.xlsx");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Status = 500,
+                    Message = "An error occurred while exporting the report.",
+                    Error = ex.Message,
+                    Inner = ex.InnerException?.Message
                 });
             }
         }

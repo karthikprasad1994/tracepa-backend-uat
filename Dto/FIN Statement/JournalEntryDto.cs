@@ -13,15 +13,14 @@
         //GetFinancialYear
         public class FinancialYearDto
         {
-            public int YMS_YEARID { get; set; }
-            public string? YMS_ID { get; set; }
+            public int YearId { get; set; }
+            public string? Id { get; set; }
         }
 
         //GetDuration
         public class CustDurationDto
         {
-            public int Durationid { get; set; }
-            public string? DurationName { get; set; }
+            public int Cust_DurtnId { get; set; }
         }
 
         //GetBranchName

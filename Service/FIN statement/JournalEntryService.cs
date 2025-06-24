@@ -48,8 +48,8 @@ namespace TracePca.Service.FIN_statement
 
             var query = @"
         SELECT 
-            YMS_YEARID,
-            YMS_ID 
+            YMS_YEARID AS YearId,
+            YMS_ID AS Id
         FROM YEAR_MASTER 
         WHERE YMS_FROMDATE < DATEADD(year, +1, GETDATE()) 
           AND YMS_CompId = @CompID 
@@ -61,19 +61,15 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetDuration
-        public async Task<IEnumerable<CustDurationDto>> GetDurationAsync(int compId, int custId)
+        public async Task<int?> GetCustomerDurationIdAsync(int compId, int custId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            var query = "SELECT Cust_DurtnId FROM SAD_CUSTOMER_MASTER WHERE CUST_CompID = @CompId AND CUST_ID = @CustId";
 
-            var query = @"
-        SELECT 
-            ISNULL(Cust_DurtnId, 0) AS Cust_DurtnId  
-        FROM SAD_CUSTOMER_MASTER 
-        WHERE Cust_CompID = @compId AND cust_id = @custId";
+            var parameters = new { CompId = compId, CustId = custId };
+            var result = await connection.QueryFirstOrDefaultAsync<int?>(query, parameters);
 
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<CustDurationDto>(query, new { compId, custId });
+            return result;
         }
 
         //GetBranchName
