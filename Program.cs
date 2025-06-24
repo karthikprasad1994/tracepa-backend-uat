@@ -33,12 +33,6 @@ ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.PropertyNamingPolicy = null;
-    });
-
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
@@ -48,9 +42,9 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddControllers()
 .AddJsonOptions(options =>
- {
-     options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
- });
+{
+    options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+});
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<LoginInterface, Login>();
@@ -62,14 +56,10 @@ builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAd
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
 builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
-builder.Services.AddScoped<ConductAuditInterface, ConductAuditService>();
 
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 builder.Services.AddScoped<JournalEntryInterface, JournalEntryService>();
-builder.Services.AddScoped<ScheduleExcelUploadInterface, ScheduleExcelUploadService>();
-builder.Services.AddScoped<ScheduleReportInterface, ScheduleReportService>();
-builder.Services.AddScoped<ScheduleNoteInterface, ScheduleNoteService>();
 
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
 builder.Services.AddScoped<SubCabinetsInterface, SubCabinetsService>();
@@ -93,7 +83,7 @@ builder.Services.AddCors(options =>
              "http://localhost:3000", // React app for local development
 
 
-           
+
              "https://tracelites.multimedia.interactivedns.com"
             )
               .AllowAnyMethod()
@@ -149,7 +139,5 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
-
-app.UseStaticFiles();
 
 app.Run();
