@@ -2431,10 +2431,10 @@ VALUES (
 
                 await transaction.CommitAsync();
                 var auditInfo = await GetAuditInfoByIdAsync(dto.CustomerId);
-                foreach (var email in dto.EmailIds)
-                {
-                    await SendAuditLifecycleEmailAsync(email, auditInfo.AuditNo, auditInfo.AuditName, dto.Remarks);
-                }
+                //foreach (var email in dto.EmailIds)
+                //{
+                //    await SendAuditLifecycleEmailAsync(email, auditInfo.AuditNo, auditInfo.AuditName, dto.Remarks);
+                //}
                 return (true, "DRL status updated successfully.");
             }
             catch (Exception)
