@@ -7,7 +7,7 @@
         public string CompanyName { get; set; }
         public string Address { get; set; }
         public int AttachId { get; set; }
-        public string Status { get; set; }
+        public string? Status { get; set; }
 
         public int ExportType { get; set; } // 1 = Beginning, 2 = Nearing completion
         public int FinancialYearId { get; set; }
@@ -15,7 +15,8 @@
         public int AuditNo { get; set; }
         public string RequestedOn { get; set; }
         public string TimelineToRespond { get; set; }
-        public List<string> EmailIds { get; set; }
+        public string EmailIds { get; set; }
+      //  public List<string> EmailIds { get; set; }
         public string Comments { get; set; }
         public int CreatedBy { get; set; }
         public int UpdatedBy { get; set; }

@@ -1504,7 +1504,7 @@ namespace TracePca.Service.Communication_with_client
                 @CreatedBy, @CreatedBy, 1,
                 @Flag, @Size, 0, 0,
                 GETDATE(), 'X', @CompanyId,
-                @Status, @ReportType, @AuditNo, @RequestedListId
+                'AS', @ReportType, @AuditNo, @RequestedListId
             );";
 
                 await connection.ExecuteAsync(insertAttach, new
@@ -1518,7 +1518,7 @@ namespace TracePca.Service.Communication_with_client
                     Size = fileSize,
                     CompanyId = dto.CompanyId,
                     ReportType = dto.ReportType,
-                    Status = dto.Status,
+                  //  Status = dto.Status,
                     AuditNo = dto.AuditNo,
                     RequestedListId = dto.RequestedListId
 
@@ -1561,7 +1561,7 @@ namespace TracePca.Service.Communication_with_client
 
 
                 transaction.Commit();
-                await SendBeginningOfAuditEmailAsync(dto);
+              //  await SendBeginningOfAuditEmailAsync(dto);
 
                 return drlId;
             }
@@ -1572,61 +1572,61 @@ namespace TracePca.Service.Communication_with_client
             }
         }
 
-        private async Task SendBeginningOfAuditEmailAsync(DRLLogDto dto)
-        {
-            if (dto.EmailIds == null || !dto.EmailIds.Any())
-                return;
+//        private async Task SendBeginningOfAuditEmailAsync(DRLLogDto dto)
+//        {
+//            if (dto.EmailIds == null || !dto.EmailIds.Any())
+//                return;
 
-            var smtpClient = new System.Net.Mail.SmtpClient("smtp.gmail.com") // Replace with actual SMTP host
-            {
-                Port = 587,
-                Credentials = new NetworkCredential("trace@mmcspl.com", "Trmay@24"),
+//            var smtpClient = new System.Net.Mail.SmtpClient("your-smtp-host") // Replace with actual SMTP host
+//            {
+//                Port = 587,
+//                Credentials = new NetworkCredential("trace@mmcspl.com", "your-password"),
                 
                 
-                // Replace with actual credentials
-                EnableSsl = true
-            };
+//                // Replace with actual credentials
+//                EnableSsl = true
+//            };
 
-            var mail = new MailMessage
-            {
-                From = new MailAddress("trace@mmcspl.com"),
-                Subject = $"Intimation mail for Beginning of the Audit - #{dto.AuditNo}",
-                IsBodyHtml = true
-            };
+//            var mail = new MailMessage
+//            {
+//                From = new MailAddress("trace@mmcspl.com"),
+//                Subject = $"Intimation mail for Beginning of the Audit - #{dto.AuditNo}",
+//                IsBodyHtml = true
+//            };
 
-            // First email is added as "To"
-            mail.To.Add(dto.EmailIds[0]);
+//            // First email is added as "To"
+//            mail.To.Add(dto.EmailIds[0]);
 
-            // Remaining emails are added as "CC"
-            for (int i = 1; i < dto.EmailIds.Count; i++)
-            {
-                mail.CC.Add(dto.EmailIds[i]);
-            }
+//            // Remaining emails are added as "CC"
+//            for (int i = 1; i < dto.EmailIds.Count; i++)
+//            {
+//                mail.CC.Add(dto.EmailIds[i]);
+//            }
 
-            // Optional: if you still need a comma-separated string version somewhere
-            var emailIdsString = string.Join(",", dto.EmailIds);
+//            // Optional: if you still need a comma-separated string version somewhere
+//            var emailIdsString = string.Join(",", dto.EmailIds);
 
-            string body = $@"
-<p><strong>Intimation mail</strong></p>
-<p>Document Requested</p>
-<p>Greetings from TRACe PA.</p>
-<p>This mail is an intimation for sharing the documents requested by the Auditor's office.</p>
-<p><strong>Beginning of the Audit</strong></p>
-<p><strong>Audit No.:</strong> {dto.AuditNo} - Statutory Audit</p>
-<p><strong>Report Type:</strong> {dto.ReportType}</p>
-<p><strong>Document Requested List:</strong> Beginning of the Audit</p>
-<p><strong>Comments:</strong> {dto.Comments}</p>
-<br />
-<p>Please login to TRACe PA website using the link and credentials shared with you.</p>
-<p><a href='https://tracepacust-user.multimedia.interactivedns.com/'>TRACe PA Portal</a></p>
-<br />
-<p>Thanks,</p>
-<p>TRACe PA Team</p>";
+//            string body = $@"
+//<p><strong>Intimation mail</strong></p>
+//<p>Document Requested</p>
+//<p>Greetings from TRACe PA.</p>
+//<p>This mail is an intimation for sharing the documents requested by the Auditor's office.</p>
+//<p><strong>Beginning of the Audit</strong></p>
+//<p><strong>Audit No.:</strong> {dto.AuditNo} - Statutory Audit</p>
+//<p><strong>Report Type:</strong> {dto.ReportType}</p>
+//<p><strong>Document Requested List:</strong> Beginning of the Audit</p>
+//<p><strong>Comments:</strong> {dto.Comments}</p>
+//<br />
+//<p>Please login to TRACe PA website using the link and credentials shared with you.</p>
+//<p><a href='https://tracepacust-user.multimedia.interactivedns.com/'>TRACe PA Portal</a></p>
+//<br />
+//<p>Thanks,</p>
+//<p>TRACe PA Team</p>";
 
-            mail.Body = body;
+//            mail.Body = body;
 
-            await smtpClient.SendMailAsync(mail);
-        }
+//            await smtpClient.SendMailAsync(mail);
+//        }
 
 
 
