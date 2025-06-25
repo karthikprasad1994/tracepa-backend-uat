@@ -9,7 +9,7 @@ namespace TracePca.Dto.Audit
         public int? SrNo { get; set; }                     // SA_ID or row number
         public int? SA_YearID { get; set; }
         public string? FY { get; set; }                    // Fixed from int? to string? for values like '2024-2025'
-        public string? AuditNo { get; set; }   
+        public string? AuditNo { get; set; }
         public int SA_AuditTypeID { get; set; }
         public int AuditID { get; set; }
         public int? CustID { get; set; }                   // Cust_Id
@@ -25,9 +25,9 @@ namespace TracePca.Dto.Audit
         public string? SA_ScopeOfAudit { get; set; }
         public string? AuditDate { get; set; }
 
-        //public string? SA_RptRvDate { get; set; }
+        public string? SA_RptRvDate { get; set; }
 
-        //public string? SA_RptFilDate { get; set; }
+        public string? SA_RptFilDate { get; set; }
 
         public string? SA_MRSDate { get; set; }
         public string? SA_StartDate { get; set; }
@@ -391,5 +391,62 @@ namespace TracePca.Dto.Audit
         public string CIKRegistrationNo { get; set; }
         public string Address { get; set; }
     }
+    public class AuditStatusDto
+    {
+        public string SA_Status { get; set; }
+    }
+
+    public class ScheduleQuarterCheckDto
+    {
+        public int CompId { get; set; }               // Company ID
+        public string AuditNo { get; set; }         // Audit number
+        public int QuarterID { get; set; }           // Quarter ID
+    }
+    public class EmployeeDto
+    {
+        public int UserID { get; set; }
+        public int UsrNode { get; set; }
+        public string UsrCode { get; set; }
+        public string UsrFullName { get; set; }
+        public string UsrLoginName { get; set; }
+        public string UsrPassword { get; set; }
+        public string UsrEmail { get; set; }
+        public int UsrSentMail { get; set; }
+        public int UsrSuggetions { get; set; }
+        public int UsrPartner { get; set; }
+        public int UsrLevelGrp { get; set; }
+        public string UsrDutyStatus { get; set; }
+        public string UsrPhoneNo { get; set; }
+        public string UsrMobileNo { get; set; }
+        public string UsrOfficePhone { get; set; }
+        public string UsrOffPhExtn { get; set; }
+        public int UsrDesignation { get; set; }
+        public int UsrCompanyID { get; set; }
+        public int UsrOrgID { get; set; }
+        public int UsrGrpOrUserLvlPerm { get; set; }
+        public int UsrRole { get; set; }
+        public int UsrMasterModule { get; set; }
+        public int UsrAuditModule { get; set; }
+        public int UsrRiskModule { get; set; }
+        public int UsrComplianceModule { get; set; }
+        public int UsrBCMmodule { get; set; }
+        public int UsrDigitalOfficeModule { get; set; }
+        public int UsrMasterRole { get; set; }
+        public int UsrAuditRole { get; set; }
+        public int UsrRiskRole { get; set; }
+        public int UsrComplianceRole { get; set; }
+        public int UsrBCMRole { get; set; }
+        public int UsrDigitalOfficeRole { get; set; }
+        public int UsrCreatedBy { get; set; }
+        public string UsrFlag { get; set; }
+        public string UsrStatus { get; set; }
+        public string UsrIPAddress { get; set; }
+        public int UsrCompID { get; set; }
+        public string UsrType { get; set; }
+        public int IsSuperuser { get; set; }
+        public int DeptID { get; set; }
+    }
+
+
 
 }

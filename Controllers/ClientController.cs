@@ -60,12 +60,12 @@ namespace TracePca.Controllers
 
         [HttpGet("GetLoeTemplateSignedOn")]
         public async Task<IActionResult> GetLoeTemplateSignedOn(
-            string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId, string dateFormat)
+            string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId)
         {
             try
             {
                 var approvedOn = await _AuditInterface.GetLoeTemplateSignedOnAsync(
-                    connectionStringName, companyId, auditTypeId, customerId, yearId, dateFormat);
+                    connectionStringName, companyId, auditTypeId, customerId, yearId);
 
                 return Ok(new
                 {

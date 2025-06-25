@@ -97,24 +97,23 @@ namespace TracePca.Service.Communication_with_client
 
 
         public async Task<string> GetLoeTemplateSignedOnAsync(
-     string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId, string dateFormat)
+      string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId)
         {
             const string query = @"
-        SELECT ISNULL(FORMAT(LOET_ApprovedOn, @DateFormat), '') AS LOET_ApprovedOn
-        FROM LOE_Template
-        WHERE LOET_CustomerId = @CustomerId
-          AND LOET_FunctionId = @AuditTypeId
-          AND LOET_CompID = @CompanyId
-          AND LOET_LOEID IN (
-              SELECT LOE_Id
-              FROM SAD_CUST_LOE
-              WHERE LOE_YearId = @YearId
-                AND LOE_CustomerId = @CustomerId
-          )";
+    SELECT ISNULL(FORMAT(LOET_ApprovedOn, 'dd-MM-yyyy'), '') AS LOET_ApprovedOn
+    FROM LOE_Template
+    WHERE LOET_CustomerId = @CustomerId
+      AND LOET_FunctionId = @AuditTypeId
+      AND LOET_CompID = @CompanyId
+      AND LOET_LOEID IN (
+          SELECT LOE_Id
+          FROM SAD_CUST_LOE
+          WHERE LOE_YearId = @YearId
+            AND LOE_CustomerId = @CustomerId
+      )";
 
             var parameters = new
             {
-                DateFormat = dateFormat,
                 CustomerId = customerId,
                 AuditTypeId = auditTypeId,
                 CompanyId = companyId,
@@ -125,6 +124,7 @@ namespace TracePca.Service.Communication_with_client
             var approvedOn = await connection.ExecuteScalarAsync<string>(query, parameters);
             return approvedOn ?? string.Empty;
         }
+
 
         public async Task<string> GetCustomerFinancialYearAsync(string connectionKey, int companyId, int customerId)
         {

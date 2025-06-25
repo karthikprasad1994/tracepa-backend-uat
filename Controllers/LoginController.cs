@@ -27,6 +27,7 @@ namespace TracePca.Controllers
             var result = await _LoginInterface.GetAllUsersAsync();
             return Ok(result);
         }
+       
         [HttpPost("sendOtp")]
         public async Task<IActionResult> SendOtp([FromBody] OtpReqDto request)
         {

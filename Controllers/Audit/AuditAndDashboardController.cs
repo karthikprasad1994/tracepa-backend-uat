@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using System.Data;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
 
@@ -68,7 +69,7 @@ namespace TracePca.Controllers.Audit
             return Ok(response);
         }
 
-         [HttpPost("audit-types")]
+        [HttpPost("audit-types")]
         public async Task<IActionResult> LoadAuditTypeCompliance([FromBody] AuditTypeRequestDto req)
         {
             var result = await _auditService.LoadAuditTypeComplianceDetailsAsync(req);
@@ -112,7 +113,7 @@ namespace TracePca.Controllers.Audit
         }
         [HttpGet("GetAssignedCheckpoints")]
         public async Task<IActionResult> GetAssignedCheckpoints(
-    int compId, int auditId,int AuditTypeId, int custId,string sType, string heading , string? sCheckPoints)
+    int compId, int auditId, int AuditTypeId, int custId, string sType, string heading, string? sCheckPoints)
         {
             try
             {
@@ -249,51 +250,51 @@ namespace TracePca.Controllers.Audit
             }
         }
         [HttpPost("SaveOrUpdateCustomerMaster")]
-       public async Task<IActionResult> SaveCustomerMasterAsync([FromQuery] int iCompId, [FromBody] AuditCustomerDetailsDto dto)
-       {
-           if (dto == null)
-           {
-               return BadRequest(new
-               {
-                   Status = 400,
-                   Message = "Invalid input: DTO is null",
-                   Data = (object)null
-               });
-           }
+        public async Task<IActionResult> SaveCustomerMasterAsync([FromQuery] int iCompId, [FromBody] AuditCustomerDetailsDto dto)
+        {
+            if (dto == null)
+            {
+                return BadRequest(new
+                {
+                    Status = 400,
+                    Message = "Invalid input: DTO is null",
+                    Data = (object)null
+                });
+            }
 
-           try
-           {
-               bool isUpdate = dto.CUST_ID > 0;
+            try
+            {
+                bool isUpdate = dto.CUST_ID > 0;
 
-               var result = await _CustomerSaveService.SaveCustomerMasterAsync(iCompId, dto);
+                var result = await _CustomerSaveService.SaveCustomerMasterAsync(iCompId, dto);
 
-               string successMessage = isUpdate
-                   ? "Customer master successfully updated."
-                   : "Customer master successfully created.";
+                string successMessage = isUpdate
+                    ? "Customer master successfully updated."
+                    : "Customer master successfully created.";
 
-               return Ok(new
-               {
-                   Status = 200,
-                   Message = successMessage,
-                   Data = new
-                   {
-                       UpdateOrSave = result[0],
-                       Oper = result[1],
-                       IsUpdate = isUpdate
-                   }
-               });
-           }
-           catch (Exception ex)
-           {
-               return StatusCode(500, new
-               {
-                   Status = 500,
-                   Message = "An error occurred while processing your request.",
-                   Error = ex.Message,
-                   InnerException = ex.InnerException?.Message
-               });
-           }
-       }
+                return Ok(new
+                {
+                    Status = 200,
+                    Message = successMessage,
+                    Data = new
+                    {
+                        UpdateOrSave = result[0],
+                        Oper = result[1],
+                        IsUpdate = isUpdate
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Status = 500,
+                    Message = "An error occurred while processing your request.",
+                    Error = ex.Message,
+                    InnerException = ex.InnerException?.Message
+                });
+            }
+        }
         [HttpPost("SaveOrUpdateFullAuditSchedule")]
         public async Task<IActionResult> SaveOrUpdateFullAuditSchedule([FromBody] StandardAuditScheduleDTO dto)
         {
@@ -337,5 +338,174 @@ namespace TracePca.Controllers.Audit
             var result = await _service.LoadGeneralMastersAsync(iACID, sType);
             return Ok(result);
         }
+
+        [HttpGet("GetAuditStatus")]
+        public async Task<IActionResult> GetAuditStatus(int saId, int companyId)
+        {
+            var status = await _auditService.GetAuditStatusAsync(saId, companyId);
+            if (status == null)
+                return NotFound("Audit status not found.");
+
+            return Ok(status);
+        }
+        [HttpGet("LOEIsApproved")]
+        public async Task<IActionResult> IsCustomerLoeApproved([FromQuery] int customerId, [FromQuery] int yearId)
+        {
+            var isApproved = await _auditService.IsCustomerLoeApprovedAsync(customerId, yearId);
+            return Ok(isApproved);
+        }
+
+        [HttpPost("CheckScheduleQuarter")]
+        public async Task<IActionResult> CheckScheduleQuarter([FromBody] ScheduleQuarterCheckDto dto)
+        {
+            if (dto == null)
+                return BadRequest("Invalid data.");
+
+            try
+            {
+                bool exists = await _auditService.CheckScheduleQuarterDetailsAsync(dto);
+                return Ok(new { exists });
+            }
+            catch (Exception ex)
+            {
+                // Log ex
+                return StatusCode(500, "Internal server error");
+            }
+        }
+        [HttpGet("GetLOESignedOn")]
+        public IActionResult GetLOESignedOn(int compid, int auditTypeId, int customerId, int yearId)
+        {
+            try
+            {
+                var result = _auditService.GetLOESignedOnAsync(compid, auditTypeId, customerId, yearId);
+                return Ok(new { LOESignedOn = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        [HttpGet("GetLOEStatus")]
+        public IActionResult GetLOEStatus(int compid, int auditTypeId, int customerId, int yearId)
+        {
+            try
+            {
+                var result = _auditService.GetLOEStatusAsync(compid, auditTypeId, customerId, yearId);
+                return Ok(new { LOEStatus = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+
+        [HttpGet("date-range")]
+        public async Task<IActionResult> GetScheduleQuarterDateDetails(
+       [FromQuery] int iAcID,
+       [FromQuery] int iAuditID,
+       [FromQuery] int iQuarterID)
+        {
+            var (startDate, endDate) = await _quarterService.GetScheduleQuarterDateDetailsAsync(iAcID, iAuditID, iQuarterID);
+
+            if (startDate == null || endDate == null)
+                return NotFound("No records found for the given parameters.");
+
+            return Ok(new
+            {
+                StartDate = startDate,
+                EndDate = endDate
+            });
+        }
+        [HttpGet("Client-Load")]
+        public async Task<IActionResult> GetCustomerMaster([FromQuery] int iACID, [FromQuery] int iCustId)
+        {
+            var customer = await _auditService.LoadCustomerMasterAsync(iACID, iCustId);
+
+            if (customer == null)
+                return NotFound("Customer not found.");
+
+            return Ok(customer);
+        }
+        [HttpPost("AuditAssistants-User-Save")]
+        public async Task<IActionResult> SaveEmployee([FromBody] EmployeeDto employee)
+        {
+            try
+            {
+                var result = await _auditService.SaveEmployeeDetailsAsync(employee);
+
+                string message = result[0] switch
+                {
+                    "2" => "Employee details updated successfully.",
+                    "3" => "Employee details saved successfully.",
+                    _ => "Operation completed."
+                };
+
+                return Ok(new
+                {
+                    Message = message,
+                    UpdateOrSave = result[0],
+                    Oper = result[1]
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Error saving employee", Details = ex.Message });
+            }
+        }
+
+        [HttpGet("employee-details")]
+        public async Task<IActionResult> GetEmployeeDetails(
+       [FromQuery] int companyId,
+       [FromQuery] int userId)
+        {
+            try
+            {
+                var dataTable = await _userService.LoadExistingEmployeeDetailsAsync(companyId, userId);
+
+                if (dataTable.Rows.Count == 0)
+                    return NotFound(new { Message = "Employee not found" });
+
+                return Ok(ConvertDataTableToDictionaryList(dataTable));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Error loading employee details", Details = ex.Message });
+            }
+        }
+
+        private List<Dictionary<string, object>> ConvertDataTableToDictionaryList(DataTable dt)
+        {
+            var result = new List<Dictionary<string, object>>();
+
+            foreach (DataRow row in dt.Rows)
+            {
+                var dict = new Dictionary<string, object>();
+                foreach (DataColumn col in dt.Columns)
+                {
+                    dict[col.ColumnName] = row[col];
+                }
+                result.Add(dict);
+            }
+
+            return result;
+        }
+        [HttpGet("Employee-roles")]
+        public async Task<IActionResult> GetActiveRoles([FromQuery] string dbConnName, [FromQuery] int companyId)
+        {
+            try
+            {
+                var roles = await _userService.LoadActiveRoleAsync(companyId);
+                return Ok(roles);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Error retrieving roles", Details = ex.Message });
+            }
+        }
+
     }
+
 }
+

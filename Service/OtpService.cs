@@ -33,6 +33,7 @@ public class OtpService
 
     private string GenerateOtpJwt(string email, out string otpCode)
     {
+
         otpCode = new Random().Next(100000, 999999).ToString();
         var expiry = DateTime.UtcNow.AddMinutes(10); // OTP expires in 10 mins
 

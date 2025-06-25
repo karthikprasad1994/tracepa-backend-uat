@@ -6,6 +6,7 @@ using System.Data;
 using System.Data.Common;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Transactions;
 using TracePca.Data;
 using TracePca.Dto.Audit;
 using TracePca.Interface;
@@ -241,15 +242,7 @@ ORDER BY SrNo";
             SELECT 1 
             FROM AuditType_Checklist_Master 
             WHERE ACM_AuditTypeID = CMM_ID
-        )
-        AND (
-            CMM_ID NOT IN (
-                SELECT SA_AuditTypeID 
-                FROM StandardAudit_Schedule 
-                WHERE SA_YearID = @FinancialYearId 
-                AND SA_CustID = @CustomerId 
-                AND SA_CompID = @CompanyId
-            )");
+        ");
 
             if (req.AuditTypeId > 0)
                 sql.Append(" OR CMM_ID = @AuditTypeId ");
@@ -388,7 +381,8 @@ ORDER BY SrNo";
                     ACM_CompId = @CompId
                     AND ACM_DELFLG = 'A'
                     AND ACM_AuditTypeID = @AuditTypeId
-                      ORDER BY ACM_Heading, ACM_ID";
+                    And ACM_Heading = @Heading
+                    ORDER BY ACM_Heading, ACM_ID";
 
                     parameters = new
                     {
@@ -467,32 +461,56 @@ ORDER BY SrNo";
 
         public async Task<bool> DeleteSelectedCheckpointsAndTeamMembersAsync(DeleteCheckpointDto dto)
         {
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto));
+
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            const string deleteChecklistDetailsSql = @"
+        DELETE FROM StandardAudit_Checklist_Details
+        WHERE SACD_AuditId = @AuditId
+          AND SACD_CustID = @CustomerId
+          AND SACD_ID = @PkId
+          AND SACD_CompID = @CompId";
+
+            const string deleteScheduleCheckpointSql = @"
+        DELETE FROM StandardAudit_ScheduleCheckPointList
+        WHERE SAC_SA_ID = @AuditId
+          AND SAC_CheckPointID IN @CheckpointIds
+          AND SAC_CompID = @CompId";
 
             try
             {
-                var sql = @"
-                DELETE FROM StandardAudit_Checklist_Details
-                WHERE SACD_AuditId = @AuditId
-                  AND SACD_CustID = @CustomerId
-                  AND SACD_ID = @PkId
-                  AND SACD_CompID = @CompanyId";
+                await connection.OpenAsync();
+                using var transaction = connection.BeginTransaction();
 
-                var affectedRows = await connection.ExecuteAsync(sql, new
+                var deleteChecklist = await connection.ExecuteAsync(deleteChecklistDetailsSql, new
                 {
-                    dto.AuditId,
-                    dto.CustomerId,
-                    dto.PkId,
-                    dto.CompId
-                });
+                    AuditId = dto.AuditId,
+                    CustomerId = dto.CustomerId,
+                    PkId = dto.PkId,
+                    CompId = dto.CompId
+                }, transaction);
 
-                return affectedRows > 0;
+                var deleteSchedule = await connection.ExecuteAsync(deleteScheduleCheckpointSql, new
+                {
+                    AuditId = dto.AuditId,
+                    CheckpointIds = dto.CheckpointIds.Split(',').Select(int.Parse).ToArray(),
+                    CompId = dto.CompId
+                }, transaction);
+
+                // Optional: also delete from trace_cust DB if needed with a second connection string
+
+                await transaction.CommitAsync();
+
+                return deleteChecklist > 0 || deleteSchedule > 0;
             }
             catch (Exception)
             {
-                throw; // Or log and return false depending on your logging approach
+                throw;
             }
         }
+
         public async Task<IEnumerable<AuditChecklistDto>> GetChecklistAsync(int auditId, int companyId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -822,24 +840,38 @@ ORDER BY SrNo";
             // Delete Checkpoints if AuditStatus = 1
             if (objSACLD.AuditStatusID == 1 && objSACLD.SACD_ID > 0 && !string.IsNullOrEmpty(objSACLD.SelectedCheckPointsPKID))
             {
-                // Construct SQL delete query
-                string sSql = "DELETE FROM StandardAudit_ScheduleCheckPointList " +
-                              "WHERE SAC_SA_ID = @AuditId " +
-                              "AND SAC_CheckPointID IN (@SelectedCheckPointsPKID) " +
-                              "AND SAC_CompID = @CustRegAccessCodeId";
+                // Split and validate checkpoint IDs
+                var ids = objSACLD.SelectedCheckPointsPKID
+                           .Split(',')
+                           .Where(x => int.TryParse(x, out _))
+                           .ToList();
 
-                using var cmdDelete = new SqlCommand(sSql, connection)
+                if (ids.Count > 0)
                 {
-                    CommandType = CommandType.Text
-                };
+                    var idParams = ids.Select((id, index) => $"@cp{index}").ToList();
+                    var sSql = $@"
+            DELETE FROM StandardAudit_ScheduleCheckPointList
+            WHERE SAC_SA_ID = @AuditId
+            AND SAC_CompID = @CustRegAccessCodeId
+            AND SAC_CheckPointID IN ({string.Join(",", idParams)})";
 
-                // Add parameters to avoid SQL injection
-                cmdDelete.Parameters.AddWithValue("@AuditId", objSACLD.SACD_AuditId);
-                cmdDelete.Parameters.AddWithValue("@SelectedCheckPointsPKID", objSACLD.SelectedCheckPointsPKID);
-                cmdDelete.Parameters.AddWithValue("@CustRegAccessCodeId", objSACLD.SACD_CompId);
+                    using var cmdDelete = new SqlCommand(sSql, connection)
+                    {
+                        CommandType = CommandType.Text
+                    };
 
-                // Execute the command
-                await cmdDelete.ExecuteNonQueryAsync();
+                    // Add base parameters
+                    cmdDelete.Parameters.AddWithValue("@AuditId", objSACLD.SACD_AuditId);
+                    cmdDelete.Parameters.AddWithValue("@CustRegAccessCodeId", objSACLD.SACD_CompId);
+
+                    // Add dynamic checkpoint parameters
+                    for (int i = 0; i < ids.Count; i++)
+                    {
+                        cmdDelete.Parameters.AddWithValue($"@cp{i}", int.Parse(ids[i]));
+                    }
+
+                    await cmdDelete.ExecuteNonQueryAsync();
+                }
             }
 
 
@@ -1032,11 +1064,7 @@ ORDER BY SrNo";
         SACD_AuditId = @AuditId 
         AND SACD_CustID = @CustId";
 
-            // Append heading filter condition only if valid
-            if (!string.IsNullOrWhiteSpace(heading))
-            {
-                sql += " AND SACD_Heading = @Heading";
-            }
+
 
             sql += @"
     GROUP BY 
@@ -1077,7 +1105,14 @@ ORDER BY SrNo";
                         // 1. Save/Update Audit Schedule via Stored Procedure
                         var parameters = new DynamicParameters();
                         parameters.Add("@SA_ID", dto.SA_ID);
-                        parameters.Add("@SA_AuditNo", dto.AuditNo + "Q" + dto.IntervalId);
+                        auditNo = dto.AuditNo;
+                        if (auditNo.EndsWith("KY"))
+                        {
+                            auditNo = auditNo.Substring(0, auditNo.Length - 2); // Remove "KY"
+                        }
+
+                        parameters.Add("@SA_AuditNo", auditNo + "Q" + dto.IntervalId);
+
                         parameters.Add("@SA_CustID", dto.CustID);
                         parameters.Add("@SA_YearID", dto.YearID);
                         parameters.Add("@SA_AuditTypeID", dto.AuditTypeID);
@@ -1322,6 +1357,284 @@ ORDER BY SrNo";
                 CompID = iACID,
                 Category = sType
             });
+        }
+        public async Task<AuditStatusDto> GetAuditStatusAsync(int SA_Id, int companyId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            var query = "SELECT SA_Status FROM StandardAudit_Schedule WHERE SA_ID = @SA_ID AND SA_CompID = @SA_CompID";
+
+            var result = await connection.QueryFirstOrDefaultAsync<AuditStatusDto>(query, new { SA_ID = SA_Id, SA_CompID = companyId });
+
+            // If no record found, return a default object with SA_Status = 0
+            return result ?? new AuditStatusDto { SA_Status = "0" };
+        }
+        public async Task<bool> IsCustomerLoeApprovedAsync(int customerId, int yearId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var sql = @"SELECT 1 
+                FROM SAD_CUST_LOE 
+                WHERE LOE_CustomerId = @CustomerId 
+                  AND LOE_YearId = @YearId 
+                  AND LOE_STATUS = 'A'";
+
+            var result = await connection.QueryFirstOrDefaultAsync<int?>(sql, new { CustomerId = customerId, YearId = yearId });
+            return result.HasValue;
+        }
+        public async Task<bool> CheckScheduleQuarterDetailsAsync(ScheduleQuarterCheckDto dto)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                // 1. Get the original AuditNo from DB using the input AuditNo as SA_ID (assuming AuditNo is SA_ID)
+                var auditNoFromDb = await connection.ExecuteScalarAsync<string>(
+                    "SELECT SA_AuditNo FROM StandardAudit_Schedule WHERE SA_Id = @AuditNo",
+                    new { AuditNo = dto.AuditNo }
+                );
+
+                if (string.IsNullOrEmpty(auditNoFromDb))
+                {
+                    return false; // No such audit found
+                }
+
+                // 2. Remove "KY" if present
+                var auditNoClean = auditNoFromDb.EndsWith("KY")
+                    ? auditNoFromDb.Substring(0, auditNoFromDb.Length - 2)
+                    : auditNoFromDb;
+
+                // 3. Create job code
+                var jobCode = auditNoClean + "Q" + dto.QuarterID;
+
+                // 4. Query with job code and company ID
+                string sql = @"
+            SELECT SA_IntervalId 
+            FROM StandardAudit_Schedule 
+            WHERE SA_AuditNo = @JobCode AND SA_CompID = @CompID";
+
+                var result = await connection.QuerySingleOrDefaultAsync<int?>(
+                    sql,
+                    new { JobCode = jobCode, CompID = dto.CompId }
+                );
+
+                return result.HasValue;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
+        public async Task<string> GetLOESignedOnAsync(int compid, int auditTypeId, int customerId, int yearId)
+        {
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            string sql = $@"
+            SELECT LOET_ApprovedOn AS LOET_ApprovedOn
+            FROM LOE_Template
+            WHERE LOET_CustomerId = @CustomerId
+              AND LOET_FunctionId = @AuditTypeId
+              AND LOET_CompID = @AccessCodeId
+              AND LOET_LOEID IN (
+                  SELECT LOE_Id FROM SAD_CUST_LOE 
+                  WHERE LOE_YearId = @YearId 
+                    AND LOE_CustomerId = @CustomerId
+              )";
+
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            await using var command = new SqlCommand(sql, connection);
+            command.Parameters.AddWithValue("@CustomerId", customerId);
+            command.Parameters.AddWithValue("@AuditTypeId", auditTypeId);
+            command.Parameters.AddWithValue("@AccessCodeId", compid);
+            command.Parameters.AddWithValue("@YearId", yearId);
+
+            var result = await command.ExecuteScalarAsync();
+            return result?.ToString() ?? "";
+        }
+
+        public async Task<string> GetLOEStatusAsync(int compid, int auditTypeId, int customerId, int yearId)
+        {
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            string sql = @"
+            SELECT CASE 
+                       WHEN ISNULL(LOET_STATUS, 'N') = 'A' THEN 'A' 
+                       ELSE 'N' 
+                   END AS LOET_STATUS
+            FROM LOE_Template
+            WHERE LOET_CustomerId = @CustomerId
+              AND LOET_FunctionId = @AuditTypeId
+              AND LOET_CompID = @AccessCodeId
+              AND LOET_LOEID IN (
+                  SELECT LOE_Id FROM SAD_CUST_LOE 
+                  WHERE LOE_YearId = @YearId 
+                    AND LOE_CustomerId = @CustomerId
+              )";
+
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            await using var command = new SqlCommand(sql, connection);
+            command.Parameters.AddWithValue("@CustomerId", customerId);
+            command.Parameters.AddWithValue("@AuditTypeId", auditTypeId);
+            command.Parameters.AddWithValue("@AccessCodeId", compid);
+            command.Parameters.AddWithValue("@YearId", yearId);
+
+            var result = await command.ExecuteScalarAsync();
+            return result?.ToString() ?? "";
+        }
+
+
+        public async Task<(DateTime? StartDate, DateTime? EndDate)> GetScheduleQuarterDateDetailsAsync(int iAcID, int iAuditID, int iQuarterID)
+        {
+            try
+            {
+                var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    string sql = @"
+                    SELECT SAI_StartDate, SAI_EndDate 
+                    FROM StandardAudit_ScheduleIntervals 
+                    WHERE SAI_SA_ID = @AuditID 
+                      AND SAI_IntervalSubID = @QuarterID 
+                      AND SAI_CompID = @AcID";
+
+                    using (SqlCommand cmd = new SqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@AuditID", iAuditID);
+                        cmd.Parameters.AddWithValue("@QuarterID", iQuarterID);
+                        cmd.Parameters.AddWithValue("@AcID", iAcID);
+
+                        await conn.OpenAsync();
+                        using (var reader = await cmd.ExecuteReaderAsync())
+                        {
+                            if (await reader.ReadAsync())
+                            {
+                                var startDate = reader["SAI_StartDate"] as DateTime?;
+                                var endDate = reader["SAI_EndDate"] as DateTime?;
+                                return (startDate, endDate);
+                            }
+                            return (null, null);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        public async Task<dynamic?> LoadCustomerMasterAsync(int companyId, int customerId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            string sql = $@"SELECT * FROM SAD_CUSTOMER_MASTER 
+                    WHERE CUST_ID = {customerId} AND CUST_COMPID = {companyId}";
+
+            var result = await connection.QueryFirstOrDefaultAsync(sql);
+            return result;
+        }
+
+        public async Task<string[]> SaveEmployeeDetailsAsync(EmployeeDto emp)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            var parameters = new DynamicParameters();
+
+            parameters.Add("@Usr_ID", emp.UserID);
+            parameters.Add("@Usr_Node", emp.UsrNode);
+            parameters.Add("@Usr_Code", emp.UsrCode);
+            parameters.Add("@Usr_FullName", emp.UsrFullName);
+            parameters.Add("@Usr_LoginName", emp.UsrLoginName);
+            parameters.Add("@Usr_Password", emp.UsrPassword);
+            parameters.Add("@Usr_Email", emp.UsrEmail);
+            parameters.Add("@Usr_Category", emp.UsrSentMail);
+            parameters.Add("@Usr_Suggetions", emp.UsrSuggetions);
+            parameters.Add("@usr_partner", emp.UsrPartner);
+            parameters.Add("@Usr_LevelGrp", emp.UsrLevelGrp);
+            parameters.Add("@Usr_DutyStatus", emp.UsrDutyStatus);
+            parameters.Add("@Usr_PhoneNo", emp.UsrPhoneNo);
+            parameters.Add("@Usr_MobileNo", emp.UsrMobileNo);
+            parameters.Add("@Usr_OfficePhone", emp.UsrOfficePhone);
+            parameters.Add("@Usr_OffPhExtn", emp.UsrOffPhExtn);
+            parameters.Add("@Usr_Designation", emp.UsrDesignation);
+            parameters.Add("@Usr_CompanyID", emp.UsrCompanyID);
+            parameters.Add("@Usr_OrgnID", emp.UsrOrgID);
+            parameters.Add("@Usr_GrpOrUserLvlPerm", emp.UsrGrpOrUserLvlPerm);
+            parameters.Add("@Usr_Role", emp.UsrRole);
+            parameters.Add("@Usr_MasterModule", emp.UsrMasterModule);
+            parameters.Add("@Usr_AuditModule", emp.UsrAuditModule);
+            parameters.Add("@Usr_RiskModule", emp.UsrRiskModule);
+            parameters.Add("@Usr_ComplianceModule", emp.UsrComplianceModule);
+            parameters.Add("@Usr_BCMModule", emp.UsrBCMmodule);
+            parameters.Add("@Usr_DigitalOfficeModule", emp.UsrDigitalOfficeModule);
+            parameters.Add("@Usr_MasterRole", emp.UsrMasterRole);
+            parameters.Add("@Usr_AuditRole", emp.UsrAuditRole);
+            parameters.Add("@Usr_RiskRole", emp.UsrRiskRole);
+            parameters.Add("@Usr_ComplianceRole", emp.UsrComplianceRole);
+            parameters.Add("@Usr_BCMRole", emp.UsrBCMRole);
+            parameters.Add("@Usr_DigitalOfficeRole", emp.UsrDigitalOfficeRole);
+            parameters.Add("@Usr_CreatedBy", emp.UsrCreatedBy);
+            parameters.Add("@Usr_UpdatedBy", emp.UsrCreatedBy);
+            parameters.Add("@Usr_DelFlag", emp.UsrFlag);
+            parameters.Add("@Usr_Status", emp.UsrStatus);
+            parameters.Add("@Usr_IPAddress", emp.UsrIPAddress);
+            parameters.Add("@Usr_CompId", emp.UsrCompID);
+            parameters.Add("@Usr_Type", emp.UsrType);
+            parameters.Add("@usr_IsSuperuser", emp.IsSuperuser);
+            parameters.Add("@USR_DeptID", emp.DeptID);
+            parameters.Add("@USR_MemberType", 0);
+            parameters.Add("@USR_Levelcode", 0);
+            parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+            parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+            await connection.ExecuteAsync("spEmployeeMaster", parameters, commandType: CommandType.StoredProcedure);
+
+            return new string[]
+            {
+            parameters.Get<int>("@iUpdateOrSave").ToString(),
+            parameters.Get<int>("@iOper").ToString()
+            };
+        }
+
+        public async Task<DataTable> LoadExistingEmployeeDetailsAsync(int companyId, int userId)
+        {
+            var dt = new DataTable();
+
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var sql = @"SELECT * FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_CompId = @CompanyId";
+
+                using var command = new SqlCommand(sql, connection);
+                command.Parameters.AddWithValue("@UserId", userId);
+                command.Parameters.AddWithValue("@CompanyId", companyId);
+
+                using var reader = await command.ExecuteReaderAsync();
+                dt.Load(reader);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error fetching employee details", ex);
+            }
+
+            return dt;
+        }
+        public async Task<IEnumerable<dynamic>> LoadActiveRoleAsync(int companyId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            string sql = @"
+            SELECT Mas_ID, Mas_Description 
+            FROM SAD_GrpOrLvl_General_Master 
+            WHERE Mas_Delflag = 'A' AND Mas_CompID = @CompanyId 
+            ORDER BY Mas_Description";
+
+            var result = await connection.QueryAsync(sql, new { CompanyId = companyId });
+            return result;
         }
     }
 }
