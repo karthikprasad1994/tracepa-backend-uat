@@ -1356,6 +1356,8 @@ namespace TracePca.Service.Communication_with_client
         //    catch (Exception ex)
         //    {
         //        // Optional: Log the email error here
+
+
         //        Console.WriteLine($"Error sending DRL report email: {ex.Message}");
         //        throw;
         //    }
@@ -1375,29 +1377,50 @@ namespace TracePca.Service.Communication_with_client
             {
                 int drlId = dto.Id;
 
-                // 1. Insert or Update Audit_DRLLog
                 if (dto.Id == 0)
                 {
+                    // Manually get next ADRL_ID (Absent Number)
+                    var getNextIdSql = @"
+                SELECT ISNULL(MAX(ADRL_ID), 0) + 1 
+                FROM Audit_DRLLog WITH (TABLOCKX, HOLDLOCK);";
+
+                    drlId = await connection.ExecuteScalarAsync<int>(getNextIdSql, transaction: transaction);
+                    var existingAttachId = await connection.ExecuteScalarAsync<int>(
+              @"SELECT ATCH_ID FROM EDT_ATTACHMENTS WHERE ATCH_drlid = @RequestedListId order by ATCH_ID desc",
+              new { RequestedListId = dto.RequestedListId }, transaction);
+                    int attachIdToMap;
+                    if (existingAttachId == 0)
+                    {
+                        attachIdToMap = await connection.ExecuteScalarAsync<int>(
+                            @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
+                            new { CompanyId = dto.CompanyId }, transaction);
+                    }
+                    else
+                    {
+                        attachIdToMap = existingAttachId;
+                    }
                     var insert = @"
                 INSERT INTO Audit_DRLLog (
+                    ADRL_ID,
                     ADRL_YearID, ADRL_AuditNo, ADRL_CustID,
                     ADRL_RequestedListID, ADRL_RequestedTypeID,
                     ADRL_RequestedOn, ADRL_TimlinetoResOn,
                     ADRL_EmailID, ADRL_Comments,
                     ADRL_CrBy, ADRL_UpdatedBy,
-                    ADRL_IPAddress, ADRL_CompID, ADRL_ReportType
+                    ADRL_IPAddress, ADRL_CompID, ADRL_ReportType, ADRL_ATTACHID
                 ) VALUES (
+                    @Id,
                     @YearId, @AuditNo, @CustomerId,
                     @RequestedListId, @RequestedTypeId,
                     @RequestedOn, @TimelineToRespond,
                     @EmailIds, @Comments,
                     @CreatedBy, @UpdatedBy,
-                    @IPAddress, @CompanyId, @ReportType
-                );
-                SELECT CAST(SCOPE_IDENTITY() AS INT);";
+                    @IPAddress, @CompanyId, @ReportType, @AttachId
+                );";
 
-                    drlId = await connection.ExecuteScalarAsync<int>(insert, new
+                    await connection.ExecuteAsync(insert, new
                     {
+                        Id = drlId,
                         dto.YearId,
                         dto.AuditNo,
                         dto.CustomerId,
@@ -1411,8 +1434,11 @@ namespace TracePca.Service.Communication_with_client
                         UpdatedBy = dto.UpdatedBy,
                         IPAddress = dto.IPAddress,
                         CompanyId = dto.CompanyId,
-                        ReportType = dto.ReportType
+                        ReportType = dto.ReportType,
+                        AttachId = attachIdToMap
                     }, transaction);
+
+                    dto.Id = drlId; // Update DTO with generated ID
                 }
                 else
                 {
@@ -1421,7 +1447,6 @@ namespace TracePca.Service.Communication_with_client
                     ADRL_RequestedOn = @RequestedOn,
                     ADRL_TimlinetoResOn = @TimelineToRespond,
                     ADRL_RequestedListID = @RequestedListId,
-                    
                     ADRL_EmailID = @EmailIds,
                     ADRL_Comments = @Comments,
                     ADRL_UpdatedBy = @UpdatedBy,
@@ -1432,13 +1457,82 @@ namespace TracePca.Service.Communication_with_client
                     {
                         dto.RequestedOn,
                         dto.TimelineToRespond,
+                        dto.RequestedListId,
                         dto.EmailIds,
                         dto.Comments,
                         UpdatedBy = dto.UpdatedBy,
                         ReportType = dto.ReportType,
-                        dto.Id
+                        Id = dto.Id
                     }, transaction);
+
+                    drlId = dto.Id;
                 }
+                //int drlId = dto.Id;
+
+                //// 1. Insert or Update Audit_DRLLog
+                //if (dto.Id == 0)
+                //{
+                //    var insert = @"
+                //INSERT INTO Audit_DRLLog (
+                //    ADRL_YearID, ADRL_AuditNo, ADRL_CustID,
+                //    ADRL_RequestedListID, ADRL_RequestedTypeID,
+                //    ADRL_RequestedOn, ADRL_TimlinetoResOn,
+                //    ADRL_EmailID, ADRL_Comments,
+                //    ADRL_CrBy, ADRL_UpdatedBy,
+                //    ADRL_IPAddress, ADRL_CompID, ADRL_ReportType
+                //) VALUES (
+                //    @YearId, @AuditNo, @CustomerId,
+                //    @RequestedListId, @RequestedTypeId,
+                //    @RequestedOn, @TimelineToRespond,
+                //    @EmailIds, @Comments,
+                //    @CreatedBy, @UpdatedBy,
+                //    @IPAddress, @CompanyId, @ReportType
+                //);
+                //SELECT CAST(SCOPE_IDENTITY() AS INT);";
+
+                //    drlId = await connection.ExecuteScalarAsync<int>(insert, new
+                //    {
+                //        dto.YearId,
+                //        dto.AuditNo,
+                //        dto.CustomerId,
+                //        dto.RequestedListId,
+                //        dto.RequestedTypeId,
+                //        dto.RequestedOn,
+                //        dto.TimelineToRespond,
+                //        dto.EmailIds,
+                //        dto.Comments,
+                //        CreatedBy = dto.CreatedBy,
+                //        UpdatedBy = dto.UpdatedBy,
+                //        IPAddress = dto.IPAddress,
+                //        CompanyId = dto.CompanyId,
+                //        ReportType = dto.ReportType
+                //    }, transaction);
+                //}
+                //else
+                //{
+                //    var update = @"
+                //UPDATE Audit_DRLLog SET
+                //    ADRL_RequestedOn = @RequestedOn,
+                //    ADRL_TimlinetoResOn = @TimelineToRespond,
+                //    ADRL_RequestedListID = @RequestedListId,
+
+                //    ADRL_EmailID = @EmailIds,
+                //    ADRL_Comments = @Comments,
+                //    ADRL_UpdatedBy = @UpdatedBy,
+                //    ADRL_ReportType = @ReportType
+                //WHERE ADRL_ID = @Id";
+
+                //    await connection.ExecuteAsync(update, new
+                //    {
+                //        dto.RequestedOn,
+                //        dto.TimelineToRespond,
+                //        dto.EmailIds,
+                //        dto.Comments,
+                //        UpdatedBy = dto.UpdatedBy,
+                //        ReportType = dto.ReportType,
+                //        dto.Id
+                //    }, transaction);
+                //}
 
                 // 2. Fetch customer & template data
                 var customerData = await GetCustomerDetailsWithTemplatesAsync(dto.CompanyId, dto.CustomerId, dto.ReportType);
@@ -1468,8 +1562,8 @@ namespace TracePca.Service.Communication_with_client
 
 
                 var preAttachId = await connection.ExecuteScalarAsync<int>(
-                  @"SELECT ATCH_ID FROM EDT_ATTACHMENTS WHERE ATCH_ReportType = @ReportType",
-                  new { ReportType = dto.ReportType }, transaction);
+                  @"SELECT ATCH_ID FROM EDT_ATTACHMENTS WHERE ATCH_drlid = @RequestedListId order by ATCH_ID desc",
+                  new { RequestedListId = dto.RequestedListId }, transaction);
                 var AttachId = 0;
 
                 if (preAttachId == 0)
@@ -1504,7 +1598,7 @@ namespace TracePca.Service.Communication_with_client
                 @CreatedBy, @CreatedBy, 1,
                 @Flag, @Size, 0, 0,
                 GETDATE(), 'X', @CompanyId,
-                'AS', @ReportType, @AuditNo, @RequestedListId
+                'C', @ReportType, @AuditNo, @RequestedListId
             );";
 
                 await connection.ExecuteAsync(insertAttach, new
@@ -1527,20 +1621,19 @@ namespace TracePca.Service.Communication_with_client
                 // 5. Generate next Remark ID
                 var remarkId = await connection.ExecuteScalarAsync<int>(
                     @"SELECT ISNULL(MAX(SAR_ID), 0) + 1 
-      FROM StandardAudit_Audit_DRLLog_RemarksHistory 
-      WHERE SAR_SAC_ID = @CustomerId AND SAR_SA_ID = @AuditNo",
+      FROM StandardAudit_Audit_DRLLog_RemarksHistory",
                     new { dto.CustomerId, dto.AuditNo }, transaction);
 
                 // 6. Insert into Remarks History
                 await connection.ExecuteAsync(
                     @"INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
         SAR_ID, SAR_SAC_ID, SAR_SA_ID, SAR_DRLId,
-        SAR_Remarks, SAR_Date, SAR_RemarksType,
-        SAR_AttchId, SAR_AtthachDocId, SAR_TimlinetoResOn, SAR_ReportType
+        SAR_Remarks, SAR_Date, SAR_RemarksType, sar_Yearid,
+        SAR_AttchId, SAR_AtthachDocId, SAR_TimlinetoResOn, SAR_ReportType, SAR_CompID, SAR_MASid
     ) VALUES (
         @RemarkId, @CustomerId, @AuditNo, @RequestedListId,
-        @Remark, @RequestedOn, @Type,
-        @AttachId, @DocId, @TimelineToRespond, @ReportType
+        @Remark, @RequestedOn, @Type, @YearId,
+        @AttachId, @DocId, @TimelineToRespond, @ReportType, @CompanyId, @SarMasId
     )",
                     new
                     {
@@ -1551,11 +1644,14 @@ namespace TracePca.Service.Communication_with_client
                         Remark = dto.Comments, // or dto.Remark if that's available
                         RequestedOn = dto.RequestedOn,
                         Type = dto.RequestedTypeId, // or another appropriate value
-                        AttachId = dto.AttachId,
+                        AttachId = AttachId,
                         DocId = docId,
                         TimelineToRespond = dto.TimelineToRespond,
                         ReportType = dto.ReportType,
-                        RequestedListId = dto.RequestedListId
+                        RequestedListId = dto.RequestedListId,
+                        YearId = dto.YearId,
+                        CompanyId = dto.CompanyId,
+                        SarMasId = drlId
 
                     }, transaction);
 
