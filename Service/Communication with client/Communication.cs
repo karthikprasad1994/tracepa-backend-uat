@@ -1212,49 +1212,59 @@ namespace TracePca.Service.Communication_with_client
         {
             return await Task.Run(() =>
             {
+                QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = true;
+
                 var document = QuestPDF.Fluent.Document.Create(container =>
                 {
                     container.Page(page =>
                     {
-                        page.Size(595, 842); // A4 size
+                        page.Size(595, 842); // A4
                         page.Margin(40);
 
                         page.Content().Column(column =>
                         {
                             // Header
-                            column.Item().AlignCenter().PaddingBottom(10)
-                                  .Text("GeneralReport").FontSize(18).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("General Report")
+                                .FontSize(18).Bold();
 
-                            column.Item().Text($"Ref.No.: {request.ReferenceNumber} - {request.Title}")
-                                         .FontSize(12).Bold();
+                            column.Item().PaddingBottom(4)
+                                .Text($"{request.ReferenceNumber?.Replace("\r", "").Replace("\n", "")} - {request.Title?.Replace("\r", "").Replace("\n", "")}")
+                                .FontSize(12).Bold();
 
-                            column.Item().Text($"Date: {DateTime.Today:dd MMM yyyy}").FontSize(10);
-                            column.Item().Text(request.CompanyName).FontSize(10);
-                            column.Item().Text(request.Address).FontSize(10);
-                            column.Item().PaddingBottom(10);
+                            column.Item().PaddingBottom(2).Text($"Date: {DateTime.Today:dd MMM yyyy}").FontSize(10);
+                            column.Item().PaddingBottom(2).Text((request.CompanyName ?? "").Replace("\r", "").Replace("\n", "")).FontSize(10);
+                            column.Item().PaddingBottom(10).Text((request.Address ?? "").Replace("\r", "").Replace("\n", "")).FontSize(10);
 
-                            // Title
-                            column.Item().PaddingBottom(10)
-                                  .Text(request.Title)
-                                  .FontSize(14).Bold().Underline();
+                            // Report Title
+                            column.Item().PaddingBottom(10).Text((request.Title ?? "").Replace("\r", "").Replace("\n", ""))
+                                .FontSize(14).Bold().Underline();
 
                             // Template Items
-                            foreach (var item in request.TemplateItems)
+                            foreach (var item in request.TemplateItems ?? new List<DRLTemplateItem>())
                             {
-                                column.Item().Text("• " + item.Heading).FontSize(11).Bold();
+                                // Heading
+                                if (!string.IsNullOrWhiteSpace(item.Heading))
+                                {
+                                    var headingText = "• " + item.Heading.Trim().Replace("\r", "").Replace("\n", "");
+                                    column.Item().PaddingBottom(2).Text(headingText).FontSize(11).Bold();
+                                }
 
+                                // Description
                                 if (!string.IsNullOrWhiteSpace(item.Description))
                                 {
-                                    // Split multiline description by newline
                                     var lines = item.Description
-                                                    .Replace("\r\n", "\n")
-                                                    .Replace("\r", "")
-                                                    .Split('\n');
+                                        .Replace("\r\n", "\n")
+                                        .Replace("\r", "\n")
+                                        .Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
                                     foreach (var line in lines)
                                     {
-                                        if (!string.IsNullOrWhiteSpace(line))
-                                            column.Item().Text(line.Trim()).FontSize(10);
+                                        var trimmed = line.Trim();
+                                        if (!string.IsNullOrWhiteSpace(trimmed))
+                                        {
+                                            var safeText = trimmed.Replace("\r", "").Replace("\n", "");
+                                            column.Item().PaddingBottom(1).Text(safeText).FontSize(10);
+                                        }
                                     }
                                 }
 
@@ -1263,7 +1273,7 @@ namespace TracePca.Service.Communication_with_client
 
                             // Footer
                             column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
-                            column.Item().Text("M.S. Madhava Rao").FontSize(10).Bold();
+                            column.Item().PaddingTop(2).Text("M.S. Madhava Rao").FontSize(10).Bold();
                             column.Item().Text("Chartered Accountant").FontSize(10);
                         });
                     });
@@ -1274,6 +1284,8 @@ namespace TracePca.Service.Communication_with_client
                 return ms.ToArray();
             });
         }
+
+
 
 
 
