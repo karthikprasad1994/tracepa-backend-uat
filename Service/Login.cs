@@ -1,14 +1,15 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.IO.Pipelines;
-using System.Security.Claims;
-using System.Text;
-using System.Text.RegularExpressions;
-using BCrypt.Net;
+﻿using BCrypt.Net;
 using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
@@ -29,6 +30,7 @@ namespace TracePca.Service
         private readonly DynamicDbContext _context;
         private readonly OtpService _otpService;
         private readonly IWebHostEnvironment _env;
+        private readonly string _appSettingsPath;
 
         public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DynamicDbContext context, OtpService otpService, IWebHostEnvironment env)
         {
@@ -39,6 +41,7 @@ namespace TracePca.Service
             _context = context;
             _otpService = otpService;
             _env = env;
+            _appSettingsPath = Path.Combine(env.ContentRootPath, "appsettings.json");
         }
 
         public async Task<object> GetAllUsersAsync()
@@ -652,8 +655,80 @@ namespace TracePca.Service
             }
         }
 
-    }
+        public async Task<(bool Success, string Message)> CheckAndAddAccessCodeConnectionStringAsync(string accessCode)
+        {
+            try
+            {
+                string mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
 
+                using (var connection = new SqlConnection(mmcsConnection))
+                {
+                    await connection.OpenAsync();
+
+                    string query = "SELECT MCR_ID FROM MMCS_CustomerRegistration WHERE MCR_CustomerCode = @AccessCode AND MCR_MP_ID = 1";
+
+                    using (var command = new SqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@AccessCode", accessCode);
+                        var result = await command.ExecuteScalarAsync();
+
+                        if (result == null)
+                        {
+                            return (false, $"Access Code {accessCode} was not found in the Customer Registration.");
+                        }
+                    }
+                }
+
+                if (!File.Exists(_appSettingsPath))
+                {
+                    return (false, "appsettings.json file not found.");
+                }
+
+                var json = File.ReadAllText(_appSettingsPath);
+                var jsonObject = JsonNode.Parse(json)?.AsObject();
+                if (jsonObject == null)
+                {
+                    return (false, "Failed to parse appsettings.json.");
+                }
+
+                var connectionStrings = jsonObject["ConnectionStrings"]?.AsObject();
+                if (connectionStrings == null)
+                {
+                    return (false, "ConnectionStrings section is missing in appsettings.json.");
+                }
+
+                if (connectionStrings.ContainsKey(accessCode))
+                {
+                    return (true, $"Access Code {accessCode} is valid. Connection string already exists.");
+                }
+
+                var sqlDetails = jsonObject["SQLDetails"]?.AsObject();
+                if (sqlDetails == null)
+                {
+                    return (false, "SQLDetails section is missing in appsettings.json.");
+                }
+
+                string server = sqlDetails["Server"]?.ToString() ?? "";
+                string userId = sqlDetails["User Id"]?.ToString() ?? "";
+                string password = sqlDetails["Password"]?.ToString() ?? "";
+                string trust = sqlDetails["TrustServerCertificate"]?.ToString() ?? "True";
+                string mars = sqlDetails["MultipleActiveResultSets"]?.ToString() ?? "True";
+
+                string newConnString = $"Server={server};Database={accessCode};User Id={userId};Password={password};TrustServerCertificate={trust};MultipleActiveResultSets={mars};";
+
+                connectionStrings[accessCode] = newConnString;
+
+                var updatedJson = JsonSerializer.Serialize(jsonObject, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(_appSettingsPath, updatedJson);
+
+                return (true, $"Access Code {accessCode} is valid. Connection string has been successfully added.");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Exception occurred: {ex.Message}");
+            }
+        }
+    }
 }
 
 
