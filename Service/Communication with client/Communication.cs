@@ -706,14 +706,14 @@ namespace TracePca.Service.Communication_with_client
             await connection.OpenAsync();
 
             var query = @"
-            SELECT ISNULL(usr_FullName, '') 
-            FROM Sad_UserDetails
-            WHERE usr_Id = @UserId AND usr_CompanyId = @CompanyId";
+       SELECT usr_FullName
+       FROM Sad_UserDetails
+       WHERE usr_Id = @UserId";
 
             var fullName = await connection.ExecuteScalarAsync<string>(query, new
             {
                 UserId = userId,
-                CompanyId = companyId
+
             });
 
             return fullName ?? string.Empty;
