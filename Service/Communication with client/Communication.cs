@@ -2862,14 +2862,13 @@ WHERE SA_ID = @AuditId";
 
 
 
-
-
         public async Task<List<LOEHeadingDto>> LoadLOEHeadingAsync(string sFormName, int compId, int reportTypeId, int loeTemplateId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
 
-            string query = @"
+            // Step 1: Try to load from LOE_Template_Details
+            var primaryQuery = @"
         SELECT 
             LTD_ID AS PKID,  
             LTD_HeadingID AS LOEHeadingID, 
@@ -2883,7 +2882,7 @@ WHERE SA_ID = @AuditId";
             AND LTD_CompID = @CompId 
         ORDER BY LTD_ID";
 
-            var loeDetails = (await connection.QueryAsync<LOEHeadingDto>(query, new
+            var loeDetails = (await connection.QueryAsync<LOEHeadingDto>(primaryQuery, new
             {
                 LoeTemplateId = loeTemplateId,
                 ReportTypeId = reportTypeId,
@@ -2891,8 +2890,86 @@ WHERE SA_ID = @AuditId";
                 CompId = compId
             })).ToList();
 
-            return loeDetails;
+            if (loeDetails.Any())
+                return loeDetails;
+
+            // Step 2: Try to get TEM_ContentId from SAD_Finalisation_Report_Template
+            var contentIdQuery = @"SELECT TEM_ContentId FROM SAD_Finalisation_Report_Template WHERE TEM_FunctionId = @ReportTypeId";
+            var contentId = await connection.ExecuteScalarAsync<string>(contentIdQuery, new { ReportTypeId = reportTypeId });
+
+            List<LOEHeadingDto> fallbackHeadings;
+
+            if (!string.IsNullOrWhiteSpace(contentId))
+            {
+                // Step 3: Load using RCM_Id IN (TEM_ContentId)
+                var fallbackQueryWithContent = $@"
+        SELECT 
+            RCM_Id AS LOEHeadingID, 
+            RCM_Heading AS LOEHeading, 
+            RCM_Description AS LOEDesc
+        FROM SAD_ReportContentMaster 
+        WHERE 
+            RCM_Id IN ({contentId}) 
+            AND RCM_ReportId = @ReportTypeId 
+        ORDER BY RCM_Id";
+
+                fallbackHeadings = (await connection.QueryAsync<LOEHeadingDto>(fallbackQueryWithContent, new
+                {
+                    ReportTypeId = reportTypeId
+                })).ToList();
+            }
+            else
+            {
+                // Step 4: Load all headings by ReportTypeId
+                var fallbackQuery = @"
+        SELECT 
+            RCM_Id AS LOEHeadingID, 
+            RCM_Heading AS LOEHeading, 
+            RCM_Description AS LOEDesc
+        FROM SAD_ReportContentMaster 
+        WHERE 
+            RCM_ReportId = @ReportTypeId 
+        ORDER BY RCM_Id";
+
+                fallbackHeadings = (await connection.QueryAsync<LOEHeadingDto>(fallbackQuery, new
+                {
+                    ReportTypeId = reportTypeId
+                })).ToList();
+            }
+
+            return fallbackHeadings;
         }
+
+
+        //public async Task<List<LOEHeadingDto>> LoadLOEHeadingAsync(string sFormName, int compId, int reportTypeId, int loeTemplateId)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    await connection.OpenAsync();
+
+        //    string query = @"
+        //SELECT 
+        //    LTD_ID AS PKID,  
+        //    LTD_HeadingID AS LOEHeadingID, 
+        //    LTD_Heading AS LOEHeading, 
+        //    LTD_Decription AS LOEDesc
+        //FROM LOE_Template_Details 
+        //WHERE 
+        //    LTD_LOE_ID = @LoeTemplateId 
+        //    AND LTD_ReportTypeID = @ReportTypeId 
+        //    AND LTD_FormName = @FormName 
+        //    AND LTD_CompID = @CompId 
+        //ORDER BY LTD_ID";
+
+        //    var loeDetails = (await connection.QueryAsync<LOEHeadingDto>(query, new
+        //    {
+        //        LoeTemplateId = loeTemplateId,
+        //        ReportTypeId = reportTypeId,
+        //        FormName = sFormName,
+        //        CompId = compId
+        //    })).ToList();
+
+        //    return loeDetails;
+        //}
 
 
 
