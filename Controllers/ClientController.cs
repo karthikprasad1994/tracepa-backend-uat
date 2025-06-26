@@ -1,6 +1,7 @@
 ﻿
 
 
+using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -470,6 +471,37 @@ namespace TracePca.Controllers
                 });
             }
         }
+       
+
+            [HttpGet("GetDRLDescription")]
+            public async Task<IActionResult> GetDRLDescription(int companyId, int drlId)
+            {
+                try
+                {
+                var description = await _AuditInterface.GetDRLDescriptionByIdAsync(companyId, drlId);
+
+                    // Call your service method
+                    
+
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "DRL description fetched successfully.",
+                        comments = description
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new
+                    {
+                        statusCode = 500,
+                        message = "An error occurred while fetching the DRL description.",
+                        error = ex.Message
+                    });
+                }
+            }
+
+          
 
 
 

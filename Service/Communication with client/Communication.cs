@@ -764,6 +764,28 @@ namespace TracePca.Service.Communication_with_client
             return result;
         }
 
+        public async Task<string> GetDRLDescriptionByIdAsync(int companyId, int drlId)
+        {
+            const string query = @"
+    SELECT ISNULL(Cms_Remarks, '') 
+    FROM Content_Management_Master 
+    WHERE CMM_CompID = @CompanyId AND CMM_ID = @DrlId";
+
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var result = await connection.ExecuteScalarAsync<string>(query, new
+            {
+                CompanyId = companyId,
+                DrlId = drlId
+            });
+
+            return result ?? string.Empty;
+        }
+
+
+
         public async Task<int> SaveDRLLogAsync(DRLLogDto dto)
         {
             var connectionString = _configuration.GetConnectionString("DefaultConnection");

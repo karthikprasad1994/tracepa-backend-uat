@@ -97,6 +97,7 @@ namespace TracePca.Interface.Audit
         Task<(bool IsSuccess, string Message)> UpdateDrlStatusAsync(UpdateDrlStatusDto dto);
 
         Task<int?> GetMaxAttachmentIdAsync(GetMaxAttachmentIdRequest request);
+        Task<string> GetDRLDescriptionByIdAsync(int companyId, int drlId);
 
     }
 }
