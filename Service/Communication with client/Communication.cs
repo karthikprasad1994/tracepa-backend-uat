@@ -2406,12 +2406,13 @@ VALUES (
                     
                     ADRL_UpdatedOn = GETDATE()
                 WHERE ADRL_ID = @AdrlId;";
+                    var emailIdsCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
 
                     await connection.ExecuteAsync(updateSql, new
                     {
                         AdrlId = existingId.Value,
                         YearId = dto.YearId,
-                        EmailIds = dto.EmailId,
+                        EmailIds = emailIdsCsv,
                         Remarks = dto.Remark,
                         UserId = dto.UserId,
                         IpAddress = dto.IpAddress,
@@ -2441,7 +2442,7 @@ VALUES (
                     @UserId, @IpAddress, @CompId, @Status,
                     @ReportType, GETDATE(), GETDATE(), @AttachId
                 );";
-
+                    var emailIdsCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
                     await connection.ExecuteAsync(insertSql, new
                     {
                         AdrlId = nextAdrlId,
@@ -2449,7 +2450,7 @@ VALUES (
                         AuditId = dto.AuditId,
                         CustomerId = dto.CustomerId,
                         RequestedId = requestedId,
-                        EmailIds = dto.EmailId,
+                        EmailIds = emailIdsCsv,
                         Remarks = dto.Remark,
                         UserId = dto.UserId,
                         IpAddress = dto.IpAddress,
@@ -2533,7 +2534,8 @@ VALUES (
                             await UpdateDrlAttachIdAndDocIdAsync(dto.CustomerId, dto.AuditId, attachId, docId, pkId);
 
                             // Send email (non-transactional)
-                            await SendEmailWithAttachmentAsync(dto.EmailId, filePath);
+                            // await SendEmailWithAttachmentAsync(dto.EmailId, filePath);
+                            await SendDuringAuditEmailAsync(dto);
                         }
 
                         // STEP 2: Always log to DRL and Remarks tables
@@ -2544,7 +2546,7 @@ VALUES (
                         int docIdForRemarks = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
                         int remarkId = await GenerateNextRemarkIdAsync(dto.CustomerId, dto.AuditId);
                         await InsertIntoAuditDocRemarksLogAsync(dto, requestedId, remarkId, attachId, docIdForRemarks, adrlId);
-
+                        await SendDuringAuditEmailAsync(dto);
                         await transaction.CommitAsync();
 
                         return "Attachment upload (if provided), details saved, and email sent successfully.";
@@ -2558,6 +2560,63 @@ VALUES (
             }
         }
 
+        private async Task SendDuringAuditEmailAsync(AddFileDto dto)
+        {
+            if (dto.EmailId == null || !dto.EmailId.Any())
+                return;
+
+            var smtpClient = new System.Net.Mail.SmtpClient("smtp.gmail.com")
+            {
+                Port = 587,
+                Credentials = new NetworkCredential("harsha.s2700@gmail.com", "edvemvlmgfkcasrp"),
+                EnableSsl = true
+            };
+
+            var mail = new MailMessage
+            {
+                From = new MailAddress("harsha.s2700@gmail.com"),
+                Subject = $"Intimation mail for sharing the Documents requested by the Auditor - {dto.AuditId}",
+                IsBodyHtml = true
+            };
+
+            mail.To.Add(dto.EmailId[0]);
+
+            for (int i = 1; i < dto.EmailId.Count; i++)
+            {
+                mail.CC.Add(dto.EmailId[i]);
+            }
+
+            var requestedOn = dto.RequestedOn?.ToString("MMM/dd/yy") ?? "";
+
+            string body = $@"
+<p><strong>Intimation mail</strong></p>
+<p>Document Requested</p>
+<p>Greetings from TRACe PA.</p>
+<p>This mail is an intimation for sharing the documents requested by the Auditor's office.</p>
+
+<p><strong>Audit No.:</strong> {dto.AuditId} - {dto.ReportType} and Date : {requestedOn}</p>
+<p><strong>Document Requested List:</strong> Journal Entries</p>";
+
+            if (!string.IsNullOrWhiteSpace(dto.Remark))
+            {
+                body += $@"
+<p><strong>Specific request for client:</strong></p>
+<p>{dto.Remark}</p>";
+            }
+
+            body += @"
+<br />
+<p>Please login to TRACe PA website using the link and credentials shared with you.</p>
+<p><a href='https://tracepacust-user.multimedia.interactivedns.com/'>TRACe PA Portal</a></p>
+<p>Home page of the application will show you the list of documents requested by the auditor. Upload all the requested documents using links provided.</p>
+<br />
+<p>Thanks,</p>
+<p>TRACe PA Team</p>";
+
+            mail.Body = body;
+
+            await smtpClient.SendMailAsync(mail);
+        }
 
 
         //private async Task UpdateLatestEdtAttachmentStatusAsync(int customerId, int auditId)
