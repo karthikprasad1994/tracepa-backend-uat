@@ -15,7 +15,7 @@ namespace TracePca.Interface.Audit
         Task<(int attachmentId, string relativeFilePath)> UploadAndSaveAttachmentAsync(FileAttachmentDTO dto);
         Task RemoveAttachmentDocAsync(int compId, int attachId, int docId, int userId);
         Task UpdateAttachmentDocDescriptionAsync(int compId, int attachId, int docId, int userId, string description);
-        Task<AttachmentDetailsDTO> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId);
+        Task<(bool, string)> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId);
         Task<AuditDropDownListDataDTO> LoadUsersByCustomerIdDDLAsync(int custId);
         Task<EngagementPlanReportDetailsDTO> GetEngagementPlanReportDetailsByIdAsync(int compId, int epPKid);
         Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadReportAsync(int compId, int epPKid, string format);

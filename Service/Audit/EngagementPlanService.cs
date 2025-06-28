@@ -545,7 +545,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<AttachmentDetailsDTO> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId)
+        public async Task<(bool, string)> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId)
         {
             try
             {
@@ -555,7 +555,37 @@ namespace TracePca.Service.Audit
 
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 result = (await connection.QueryFirstAsync<AttachmentDetailsDTO>(query, new { CompId = compId, AttachId = attachId, DocId = docId }));
-                return result;
+
+                if (result == null)
+                    return (false, "Attachment metadata not found.");
+
+                if (string.IsNullOrWhiteSpace(result.ATCH_EXT))
+                    return (false, "File extension is missing in attachment record.");
+
+                string fileName = $"{docId}.{result.ATCH_EXT}";
+                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
+                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+                string sourceFilePath = Path.Combine(absoluteFolder, fileName);
+
+                if (!File.Exists(sourceFilePath))
+                    return (false, "Attachment file not found on server.");
+
+                byte[] fileBytes = await File.ReadAllBytesAsync(sourceFilePath);
+
+                string tempPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "temp");
+                if (!Directory.Exists(tempPath))
+                    Directory.CreateDirectory(tempPath);
+
+                string tempFilePath = Path.Combine(tempPath, fileName);
+                if (File.Exists(tempFilePath))
+                    File.Delete(tempFilePath);
+
+                await File.WriteAllBytesAsync(tempFilePath, fileBytes);
+
+                string baseUrl = $"{HttpContextAccessor.HttpContext.Request.Scheme}://{HttpContextAccessor.HttpContext.Request.Host}";
+                string downloadUrl = $"{baseUrl}/temp/{fileName}";
+
+                return (true, downloadUrl);
             }
             catch (Exception ex)
             {
