@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR.Protocol;
+using System;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
 
@@ -205,31 +206,15 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var result = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId);
-                if (result == null)
+                var (isFileExists, messageOrfileUrl) = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId);
+                if (isFileExists)
                 {
-                    return NotFound(new { success = false, message = "Attachment not found." });
+                    return Ok(new { statusCode = 200, success = true, fileUrl = messageOrfileUrl });
                 }
-
-                string fileExt = result.ATCH_EXT;
-                if (string.IsNullOrEmpty(fileExt))
+                else
                 {
-                    return NotFound(new { success = false, message = "File extension not found." });
+                    return Ok(new { statusCode = 200, success = false, message = messageOrfileUrl });
                 }
-
-                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
-                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
-
-                string fileName = $"{docId}.{fileExt}";
-                string filePath = Path.Combine(absoluteFolder, fileName);
-
-                if (!System.IO.File.Exists(filePath))
-                {
-                    return NotFound(new { success = false, message = "File not found." });
-                }
-
-                var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-                return File(fileBytes, "application/octet-stream", fileName);
             }
             catch (Exception ex)
             {
