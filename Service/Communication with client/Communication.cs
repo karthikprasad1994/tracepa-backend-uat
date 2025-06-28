@@ -158,6 +158,137 @@ namespace TracePca.Service.Communication_with_client
 
             return financialYear ?? "-";
         }
+        public async Task<ScheduleMergedDto> GetScheduleMergedDetailsAsync(int customerId, int auditId)
+        {
+            const string query = @"
+SELECT 
+    FORMAT(SA.SA_StartDate, 'dd/MM/yyyy') + ' to ' + FORMAT(SA.SA_ExpCompDate, 'dd/MM/yyyy') AS AuditPeriod,
+    SA.SA_CustID,
+    SA.SA_AuditTypeID,
+    SA.SA_YearID,
+    CASE 
+        WHEN ISNULL(CM.CUST_FY, '0') = 1 THEN 'Jan 1st to Dec 31st'
+        WHEN ISNULL(CM.CUST_FY, '0') = 2 THEN 'Feb 1st to Jan 31st'
+        WHEN ISNULL(CM.CUST_FY, '0') = 3 THEN 'Mar 1st to Feb 28th'
+        WHEN ISNULL(CM.CUST_FY, '0') = 4 THEN 'Apr 1st to May 31st'
+        WHEN ISNULL(CM.CUST_FY, '0') = 5 THEN 'May 1st to Apr 30th'
+        WHEN ISNULL(CM.CUST_FY, '0') = 6 THEN 'Jun 1st to May 31st'
+        WHEN ISNULL(CM.CUST_FY, '0') = 7 THEN 'Jul 1st to Jun 30th'
+        WHEN ISNULL(CM.CUST_FY, '0') = 8 THEN 'Aug 1st to Jul 31st'
+        WHEN ISNULL(CM.CUST_FY, '0') = 9 THEN 'Sep 1st to Aug 31st'
+        WHEN ISNULL(CM.CUST_FY, '0') = 10 THEN 'Oct 1st to Sep 30th'
+        WHEN ISNULL(CM.CUST_FY, '0') = 11 THEN 'Nov 1st to Oct 31st'
+        WHEN ISNULL(CM.CUST_FY, '0') = 12 THEN 'Dec 1st to Jan 31st'
+        ELSE '-' 
+    END AS CustomerFY
+FROM StandardAudit_Schedule SA
+JOIN SAD_CUSTOMER_MASTER CM ON SA.SA_CustID = CM.Cust_ID
+WHERE SA.SA_ID = @AuditId AND SA.SA_CustID = @CustomerId;
+";
+
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var partialResult = await connection.QueryFirstOrDefaultAsync<dynamic>(query, new
+            {
+                AuditId = auditId,
+                CustomerId = customerId
+            });
+
+            if (partialResult == null) return null;
+
+            // LOE Approved Date query (only date part)
+            const string loeQuery = @"
+SELECT TOP 1 FORMAT(LOET_ApprovedOn, 'dd/MM/yyyy')
+FROM LOE_Template
+WHERE LOET_CustomerId = @CustomerId
+  AND LOET_FunctionId = @AuditTypeId
+  AND LOET_LOEID IN (
+      SELECT LOE_Id 
+      FROM SAD_CUST_LOE 
+      WHERE LOE_YearId = @YearId 
+        AND LOE_CustomerId = @CustomerId
+);";
+
+            var loeApprovedOn = await connection.ExecuteScalarAsync<string>(loeQuery, new
+            {
+                CustomerId = (int)partialResult.SA_CustID,
+                AuditTypeId = (int)partialResult.SA_AuditTypeID,
+                YearId = (int)partialResult.SA_YearID
+            });
+
+            return new ScheduleMergedDto
+            {
+                AuditPeriod = partialResult.AuditPeriod,
+                CustomerFY = partialResult.CustomerFY,
+                LOET_ApprovedOn = loeApprovedOn
+            };
+        }
+
+
+
+
+
+        //public async Task<ScheduleMergedDto> GetScheduleMergedDetailsAsync(int companyId, int auditId)
+        //{
+        //    const string query = @"
+        //SELECT 
+        //    SA.SA_StartDate AS StartDate,
+        //    SA.SA_ExpCompDate AS EndDate,
+
+        //    -- Customer Financial Year Description
+        //    CASE 
+        //        WHEN ISNULL(CM.CUST_FY, '0') = 1 THEN 'Jan 1st to Dec 31st'
+        //        WHEN ISNULL(CM.CUST_FY, '0') = 2 THEN 'Feb 1st to Jan 31st'
+        //        WHEN ISNULL(CM.CUST_FY, '0') = 3 THEN 'Mar 1st to Feb 28th'
+        //        WHEN ISNULL(CM.CUST_FY, '0') = 4 THEN 'Apr 1st to May 31st'
+        //        WHEN ISNULL(CM.CUST_FY, '0') = 5 THEN 'May 1st to Apr 30th'
+        //        WHEN ISNULL(CM.CUST_FY, '0') = 6 THEN 'Jun 1st to May 31st'
+        //        WHEN ISNULL(CM.CUST_FY, '0') = 7 THEN 'Jul 1st to Jun 30th'
+        //        WHEN ISNULL(CM.CUST_FY, '0') = 8 THEN 'Aug 1st to Jul 31st'
+        //        WHEN ISNULL(CM.CUST_FY, '0') = 9 THEN 'Sep 1st to Aug 31st'
+        //        WHEN ISNULL(CM.CUST_FY, '0') = 10 THEN 'Oct 1st to Sep 30th'
+        //        WHEN ISNULL(CM.CUST_FY, '0') = 11 THEN 'Nov 1st to Oct 31st'
+        //        WHEN ISNULL(CM.CUST_FY, '0') = 12 THEN 'Dec 1st to Jan 31st'
+        //        ELSE '-' 
+        //    END AS CustomerFY,
+
+        //    -- LOE Signed Date
+        //    (
+        //        SELECT TOP 1 LOET_ApprovedOn
+        //        FROM LOE_Template
+        //        WHERE LOET_CustomerId = SA.SA_CustID
+        //          AND LOET_FunctionId = SA.SA_AuditTypeID
+        //          AND LOET_CompID = @CompanyId
+        //          AND LOET_LOEID IN (
+        //              SELECT LOE_Id 
+        //              FROM SAD_CUST_LOE 
+        //              WHERE LOE_YearId = SA.SA_YearID 
+        //                AND LOE_CustomerId = SA.SA_CustID
+        //          )
+        //    ) AS LOET_ApprovedOn
+
+        //FROM StandardAudit_Schedule SA
+        //JOIN SAD_CUSTOMER_MASTER CM ON SA.SA_CustID = CM.Cust_ID
+        //WHERE SA.SA_ID = @AuditId AND SA.SA_CompID = @CompanyId AND CM.CUST_CompID = @CompanyId;
+        //";
+
+        //    var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+        //    using var connection = new SqlConnection(connectionString);
+        //    await connection.OpenAsync();
+
+        //    var result = await connection.QueryFirstOrDefaultAsync<ScheduleMergedDto>(query, new
+        //    {
+        //        AuditId = auditId,
+        //        CompanyId = companyId
+        //    });
+
+        //    return result;
+        //}
+
 
 
 
@@ -337,7 +468,8 @@ namespace TracePca.Service.Communication_with_client
             if (templateId > 0)
                 sql += " AND RTM_TemplateId = @TemplateId";
 
-            sql += " ORDER BY RTM_Id";
+            // sql += " ORDER BY RTM_Id";
+            sql += " ORDER BY TRY_CAST(RTM_Id AS INT) ASC";
 
             var parameters = new
             {
@@ -493,17 +625,19 @@ namespace TracePca.Service.Communication_with_client
             var result = await connection.QueryAsync<DrlDescListDto>(sQuery, new { CompanyId = companyId });
             return result;
         }
-
-
-        public async Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto)
+        public async Task<List<(int Id, string Action)>> SaveOrUpdateLOETemplateDetailsAsync(
+    string connectionKey, List<LoETemplateDetailInputDto> dtos)
         {
+            var result = new List<(int Id, string Action)>();
+
             using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
             await connection.OpenAsync();
 
-            // ✅ If Id is passed, treat this as an update directly
-            if (dto.Id > 0)
+            foreach (var dto in dtos)
             {
-                const string updateSql = @"
+                if (dto.Id > 0)
+                {
+                    const string updateSql = @"
             UPDATE LOE_Template_Details 
             SET 
                 LTD_Heading = @Heading,
@@ -512,19 +646,19 @@ namespace TracePca.Service.Communication_with_client
                 LTD_UpdatedOn = GETDATE()
             WHERE LTD_ID = @Id";
 
-                await connection.ExecuteAsync(updateSql, new
-                {
-                    dto.Id,
-                    dto.Heading,
-                    dto.Description,
-                    dto.UserId
-                });
+                    await connection.ExecuteAsync(updateSql, new
+                    {
+                        dto.Id,
+                        dto.Heading,
+                        dto.Description,
+                        dto.UserId
+                    });
 
-                return (dto.Id, "Updated");
-            }
+                    result.Add((dto.Id, "Updated"));
+                    continue;
+                }
 
-            // 🔍 Otherwise check if a matching record exists
-            const string selectSql = @"
+                const string selectSql = @"
         SELECT TOP 1 LTD_ID 
         FROM LOE_Template_Details 
         WHERE 
@@ -534,18 +668,18 @@ namespace TracePca.Service.Communication_with_client
             AND LTD_FormName = @FormName 
             AND LTD_CompID = @CompanyId";
 
-            var existingId = await connection.QueryFirstOrDefaultAsync<int?>(selectSql, new
-            {
-                dto.LoeTemplateId,
-                dto.ReportTypeId,
-                dto.HeadingId,
-                dto.FormName,
-                dto.CompanyId
-            });
+                var existingId = await connection.QueryFirstOrDefaultAsync<int?>(selectSql, new
+                {
+                    dto.LoeTemplateId,
+                    dto.ReportTypeId,
+                    dto.HeadingId,
+                    dto.FormName,
+                    dto.CompanyId
+                });
 
-            if (existingId.HasValue && existingId.Value > 0)
-            {
-                const string updateSql = @"
+                if (existingId.HasValue && existingId.Value > 0)
+                {
+                    const string updateSql = @"
             UPDATE LOE_Template_Details 
             SET 
                 LTD_Heading = @Heading,
@@ -554,22 +688,22 @@ namespace TracePca.Service.Communication_with_client
                 LTD_UpdatedOn = GETDATE()
             WHERE LTD_ID = @Id";
 
-                await connection.ExecuteAsync(updateSql, new
-                {
-                    Id = existingId.Value,
-                    dto.Heading,
-                    dto.Description,
-                    dto.UserId
-                });
+                    await connection.ExecuteAsync(updateSql, new
+                    {
+                        Id = existingId.Value,
+                        dto.Heading,
+                        dto.Description,
+                        dto.UserId
+                    });
 
-                return (existingId.Value, "Updated");
-            }
+                    result.Add((existingId.Value, "Updated"));
+                    continue;
+                }
 
-            // ➕ Insert new
-            const string maxIdSql = "SELECT ISNULL(MAX(LTD_ID), 0) + 1 FROM LOE_Template_Details";
-            var newId = await connection.ExecuteScalarAsync<int>(maxIdSql);
+                const string maxIdSql = "SELECT ISNULL(MAX(LTD_ID), 0) + 1 FROM LOE_Template_Details";
+                var newId = await connection.ExecuteScalarAsync<int>(maxIdSql);
 
-            const string insertSql = @"
+                const string insertSql = @"
         INSERT INTO LOE_Template_Details (
             LTD_ID, LTD_LOE_ID, LTD_ReportTypeID, LTD_HeadingID,
             LTD_Heading, LTD_Decription, LTD_FormName,
@@ -579,22 +713,127 @@ namespace TracePca.Service.Communication_with_client
             @Heading, @Description, @FormName,
             @UserId, GETDATE(), @IpAddress, @CompanyId)";
 
-            await connection.ExecuteAsync(insertSql, new
-            {
-                Id = newId,
-                dto.LoeTemplateId,
-                dto.ReportTypeId,
-                dto.HeadingId,
-                dto.Heading,
-                dto.Description,
-                dto.FormName,
-                dto.UserId,
-                dto.IpAddress,
-                dto.CompanyId
-            });
+                await connection.ExecuteAsync(insertSql, new
+                {
+                    Id = newId,
+                    dto.LoeTemplateId,
+                    dto.ReportTypeId,
+                    dto.HeadingId,
+                    dto.Heading,
+                    dto.Description,
+                    dto.FormName,
+                    dto.UserId,
+                    dto.IpAddress,
+                    dto.CompanyId
+                });
 
-            return (newId, "Inserted");
+                result.Add((newId, "Inserted"));
+            }
+
+            return result;
         }
+
+
+        //public async Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+        //    await connection.OpenAsync();
+
+        //    // ✅ If Id is passed, treat this as an update directly
+        //    if (dto.Id > 0)
+        //    {
+        //        const string updateSql = @"
+        //    UPDATE LOE_Template_Details 
+        //    SET 
+        //        LTD_Heading = @Heading,
+        //        LTD_Decription = @Description,
+        //        LTD_UpdatedBy = @UserId,
+        //        LTD_UpdatedOn = GETDATE()
+        //    WHERE LTD_ID = @Id";
+
+        //        await connection.ExecuteAsync(updateSql, new
+        //        {
+        //            dto.Id,
+        //            dto.Heading,
+        //            dto.Description,
+        //            dto.UserId
+        //        });
+
+        //        return (dto.Id, "Updated");
+        //    }
+
+        //    // 🔍 Otherwise check if a matching record exists
+        //    const string selectSql = @"
+        //SELECT TOP 1 LTD_ID 
+        //FROM LOE_Template_Details 
+        //WHERE 
+        //    LTD_LOE_ID = @LoeTemplateId 
+        //    AND LTD_ReportTypeID = @ReportTypeId 
+        //    AND LTD_HeadingID = @HeadingId 
+        //    AND LTD_FormName = @FormName 
+        //    AND LTD_CompID = @CompanyId";
+
+        //    var existingId = await connection.QueryFirstOrDefaultAsync<int?>(selectSql, new
+        //    {
+        //        dto.LoeTemplateId,
+        //        dto.ReportTypeId,
+        //        dto.HeadingId,
+        //        dto.FormName,
+        //        dto.CompanyId
+        //    });
+
+        //    if (existingId.HasValue && existingId.Value > 0)
+        //    {
+        //        const string updateSql = @"
+        //    UPDATE LOE_Template_Details 
+        //    SET 
+        //        LTD_Heading = @Heading,
+        //        LTD_Decription = @Description,
+        //        LTD_UpdatedBy = @UserId,
+        //        LTD_UpdatedOn = GETDATE()
+        //    WHERE LTD_ID = @Id";
+
+        //        await connection.ExecuteAsync(updateSql, new
+        //        {
+        //            Id = existingId.Value,
+        //            dto.Heading,
+        //            dto.Description,
+        //            dto.UserId
+        //        });
+
+        //        return (existingId.Value, "Updated");
+        //    }
+
+        //    // ➕ Insert new
+        //    const string maxIdSql = "SELECT ISNULL(MAX(LTD_ID), 0) + 1 FROM LOE_Template_Details";
+        //    var newId = await connection.ExecuteScalarAsync<int>(maxIdSql);
+
+        //    const string insertSql = @"
+        //INSERT INTO LOE_Template_Details (
+        //    LTD_ID, LTD_LOE_ID, LTD_ReportTypeID, LTD_HeadingID,
+        //    LTD_Heading, LTD_Decription, LTD_FormName,
+        //    LTD_CrBy, LTD_CrOn, LTD_IPAddress, LTD_CompID)
+        //VALUES (
+        //    @Id, @LoeTemplateId, @ReportTypeId, @HeadingId,
+        //    @Heading, @Description, @FormName,
+        //    @UserId, GETDATE(), @IpAddress, @CompanyId)";
+
+        //    await connection.ExecuteAsync(insertSql, new
+        //    {
+        //        Id = newId,
+        //        dto.LoeTemplateId,
+        //        dto.ReportTypeId,
+        //        dto.HeadingId,
+        //        dto.Heading,
+        //        dto.Description,
+        //        dto.FormName,
+        //        dto.UserId,
+        //        dto.IpAddress,
+        //        dto.CompanyId
+        //    });
+
+        //    return (newId, "Inserted");
+        //}
 
 
 
@@ -1433,6 +1672,8 @@ namespace TracePca.Service.Communication_with_client
                     {
                         attachIdToMap = existingAttachId;
                     }
+
+                    var emailIdsCsv = dto.EmailIds != null ? string.Join(",", dto.EmailIds) : null;
                     var insert = @"
                 INSERT INTO Audit_DRLLog (
                     ADRL_ID,
@@ -1462,7 +1703,7 @@ namespace TracePca.Service.Communication_with_client
                         dto.RequestedTypeId,
                         dto.RequestedOn,
                         dto.TimelineToRespond,
-                        dto.EmailIds,
+                        EmailIds = emailIdsCsv,
                         dto.Comments,
                         CreatedBy = dto.CreatedBy,
                         UpdatedBy = dto.UpdatedBy,
@@ -1486,13 +1727,15 @@ namespace TracePca.Service.Communication_with_client
                     ADRL_UpdatedBy = @UpdatedBy,
                     ADRL_ReportType = @ReportType
                 WHERE ADRL_ID = @Id";
+                    var emailIdsCsv = dto.EmailIds != null ? string.Join(",", dto.EmailIds) : null;
+
 
                     await connection.ExecuteAsync(update, new
                     {
                         dto.RequestedOn,
                         dto.TimelineToRespond,
                         dto.RequestedListId,
-                        dto.EmailIds,
+                        EmailIds = emailIdsCsv,
                         dto.Comments,
                         UpdatedBy = dto.UpdatedBy,
                         ReportType = dto.ReportType,
@@ -1691,7 +1934,7 @@ namespace TracePca.Service.Communication_with_client
 
 
                 transaction.Commit();
-              //  await SendBeginningOfAuditEmailAsync(dto);
+                await SendBeginningOfAuditEmailAsync(dto);
 
                 return drlId;
             }
@@ -1702,61 +1945,61 @@ namespace TracePca.Service.Communication_with_client
             }
         }
 
-//        private async Task SendBeginningOfAuditEmailAsync(DRLLogDto dto)
-//        {
-//            if (dto.EmailIds == null || !dto.EmailIds.Any())
-//                return;
+        private async Task SendBeginningOfAuditEmailAsync(DRLLogDto dto)
+        {
+            if (dto.EmailIds == null || !dto.EmailIds.Any())
+                return;
 
-//            var smtpClient = new System.Net.Mail.SmtpClient("your-smtp-host") // Replace with actual SMTP host
-//            {
-//                Port = 587,
-//                Credentials = new NetworkCredential("trace@mmcspl.com", "your-password"),
-                
-                
-//                // Replace with actual credentials
-//                EnableSsl = true
-//            };
+            var smtpClient = new System.Net.Mail.SmtpClient("smtp.gmail.com") // Replace with actual SMTP host
+            {
+                Port = 587,
+                Credentials = new NetworkCredential("harsha.s2700@gmail.com", "edvemvlmgfkcasrp"),
 
-//            var mail = new MailMessage
-//            {
-//                From = new MailAddress("trace@mmcspl.com"),
-//                Subject = $"Intimation mail for Beginning of the Audit - #{dto.AuditNo}",
-//                IsBodyHtml = true
-//            };
 
-//            // First email is added as "To"
-//            mail.To.Add(dto.EmailIds[0]);
+                // Replace with actual credentials
+                EnableSsl = true
+            };
 
-//            // Remaining emails are added as "CC"
-//            for (int i = 1; i < dto.EmailIds.Count; i++)
-//            {
-//                mail.CC.Add(dto.EmailIds[i]);
-//            }
+            var mail = new MailMessage
+            {
+                From = new MailAddress("harsha.s2700@gmail.com"),
+                Subject = $"Intimation mail for Beginning of the Audit - #{dto.AuditNo}",
+                IsBodyHtml = true
+            };
 
-//            // Optional: if you still need a comma-separated string version somewhere
-//            var emailIdsString = string.Join(",", dto.EmailIds);
+            // First email is added as "To"
+            mail.To.Add(dto.EmailIds[0]);
 
-//            string body = $@"
-//<p><strong>Intimation mail</strong></p>
-//<p>Document Requested</p>
-//<p>Greetings from TRACe PA.</p>
-//<p>This mail is an intimation for sharing the documents requested by the Auditor's office.</p>
-//<p><strong>Beginning of the Audit</strong></p>
-//<p><strong>Audit No.:</strong> {dto.AuditNo} - Statutory Audit</p>
-//<p><strong>Report Type:</strong> {dto.ReportType}</p>
-//<p><strong>Document Requested List:</strong> Beginning of the Audit</p>
-//<p><strong>Comments:</strong> {dto.Comments}</p>
-//<br />
-//<p>Please login to TRACe PA website using the link and credentials shared with you.</p>
-//<p><a href='https://tracepacust-user.multimedia.interactivedns.com/'>TRACe PA Portal</a></p>
-//<br />
-//<p>Thanks,</p>
-//<p>TRACe PA Team</p>";
+            // Remaining emails are added as "CC"
+            for (int i = 1; i < dto.EmailIds.Count; i++)
+            {
+                mail.CC.Add(dto.EmailIds[i]);
+            }
 
-//            mail.Body = body;
+            // Optional: if you still need a comma-separated string version somewhere
+            var emailIdsString = string.Join(",", dto.EmailIds);
 
-//            await smtpClient.SendMailAsync(mail);
-//        }
+            string body = $@"
+<p><strong>Intimation mail</strong></p>
+<p>Document Requested</p>
+<p>Greetings from TRACe PA.</p>
+<p>This mail is an intimation for sharing the documents requested by the Auditor's office.</p>
+<p><strong>Beginning of the Audit</strong></p>
+<p><strong>Audit No.:</strong> {dto.AuditNo} - Statutory Audit</p>
+<p><strong>Report Type:</strong> {dto.ReportType}</p>
+<p><strong>Document Requested List:</strong> Beginning of the Audit</p>
+<p><strong>Comments:</strong> {dto.Comments}</p>
+<br />
+<p>Please login to TRACe PA website using the link and credentials shared with you.</p>
+<p><a href='https://tracepacust-user.multimedia.interactivedns.com/'>TRACe PA Portal</a></p>
+<br />
+<p>Thanks,</p>
+<p>TRACe PA Team</p>";
+
+            mail.Body = body;
+
+            await smtpClient.SendMailAsync(mail);
+        }
 
 
 

@@ -61,7 +61,7 @@ namespace TracePca.Interface.Audit
         Task<IEnumerable<ReportData>> GetReportTypesAsync(string connectionKey, int companyId);
         Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey);
         //Task<List<int>> SaveLoETemplateDetailsAsync(string connectionKey, int companyId, List<LoETemplateDetailDto> details);
-        Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto);
+       // Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto);
         Task<IEnumerable<DropDownListDto>> LoadDRLClientSideAsync(int compId, string type, string auditNo);
         Task<int> GetDuringSelfAttachIdAsync(int companyId, int yearId, int customerId, int auditId, int drlId);
         //Task<int> SaveAuditAllAsync(InsertFileInfoDto dto, int requestedId,
@@ -98,6 +98,10 @@ namespace TracePca.Interface.Audit
 
         Task<int?> GetMaxAttachmentIdAsync(GetMaxAttachmentIdRequest request);
         Task<string> GetDRLDescriptionByIdAsync(int companyId, int drlId);
+        Task<ScheduleMergedDto> GetScheduleMergedDetailsAsync(int customerId, int auditId);
+
+        Task<List<(int Id, string Action)>> SaveOrUpdateLOETemplateDetailsAsync(
+      string connectionKey, List<LoETemplateDetailInputDto> dtos);
 
     }
 }

@@ -177,6 +177,41 @@ namespace TracePca.Controllers
             }
         }
 
+
+        [HttpGet("GetScheduleDetails")]
+        public async Task<IActionResult> GetMergedScheduleDetails([FromQuery] int customerId, [FromQuery] int auditId)
+        {
+            try
+            {
+                var result = await _AuditInterface.GetScheduleMergedDetailsAsync(customerId, auditId);
+
+                if (result == null)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No data found for the given customer ID and audit ID"
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Schedule details fetched successfully",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = $"An error occurred while fetching schedule details: {ex.Message}"
+                });
+            }
+        }
+
+
         [HttpGet("LoadScheduledAuditNos")]
         public async Task<IActionResult> GetScheduledAuditNos(
      [FromQuery] string connectionStringName,
@@ -440,25 +475,27 @@ namespace TracePca.Controllers
                 });
             }
         }
-
-
         [HttpPost("insert-update-template")]
-        public async Task<IActionResult> SaveOrUpdate([FromQuery] string connectionKey, [FromBody] LoETemplateDetailInputDto dto)
+        public async Task<IActionResult> SaveOrUpdateMultiple(
+    [FromQuery] string connectionKey,
+    [FromBody] LoETemplateDetailBatchDto batchDto)
         {
             try
             {
-                var (id, action) = await _AuditInterface.SaveOrUpdateLOETemplateDetailsAsync(connectionKey, dto);
-
-                string message = action == "Inserted"
-                    ? "LOE Template details inserted successfully."
-                    : "LOE Template details updated successfully.";
+                var result = await _AuditInterface.SaveOrUpdateLOETemplateDetailsAsync(connectionKey, batchDto.Items);
 
                 return Ok(new
                 {
                     statusCode = 200,
-                    id,
-                    action,
-                    message
+                    message = "LOE Template details processed successfully.",
+                    records = result.Select(r => new
+                    {
+                        id = r.Id,
+                        action = r.Action,
+                        message = r.Action == "Inserted"
+                            ? "LOE Template detail inserted successfully."
+                            : "LOE Template detail updated successfully."
+                    }).ToList()
                 });
             }
             catch (Exception ex)
@@ -471,9 +508,40 @@ namespace TracePca.Controllers
                 });
             }
         }
-       
 
-            [HttpGet("GetDRLDescription")]
+
+        //[HttpPost("insert-update-template")]
+        //public async Task<IActionResult> SaveOrUpdate([FromQuery] string connectionKey, [FromBody] LoETemplateDetailInputDto dto)
+        //{
+        //    try
+        //    {
+        //        var (id, action) = await _AuditInterface.SaveOrUpdateLOETemplateDetailsAsync(connectionKey, dto);
+
+        //        string message = action == "Inserted"
+        //            ? "LOE Template details inserted successfully."
+        //            : "LOE Template details updated successfully.";
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            id,
+        //            action,
+        //            message
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = "An error occurred while saving LOE Template details.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+
+        [HttpGet("GetDRLDescription")]
             public async Task<IActionResult> GetDRLDescription(int companyId, int drlId)
             {
                 try
