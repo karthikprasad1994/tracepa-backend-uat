@@ -15,7 +15,9 @@ namespace TracePca.Dto.Audit
         // public string FileName { get; set; }
         public IFormFile? File { get; set; }
         public int UserId { get; set; }
-        public string EmailId { get; set; }
+        //public string EmailId { get; set; }
+
+        public List<string> EmailId { get; set; }
         public string IpAddress { get; set; }
         public int YearId { get; set; }
         [JsonIgnore]
