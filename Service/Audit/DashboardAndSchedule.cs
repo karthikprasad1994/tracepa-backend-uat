@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Data;
 using System.Data.Common;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Transactions;
@@ -117,7 +118,7 @@ WITH RankedAudit AS (
             WHEN b.SA_Status = 4 THEN 'Conduct Audit'
             WHEN b.SA_Status = 5 THEN 'Report'
             WHEN b.SA_Status = 10 THEN 'Completed'
-            ELSE '-' 
+            ELSE 'Audit Started' 
         END AS AuditStatus,
         Partner = ISNULL(STUFF((
             SELECT DISTINCT '; ' + CAST(usr_FullName AS VARCHAR(MAX))
@@ -178,6 +179,7 @@ ORDER BY SrNo";
 
         public async Task<List<UserDto>> GetUsersByRoleAsync(int compId, string role)
         {
+
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             string query;
             object parameters;
@@ -528,7 +530,7 @@ ORDER BY SrNo";
         }
         private async Task<string> GetCustomerCode(string connectionString, int companyId, int customerId)
         {
-            var sql = @"SELECT CUST_CODE FROM sad_Customer_master 
+            var sql = @"SELECT CUST_NAME FROM sad_Customer_master 
                 WHERE Cust_ID = @CustomerId AND Cust_CompID = @CompanyId";
 
             try
@@ -541,7 +543,9 @@ ORDER BY SrNo";
                         CompanyId = companyId
                     });
 
-                    return Regex.Replace(result ?? string.Empty, @"\s", "").Trim();
+                    // Remove whitespace, trim, and return first 3 uppercase characters
+                    var cleaned = Regex.Replace(result ?? string.Empty, @"\s", "").Trim();
+                    return cleaned.Length >= 3 ? cleaned.Substring(0, 3).ToUpper() : cleaned.ToUpper();
                 }
             }
             catch (Exception ex)
@@ -549,6 +553,7 @@ ORDER BY SrNo";
                 throw new Exception("Failed to retrieve customer code", ex);
             }
         }
+
 
         public async Task<int> InsertStandardAuditScheduleWithQuartersAsync(
          string sAC, StandardAuditScheduleDto dto, int custRegAccessCodeId, int iUserID, string sIPAddress,
@@ -576,13 +581,13 @@ ORDER BY SrNo";
                         transaction // assign transaction here
                     );
 
-                    string formattedId = maxId.ToString("D5"); // e.g., 00001
+                    string formattedId = maxId.ToString(); // e.g., 00001
 
                     // If GetCustomerCode accesses DB, modify it to accept a transaction or connection
                     // Otherwise, it can be called without transaction if it's safe
                     string customerPrefix = await GetCustomerCode(connectionString, dto.SA_CompID, dto.SA_CustID);
 
-                    string jobCode = $"{customerPrefix}/AUD/{dto.SA_YearID}/{formattedId}";
+                    string jobCode = $"{customerPrefix}{dto.SA_YearID}-{formattedId}";
 
                     dto.SA_AuditNo = jobCode;
                 }
@@ -1540,11 +1545,24 @@ ORDER BY SrNo";
         public async Task<string[]> SaveEmployeeDetailsAsync(EmployeeDto emp)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // Step 1: Get auto-generated employee code
+            if (string.IsNullOrWhiteSpace(emp.UsrCode))
+            {
+                string empCode = await GetMaxEmployeeCodeAsync(
+                    _configuration.GetConnectionString("DefaultConnection"),
+                    emp.UsrCompID
+                );
+                emp.UsrCode = empCode; // Set the generated code to the DTO
+            }
+
+
+
             var parameters = new DynamicParameters();
 
             parameters.Add("@Usr_ID", emp.UserID);
             parameters.Add("@Usr_Node", emp.UsrNode);
-            parameters.Add("@Usr_Code", emp.UsrCode);
+            parameters.Add("@Usr_Code", emp.UsrCode); // <-- generated code passed here
             parameters.Add("@Usr_FullName", emp.UsrFullName);
             parameters.Add("@Usr_LoginName", emp.UsrLoginName);
             parameters.Add("@Usr_Password", emp.UsrPassword);
@@ -1553,7 +1571,7 @@ ORDER BY SrNo";
             parameters.Add("@Usr_Suggetions", emp.UsrSuggetions);
             parameters.Add("@usr_partner", emp.UsrPartner);
             parameters.Add("@Usr_LevelGrp", emp.UsrLevelGrp);
-            parameters.Add("@Usr_DutyStatus", emp.UsrDutyStatus);
+            parameters.Add("@Usr_DutyStatus", 'A');
             parameters.Add("@Usr_PhoneNo", emp.UsrPhoneNo);
             parameters.Add("@Usr_MobileNo", emp.UsrMobileNo);
             parameters.Add("@Usr_OfficePhone", emp.UsrOfficePhone);
@@ -1577,8 +1595,8 @@ ORDER BY SrNo";
             parameters.Add("@Usr_DigitalOfficeRole", emp.UsrDigitalOfficeRole);
             parameters.Add("@Usr_CreatedBy", emp.UsrCreatedBy);
             parameters.Add("@Usr_UpdatedBy", emp.UsrCreatedBy);
-            parameters.Add("@Usr_DelFlag", emp.UsrFlag);
-            parameters.Add("@Usr_Status", emp.UsrStatus);
+            parameters.Add("@Usr_DelFlag", 'A');
+            parameters.Add("@Usr_Status", 'A');
             parameters.Add("@Usr_IPAddress", emp.UsrIPAddress);
             parameters.Add("@Usr_CompId", emp.UsrCompID);
             parameters.Add("@Usr_Type", emp.UsrType);
@@ -1586,6 +1604,7 @@ ORDER BY SrNo";
             parameters.Add("@USR_DeptID", emp.DeptID);
             parameters.Add("@USR_MemberType", 0);
             parameters.Add("@USR_Levelcode", 0);
+
             parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
             parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
@@ -1593,35 +1612,115 @@ ORDER BY SrNo";
 
             return new string[]
             {
-            parameters.Get<int>("@iUpdateOrSave").ToString(),
-            parameters.Get<int>("@iOper").ToString()
+        parameters.Get<int>("@iUpdateOrSave").ToString(),
+        parameters.Get<int>("@iOper").ToString()
             };
         }
 
-        public async Task<DataTable> LoadExistingEmployeeDetailsAsync(int companyId, int userId)
+        public async Task<string> GetMaxEmployeeCodeAsync(string connectionString, int companyId)
         {
-            var dt = new DataTable();
-
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-                await connection.OpenAsync();
+                // Query to get MAX(Usr_ID) + 1
+                var query = "SELECT ISNULL(MAX(Usr_ID) + 1, 1) FROM Sad_UserDetails WHERE Usr_CompId = @CompanyId";
 
-                var sql = @"SELECT * FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_CompId = @CompanyId";
+                int maxId = 0;
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    await connection.OpenAsync();
+                    using (var command = new SqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@CompanyId", companyId);
+                        var result = await command.ExecuteScalarAsync();
+                        maxId = Convert.ToInt32(result);
+                    }
+                }
 
-                using var command = new SqlCommand(sql, connection);
-                command.Parameters.AddWithValue("@UserId", userId);
-                command.Parameters.AddWithValue("@CompanyId", companyId);
+                // Format the ID like EMP001, EMP010, etc.
+                string empCode = maxId switch
+                {
+                    < 10 => $"EMP00{maxId}",
+                    < 100 => $"EMP0{maxId}",
+                    _ => $"EMP{maxId}"
+                };
 
-                using var reader = await command.ExecuteReaderAsync();
-                dt.Load(reader);
+                return empCode;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                throw new Exception("Error fetching employee details", ex);
+                throw;
+            }
+        }
+
+        public async Task<object> LoadExistingEmployeeDetailsAsync(int companyId, int userId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            string sql = @"
+            SELECT 
+                Usr_FullName,
+                Usr_Code,
+                Usr_LoginName,
+                Usr_Email,
+                Usr_MobileNo,
+                Usr_PassWord,
+                Usr_CompId,
+                Usr_Role
+            FROM Sad_UserDetails
+            WHERE Usr_ID = @UserId AND Usr_CompId = @CompanyId";
+
+            using var command = new SqlCommand(sql, connection);
+            command.Parameters.AddWithValue("@UserId", userId);
+            command.Parameters.AddWithValue("@CompanyId", companyId);
+
+            using var reader = await command.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new
+                {
+                    usr_FullName = reader["Usr_FullName"]?.ToString(),
+                    usr_Code = reader["Usr_Code"]?.ToString(),
+                    usr_LoginName = reader["Usr_LoginName"]?.ToString(),
+                    usr_Email = reader["Usr_Email"]?.ToString(),
+                    usr_MobileNo = reader["Usr_MobileNo"]?.ToString(),
+                    usr_PassWord = DecryptPassword(reader["Usr_PassWord"]?.ToString() ?? ""),
+                    usr_CompanyId = reader["Usr_CompId"]?.ToString(),
+                    Usr_Role = reader["Usr_Role"]
+                };
             }
 
-            return dt;
+            return null;
+        }
+        public string DecryptPassword(string encryptedValue)
+        {
+            string decryptionKey = "ML736@mmcs";
+            byte[] cipherBytes = Convert.FromBase64String(encryptedValue);
+
+            using (Aes aes = Aes.Create())
+            {
+                var pdb = new Rfc2898DeriveBytes(decryptionKey, new byte[]
+                {
+                0x49, 0x76, 0x61, 0x6E,
+                0x20, 0x4D, 0x65, 0x64,
+                0x76, 0x65, 0x64, 0x65, 0x76
+                });
+
+                aes.Key = pdb.GetBytes(32);
+                aes.IV = pdb.GetBytes(16);
+
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    using (CryptoStream cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Write))
+                    {
+                        cs.Write(cipherBytes, 0, cipherBytes.Length);
+                        cs.Close();
+                    }
+
+                    return Encoding.Unicode.GetString(ms.ToArray());
+                }
+            }
         }
         public async Task<IEnumerable<dynamic>> LoadActiveRoleAsync(int companyId)
         {
@@ -1636,6 +1735,192 @@ ORDER BY SrNo";
             var result = await connection.QueryAsync(sql, new { CompanyId = companyId });
             return result;
         }
+
+        public async Task<IEnumerable<dynamic>> GetUsersByCompanyAndRoleAsync(int companyId, int usrRole)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var sql = @"
+            SELECT Usr_ID, 
+                   (Usr_FullName + ' - ' + Usr_Code) AS FullName 
+            FROM Sad_UserDetails 
+            WHERE Usr_CompId = @CompanyId AND usr_role = @UsrRole";
+
+            var result = await connection.QueryAsync(sql, new { CompanyId = companyId, UsrRole = usrRole });
+
+            return result;
+        }
+
+        public async Task<DataTable> LoadAuditScheduleIntervalAsync(int accessCodeId, int auditId, string format)
+        {
+            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var query = $@"
+            SELECT 
+                SAI_IntervalSubID As ID,
+                SAI_StartDate FromDate,
+                SAI_EndDate AS ToDate,
+                CASE 
+                    WHEN SAI_IntervalSubID = 0 THEN 'K Yearly'
+                    WHEN SAI_IntervalSubID = 1 THEN 'Q1'
+                    WHEN SAI_IntervalSubID = 2 THEN 'Q2'
+                    WHEN SAI_IntervalSubID = 3 THEN 'Q3'
+                    ELSE '' 
+                END AS Description
+            FROM StandardAudit_ScheduleIntervals
+            WHERE SAI_SA_ID = @AuditId AND SAI_CompID = @CompanyId
+            ORDER BY SAI_IntervalSubID";
+
+            var reader = await conn.ExecuteReaderAsync(query, new { Format = format, AuditId = auditId, CompanyId = accessCodeId });
+
+            var dt = new DataTable();
+            dt.Load(reader);
+            return dt;
+        }
+
+        public async Task<DataTable> LoadAssignedCheckPointsAndTeamMembersAsync(int accessCodeId, int auditId, int customerId, string heading, string format)
+        {
+            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var query = $@"
+            SELECT 
+                SACD_ID,
+                SACD_CheckpointId,
+                SACD_Heading,
+                ISNULL(usr_FullName, '') AS Employee,
+                SUM(LEN(SACD_CheckpointId) - LEN(REPLACE(SACD_CheckpointId, ',', '')) + 1) AS NoCheckpoints,
+                CASE WHEN SACD_EmpId > 0 THEN 1 ELSE 0 END AS NoEmployee,
+                SACD_TotalHr AS Working_Hours,
+                CASE 
+                    WHEN CONVERT(VARCHAR(10), SACD_EndDate, 103) = '01/01/1900' THEN '' 
+                    ELSE SACD_EndDate
+                END AS Timeline
+            FROM StandardAudit_Checklist_Details
+            LEFT JOIN sad_userdetails a ON SACD_EmpId = usr_Id
+            WHERE SACD_AuditId = @AuditId AND SACD_CustID = @CustomerId
+            {(string.IsNullOrEmpty(heading) ? "" : " AND SACD_Heading = @Heading")}
+            GROUP BY 
+                SACD_ID, SACD_Heading, SACD_EndDate, SACD_TotalHr, 
+                SACD_CheckpointId, usr_FullName, SACD_EmpId";
+
+            var reader = await conn.ExecuteReaderAsync(query, new
+            {
+                AuditId = auditId,
+                CustomerId = customerId,
+                Format = format,
+                Heading = heading
+            });
+
+            var dt = new DataTable();
+            dt.Load(reader);
+            return dt;
+        }
+
+        public async Task<DataTable> GetFinalAuditTypeHeadingsAsync(int accessCodeId, int auditId)
+        {
+            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var query = @"
+            SELECT 
+                ACM_Heading, 
+                ACM_ID,
+                ACM_Checkpoint,
+                CASE WHEN SAC_Mandatory = 1 THEN 'Yes' ELSE 'No' END AS SAC_Mandatory
+            FROM AuditType_Checklist_Master 
+            JOIN StandardAudit_ScheduleCheckPointList 
+                ON ACM_ID = SAC_CheckPointID
+            WHERE SAC_SA_ID = @AuditId 
+              AND SAC_CompID = @CompanyId 
+              AND ACM_CompId = @CompanyId";
+
+            var reader = await conn.ExecuteReaderAsync(query, new { AuditId = auditId, CompanyId = accessCodeId });
+
+            var dt = new DataTable();
+            dt.Load(reader);
+            return dt;
+        }
+
+        public async Task<string> GetUserNamesAsync(int accessCodeId, List<int> engagementPartnerIds)
+        {
+            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var sql = @"
+        SELECT STRING_AGG(usr_fullname, ', ') AS FullNames
+        FROM SAD_Userdetails
+        WHERE usr_id IN @UserIds";
+
+            var result = await conn.QuerySingleOrDefaultAsync<string>(sql, new { UserIds = engagementPartnerIds });
+
+            return result ?? "N/A";
+        }
+
+        public async Task<string> GetUserNames1Async(int accessCodeId, List<int> engagementPartnerIds)
+        {
+            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var sql = @"
+        SELECT STRING_AGG(usr_fullname, ', ') AS FullNames
+        FROM SAD_Userdetails
+        WHERE usr_id IN @UserIds";
+
+            var result = await conn.QuerySingleOrDefaultAsync<string>(sql, new { UserIds = engagementPartnerIds });
+
+            return result ?? "N/A";
+        }
+
+        public async Task<string> GetUserNames2Async(int accessCodeId, List<int> engagementPartnerIds)
+        {
+            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var sql = @"
+        SELECT STRING_AGG(usr_fullname, ', ') AS FullNames
+        FROM SAD_Userdetails
+        WHERE usr_id IN @UserIds";
+
+            var result = await conn.QuerySingleOrDefaultAsync<string>(sql, new { UserIds = engagementPartnerIds });
+
+            return result ?? "N/A";
+        }
+
+        public async Task<string> GetUserNames3Async(int accessCodeId, List<int> engagementPartnerIds)
+        {
+            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var sql = @"
+        SELECT STRING_AGG(usr_fullname, ', ') AS FullNames
+        FROM SAD_Userdetails
+        WHERE usr_id IN @UserIds";
+
+            var result = await conn.QuerySingleOrDefaultAsync<string>(sql, new { UserIds = engagementPartnerIds });
+
+            return result ?? "N/A";
+        }
+
+
+        //public async Task SaveGraceFormOperations(int accessCodeId, int userId, string module, string action, string operation, int yearId, string yearName, string auditNo, string remarks, string ipAddress)
+        //{
+        //    using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+        //    var query = @"
+        //    INSERT INTO GraceForm_Operations 
+        //        ( AccessCodeID, UserID, Module, Action, Operation, YearID, YearName, AuditNo, Remarks, IPAddress, ActionDate)
+        //    VALUES 
+        //        (@AccessCodeID, @UserID, @Module, @Action, @Operation, @YearID, @YearName, @AuditNo, @Remarks, @IPAddress, GETDATE())";
+
+        //    await conn.ExecuteAsync(query, new
+        //    {
+        //        AccessCodeID = accessCodeId,
+        //        UserID = userId,
+        //        Module = module,
+        //        Action = action,
+        //        Operation = operation,
+        //        YearID = yearId,
+        //        YearName = yearName,
+        //        AuditNo = auditNo,
+        //        Remarks = remarks,
+        //        IPAddress = ipAddress
+        //    });
+        //}
     }
 }
 

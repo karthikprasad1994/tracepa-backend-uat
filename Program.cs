@@ -71,6 +71,7 @@ builder.Services.AddScoped<AuditInterface, Communication>();
 
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 
+builder.Services.AddScoped<ReportanIssueInterface, ReportanIssueService>();
 
 builder.Services.AddScoped<ConductAuditInterface, TracePca.Service.Audit.ConductAuditService>();
 
