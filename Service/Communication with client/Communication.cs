@@ -2536,7 +2536,7 @@ SELECT
     sar_Yearid,
     SAR_SA_ID,
     SAR_SAC_ID,
-    CAST(SAR_Date AS NVARCHAR) AS RequestedOn,
+    FORMAT(SAR_Date, 'yyyy-MM-dd') AS RequestedOn,
     SAR_TimlinetoResOn AS TimlinetoResOn,
     SAR_Remarks AS Comments,
     SAR_AttchId AS AttachID,
@@ -4279,6 +4279,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
             if (existingId.HasValue)
             {
+                var emailCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
                 // Update existing record
                 await connection.ExecuteAsync(@"
             UPDATE Audit_DRLLog SET 
@@ -4289,14 +4290,14 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
                 ADRL_UpdatedOn = GETDATE(),
                 ADRL_IPAddress = @IpAddress,
                 ADRL_Status = 'Updated',
-                ADRL_TimlinetoResOn = '@TimelineToRespondOn'
+                ADRL_TimlinetoResOn = @TimelineToRespondOn
                
                 
             WHERE ADRL_ID = @Id",
                     new
                     {
                         RequestedOn = dto.RequestedOn,
-                        EmailId = dto.EmailId,
+                        EmailId = emailCsv,
                         Remark = dto.Remark,
                         UpdatedBy = dto.UpdatedBy,
                         IpAddress = dto.IpAddress,
@@ -4309,6 +4310,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
             }
             else
             {
+                var emailCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
                 // Insert new record with max+1 ADRL_ID
                 var maxId = await connection.QueryFirstOrDefaultAsync<int?>("SELECT MAX(ADRL_ID) FROM Audit_DRLLog") ?? 0;
                 int newId = maxId + 1;
@@ -4334,7 +4336,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
                         RequestedTypeID = dto.RequestedTypeId,
                         RequestedOn = dto.RequestedOn,
                         TimelineToRespondOn = dto.TimelineToRespondOn,
-                        EmailId = dto.EmailId,
+                        EmailId = emailCsv,
                         Remark = dto.Remark,
                         UserId = dto.UserId,
                         IpAddress = dto.IpAddress,
