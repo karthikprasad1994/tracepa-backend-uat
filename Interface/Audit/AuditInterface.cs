@@ -102,6 +102,7 @@ namespace TracePca.Interface.Audit
 
         Task<List<(int Id, string Action)>> SaveOrUpdateLOETemplateDetailsAsync(
       string connectionKey, List<LoETemplateDetailInputDto> dtos);
-
+        Task<IEnumerable<DRLDetailsDto>> LoadPostAndPreAuditAsync(
+    string connectionString, int customerId, int auditId, int reportType);
     }
 }

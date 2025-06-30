@@ -5,8 +5,8 @@ namespace TracePca.Dto.Audit
     public class InsertAuditRemarksDto
     {
         [JsonIgnore]
-          public int Id { get; set; }
-        public int YearId { get; set; }
+            public int Id { get; set; }
+            public int YearId { get; set; }
             public int AuditId { get; set; }
             public int FunctionId { get; set; }
             public int CustomerId { get; set; }
@@ -14,7 +14,7 @@ namespace TracePca.Dto.Audit
             public int RequestedTypeId { get; set; }
             public string RequestedOn { get; set; } = string.Empty;
            public string TimelineToRespondOn { get; set; } = string.Empty ;
-          public string EmailId { get; set; } = string.Empty;
+           public string EmailId { get; set; } = string.Empty;
             public string Remark { get; set; } = string.Empty;
             public int UserId { get; set; }
             public int UpdatedBy { get; set; }

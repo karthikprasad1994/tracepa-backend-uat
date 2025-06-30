@@ -2489,6 +2489,80 @@ VALUES (
         }
 
 
+        public async Task<IEnumerable<DRLDetailsDto>> LoadPostAndPreAuditAsync(
+      string connectionString, int customerId, int auditId, int reportType)
+        {
+            var query = @"
+WITH RecentRecords AS (
+    SELECT 
+        c.RTM_ReportTypeName,
+        CONCAT(ATCH_FNAME, '-', ATCH_EXT) AS Fname, 
+        SAR_ID,
+        sar_Yearid,
+        SAR_SA_ID,
+        SAR_SAC_ID,
+        SAR_Date,
+        COALESCE(SAR_TimlinetoResOn, 'N/A') AS SAR_TimlinetoResOn,
+        COALESCE(SAR_Remarks, 'N/A') AS SAR_Remarks,
+        SAR_AttchId,
+        SAR_ReportType,
+        d.usr_FullName,
+        COALESCE(
+            MAX(CASE WHEN SAR_RemarksType = 'RC' THEN d.usr_FullName END) 
+            OVER (PARTITION BY c.RTM_ReportTypeName), 'N/A') AS CustomerRemarksBY,
+        COALESCE(
+            CAST(MAX(CASE WHEN SAR_RemarksType = 'RC' THEN SAR_Date END) 
+            OVER (PARTITION BY c.RTM_ReportTypeName) AS NVARCHAR), 'N/A') AS RecentRC_RemarkDate,
+        COALESCE(
+            MAX(CASE WHEN SAR_RemarksType = 'RC' THEN SAR_Remarks END) 
+            OVER (PARTITION BY c.RTM_ReportTypeName), 'N/A') AS SARCustRemarks,
+        ROW_NUMBER() OVER (PARTITION BY c.RTM_ReportTypeName ORDER BY SAR_Date DESC) AS RowNum
+    FROM 
+        StandardAudit_Audit_DRLLog_RemarksHistory
+    LEFT JOIN Audit_DRLLog ON ADRL_AttchDocId = SAR_MASid
+    LEFT JOIN Edt_Attachments ON ATCH_DOCID = SAR_AtthachDocId 
+    LEFT JOIN Content_Management_Master ON CMM_ID = ADRL_RequestedListID
+    LEFT JOIN SAD_ReportTypeMaster c ON c.RTM_Id = SAR_ReportType
+    LEFT JOIN Sad_UserDetails d ON d.usr_Id = SAR_RemarksBy
+    WHERE SAR_SA_ID = @AuditId 
+      AND SAR_SAC_ID = @CustomerId"
+            + (reportType != 0 ? " AND SAR_ReportType = @ReportType" : "") +
+        @"
+)
+SELECT
+    RTM_ReportTypeName AS ReportTypeText,
+    Fname,
+    SAR_ID AS DRLID,
+    sar_Yearid,
+    SAR_SA_ID,
+    SAR_SAC_ID,
+    CAST(SAR_Date AS NVARCHAR) AS RequestedOn,
+    SAR_TimlinetoResOn AS TimlinetoResOn,
+    SAR_Remarks AS Comments,
+    SAR_AttchId AS AttachID,
+    SAR_ReportType AS ReportType,
+    usr_FullName AS RemarksBy,
+    CustomerRemarksBY AS CustomerBy,
+    RecentRC_RemarkDate AS RespondDate,
+    SARCustRemarks AS CustomerRemarks
+FROM RecentRecords
+WHERE RowNum = 1 AND COALESCE(SAR_Remarks, '') <> ''
+ORDER BY SAR_Date DESC;";
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            var results = await connection.QueryAsync<DRLDetailsDto>(query, new
+            {
+                CustomerId = customerId,
+                AuditId = auditId,
+                ReportType = reportType
+            });
+
+            return results;
+        }
+
+
 
 
 
@@ -2863,10 +2937,10 @@ VALUES (
 
                 await transaction.CommitAsync();
                 var auditInfo = await GetAuditInfoByIdAsync(dto.CustomerId);
-                //foreach (var email in dto.EmailIds)
-                //{
-                //    await SendAuditLifecycleEmailAsync(email, auditInfo.AuditNo, auditInfo.AuditName, dto.Remarks);
-                //}
+                foreach (var email in dto.EmailIds)
+                {
+                   await SendAuditLifecycleEmailAsync(email, auditInfo.AuditNo, auditInfo.AuditName, dto.Remarks);
+                }
                 return (true, "DRL status updated successfully.");
             }
             catch (Exception)
@@ -2932,16 +3006,16 @@ WHERE SA_ID = @AuditId";
 ";
 
             using var message = new MailMessage();
-            message.From = new MailAddress("trace@mmcspl.com");
+            message.From = new MailAddress("harsha.s2700@gmail.com");
             message.To.Add(new MailAddress(toEmail));
             message.Subject = subject;
             message.Body = body;
             message.IsBodyHtml = true;
 
-            using var smtpClient = new System.Net.Mail.SmtpClient("mail.mmcspl.com")
+            using var smtpClient = new System.Net.Mail.SmtpClient("smtp.gmail.com")
             {
                 Port = 587,
-                Credentials = new NetworkCredential("trace@mmcspl.com", "Trace@123"),
+                Credentials = new NetworkCredential("harsha.s2700@gmail.com", "edvemvlmgfkcasrp"),
                 EnableSsl = false
             };
 
