@@ -1,9 +1,9 @@
-using System.Text;
-using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OfficeOpenXml;
+using System.Text;
+using System.Text.Json.Serialization;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Interface;
@@ -12,6 +12,7 @@ using TracePca.Interface.Audit;
 using TracePca.Interface.DigitalFiling;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.FixedAssetsInterface;
+using TracePca.Interface.Master;
 using TracePca.Interface.ProfileSetting;
 using TracePca.Service;
 using TracePca.Service.AssetService;
@@ -20,8 +21,8 @@ using TracePca.Service.Communication_with_client;
 using TracePca.Service.DigitalFiling;
 using TracePca.Service.FIN_statement;
 using TracePca.Service.FixedAssetsService;
+using TracePca.Service.Master;
 using TracePca.Service.ProfileSetting;
-using QuestPDF.Infrastructure;
 //using TracePca.Interface.AssetMaserInterface;
 
 
@@ -70,7 +71,7 @@ builder.Services.AddScoped<AuditInterface, Communication>();
 
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 
-
+builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMasterService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
