@@ -17,7 +17,7 @@ namespace TracePca.Dto.Audit
         public int UserId { get; set; }
         //public string EmailId { get; set; }
 
-        public List<string> EmailId { get; set; }
+        public List<string>  EmailId { get; set; }
         public string IpAddress { get; set; }
         public int YearId { get; set; }
         [JsonIgnore]

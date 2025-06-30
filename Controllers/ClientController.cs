@@ -487,14 +487,15 @@ namespace TracePca.Controllers
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "LOE Template details processed successfully.",
+                   // message = "LOE Template details processed successfully.",
                     records = result.Select(r => new
                     {
                         id = r.Id,
                         action = r.Action,
                         message = r.Action == "Inserted"
-                            ? "LOE Template detail inserted successfully."
-                            : "LOE Template detail updated successfully."
+                            ?  "Template details inserted successfully."
+                            :  "Template details updated successfully."
+
                     }).ToList()
                 });
             }
@@ -685,6 +686,39 @@ namespace TracePca.Controllers
                 });
             }
         }
+
+
+        [HttpGet("GetDrlInfo")]
+        public async Task<IActionResult> LoadPostAndPreAuditRemarks(
+      [FromQuery] string connectionStringName,
+      [FromQuery] int customerId,
+      [FromQuery] int auditId,
+      [FromQuery] int reportType)
+        {
+            try 
+            {
+                //var connectionString = _configuration.GetConnectionString(connectionStringName);
+
+                var results = await _AuditInterface.LoadPostAndPreAuditAsync(connectionStringName, customerId, auditId, reportType);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = results.Any() ? "Remarks history loaded successfully." : "No remarks found.",
+                    data = results
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while loading remarks history.",
+                    error = ex.Message
+                });
+            }
+        }
+
 
 
 
