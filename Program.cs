@@ -71,13 +71,13 @@ builder.Services.AddScoped<AuditInterface, Communication>();
 
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 
-<<<<<<< HEAD
+
 builder.Services.AddScoped<ConductAuditInterface, TracePca.Service.Audit.ConductAuditService>();
 
 
-=======
+
 builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMasterService>();
->>>>>>> b8f2ab2415afdbb8ff0fcd20c631e7919f9556bf
+
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
