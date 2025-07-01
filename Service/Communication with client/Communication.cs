@@ -4251,10 +4251,14 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
         //    return returnedDrlId;
         //}
+
+
+
         public async Task<int> SaveOrUpdateAuditDrlLogAsync(InsertAuditRemarksDto dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
+            var emailCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
 
             // First check if record exists with matching keys
             var existingId = await connection.QueryFirstOrDefaultAsync<int?>(@"
@@ -4279,7 +4283,6 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
             if (existingId.HasValue)
             {
-                var emailCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
                 // Update existing record
                 await connection.ExecuteAsync(@"
             UPDATE Audit_DRLLog SET 
@@ -4290,7 +4293,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
                 ADRL_UpdatedOn = GETDATE(),
                 ADRL_IPAddress = @IpAddress,
                 ADRL_Status = 'Updated',
-                ADRL_TimlinetoResOn = @TimelineToRespondOn
+                ADRL_TimlinetoResOn = '@TimelineToRespondOn'
                
                 
             WHERE ADRL_ID = @Id",
@@ -4310,7 +4313,6 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
             }
             else
             {
-                var emailCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
                 // Insert new record with max+1 ADRL_ID
                 var maxId = await connection.QueryFirstOrDefaultAsync<int?>("SELECT MAX(ADRL_ID) FROM Audit_DRLLog") ?? 0;
                 int newId = maxId + 1;
@@ -4365,6 +4367,7 @@ VALUES (
     @YearId, 'W', @MasId, @AttachId, @DrlId);";
 
             using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            var emailCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
 
             await conn.ExecuteAsync(sql, new
             {
@@ -4375,7 +4378,7 @@ VALUES (
                 dto.UserId,
                 dto.IpAddress,
                 dto.CompId,
-                dto.EmailId,
+                EmailId = emailCsv,
                 dto.TimelineToRespondOn,
                 dto.YearId,
                 MasId = masId,    // Explicit mapping for SAR_MASid
@@ -4383,7 +4386,6 @@ VALUES (
                 DrlId = dto.RequestedListId         // ADRL_ID from DRL log
             });
         }
-
 
         public async Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto)
         {
