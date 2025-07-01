@@ -17,7 +17,7 @@ namespace TracePca.Dto.Audit
         public string? SAC_Remarks { get; set; }
         public string? SAC_ReviewerRemarks { get; set; }
         public int? SAC_Status { get; set; }
-        public int? SAC_TestResult { get; set; }
+        public string? SAC_TestResult { get; set; }
         public string? SAC_TestResultName { get; set; }
         public int? SAC_ConductedBy { get; set; }
         public string? SAC_ConductedByName { get; set; }
