@@ -49,16 +49,19 @@ namespace TracePca.Service.Audit
                 WHERE CUST_DELFLG = 'A' AND CUST_CompID = @CompId ORDER BY CUST_NAME ASC", parameters);
 
                 var workpaperCheckList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID As ID, cmm_Desc As Name FROM Content_Management_Master WHERE cmm_Delflag = 'A' 
-                AND cmm_Category = 'WCM' AND cmm_CompID = @CompId ORDER BY cmm_Desc", parameters);
+                AND cmm_Category = 'WCM' AND cmm_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
 
-                var typeofTestList = new List<DropDownListData>
-                {
-                    new DropDownListData { ID = 1, Name = "Inquiry" },
-                    new DropDownListData { ID = 2, Name = "Observation" },
-                    new DropDownListData { ID = 3, Name = "Examination" },
-                    new DropDownListData { ID = 4, Name = "Inspection" },
-                    new DropDownListData { ID = 5, Name = "Substantive Testing" }
-                };
+                var typeofTestList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID As ID, cmm_Desc As Name FROM Content_Management_Master WHERE cmm_Delflag = 'A' 
+                AND cmm_Category = 'TOT' AND cmm_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
+
+                //var typeofTestList = new List<DropDownListData>
+                //{
+                //    new DropDownListData { ID = 1, Name = "Inquiry" },
+                //    new DropDownListData { ID = 2, Name = "Observation" },
+                //    new DropDownListData { ID = 3, Name = "Examination" },
+                //    new DropDownListData { ID = 4, Name = "Inspection" },
+                //    new DropDownListData { ID = 5, Name = "Substantive Testing" }
+                //};
 
                 var exceededMaterialityList = new List<DropDownListData>
                 {
@@ -88,7 +91,7 @@ namespace TracePca.Service.Audit
                     CurrentYear = await currentYear,
                     CustomerList = customerList.Result.ToList(),
                     WorkpaperCheckList = workpaperCheckList.Result.ToList(),
-                    TypeofTestList = typeofTestList.ToList(),
+                    TypeofTestList = typeofTestList.Result.ToList(),
                     ExceededMaterialityList = exceededMaterialityList.ToList(),
                     WorkPaperStatusList = workPaperStatusList.ToList(),
                     TestResultList = testResultList.ToList()
@@ -99,7 +102,7 @@ namespace TracePca.Service.Audit
                 throw new ApplicationException("An error occurred while loading all DDL data", ex);
             }
         }
-
+        
         public async Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId)
         {
             try
@@ -334,8 +337,8 @@ namespace TracePca.Service.Audit
 
                 var result = new List<ConductAuditWorkPaperDetailsDTO>();
                 var query = @"SELECT a.SSW_ID, a.SSW_SA_ID, a.SSW_WorkpaperNo, a.SSW_WorkpaperRef, a.SSW_TypeOfTest,
-                    CASE WHEN a.SSW_TypeOfTest = 1 THEN 'Inquiry' WHEN a.SSW_TypeOfTest = 2 THEN 'Observation' WHEN a.SSW_TypeOfTest = 3 THEN 'Examination'
-                    WHEN a.SSW_TypeOfTest = 4 THEN 'Inspection' WHEN a.SSW_TypeOfTest = 5 THEN 'Substantive Testing' ELSE NULL END AS SSW_TypeOfTestName, 
+                    ISNULL(STUFF((SELECT ', ' + cmm.CMM_Desc FROM STRING_SPLIT(CAST(a.SSW_TypeOfTest AS VARCHAR(MAX)), ',') AS s JOIN Content_Management_Master cmm ON TRY_CAST(s.value AS INT) = cmm.CMM_ID
+                    WHERE cmm.CMM_Category = 'TOT' FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, ''),'') AS SSW_TypeOfTestName, 
                     a.SSW_Observation, a.SSW_Conclusion, a.SSW_ReviewerComments, a.SSW_ExceededMateriality,
                     CASE WHEN a.SSW_ExceededMateriality = 1 THEN 'Yes' WHEN a.SSW_ExceededMateriality = 2 THEN 'No' WHEN a.SSW_ExceededMateriality = 3 THEN 'NA' ELSE NULL END AS SSW_ExceededMaterialityName,
                     a.SSW_AuditorHoursSpent, a.SSW_NotesSteps, a.SSW_CriticalAuditMatter, a.SSW_WPCheckListID, a.SSW_Status, a.SSW_DRLID, 
@@ -368,8 +371,8 @@ namespace TracePca.Service.Audit
 
                 var result = new ConductAuditWorkPaperDetailsDTO();
                 var query = @"SELECT a.SSW_ID, a.SSW_SA_ID, a.SSW_WorkpaperNo, a.SSW_WorkpaperRef, a.SSW_TypeOfTest,
-                    CASE WHEN a.SSW_TypeOfTest = 1 THEN 'Inquiry' WHEN a.SSW_TypeOfTest = 2 THEN 'Observation' WHEN a.SSW_TypeOfTest = 3 THEN 'Examination'
-                    WHEN a.SSW_TypeOfTest = 4 THEN 'Inspection' WHEN a.SSW_TypeOfTest = 5 THEN 'Substantive Testing' ELSE NULL END AS SSW_TypeOfTestName, 
+                    ISNULL(STUFF((SELECT ', ' + cmm.CMM_Desc FROM STRING_SPLIT(CAST(a.SSW_TypeOfTest AS VARCHAR(MAX)), ',') AS s JOIN Content_Management_Master cmm ON TRY_CAST(s.value AS INT) = cmm.CMM_ID
+                    WHERE cmm.CMM_Category = 'TOT' FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, ''),'') AS SSW_TypeOfTestName, 
                     a.SSW_Observation, a.SSW_Conclusion, a.SSW_ReviewerComments, a.SSW_ExceededMateriality,
                     CASE WHEN a.SSW_ExceededMateriality = 1 THEN 'Yes' WHEN a.SSW_ExceededMateriality = 2 THEN 'No' WHEN a.SSW_ExceededMateriality = 3 THEN 'NA' ELSE NULL END AS SSW_ExceededMaterialityName,
                     a.SSW_AuditorHoursSpent, a.SSW_NotesSteps, a.SSW_CriticalAuditMatter, a.SSW_WPCheckListID, a.SSW_Status, a.SSW_DRLID, 
