@@ -1209,8 +1209,8 @@ namespace TracePca.Controllers
         {
             try
             {
-                var drlId = await _AuditInterface.SaveAuditDataAsync(dto);
-                string message = "Record inserted successfully.";
+                var (drlId, isInsert) = await _AuditInterface.SaveAuditDataAsync(dto);
+                string message = isInsert ? "Record inserted successfully." : "Record updated successfully.";
                 return Ok(new { message });
             }
             catch (Exception ex)
@@ -1218,6 +1218,7 @@ namespace TracePca.Controllers
                 return StatusCode(500, new { message = "An error occurred while saving audit data.", error = ex.Message });
             }
         }
+
 
 
         [HttpGet("GetDrlId")]

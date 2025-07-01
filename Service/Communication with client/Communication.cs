@@ -2880,6 +2880,9 @@ ORDER BY SAR_Date DESC;";
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
+
+            var emailCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
+
             using var transaction = await connection.BeginTransactionAsync();
 
             try
@@ -2892,55 +2895,52 @@ ORDER BY SAR_Date DESC;";
                 parameters.Add("@YearId", dto.YearId);
                 parameters.Add("@CompId", dto.CompId);
                 parameters.Add("@Reporttype", dto.Reporttype);
-
-                // ✅ Join multiple email IDs into a single comma-separated string
-                parameters.Add("@EmailIds", string.Join(",", dto.EmailIds));
+                parameters.Add("@EmailId", emailCsv); // ✅ Using correct variable and property
 
                 // Step 1: Update Edt_Attachments
                 string updateAttachmentSql = @"
-        UPDATE Edt_Attachments 
-        SET Atch_Vstatus = @Status
-        WHERE ATCH_ReportType IN @Reporttype
-          AND ATCH_Status <> 'D'";
+UPDATE Edt_Attachments 
+SET Atch_Vstatus = @Status
+WHERE ATCH_ReportType IN @Reporttype
+  AND ATCH_Status <> 'D'";
 
                 await connection.ExecuteAsync(updateAttachmentSql, parameters, transaction);
 
                 // Step 2: Update Remarks History
                 string updateRemarksSql = @"
-        UPDATE StandardAudit_Audit_DRLLog_RemarksHistory
-        SET SAR_Remarks = @Remarks,
-            SAR_TimlinetoResOn = @Timeline,
-            SAR_EmailIds = @EmailIds
-        WHERE SAR_ReportType IN @Reporttype
-          AND SAR_SAC_ID = @CustomerId
-          AND SAR_Yearid = @YearId
-          AND SAR_CompID = @CompId";
+UPDATE StandardAudit_Audit_DRLLog_RemarksHistory
+SET SAR_Remarks = @Remarks,
+    SAR_TimlinetoResOn = @Timeline,
+    SAR_EmailIds = @EmailId
+WHERE SAR_ReportType IN @Reporttype
+  AND SAR_SAC_ID = @CustomerId
+  AND SAR_Yearid = @YearId
+  AND SAR_CompID = @CompId";
 
                 await connection.ExecuteAsync(updateRemarksSql, parameters, transaction);
 
-
-
-
                 // Step 3: Update Audit_DRLLog
                 string updateDrlLogSql = @"
-        UPDATE Audit_DRLLog
-        SET ADRL_RequestedOn = @Timeline,
-            ADRL_EmailID = @EmailIds,
-            ADRL_Comments = @Remarks,
-            ADRL_Status = @Status
-        WHERE ADRL_ReportType IN @Reporttype
-         AND ADRL_YearID = @YearId
-           AND ADRL_CompID = @CompId
-          AND ADRL_CustID = @CustomerId";
+UPDATE Audit_DRLLog
+SET ADRL_RequestedOn = @Timeline,
+    ADRL_EmailID = @EmailId,
+    ADRL_Comments = @Remarks,
+    ADRL_Status = @Status
+WHERE ADRL_ReportType IN @Reporttype
+  AND ADRL_YearID = @YearId
+  AND ADRL_CompID = @CompId
+  AND ADRL_CustID = @CustomerId";
 
                 await connection.ExecuteAsync(updateDrlLogSql, parameters, transaction);
 
                 await transaction.CommitAsync();
+
                 var auditInfo = await GetAuditInfoByIdAsync(dto.CustomerId);
-                foreach (var email in dto.EmailIds)
+                foreach (var email in dto.EmailId ?? new List<string>())
                 {
-                   await SendAuditLifecycleEmailAsync(email, auditInfo.AuditNo, auditInfo.AuditName, dto.Remarks);
+                    await SendAuditLifecycleEmailAsync(email, auditInfo.AuditNo, auditInfo.AuditName, dto.Remarks);
                 }
+
                 return (true, "DRL status updated successfully.");
             }
             catch (Exception)
@@ -2949,6 +2949,8 @@ ORDER BY SAR_Date DESC;";
                 return (false, "Failed to update DRL status.");
             }
         }
+
+
 
 
         private async Task<(string AuditNo, string AuditName)> GetAuditInfoByIdAsync(int auditId)
@@ -4254,7 +4256,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
 
 
-        public async Task<int> SaveOrUpdateAuditDrlLogAsync(InsertAuditRemarksDto dto)
+        public async Task<(int DrlId, bool IsInsert)> SaveOrUpdateAuditDrlLogAsync(InsertAuditRemarksDto dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
@@ -4309,7 +4311,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
                     });
 
-                return existingId.Value;
+                return (existingId.Value, false);
             }
             else
             {
@@ -4347,7 +4349,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
                 await SaveRemarksHistoryAsync(dto, masId: newId);
 
-                return newId;
+                return (newId, true);
             }
         }
 
@@ -4387,19 +4389,14 @@ VALUES (
             });
         }
 
-        public async Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto)
+        public async Task<(int DrlId, bool IsInsert)> SaveAuditDataAsync(InsertAuditRemarksDto dto)
         {
-            // Call once and use the result
-            int drlId = await SaveOrUpdateAuditDrlLogAsync(dto);
-
-            // Set DRL_ID in DTO (optional, if needed elsewhere)
+            var (drlId, isInsert) = await SaveOrUpdateAuditDrlLogAsync(dto);
             dto.DrlId = drlId;
-
-            // Call once — ADRL_ID → SAR_MASid
             await SaveRemarksHistoryAsync(dto, masId: drlId);
-
-            return drlId;
+            return (drlId, isInsert);
         }
+
 
 
 

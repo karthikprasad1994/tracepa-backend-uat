@@ -69,7 +69,8 @@ namespace TracePca.Interface.Audit
         //int masterId, string masterName, int subMasterId, string subMasterName,
         //int attachId);
         //Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto);
-        Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto);
+        // Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto);
+        Task<(int DrlId, bool IsInsert)> SaveAuditDataAsync(InsertAuditRemarksDto dto);
 
         Task<List<DRLDetailDto>> LoadDRLdgAsync(int compId, int auditNo);
        // Task<string> BeginAuditUploadWithReportTypeAsync(AddFileDto dto);
