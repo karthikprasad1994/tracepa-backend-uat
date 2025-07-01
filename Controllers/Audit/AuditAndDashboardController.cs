@@ -11,8 +11,7 @@ using TracePca.Interface.Audit;
 using static Azure.Core.HttpHeader;
 using Colors = QuestPDF.Helpers.Colors;
 
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+// For more information on enabling Web API for empty ? projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace TracePca.Controllers.Audit
 {
