@@ -38,7 +38,7 @@ namespace TracePca.Dto.Audit
         public int? SSW_SA_ID { get; set; } = 0;
         public string? SSW_WorkpaperNo { get; set; }
         public string? SSW_WorkpaperRef { get; set; }
-        public int SSW_TypeOfTest { get; set; }
+        public string? SSW_TypeOfTest { get; set; }
         public string? SSW_TypeOfTestName { get; set; }
         public string? SSW_Observation { get; set; }
         public string? SSW_Conclusion { get; set; }
