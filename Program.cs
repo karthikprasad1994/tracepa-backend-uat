@@ -17,7 +17,10 @@ using TracePca.Interface.ProfileSetting;
 using TracePca.Service;
 using TracePca.Service.AssetService;
 using TracePca.Service.Audit;
+using TracePca.Interface.DigitalFilling;
+using TracePca.Service.DigitalFilling;
 using TracePca.Service.Communication_with_client;
+
 using TracePca.Service.DigitalFiling;
 using TracePca.Service.FIN_statement;
 using TracePca.Service.FixedAssetsService;
@@ -25,6 +28,9 @@ using TracePca.Service.Master;
 using TracePca.Service.ProfileSetting;
 //using TracePca.Interface.AssetMaserInterface;
 
+
+
+ 
 
 var builder = WebApplication.CreateBuilder(args);
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
@@ -80,6 +86,10 @@ builder.Services.AddScoped<ConductAuditInterface, TracePca.Service.Audit.Conduct
 builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMasterService>();
 
 
+builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
+builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();
+
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -88,6 +98,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowReactApp", policy =>
     {
         policy.WithOrigins(
+
              "http://localhost:3000", // React app for local development
               "http://localhost:4000", 
               "https://tracelites.multimedia.interactivedns.com"

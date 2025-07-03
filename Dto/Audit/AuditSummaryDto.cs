@@ -117,6 +117,19 @@ namespace TracePca.Dto.Audit
     }
 
 
-     
+
+
+	public class CAMAttachmentDetailsDto
+	{
+		public int ATCH_ID { get; set; }
+		public string ATCH_FNAME { get; set; }
+		public string ATCH_EXT { get; set; }
+		public string ATCH_Desc { get; set; }
+        public string ATCH_CREATEDBY { get; set; }
+		public string ATCH_CREATEDON { get; set; }
+
+		public int SACAM_PKID { get; set; }
+        public int atch_DocID { get; set; }
+	}
 
 }

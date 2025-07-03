@@ -1,7 +1,7 @@
 ﻿using System.Net.Mail;
 using TracePca.Dto.AssetRegister;
 using TracePca.Dto.Audit;
-using static TracePca.Service.Audit.AuditSummary;
+using TracePca.Service.Audit;
 
 namespace TracePca.Interface.Audit
 {
@@ -13,7 +13,7 @@ namespace TracePca.Interface.Audit
 
         Task<IEnumerable<AuditDetailsDto>> GetAuditDetailsAsync(int compId, int customerId, int auditNo);
 
-        Task<IEnumerable<DocumentRequestSummaryDto>> GetDocumentRequestSummaryAsync(int compId, int customerId, int auditNo, int requestId, int yearId);
+        Task<IEnumerable<DocumentRequestSummaryDto>> GetDocumentRequestSummaryAsync(int compId, int customerId, int auditNo, int yearId);
 
         Task<IEnumerable<DocumentRequestSummaryDto>> GetDocumentRequestSummaryDuringAuditAsync(int compId, int customerId, int auditNo, int requestId, int yearId);
 
@@ -28,5 +28,7 @@ namespace TracePca.Interface.Audit
         Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto);
 
         Task<string> UploadCMAAttachmentsAsync(CMADtoAttachment dto);
-    }
+
+		Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID, CAMAttachmentDetailsDto dto);
+	}
 }
