@@ -9,25 +9,35 @@ namespace TracePca.Interface.Audit
         //Task<CustomerAuditDropdownDto> GetCustomerAuditDropdownAsync(int companyId);
         Task<IEnumerable<Dto.Audit.CustomerDto>> LoadActiveCustomersAsync(int companyId);
         Task<IEnumerable<AuditScheduleDto>> LoadScheduledAuditNosAsync(
-     string connectionStringName, int companyId, int financialYearId, int customerId);
+        string connectionStringName, int companyId, int financialYearId, int customerId);
         Task<IEnumerable<ReportTypeDto>> LoadAllReportTypeDetailsDRLAsync(
-    string connectionStringName, int companyId, int templateId, string auditNo);
+        string connectionStringName, int companyId, int templateId, string auditNo);
 
 
         Task<IEnumerable<CustomerUserEmailDto>> GetCustAllUserEmailsAsync(
         string connectionStringName, int companyId, int customerId);
         Task<IEnumerable<YearDto>> GetAddYearTo2DigitFinancialYearAsync(
-    string connectionStringName, int companyId, int incrementBy);
+        string connectionStringName, int companyId, int incrementBy);
         Task<int> GetDuringSelfAttachIdAsync(
+
     string connectionStringName, int companyId, int yearId, int customerId, int auditId, int drlId);
         Task<IEnumerable<DrlDescListDto>> LoadAllDRLDescriptionsAsync(string connectionStringName, int companyId);
         Task<DrlDescReqDto> LoadDRLDescriptionAsync(string connectionStringName, int companyId, int drlId);
         // Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, string dateFormat);
         Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId,int ReportType);
 
+       // string( connectionStringName, int companyId, int yearId, int customerId, int auditId, int drlId);
 
-
+        // Task<DrlDescReqDto> LoadDRLDescriptionAsync(string connectionStringName, int companyId, int drlId);
+       // Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, string dateFormat);
+       
         Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
+        
+
+
+
+
+      //  Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto);
         Task<List<LOEHeadingDto>> LoadLOEHeadingAsync(string sFormName, int compId, int reportTypeId, int loeTemplateId);
 
 
@@ -61,7 +71,7 @@ namespace TracePca.Interface.Audit
         Task<IEnumerable<ReportData>> GetReportTypesAsync(string connectionKey, int companyId);
         Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey);
         //Task<List<int>> SaveLoETemplateDetailsAsync(string connectionKey, int companyId, List<LoETemplateDetailDto> details);
-        Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto);
+       // Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto);
         Task<IEnumerable<DropDownListDto>> LoadDRLClientSideAsync(int compId, string type, string auditNo);
         Task<int> GetDuringSelfAttachIdAsync(int companyId, int yearId, int customerId, int auditId, int drlId);
         //Task<int> SaveAuditAllAsync(InsertFileInfoDto dto, int requestedId,
@@ -69,7 +79,8 @@ namespace TracePca.Interface.Audit
         //int masterId, string masterName, int subMasterId, string subMasterName,
         //int attachId);
         //Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto);
-        Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto);
+        // Task<int> SaveAuditDataAsync(InsertAuditRemarksDto dto);
+        Task<(int DrlId, bool IsInsert)> SaveAuditDataAsync(InsertAuditRemarksDto dto);
 
         Task<List<DRLDetailDto>> LoadDRLdgAsync(int compId, int auditNo);
        // Task<string> BeginAuditUploadWithReportTypeAsync(AddFileDto dto);
@@ -97,6 +108,14 @@ namespace TracePca.Interface.Audit
         Task<(bool IsSuccess, string Message)> UpdateDrlStatusAsync(UpdateDrlStatusDto dto);
 
         Task<int?> GetMaxAttachmentIdAsync(GetMaxAttachmentIdRequest request);
+        Task<string> GetDRLDescriptionByIdAsync(int companyId, int drlId);
+        Task<ScheduleMergedDto> GetScheduleMergedDetailsAsync(int customerId, int auditId);
 
+        Task<List<(int Id, string Action)>> SaveOrUpdateLOETemplateDetailsAsync(
+      string connectionKey, List<LoETemplateDetailInputDto> dtos);
+        Task<IEnumerable<DRLDetailsDto>> LoadPostAndPreAuditAsync(
+    string connectionString, int customerId, int auditId, int reportType);
+
+        Task<IEnumerable<dynamic>> GetReportHistoryComments(ReportHistoryCommentsDto dto);
     }
 }

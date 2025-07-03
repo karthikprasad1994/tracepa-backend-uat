@@ -41,9 +41,21 @@ namespace TracePca.Interface.Audit
 
         Task<dynamic?> LoadCustomerMasterAsync(int companyId, int customerId);
         Task<string[]> SaveEmployeeDetailsAsync(EmployeeDto employee);
-        Task<DataTable> LoadExistingEmployeeDetailsAsync(int companyId, int userId);
+        Task<object> LoadExistingEmployeeDetailsAsync(int companyId, int userId);
 
         Task<IEnumerable<dynamic>> LoadActiveRoleAsync(int companyId);
+        Task<IEnumerable<dynamic>> GetUsersByCompanyAndRoleAsync(int companyId, int usrRole);
+
+        Task<DataTable> LoadAuditScheduleIntervalAsync(int accessCodeId, int auditId, string format);
+        Task<DataTable> LoadAssignedCheckPointsAndTeamMembersAsync(int accessCodeId, int auditId, int customerId, string heading, string format);
+        Task<DataTable> GetFinalAuditTypeHeadingsAsync(int accessCodeId, int auditId);
+
+        Task<string> GetUserNamesAsync(int accessCodeId, List<int> engagementPartnerIds);
+        Task<string> GetUserNames1Async(int accessCodeId, List<int> engagementPartnerIds);
+        Task<string> GetUserNames2Async(int accessCodeId, List<int> engagementPartnerIds);
+        Task<string> GetUserNames3Async(int accessCodeId, List<int> engagementPartnerIds);
+
+
 
     }
 }

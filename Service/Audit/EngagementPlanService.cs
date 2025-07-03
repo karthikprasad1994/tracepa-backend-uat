@@ -56,10 +56,10 @@ namespace TracePca.Service.Audit
                     WHERE CMM_Category = 'AT' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
 
                 var reportTypeList = connection.QueryAsync<DropDownListData>(@"SELECT RTM_Id AS ID, RTM_ReportTypeName As Name FROM SAD_ReportTypeMaster
-                    WHERE RTM_TemplateId = 1 And RTM_DelFlag = 'A' AND RTM_CompID = @CompId ORDER BY RTM_ReportTypeName", parameters);
+                    WHERE RTM_TemplateId = 1 And RTM_DelFlag = 'A' AND RTM_CompID = @CompId ORDER BY RTM_ReportTypeName ASC", parameters);
 
                 var feeTypeList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master
-                    WHERE cmm_Category = 'OE' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId", parameters);
+                    WHERE cmm_Category = 'OE' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
 
                 await Task.WhenAll(currentYear, customerList, auditTypeList, reportTypeList, feeTypeList);
 
@@ -93,7 +93,7 @@ namespace TracePca.Service.Audit
                 }
                 else
                 {
-                    loeList = await connection.QueryAsync<LOEDropDownListData>(@"SELECT LOE_ID AS ID, LOE_Name AS Name, LOE_ServiceTypeId  As AuditTypeId FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId AND LOE_CompID = @CompId",
+                    loeList = await connection.QueryAsync<LOEDropDownListData>(@"SELECT LOE_ID AS ID, LOE_Name AS Name, LOE_ServiceTypeId As AuditTypeId FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId AND LOE_CompID = @CompId",
                         new { CompId = compId, YearId = yearId });
                 }
 
@@ -545,7 +545,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<AttachmentDetailsDTO> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId)
+        public async Task<(bool, string)> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId)
         {
             try
             {
@@ -555,7 +555,37 @@ namespace TracePca.Service.Audit
 
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 result = (await connection.QueryFirstAsync<AttachmentDetailsDTO>(query, new { CompId = compId, AttachId = attachId, DocId = docId }));
-                return result;
+
+                if (result == null)
+                    return (false, "Attachment metadata not found.");
+
+                if (string.IsNullOrWhiteSpace(result.ATCH_EXT))
+                    return (false, "File extension is missing in attachment record.");
+
+                string fileName = $"{docId}.{result.ATCH_EXT}";
+                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
+                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+                string sourceFilePath = Path.Combine(absoluteFolder, fileName);
+
+                if (!File.Exists(sourceFilePath))
+                    return (false, "Attachment file not found on server.");
+
+                byte[] fileBytes = await File.ReadAllBytesAsync(sourceFilePath);
+
+                string tempPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "temp");
+                if (!Directory.Exists(tempPath))
+                    Directory.CreateDirectory(tempPath);
+
+                string tempFilePath = Path.Combine(tempPath, fileName);
+                if (File.Exists(tempFilePath))
+                    File.Delete(tempFilePath);
+
+                await File.WriteAllBytesAsync(tempFilePath, fileBytes);
+
+                string baseUrl = $"{HttpContextAccessor.HttpContext.Request.Scheme}://{HttpContextAccessor.HttpContext.Request.Host}";
+                string downloadUrl = $"{baseUrl}/temp/{fileName}";
+
+                return (true, downloadUrl);
             }
             catch (Exception ex)
             {

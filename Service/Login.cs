@@ -467,12 +467,16 @@ namespace TracePca.Service
             }
         }
 
-
-
-        public async Task<(string Token, string Otp)> GenerateAndSendOtpJwtAsync(string email)
+        public async Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email)
         {
             return await _otpService.GenerateAndSendOtpJwtAsync(email);
         }
+
+
+        //public async Task<(string Token, string Otp)> GenerateAndSendOtpJwtAsync(string email)
+        //{
+        //    return await _otpService.GenerateAndSendOtpJwtAsync(email);
+        //}
 
 
         public async Task<bool> VerifyOtpJwtAsync(string token, string enteredOtp)

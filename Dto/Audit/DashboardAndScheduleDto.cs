@@ -446,7 +446,32 @@ namespace TracePca.Dto.Audit
         public int IsSuperuser { get; set; }
         public int DeptID { get; set; }
     }
+    public class AuditReportRequestDto
+    {
+        public int AuditId { get; set; }
+        public int CustomerId { get; set; }
+        public string CustomerName { get; set; }
 
+        public string AuditNo { get; set; }
+        public string ScopeOfAudit { get; set; }
+        public List<int> EngagementPartnerIds { get; set; } = new();
+
+        public List<int> EngagementQualityReviewer { get; set; } = new();
+        public List<int> Partner { get; set; } = new();
+        public List<int> AuditAssistants { get; set; } = new();
+        public string AuditOpinionDate { get; set; }
+        public string ManagementRepLetterDate { get; set; }
+        public string FilingDatewithSECbyIssuer { get; set; }
+        public string FilingwithPCAOB { get; set; }
+        public string BinderCompletedDate { get; set; }
+        public string AccessCode { get; set; }
+        public int AccessCodeID { get; set; }
+        public string UserID { get; set; }
+        public string IPAddress { get; set; }
+        public int YearID { get; set; }
+        public string YearName { get; set; }
+        public string Format { get; set; } = "dd-MMM-yyyy";
+    }
 
 
 }

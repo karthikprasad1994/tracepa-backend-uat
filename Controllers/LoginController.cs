@@ -27,7 +27,8 @@ namespace TracePca.Controllers
             var result = await _LoginInterface.GetAllUsersAsync();
             return Ok(result);
         }
-       
+
+
         [HttpPost("sendOtp")]
         public async Task<IActionResult> SendOtp([FromBody] OtpReqDto request)
         {
@@ -40,23 +41,58 @@ namespace TracePca.Controllers
                 });
             }
 
-            var (token, otp) = await _LoginInterface.GenerateAndSendOtpJwtAsync(request.Email);
+            var (success, message, otpToken) = await _LoginInterface.GenerateAndSendOtpJwtAsync(request.Email);
+
+            if (!success)
+            {
+                return Conflict(new OtpResponseDto
+                {
+                    StatusCode = 409,
+                    Message = message,
+                    Token = null,
+                    Otp = null
+                });
+            }
 
             return Ok(new OtpResponseDto
             {
                 StatusCode = 200,
-                Message = "OTP sent successfully.",
-                Token = token,
-                Otp = otp // Include OTP in response
+                Message = message,
+                Token = otpToken,
+                Otp = null // You can include OTP here only if needed
             });
         }
 
 
+        //[HttpPost("sendOtp")]
+        //public async Task<IActionResult> SendOtp([FromBody] OtpReqDto request)
+        //{
+        //    if (string.IsNullOrEmpty(request.Email))
+        //    {
+        //        return BadRequest(new OtpResponseDto
+        //        {
+        //            StatusCode = 400,
+        //            Message = "Email cannot be empty."
+        //        });
+        //    }
+
+        //    var (token, otp) = await _LoginInterface.GenerateAndSendOtpJwtAsync(request.Email);
+
+        //    return Ok(new OtpResponseDto
+        //    {
+        //        StatusCode = 200,
+        //        Message = "OTP sent successfully.",
+        //        Token = token,
+        //        Otp = otp // Include OTP in response
+        //    });
+        //}
 
 
-    
 
-            [HttpPost("VerifyOtp")]
+
+
+
+        [HttpPost("VerifyOtp")]
             public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpReqDto request)
             {
                 // Extract the JWT token from Authorization header

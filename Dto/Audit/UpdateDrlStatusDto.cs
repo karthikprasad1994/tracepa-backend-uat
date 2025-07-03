@@ -24,7 +24,7 @@ namespace TracePca.Dto.Audit
         public string Timeline { get; set; }     // SAR_TimlinetoResOn
 
         [Required]
-        public List<string> EmailIds { get; set; } = new();    // SAR_EmailIds
+        public List<string> EmailId { get; set; } = new();    // SAR_EmailIds
 
         public string Status { get; set; } = "A"; // Atch_Vstatus (default 'A')
 

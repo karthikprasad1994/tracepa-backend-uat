@@ -1,6 +1,7 @@
 ﻿
 
 
+using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -175,6 +176,41 @@ namespace TracePca.Controllers
                 });
             }
         }
+
+
+        [HttpGet("GetScheduleDetails")]
+        public async Task<IActionResult> GetMergedScheduleDetails([FromQuery] int customerId, [FromQuery] int auditId)
+        {
+            try
+            {
+                var result = await _AuditInterface.GetScheduleMergedDetailsAsync(customerId, auditId);
+
+                if (result == null)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No data found for the given customer ID and audit ID"
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Schedule details fetched successfully",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = $"An error occurred while fetching schedule details: {ex.Message}"
+                });
+            }
+        }
+
 
         [HttpGet("LoadScheduledAuditNos")]
         public async Task<IActionResult> GetScheduledAuditNos(
@@ -439,25 +475,28 @@ namespace TracePca.Controllers
                 });
             }
         }
-
-
         [HttpPost("insert-update-template")]
-        public async Task<IActionResult> SaveOrUpdate([FromQuery] string connectionKey, [FromBody] LoETemplateDetailInputDto dto)
+        public async Task<IActionResult> SaveOrUpdateMultiple(
+    [FromQuery] string connectionKey,
+    [FromBody] LoETemplateDetailBatchDto batchDto)
         {
             try
             {
-                var (id, action) = await _AuditInterface.SaveOrUpdateLOETemplateDetailsAsync(connectionKey, dto);
-
-                string message = action == "Inserted"
-                    ? "LOE Template details inserted successfully."
-                    : "LOE Template details updated successfully.";
+                var result = await _AuditInterface.SaveOrUpdateLOETemplateDetailsAsync(connectionKey, batchDto.Items);
 
                 return Ok(new
                 {
                     statusCode = 200,
-                    id,
-                    action,
-                    message
+                   // message = "LOE Template details processed successfully.",
+                    records = result.Select(r => new
+                    {
+                        id = r.Id,
+                        action = r.Action,
+                        message = r.Action == "Inserted"
+                            ?  "Template details inserted successfully."
+                            :  "Template details updated successfully."
+
+                    }).ToList()
                 });
             }
             catch (Exception ex)
@@ -470,6 +509,68 @@ namespace TracePca.Controllers
                 });
             }
         }
+
+
+        //[HttpPost("insert-update-template")]
+        //public async Task<IActionResult> SaveOrUpdate([FromQuery] string connectionKey, [FromBody] LoETemplateDetailInputDto dto)
+        //{
+        //    try
+        //    {
+        //        var (id, action) = await _AuditInterface.SaveOrUpdateLOETemplateDetailsAsync(connectionKey, dto);
+
+        //        string message = action == "Inserted"
+        //            ? "LOE Template details inserted successfully."
+        //            : "LOE Template details updated successfully.";
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            id,
+        //            action,
+        //            message
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = "An error occurred while saving LOE Template details.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+
+        [HttpGet("GetDRLDescription")]
+            public async Task<IActionResult> GetDRLDescription(int companyId, int drlId)
+            {
+                try
+                {
+                var description = await _AuditInterface.GetDRLDescriptionByIdAsync(companyId, drlId);
+
+                    // Call your service method
+                    
+
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "DRL description fetched successfully.",
+                        comments = description
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new
+                    {
+                        statusCode = 500,
+                        message = "An error occurred while fetching the DRL description.",
+                        error = ex.Message
+                    });
+                }
+            }
+
+          
 
 
 
@@ -553,27 +654,32 @@ namespace TracePca.Controllers
             }
         }
 
-
         [HttpPost("upload")]
         public async Task<IActionResult> UploadAttachment([FromForm] AddFileDto dto)
         {
+            var result = await _AuditInterface.UploadAndSaveAttachmentAsync(dto);
+
+            if (result.StartsWith("Error"))
+            {
+                return StatusCode(500, new { statusCode = 500, message = result });
+            }
+
+            return Ok(new { statusCode = 200, message = result });
+        }
+
+
+        [HttpGet("GetReportHistory")]
+        public async Task<IActionResult> GetReportHistory([FromQuery] ReportHistoryCommentsDto dto)
+        {
             try
             {
-                var result = await _AuditInterface.UploadAndSaveAttachmentAsync(dto);
-
-                if (result.StartsWith("Error"))
-                {
-                    return StatusCode(500, new
-                    {
-                        statusCode = 500,
-                        message = result
-                    });
-                }
+                var result = await _AuditInterface.GetReportHistoryComments(dto);
 
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "File uploaded, Customer details saved Successfully"
+                    message = "Report History fetched Successfully",
+                    data = result
                 });
             }
             catch (Exception ex)
@@ -581,10 +687,78 @@ namespace TracePca.Controllers
                 return StatusCode(500, new
                 {
                     statusCode = 500,
-                    message = $"Error: {ex.Message}"
+                    message = ex.Message
                 });
             }
         }
+
+
+
+
+        //[HttpPost("upload")]
+        //public async Task<IActionResult> UploadAttachment([FromForm] AddFileDto dto)
+        //{
+        //    try
+        //    {
+        //        var result = await _AuditInterface.UploadAndSaveAttachmentAsync(dto);
+
+        //        if (result.StartsWith("Error"))
+        //        {
+        //            return StatusCode(500, new
+        //            {
+        //                statusCode = 500,
+        //                message = result
+        //            });
+        //        }
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "File uploaded, Customer details saved Successfully"
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = $"Error: {ex.Message}"
+        //        });
+        //    }
+        //}
+
+
+        [HttpGet("GetDrlInfo")]
+        public async Task<IActionResult> LoadPostAndPreAuditRemarks(
+      [FromQuery] string connectionStringName,
+      [FromQuery] int customerId,
+      [FromQuery] int auditId,
+      [FromQuery] int reportType)
+        {
+            try 
+            {
+                //var connectionString = _configuration.GetConnectionString(connectionStringName);
+
+                var results = await _AuditInterface.LoadPostAndPreAuditAsync(connectionStringName, customerId, auditId, reportType);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = results.Any() ? "Remarks history loaded successfully." : "No remarks found.",
+                    data = results
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while loading remarks history.",
+                    error = ex.Message
+                });
+            }
+        }
+
 
 
 
@@ -886,7 +1060,9 @@ namespace TracePca.Controllers
         }
 
         //[HttpPost("SaveAll")]
-        //public async Task<IActionResult> SaveAll([FromBody] SaveAuditDataRequest request)
+        //public async Task<IActionResult> SaveAll([FromBody]
+        //
+        //Request request)
         //{
         //    try
         //    {
@@ -1075,8 +1251,8 @@ namespace TracePca.Controllers
         {
             try
             {
-                var drlId = await _AuditInterface.SaveAuditDataAsync(dto);
-                string message = "Record inserted successfully.";
+                var (drlId, isInsert) = await _AuditInterface.SaveAuditDataAsync(dto);
+                string message = isInsert ? "Record inserted successfully." : "Record updated successfully.";
                 return Ok(new { message });
             }
             catch (Exception ex)
@@ -1084,6 +1260,7 @@ namespace TracePca.Controllers
                 return StatusCode(500, new { message = "An error occurred while saving audit data.", error = ex.Message });
             }
         }
+
 
 
         [HttpGet("GetDrlId")]

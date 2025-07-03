@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 ﻿using System.Text;
 using System.Text.Json.Serialization;
+=======
+>>>>>>> d331559b13661c24c60124ced3cfdb1154009f15
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OfficeOpenXml;
+using System.Text;
+using System.Text.Json.Serialization;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Interface;
@@ -12,18 +17,25 @@ using TracePca.Interface.Audit;
 using TracePca.Interface.DigitalFiling;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.FixedAssetsInterface;
+using TracePca.Interface.Master;
 using TracePca.Interface.ProfileSetting;
 using TracePca.Service;
 using TracePca.Service.AssetService;
 using TracePca.Service.Audit;
+using TracePca.Interface.DigitalFilling;
+using TracePca.Service.DigitalFilling;
 using TracePca.Service.Communication_with_client;
+
 using TracePca.Service.DigitalFiling;
 using TracePca.Service.FIN_statement;
 using TracePca.Service.FixedAssetsService;
+using TracePca.Service.Master;
 using TracePca.Service.ProfileSetting;
-using QuestPDF.Infrastructure;
 //using TracePca.Interface.AssetMaserInterface;
 
+
+
+ 
 
 var builder = WebApplication.CreateBuilder(args);
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
@@ -74,6 +86,17 @@ builder.Services.AddScoped<AuditInterface, Communication>();
 
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 
+builder.Services.AddScoped<ReportanIssueInterface, ReportanIssueService>();
+
+builder.Services.AddScoped<ConductAuditInterface, TracePca.Service.Audit.ConductAuditService>();
+
+
+
+builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMasterService>();
+
+
+builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
+builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();
 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -84,11 +107,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowReactApp", policy =>
     {
         policy.WithOrigins(
+
              "http://localhost:3000", // React app for local development
-
-
-
-             "https://tracelites.multimedia.interactivedns.com"
+              "http://localhost:4000", 
+              "https://tracelites.multimedia.interactivedns.com"
             )
               .AllowAnyMethod()
               .AllowAnyHeader()
