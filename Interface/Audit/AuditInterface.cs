@@ -105,5 +105,7 @@ namespace TracePca.Interface.Audit
       string connectionKey, List<LoETemplateDetailInputDto> dtos);
         Task<IEnumerable<DRLDetailsDto>> LoadPostAndPreAuditAsync(
     string connectionString, int customerId, int auditId, int reportType);
+
+        Task<IEnumerable<dynamic>> GetReportHistoryComments(ReportHistoryCommentsDto dto);
     }
 }

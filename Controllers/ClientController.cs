@@ -654,27 +654,32 @@ namespace TracePca.Controllers
             }
         }
 
-
         [HttpPost("upload")]
         public async Task<IActionResult> UploadAttachment([FromForm] AddFileDto dto)
         {
+            var result = await _AuditInterface.UploadAndSaveAttachmentAsync(dto);
+
+            if (result.StartsWith("Error"))
+            {
+                return StatusCode(500, new { statusCode = 500, message = result });
+            }
+
+            return Ok(new { statusCode = 200, message = result });
+        }
+
+
+        [HttpGet("GetReportHistory")]
+        public async Task<IActionResult> GetReportHistory([FromQuery] ReportHistoryCommentsDto dto)
+        {
             try
             {
-                var result = await _AuditInterface.UploadAndSaveAttachmentAsync(dto);
-
-                if (result.StartsWith("Error"))
-                {
-                    return StatusCode(500, new
-                    {
-                        statusCode = 500,
-                        message = result
-                    });
-                }
+                var result = await _AuditInterface.GetReportHistoryComments(dto);
 
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "File uploaded, Customer details saved Successfully"
+                    message = "Report History fetched Successfully",
+                    data = result
                 });
             }
             catch (Exception ex)
@@ -682,10 +687,45 @@ namespace TracePca.Controllers
                 return StatusCode(500, new
                 {
                     statusCode = 500,
-                    message = $"Error: {ex.Message}"
+                    message = ex.Message
                 });
             }
         }
+
+
+
+
+        //[HttpPost("upload")]
+        //public async Task<IActionResult> UploadAttachment([FromForm] AddFileDto dto)
+        //{
+        //    try
+        //    {
+        //        var result = await _AuditInterface.UploadAndSaveAttachmentAsync(dto);
+
+        //        if (result.StartsWith("Error"))
+        //        {
+        //            return StatusCode(500, new
+        //            {
+        //                statusCode = 500,
+        //                message = result
+        //            });
+        //        }
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "File uploaded, Customer details saved Successfully"
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = $"Error: {ex.Message}"
+        //        });
+        //    }
+        //}
 
 
         [HttpGet("GetDrlInfo")]
@@ -1020,7 +1060,9 @@ namespace TracePca.Controllers
         }
 
         //[HttpPost("SaveAll")]
-        //public async Task<IActionResult> SaveAll([FromBody] SaveAuditDataRequest request)
+        //public async Task<IActionResult> SaveAll([FromBody]
+        //
+        //Request request)
         //{
         //    try
         //    {
