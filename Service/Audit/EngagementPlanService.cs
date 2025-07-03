@@ -28,13 +28,13 @@ namespace TracePca.Service.Audit
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
-        private readonly IHttpContextAccessor HttpContextAccessor;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public EngagementPlanService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
-            HttpContextAccessor = httpContextAccessor;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<AuditDropDownListDataDTO> LoadAllDDLDataAsync(int compId)
@@ -582,7 +582,7 @@ namespace TracePca.Service.Audit
 
                 await File.WriteAllBytesAsync(tempFilePath, fileBytes);
 
-                string baseUrl = $"{HttpContextAccessor.HttpContext.Request.Scheme}://{HttpContextAccessor.HttpContext.Request.Host}";
+                string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
                 string downloadUrl = $"{baseUrl}/temp/{fileName}";
 
                 return (true, downloadUrl);
@@ -787,7 +787,7 @@ namespace TracePca.Service.Audit
 
                 await File.WriteAllBytesAsync(filePath, fileBytes);
 
-                string baseUrl = $"{HttpContextAccessor.HttpContext.Request.Scheme}://{HttpContextAccessor.HttpContext.Request.Host}";
+                string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
                 string downloadUrl = $"{baseUrl}/temp/{fileName}";
 
                 return downloadUrl;

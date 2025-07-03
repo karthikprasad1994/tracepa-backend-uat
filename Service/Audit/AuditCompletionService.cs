@@ -681,8 +681,8 @@ namespace TracePca.Service.Audit
                 string query = @"SELECT SSW_ID AS PKID, SSW_WorkpaperNo AS WorkpaperNo, SSW_WorkpaperRef AS WorkpaperRef, SSW_Observation AS Deviations, SSW_Conclusion AS Conclusion, 
                     SSW_NotesSteps As Notes, SSW_ReviewerComments AS ReviewerComments, SSW_CriticalAuditMatter As CriticalAuditMatter, SSW_AttachID AS AttachID, b.usr_FullName AS CreatedBy,
                     CONVERT(VARCHAR(10), SSW_CrOn, 103) AS CreatedOn, c.usr_FullName AS ReviewedBy, ISNULL(CONVERT(VARCHAR(10), SSW_ReviewedOn, 103), '') AS ReviewedOn,
-                    CASE WHEN a.SSW_TypeOfTest = 1 THEN 'Inquiry' WHEN a.SSW_TypeOfTest = 2 THEN 'Observation' WHEN a.SSW_TypeOfTest = 3 THEN 'Examination'
-                        WHEN a.SSW_TypeOfTest = 4 THEN 'Inspection' WHEN a.SSW_TypeOfTest = 5 THEN 'Substantive Testing' ELSE '' END AS TypeOfTest,
+                    ISNULL(STUFF((SELECT ', ' + cmm.CMM_Desc FROM STRING_SPLIT(CAST(a.SSW_TypeOfTest AS VARCHAR(MAX)), ',') AS s JOIN Content_Management_Master cmm ON TRY_CAST(s.value AS INT) = cmm.CMM_ID
+                    WHERE cmm.CMM_Category = 'TOT' FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, ''),'') AS TypeOfTest,
                     CASE WHEN a.SSW_Status = 1 THEN 'Open' WHEN a.SSW_Status = 2 THEN 'WIP' WHEN a.SSW_Status = 3 THEN 'Closed' ELSE '' END AS Status            
                     FROM StandardAudit_ScheduleConduct_WorkPaper a
                     LEFT JOIN sad_userdetails b ON b.Usr_ID = a.SSW_CrBy

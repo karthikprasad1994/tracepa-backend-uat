@@ -25,12 +25,14 @@ namespace TracePca.Service.Audit
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
         private readonly AuditCompletionInterface _auditCompletionInterface;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public ConductAuditService(Trdmyus1Context dbcontext, IConfiguration configuration, AuditCompletionInterface auditCompletionInterface)
+        public ConductAuditService(Trdmyus1Context dbcontext, IConfiguration configuration, AuditCompletionInterface auditCompletionInterface, IHttpContextAccessor httpContextAccessor)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
             _auditCompletionInterface = auditCompletionInterface;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<AuditDropDownListDataDTO> LoadAllAuditDDLDataAsync(int compId)
@@ -467,6 +469,73 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<(int attachmentId, string relativeFilePath)> UploadAndSaveCheckPointAttachmentAsync(FileAttachmentDTO dto, int auditId, int checkPointId)
+        {
+            try
+            {
+                if (dto.File == null || dto.File.Length == 0)
+                    throw new ArgumentException("Invalid file.");
+
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                int attachId = dto.ATCH_ID == 0 ? await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID }) : dto.ATCH_ID;
+                int docId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID });
+
+                string originalFileName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
+                string safeFileName = originalFileName.Replace("&", " and");
+                safeFileName = safeFileName.Length > 95 ? safeFileName.Substring(0, 95) : safeFileName;
+
+                string fileExt = Path.GetExtension(dto.File.FileName)?.TrimStart('.').ToLower() ?? "unk";
+                long fileSize = dto.File.Length;
+
+                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
+                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+
+                if (!Directory.Exists(absoluteFolder))
+                    Directory.CreateDirectory(absoluteFolder);
+
+                string uniqueFileName = $"{docId}.{fileExt}";
+                string fullFilePath = Path.Combine(absoluteFolder, uniqueFileName);
+
+                using (var stream = new FileStream(fullFilePath, FileMode.Create))
+                {
+                    await dto.File.CopyToAsync(stream);
+                }
+
+                var insertQuery = @"
+                INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
+                ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID)
+                VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
+
+                await connection.ExecuteAsync(insertQuery, new
+                {
+                    AtchId = attachId,
+                    DocId = docId,
+                    FileName = safeFileName,
+                    FileExt = fileExt,
+                    CreatedBy = dto.ATCH_CREATEDBY,
+                    Size = fileSize,
+                    CompId = dto.ATCH_COMPID
+                });
+
+                const string attachQuery = @"UPDATE StandardAudit_ScheduleCheckPointList SET SAC_AttachID = @SAC_AttachID WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_CheckPointID = @SAC_CheckPointID AND SAC_CompID = @SAC_CompID;";
+                await connection.ExecuteAsync(attachQuery, new
+                {
+                    SAC_AttachID = attachId,
+                    SAC_SA_ID = auditId,
+                    SAC_CheckPointID = checkPointId,
+                    SAC_CompID = dto.ATCH_COMPID
+                });
+
+                return (attachId, fullFilePath.Replace("\\", "/"));
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to upload the attachment document.", ex);
+            }
+        }
+
         public async Task<List<ConductAuditDetailsDTO>> LoadConductAuditCheckPointDetailsAsync(int compId, int auditId, int userId, string? heading)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -490,8 +559,7 @@ namespace TracePca.Service.Audit
                 ISNULL(SAC_ReviewerRemarks, '') AS SAC_ReviewerRemarks, ISNULL(SAC_Status, 0) AS SAC_Status, ISNULL(SAC_TestResult, 0) AS SAC_TestResult,
                 CASE WHEN ISNULL(SAC_TestResult, 0) = 1 THEN 'Yes' WHEN ISNULL(SAC_TestResult, 0) = 2 THEN 'No' WHEN ISNULL(SAC_TestResult, 0) = 3 THEN 'NA' ELSE '' END AS SAC_TestResultName,
                 ISNULL(SAC_AttachID, 0) AS SAC_AttachID, ISNULL(SAC_ConductedBy, 0) AS SAC_ConductedBy, ISNULL(a.Usr_FullName, '') AS SAC_ConductedByName, ISNULL(SAC_LastUpdatedOn,'') AS SAC_LastUpdatedOn,
-                ISNULL(SSW_ID, 0) AS SAC_WorkpaperID, ISNULL(SSW_WorkpaperNo, '') AS SAC_WorkpaperNo, ISNULL(SSW_WorkpaperRef, '') AS SAC_WorkpaperRef,
-                (SELECT COUNT(*) FROM Audit_DRLLog WHERE ADRL_AuditNo = @AuditId AND ADRL_FunID = SAC_CheckPointID) AS SAC_DRLCount FROM StandardAudit_ScheduleCheckPointList
+                ISNULL(SSW_ID, 0) AS SAC_WorkpaperID, ISNULL(SSW_WorkpaperNo, '') AS SAC_WorkpaperNo, ISNULL(SSW_WorkpaperRef, '') AS SAC_WorkpaperRef FROM StandardAudit_ScheduleCheckPointList
                 JOIN AuditType_Checklist_Master ON ACM_ID = SAC_CheckPointID LEFT JOIN sad_userdetails a ON a.Usr_ID = SAC_ConductedBy 
                 LEFT JOIN StandardAudit_ScheduleConduct_WorkPaper ON SSW_SA_ID = @AuditId AND SSW_ID = SAC_WorkpaperID
                 WHERE SAC_SA_ID = @AuditId AND SAC_CompID = @CompId";
@@ -567,6 +635,90 @@ namespace TracePca.Service.Audit
                 await File.WriteAllBytesAsync(fullFilePath, fileBytes);
 
                 return (fileBytes, contentType, fileName);
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        public async Task<string> GenerateWorkpapersReportAndGetURLPathAsync(int compId, int auditId, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string fileName = "Conduct_Audit_Workpaper";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GenerateCheckPointsPdfAsync(compId, auditId);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                var tempPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "temp");
+                if (!Directory.Exists(tempPath))
+                    Directory.CreateDirectory(tempPath);
+
+                var filePath = Path.Combine(tempPath, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+
+                string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
+                string downloadUrl = $"{baseUrl}/temp/{fileName}";
+
+                return downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        public async Task<string> GenerateCheckPointsReportAndGetURLPathAsync(int compId, int auditId, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string fileName = "Conduct_Audit_CheckPoints";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GenerateCheckPointsPdfAsync(compId, auditId);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                var tempPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "temp");
+                if (!Directory.Exists(tempPath))
+                    Directory.CreateDirectory(tempPath);
+
+                var filePath = Path.Combine(tempPath, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+
+                string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
+                string downloadUrl = $"{baseUrl}/temp/{fileName}";
+
+                return downloadUrl;
             }
             catch (Exception ex)
             {
