@@ -20,7 +20,7 @@ using TracePca.Service.Audit;
 using TracePca.Interface.DigitalFilling;
 using TracePca.Service.DigitalFilling;
 using TracePca.Service.Communication_with_client;
-<<<<<<< HEAD
+
 using TracePca.Service.DigitalFiling;
 using TracePca.Service.FIN_statement;
 using TracePca.Service.FixedAssetsService;
@@ -29,9 +29,9 @@ using TracePca.Service.ProfileSetting;
 //using TracePca.Interface.AssetMaserInterface;
 
 
-=======
+
  
->>>>>>> 8088e14c2981a5783eddd03e4052f2d55ed0c74d
+
 var builder = WebApplication.CreateBuilder(args);
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
@@ -63,7 +63,6 @@ builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAd
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
 builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
-<<<<<<< HEAD
 
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
@@ -86,10 +85,10 @@ builder.Services.AddScoped<ConductAuditInterface, TracePca.Service.Audit.Conduct
 
 builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMasterService>();
 
-=======
+
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();
->>>>>>> 8088e14c2981a5783eddd03e4052f2d55ed0c74d
+
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -99,14 +98,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowReactApp", policy =>
     {
         policy.WithOrigins(
-<<<<<<< HEAD
+
              "http://localhost:3000", // React app for local development
               "http://localhost:4000", 
               "https://tracelites.multimedia.interactivedns.com"
-=======
-             "http://localhost:3000" // React app for local development
-           // "https://customerregistration.multimedia.interactivedns.com"
->>>>>>> 8088e14c2981a5783eddd03e4052f2d55ed0c74d
             )
               .AllowAnyMethod()
               .AllowAnyHeader()

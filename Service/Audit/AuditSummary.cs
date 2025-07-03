@@ -302,11 +302,6 @@ namespace TracePca.Service.Audit
 
             return rowsAffected > 0;
         }
-<<<<<<< HEAD
-
-=======
- 
->>>>>>> 8088e14c2981a5783eddd03e4052f2d55ed0c74d
 
 
         public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
@@ -736,7 +731,7 @@ namespace TracePca.Service.Audit
 
 
 
-<<<<<<< HEAD
+
         //public async Task<bool> SaveAllLoeDataAsync(AddEngagementDto dto)
         //{
         //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -810,7 +805,7 @@ namespace TracePca.Service.Audit
 
 
     }
-=======
+
 		//    if (file == null || file.Length == 0)
 		//        throw new ArgumentException("Invalid file.");
 
@@ -913,5 +908,4 @@ namespace TracePca.Service.Audit
 		//    }
 		//}
 	}
->>>>>>> 8088e14c2981a5783eddd03e4052f2d55ed0c74d
-}
+
