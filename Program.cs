@@ -14,10 +14,10 @@ using TracePca.Service.AssetService;
 using TracePca.Interface.AssetMaserInterface;
 using TracePca.Interface.Audit;
 using TracePca.Service.Audit;
+using TracePca.Interface.DigitalFilling;
+using TracePca.Service.DigitalFilling;
 using TracePca.Service.Communication_with_client;
-//using TracePca.Interface.AssetMaserInterface;
-
-
+ 
 var builder = WebApplication.CreateBuilder(args);
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 // Add services to the container.
@@ -39,9 +39,8 @@ builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboa
 
 builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
-//builder.Services.AddScoped<AuditInterface, Communication>();
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
-
+builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -51,7 +50,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowReactApp", policy =>
     {
         policy.WithOrigins(
-             "http://localhost:4000" // React app for local development
+             "http://localhost:3000" // React app for local development
            // "https://customerregistration.multimedia.interactivedns.com"
             )
               .AllowAnyMethod()
