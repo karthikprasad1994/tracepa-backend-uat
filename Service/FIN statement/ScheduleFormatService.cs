@@ -2,9 +2,9 @@
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Text;
+using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.ScheduleFormatDto;
-using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 
 namespace TracePca.Service.FIN_statement
 {
@@ -16,24 +16,25 @@ namespace TracePca.Service.FIN_statement
             _configuration = configuration;
         }
 
-        //GetSecheduleFormat-ClientName
-        public async Task<IEnumerable<ScheduleFormatClientDto>> GetScheduleFormatClientAsync(int iCompId)
+        //GetCustomerName
+        public async Task<IEnumerable<Dto.FIN_Statement.ScheduleExcelUploadDto.CustDto>> GetCustomerNameAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
             var query = @"
-            SELECT Cust_Id, Cust_Name 
-            FROM SAD_CUSTOMER_MASTER 
-            WHERE cust_Compid = @CompId AND CUST_DelFlg = 'A' 
-            ORDER BY Cust_Name";
+        SELECT 
+            Cust_Id,
+            Cust_Name 
+        FROM SAD_CUSTOMER_MASTER
+        WHERE cust_Compid = @CompID";
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<ScheduleFormatClientDto>(query, new { CompID = iCompId });
+            return await connection.QueryAsync<Dto.FIN_Statement.ScheduleExcelUploadDto.CustDto>(query, new { CompID = CompId });
         }
 
-        //GetScheduleFormat-Heading
-        public async Task<IEnumerable<ScheduleFormatHeadingDto>> GetScheduleFormatHeadingAsync(int iCompId, int iScheduleId, int iCustId, int iAccHead)
+        //GetScheduleHeading
+        public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleFormatHeadingAsync(int CompId, int ScheduleId, int CustId, int AccHead)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -50,18 +51,18 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            var result = await connection.QueryAsync<ScheduleFormatHeadingDto>(query, new
+            var result = await connection.QueryAsync<ScheduleHeadingDto>(query, new
             {
-                CustId = iCustId,
-                ScheduleId = iScheduleId,
-                AccHead = iAccHead
+                CustId = CustId,
+                ScheduleId = ScheduleId,
+                AccHead = AccHead
             });
             return result;
         }
 
-        //GetScheduleFormat-SubHeading
-        public async Task<IEnumerable<ScheduleFormatSubHeadingDto>> GetScheduleFormatSubHeadingAsync(
-        int iCompId, int iScheduleId, int iCustId, int iHeadingId)
+        //GetScheduleSubHeading
+        public async Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleFormatSubHeadingAsync(
+        int CompId, int ScheduleId, int CustId, int HeadingId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -79,19 +80,19 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            var result = await connection.QueryAsync<ScheduleFormatSubHeadingDto>(query, new
+            var result = await connection.QueryAsync<ScheduleSubHeadingDto>(query, new
             {
-                CustId = iCustId,
-                ScheduleId = iScheduleId,
-                HeadingId = iHeadingId
+                CustId = CustId,
+                ScheduleId = ScheduleId,
+                HeadingId = HeadingId
             });
 
             return result;
         }
 
-        //GetScheduleFormat-ItemUnderSubHeading
-        public async Task<IEnumerable<SFItemUnderSubHeadingDto>> GetScheduleFormatItemsAsync(
-        int iCompId, int iScheduleId, int iCustId, int iHeadingId, int iSubHeadId)
+        //GetScheduleItem
+        public async Task<IEnumerable<ScheduleItemDto>> GetScheduleFormatItemsAsync(
+        int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -108,19 +109,19 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            var result = await connection.QueryAsync<SFItemUnderSubHeadingDto>(query, new
+            var result = await connection.QueryAsync<ScheduleItemDto>(query, new
             {
-                CustId = iCustId,
-                ScheduleId = iScheduleId,
-                SubHeadId = iSubHeadId
+                CustId = CustId,
+                ScheduleId = ScheduleId,
+                SubHeadId = SubHeadId
             });
 
             return result;
         }
 
-        //GetScheduleFormat-SubitemsUnderItems
-        public async Task<IEnumerable<SFSubItemsUnderItemsDto>> GetScheduleFormatSubItemsAsync(
-        int iCompId, int iScheduleId, int iCustId, int iHeadingId, int iSubHeadId, int iItemId)
+        //GetScheduleSubItem
+        public async Task<IEnumerable<ScheduleSubItemDto>> GetScheduleFormatSubItemsAsync(
+        int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId, int ItemId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -137,18 +138,18 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            var result = await connection.QueryAsync<SFSubItemsUnderItemsDto>(query, new
+            var result = await connection.QueryAsync<ScheduleSubItemDto>(query, new
             {
-                CustId = iCustId,
-                ScheduleId = iScheduleId,
-                ItemId = iItemId
+                CustId = CustId,
+                ScheduleId = ScheduleId,
+                ItemId = ItemId
             });
             return result;
         }
 
         //GetScheduleTemplate
         public async Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(
-    int iCompId, int iScheduleId, int iCustId, int iAccHead)
+    int CompId, int ScheduleId, int CustId, int AccHead)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -183,31 +184,31 @@ WHERE AST_CompId = @CompId
 ";
 
             // Dynamically build WHERE conditions based on input
-            if (iCustId != 0)
+            if (CustId != 0)
                 baseQuery += " AND AST_Companytype = @CustId";
 
-            if (iScheduleId != 0)
+            if (ScheduleId != 0)
                 baseQuery += " AND AST_Schedule_type = @ScheduleId";
 
-            if (iAccHead != 0)
+            if (AccHead != 0)
                 baseQuery += " AND AST_AccHeadId = @AccHead";
 
             baseQuery += " ORDER BY AST_ID, ASH_ID ASC";
 
             var parameters = new
             {
-                CompId = iCompId,
-                ScheduleId = iScheduleId,
-                CustId = iCustId,
-                AccHead = iAccHead
+                CompId = CompId,
+                ScheduleId = ScheduleId,
+                CustId = CustId,
+                AccHead = AccHead
             };
 
             var result = await connection.QueryAsync<ScheduleFormatTemplateDto>(baseQuery, parameters);
             return result;
         }
 
-        //ScheduleFormatDeleteScheduleTemplate(Grid)
-        public async Task<bool> DeleteScheduleTemplateAsync(int iCompId, int iScheduleType, int iCustId, int iSelectedValue, int iMainId)
+        //DeleteScheduleTemplate(Grid)
+        public async Task<bool> DeleteScheduleTemplateAsync(int CompId, int ScheduleType, int CustId, int SelectedValue, int MainId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
@@ -215,55 +216,55 @@ WHERE AST_CompId = @CompId
 
             try
             {
-                if (iSelectedValue == 1)
+                if (SelectedValue == 1)
                 {
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_HeadingID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId",
-                        new { Id = iMainId, Type = iScheduleType, CustId = iCustId, CompId = iCompId }, transaction);
+                        new { Id = MainId, Type = ScheduleType, iCustId = CustId, iCompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleHeading WHERE ASH_ID = @Id AND Ash_Orgtype = @CustId AND Ash_scheduletype = @Type AND ASH_CompId = @CompId",
-                        new { Id = iMainId, CustId = iCustId, Type = iScheduleType, CompId = iCompId }, transaction);
+                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubHeading WHERE ASSH_HeadingID = @Id AND Assh_Orgtype = @CustId AND Assh_scheduletype = @Type AND ASSH_CompId = @CompId",
-                        new { Id = iMainId, CustId = iCustId, Type = iScheduleType, CompId = iCompId }, transaction);
+                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleItems WHERE ASI_HeadingID = @Id AND Asi_Orgtype = @CustId AND Asi_scheduletype = @Type AND ASI_CompId = @CompId",
-                        new { Id = iMainId, CustId = iCustId, Type = iScheduleType, CompId = iCompId }, transaction);
+                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubItems WHERE ASSI_HeadingID = @Id AND AsSi_Orgtype = @CustId AND AsSi_scheduletype = @Type AND ASSI_CompId = @CompId",
-                        new { Id = iMainId, CustId = iCustId, Type = iScheduleType, CompId = iCompId }, transaction);
+                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
                 }
-                else if (iSelectedValue == 2)
+                else if (SelectedValue == 2)
                 {
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_SubHeadingID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId",
-                        new { Id = iMainId, Type = iScheduleType, CustId = iCustId, CompId = iCompId }, transaction);
+                        new { Id = MainId, Type = ScheduleType, iCustId = CustId, iCompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubHeading WHERE ASSH_ID = @Id AND Assh_Orgtype = @CustId AND Assh_scheduletype = @Type AND ASSH_CompId = @CompId",
-                        new { Id = iMainId, CustId = iCustId, Type = iScheduleType, CompId = iCompId }, transaction);
+                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleItems WHERE ASI_SubHeadingID = @Id AND Asi_Orgtype = @CustId AND Asi_scheduletype = @Type AND ASI_CompId = @CompId",
-                        new { Id = iMainId, CustId = iCustId, Type = iScheduleType, CompId = iCompId }, transaction);
+                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubItems WHERE ASSI_SubHeadingID = @Id AND AsSi_Orgtype = @CustId AND AsSi_scheduletype = @Type AND ASSI_CompId = @CompId",
-                        new { Id = iMainId, CustId = iCustId, Type = iScheduleType, CompId = iCompId }, transaction);
+                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
                 }
-                else if (iSelectedValue == 3)
+                else if (SelectedValue == 3)
                 {
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_ItemID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId",
-                        new { Id = iMainId, Type = iScheduleType, CustId = iCustId, CompId = iCompId }, transaction);
+                        new { Id = MainId, Type = ScheduleType, iCustId = CustId, iCompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleItems WHERE ASI_ID = @Id AND Asi_Orgtype = @CustId AND Asi_scheduletype = @Type AND ASI_CompId = @CompId",
-                        new { Id = iMainId, CustId = iCustId, Type = iScheduleType, CompId = iCompId }, transaction);
+                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubItems WHERE ASSI_ItemsID = @Id AND AsSi_Orgtype = @CustId AND AsSi_scheduletype = @Type AND ASSI_CompId = @CompId",
-                        new { Id = iMainId, CustId = iCustId, Type = iScheduleType, CompId = iCompId }, transaction);
+                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
                 }
-                else if (iSelectedValue == 4)
+                else if (SelectedValue == 4)
                 {
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_SubItemID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId",
-                        new { Id = iMainId, Type = iScheduleType, CustId = iCustId, CompId = iCompId }, transaction);
+                        new { Id = MainId, Type = ScheduleType, iCustId = CustId, iCompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubItems WHERE ASSI_ID = @Id AND AsSi_Orgtype = @CustId AND AsSi_scheduletype = @Type AND ASSI_CompId = @CompId",
-                        new { Id = iMainId, CustId = iCustId, Type = iScheduleType, CompId = iCompId }, transaction);
+                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
                 }
 
                 await transaction.CommitAsync();
@@ -276,8 +277,8 @@ WHERE AST_CompId = @CompId
             }
         }
 
-        //SaveScheduleFormatHeadingAndTemplate
-        public async Task<int[]> SaveScheduleHeadingAndTemplateAsync(int iCompId, SaveScheduleFormatHeadingDto dto)
+        //SaveScheduleHeadingAndTemplate
+        public async Task<int[]> SaveScheduleHeadingAndTemplateAsync(int CompId, SaveScheduleHeadingDto dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
@@ -336,7 +337,7 @@ WHERE AST_CompId = @CompId
                     templateCommand.Parameters.AddWithValue("@AST_STATUS", dto.AST_STATUS ?? string.Empty);
                     templateCommand.Parameters.AddWithValue("@AST_UPDATEDBY", dto.AST_UPDATEDBY);
                     templateCommand.Parameters.AddWithValue("@AST_IPAddress", dto.AST_IPAddress ?? string.Empty);
-                    templateCommand.Parameters.AddWithValue("@AST_CompId", iCompId);
+                    templateCommand.Parameters.AddWithValue("@AST_CompId", CompId);
                     templateCommand.Parameters.AddWithValue("@AST_YEARId", dto.AST_YEARId);
                     templateCommand.Parameters.AddWithValue("@AST_Schedule_type", dto.AST_Schedule_type);
                     templateCommand.Parameters.AddWithValue("@AST_Companytype", dto.AST_Companytype);
@@ -362,8 +363,8 @@ WHERE AST_CompId = @CompId
         }
 
 
-        //SaveScheduleFormatSub-HeadingAndTemplate
-        public async Task<int[]> SaveScheduleSubHeadingAndTemplateAsync(int iCompId, SaveScheduleFormatSub_HeaddingDto dto)
+        //SaveScheduleSubHeadingAndTemplate
+        public async Task<int[]> SaveScheduleSubHeadingAndTemplateAsync(int CompId, SaveScheduleSubHeadingDto dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
@@ -424,7 +425,7 @@ WHERE AST_CompId = @CompId
                     templateCommand.Parameters.AddWithValue("@AST_STATUS", dto.AST_STATUS ?? string.Empty);
                     templateCommand.Parameters.AddWithValue("@AST_UPDATEDBY", dto.AST_UPDATEDBY);
                     templateCommand.Parameters.AddWithValue("@AST_IPAddress", dto.AST_IPAddress ?? string.Empty);
-                    templateCommand.Parameters.AddWithValue("@AST_CompId", iCompId);
+                    templateCommand.Parameters.AddWithValue("@AST_CompId", CompId);
                     templateCommand.Parameters.AddWithValue("@AST_YEARId", dto.AST_YEARId);
                     templateCommand.Parameters.AddWithValue("@AST_Schedule_type", dto.AST_Schedule_type);
                     templateCommand.Parameters.AddWithValue("@AST_Companytype", dto.AST_Companytype);
@@ -452,8 +453,8 @@ WHERE AST_CompId = @CompId
         }
 
 
-        //SaveScheduleFormatItemsAndTemplate
-        public async Task<int[]> SaveScheduleItemAndTemplateAsync(int iCompId, SaveScheduleFormatItemDto dto)
+        //SaveScheduleItem
+        public async Task<int[]> SaveScheduleItemAndTemplateAsync(int CompId, SaveScheduleItemDto dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
@@ -513,7 +514,7 @@ WHERE AST_CompId = @CompId
                     templateCommand.Parameters.AddWithValue("@AST_STATUS", dto.AST_STATUS ?? string.Empty);
                     templateCommand.Parameters.AddWithValue("@AST_UPDATEDBY", dto.AST_UPDATEDBY);
                     templateCommand.Parameters.AddWithValue("@AST_IPAddress", dto.AST_IPAddress ?? string.Empty);
-                    templateCommand.Parameters.AddWithValue("@AST_CompId", iCompId);
+                    templateCommand.Parameters.AddWithValue("@AST_CompId", CompId);
                     templateCommand.Parameters.AddWithValue("@AST_YEARId", dto.AST_YEARId);
                     templateCommand.Parameters.AddWithValue("@AST_Schedule_type", dto.AST_Schedule_type);
                     templateCommand.Parameters.AddWithValue("@AST_Companytype", dto.AST_Companytype);
@@ -540,8 +541,8 @@ WHERE AST_CompId = @CompId
             }
         }
 
-        //SaveScheduleFormatSub-ItemAndHeading
-        public async Task<int[]> SaveScheduleSubItemAndTemplateAsync(int iCompId, SaveScheduleFormatSub_ItemDto dto)
+        //SaveScheduleSubItem
+        public async Task<int[]> SaveScheduleSubItemAndTemplateAsync(int CompId, SaveScheduleSubItemDto dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
@@ -567,7 +568,7 @@ WHERE AST_CompId = @CompId
                     subItemCommand.Parameters.AddWithValue("@ASSI_STATUS", dto.ASSI_STATUS ?? string.Empty);
                     subItemCommand.Parameters.AddWithValue("@ASSI_UPDATEDBY", dto.ASSI_UPDATEDBY);
                     subItemCommand.Parameters.AddWithValue("@ASSI_IPAddress", dto.ASSI_IPAddress ?? string.Empty);
-                    subItemCommand.Parameters.AddWithValue("@ASSI_CompId", iCompId);
+                    subItemCommand.Parameters.AddWithValue("@ASSI_CompId", CompId);
                     subItemCommand.Parameters.AddWithValue("@ASSI_YEARId", dto.ASSI_YEARId);
                     subItemCommand.Parameters.AddWithValue("@ASSi_scheduletype", dto.ASSI_ScheduleType);
                     subItemCommand.Parameters.AddWithValue("@ASSi_Orgtype", dto.ASSI_OrgType);
@@ -604,7 +605,7 @@ WHERE AST_CompId = @CompId
                     templateCommand.Parameters.AddWithValue("@AST_STATUS", dto.AST_STATUS ?? string.Empty);
                     templateCommand.Parameters.AddWithValue("@AST_UPDATEDBY", dto.AST_UPDATEDBY);
                     templateCommand.Parameters.AddWithValue("@AST_IPAddress", dto.AST_IPAddress ?? string.Empty);
-                    templateCommand.Parameters.AddWithValue("@AST_CompId", iCompId);
+                    templateCommand.Parameters.AddWithValue("@AST_CompId", CompId);
                     templateCommand.Parameters.AddWithValue("@AST_YEARId", dto.AST_YEARId);
                     templateCommand.Parameters.AddWithValue("@AST_Schedule_type", dto.AST_Schedule_type);
                     templateCommand.Parameters.AddWithValue("@AST_Companytype", dto.AST_Companytype);
@@ -632,7 +633,7 @@ WHERE AST_CompId = @CompId
         }
 
         //DeleteScheduleTemplate
-        public async Task<bool> DeleteInformationAsync(int iCompId, int iScheduleType, int iCustId, int iSelectedValue, int iMainId)
+        public async Task<bool> DeleteInformationAsync(int CompId, int ScheduleType, int CustId, int SelectedValue, int MainId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
@@ -640,9 +641,9 @@ WHERE AST_CompId = @CompId
 
             try
             {
-                var parameters = new { Id = iMainId, Type = iScheduleType, CustId = iCustId, CompId = iCompId };
+                var parameters = new { Id = MainId, Type = ScheduleType, CustId = CustId, CompId = CompId };
 
-                switch (iSelectedValue)
+                switch (SelectedValue)
                 {
                     case 1:
                         await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_HeadingID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId", parameters, transaction);
@@ -735,6 +736,11 @@ WHERE AST_CompId = @CompId
                     }
                 }
             }
+        }
+
+        Task<IEnumerable<ScheduleFormatDto.CustDto>> ScheduleFormatInterface.GetCustomerNameAsync(int CompId)
+        {
+            throw new NotImplementedException();
         }
     }
 }

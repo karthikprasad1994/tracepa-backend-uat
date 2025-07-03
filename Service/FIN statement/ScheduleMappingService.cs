@@ -25,6 +25,7 @@ using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 using static TracePca.Service.FIN_statement.ScheduleMappingService;
+using Microsoft.AspNetCore.Mvc;
 namespace TracePca.Service.FIN_statement
 {
     public class ScheduleMappingService : ScheduleMappingInterface
@@ -50,7 +51,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetCustomersName
-        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int icompId)
+        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -63,11 +64,11 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<CustDto>(query, new { CompID = icompId });
+            return await connection.QueryAsync<CustDto>(query, new { CompID = CompId });
         }
 
         //GetFinancialYear
-        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int icompId)
+        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -82,27 +83,23 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = icompId });
+            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = CompId });
         }
 
         //GetDuration
-        public async Task<IEnumerable<CustDurationDto>> GetDurationAsync(int compId, int custId)
+        public async Task<int?> GetCustomerDurationIdAsync(int CompId, int CustId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            var query = "SELECT Cust_DurtnId FROM SAD_CUSTOMER_MASTER WHERE CUST_CompID = @CompId AND CUST_ID = @CustId";
 
-            var query = @"
-        SELECT 
-            ISNULL(Cust_DurtnId, 0) AS Cust_DurtnId  
-        FROM SAD_CUSTOMER_MASTER 
-        WHERE Cust_CompID = @compId AND cust_id = @custId";
+            var parameters = new { CompId = CompId, CustId = CustId };
+            var result = await connection.QueryFirstOrDefaultAsync<int?>(query, parameters);
 
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<CustDurationDto>(query, new { compId, custId });
+            return result;
         }
 
         //GetBranchName
-        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int compId, int custId)
+        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -115,11 +112,11 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<CustBranchDto>(query, new { compId, custId });
+            return await connection.QueryAsync<CustBranchDto>(query, new { CompId, CustId });
         }
 
         //GetScheduleHeading
-        public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int compId, int custId, int scheduleTypeId)
+        public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int CompId, int CustId, int ScheduleTypeId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -138,11 +135,11 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<ScheduleHeadingDto>(query, new { compId, custId, scheduleTypeId });
+            return await connection.QueryAsync<ScheduleHeadingDto>(query, new { CompId, CustId, ScheduleTypeId });
         }
 
         //GetScheduleSub-Heading
-        public async Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(int compId, int custId, int scheduleTypeId)
+        public async Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(int CompId, int CustId, int ScheduleTypeId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -161,11 +158,11 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<ScheduleSubHeadingDto>(query, new { compId, custId, scheduleTypeId });
+            return await connection.QueryAsync<ScheduleSubHeadingDto>(query, new { CompId, CustId, ScheduleTypeId });
         }
 
         //GetScheduleItem
-        public async Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(int compId, int custId, int scheduleTypeId)
+        public async Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(int CompId, int CustId, int ScheduleTypeId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -184,11 +181,11 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<ScheduleItemDto>(query, new { compId, custId, scheduleTypeId });
+            return await connection.QueryAsync<ScheduleItemDto>(query, new { CompId, CustId, ScheduleTypeId });
         }
 
         //GetScheduleSub-Item
-        public async Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(int compId, int custId, int scheduleTypeId)
+        public async Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(int CompId, int CustId, int ScheduleTypeId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -206,7 +203,7 @@ namespace TracePca.Service.FIN_statement
             AND b.ASSI_ID IS NOT NULL";
 
             await connection.OpenAsync();
-            return await connection.QueryAsync<ScheduleSubItemDto>(query, new { compId, custId, scheduleTypeId });
+            return await connection.QueryAsync<ScheduleSubItemDto>(query, new { CompId, CustId, ScheduleTypeId });
         }
 
         ////SaveOrUpdateTrailBalanceUpload
@@ -352,7 +349,7 @@ namespace TracePca.Service.FIN_statement
         //}
 
         //GetTotalAmount
-        public async Task<IEnumerable<CustCOASummaryDto>>  GetCustCOAMasterDetailsAsync(int compId, int custId, int yearId, int branchId, int durationId)
+        public async Task<IEnumerable<CustCOASummaryDto>>  GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -400,12 +397,12 @@ WHERE
     AND a.ATBU_Description <> 'Net income';";
 
             await connection.OpenAsync();
-            return await connection.QueryAsync<CustCOASummaryDto>(query, new{ compId, custId, yearId, branchId, durationId});
+            return await connection.QueryAsync<CustCOASummaryDto>(query, new{ CompId, CustId, YearId, BranchId, DurationId});
         }
 
         //GetTrailBalance(Grid)
         public async Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(
-    int compId, int custId, int yearId, int scheduleTypeId, int unmapped, int branchId, int durationId)
+    int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -482,7 +479,7 @@ WHERE a.ATBU_CustId = @custId
     AND a.ATBU_YEARId = @yearId
     AND a.ATBU_BranchId = @branchId
     AND a.ATBU_QuarterId = @durationId
-    " + (unmapped != 0 ? "AND ATBUD_Headingid = 0 AND ATBUD_Subheading = 0 AND ATBUD_itemid = 0 AND ATBUD_SubItemId = 0" : "") + @"
+    " + (Unmapped != 0 ? "AND ATBUD_Headingid = 0 AND ATBUD_Subheading = 0 AND ATBUD_itemid = 0 AND ATBUD_SubItemId = 0" : "") + @"
 GROUP BY b.ATBUD_ID, a.ATBU_ID, a.ATBU_Code, a.ATBU_CustId, a.ATBU_Description, a.ATBU_Opening_Debit_Amount,
          a.ATBU_Opening_Credit_Amount, a.ATBU_TR_Debit_Amount, a.ATBU_TR_Credit_Amount,
          a.ATBU_Closing_TotalDebit_Amount, a.ATBU_Closing_TotalCredit_Amount,
@@ -494,18 +491,18 @@ ORDER BY ATBU_ID;";
             await connection.OpenAsync();
             return await connection.QueryAsync<CustCOADetailsDto>(query, new
             {
-                compId,
-                custId,
-                yearId,
-                scheduleTypeId,
-                unmapped,
-                branchId,
-                durationId
+                CompId,
+                CustId,
+                YearId,
+                ScheduleTypeId,
+                Unmapped,
+                BranchId,
+                DurationId
             });
         }
 
         //SaveScheduleTemplate
-        public async Task<int[]> UploadTrialBalanceExcelAsync(int companyId, AccTrailBalanceUploadBatchDto dto)
+        public async Task<int[]> UploadTrialBalanceExcelAsync(int CompanyId, AccTrailBalanceUploadBatchDto dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
@@ -964,7 +961,7 @@ WHERE ATBUD_Description = @AtbudDescription
         }
 
         //SaveTrailBalanceDetails
-        public async Task<int[]> SaveTrailBalanceDetailsAsync(int iCompId, TrailBalanceDetailsDto dto)
+        public async Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, TrailBalanceDetailsDto dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
@@ -1010,7 +1007,7 @@ WHERE ATBUD_Description = @AtbudDescription
                 UPDATE Acc_TrailBalance_Upload
                 SET ATBU_DelFlg = 'A'
                 WHERE ATBU_CompId = @CompId AND ATBU_ID = @ATBU_ID";
-                    await connection.ExecuteAsync(updateQuery, new { CompId = iCompId, dto.ATBU_ID }, transaction);
+                    await connection.ExecuteAsync(updateQuery, new { CompId = CompId, dto.ATBU_ID }, transaction);
 
                     await uploadCommand.ExecuteNonQueryAsync();
 
@@ -1058,7 +1055,7 @@ WHERE ATBUD_Description = @AtbudDescription
                 UPDATE Acc_TrailBalance_Upload_Details
                 SET ATBUD_DelFlg = 'A'
                 WHERE ATBUD_CompId = @CompId AND ATBUD_ID = @ATBUD_ID";
-                    await connection.ExecuteAsync(updateDetailsQuery, new { CompId = iCompId, dto.ATBUD_ID }, transaction);
+                    await connection.ExecuteAsync(updateDetailsQuery, new { CompId = CompId, dto.ATBUD_ID }, transaction);
 
                     await detailsCommand.ExecuteNonQueryAsync();
                 }

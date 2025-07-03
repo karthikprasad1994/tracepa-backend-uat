@@ -1,7 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Dapper;
+using System.Data;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using OfficeOpenXml;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -11,14 +16,13 @@ namespace TracePca.Controllers.FIN_Statement
     [ApiController]
     public class ScheduleExcelUploadController : ControllerBase
     {
-       // private ScheduleExcelUploadInterface _ScheduleExcelUploadInterface;
         private ScheduleExcelUploadInterface _ScheduleExcelUploadService;
 
         public ScheduleExcelUploadController(ScheduleExcelUploadInterface ExcelUploadInterface)
         {
-          //  _ScheduleExcelUploadInterface = ExcelUploadInterface;
             _ScheduleExcelUploadService = ExcelUploadInterface;
         }
+
         //DownloadUploadableExcelAndTemplate
         [HttpGet("DownloadableExcelFile")]
         [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
@@ -35,12 +39,12 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetCustomersName
         [HttpGet("GetCustomersName")]
-        public async Task<IActionResult> GetCustomerName([FromQuery] int icompId)
+        public async Task<IActionResult> GetCustomerName([FromQuery] int CompId)
         {
 
             try
             {
-                var result = await _ScheduleExcelUploadService.GetCustomerNameAsync(icompId);
+                var result = await _ScheduleExcelUploadService.GetCustomerNameAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -55,7 +59,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "ustomer name loaded successfully.",
+                    message = "Customer name loaded successfully.",
                     data = result
                 });
             }
@@ -72,11 +76,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetFinancialYear
         [HttpGet("GetFinancialYear")]
-        public async Task<IActionResult> GetFinancialYear([FromQuery] int icompId)
+        public async Task<IActionResult> GetFinancialYear([FromQuery] int CompId)
         {
             try
             {
-                var result = await _ScheduleExcelUploadService.GetFinancialYearAsync(icompId);
+                var result = await _ScheduleExcelUploadService.GetFinancialYearAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -107,25 +111,48 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //GetDuration
-        [HttpGet("GetDurationId")]
-        public async Task<IActionResult> GetCustomerDurationId([FromQuery] int compId, [FromQuery] int custId)
+        [HttpGet("GetCustomerDurationId")]
+        public async Task<IActionResult> GetCustomerDurationId([FromQuery] int CompId, [FromQuery] int CustId)
         {
-            var durationId = await _ScheduleExcelUploadService.GetCustomerDurationIdAsync(compId, custId);
-            if (durationId == null)
+            try
             {
-                return NotFound("Duration ID not found.");
-            }
+                var durationId = await _ScheduleExcelUploadService.GetCustomerDurationIdAsync(CompId, CustId);
 
-            return Ok(new { Cust_DurtnId = durationId });
+                if (durationId == null)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "Duration ID not found for the provided Company ID and Customer ID.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Duration ID retrieved successfully.",
+                    data = new { Cust_DurtnId = durationId }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the duration ID.",
+                    error = ex.Message
+                });
+            }
         }
 
         //GetBranchName
         [HttpGet("GetBranchName")]
-        public async Task<IActionResult> GetBranchName([FromQuery] int icompId, [FromQuery] int icustId)
+        public async Task<IActionResult> GetBranchName([FromQuery] int CompId, [FromQuery] int CustId)
         {
             try
             {
-                var result = await _ScheduleExcelUploadService.GetBranchNameAsync(icompId, icustId);
+                var result = await _ScheduleExcelUploadService.GetBranchNameAsync(CompId, CustId);
 
                 if (result == null || !result.Any())
                 {
@@ -155,53 +182,74 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //SaveAllInformation
-        [HttpPost("SaveAllInformation")]
-        public async Task<IActionResult> SaveAllInformation([FromBody] UploadExcelRequestDto request)
+        //SaveOpeningBalance
+        [HttpPost("SaveOpeningBalance")]
+        public async Task<IActionResult> SaveOpeningBalance([FromBody] List<OpeningBalanceDto> dtos)
         {
-            if (request == null || request.ExcelRows == null || request.ExcelRows.Count == 0)
-            {
-                return BadRequest(new
-                {
-                    Status = 400,
-                    Message = "Invalid request: request or Excel data is null or empty.",
-                    Data = (object)null
-                });
-            }
             try
             {
-                int[] result = await _ScheduleExcelUploadService.SaveAllInformationAsync(request);
+                if (dtos == null || !dtos.Any())
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "No trail balance data received.",
+                        data = (object)null
+                    });
+                }
 
-                if (result != null && result.Length > 0 && result[0] > 0)
+                var resultIds = await _ScheduleExcelUploadService.SaveOpeningBalanceAsync(dtos);
+
+                return Ok(new
                 {
-                    return Ok(new
-                    {
-                        Status = 200,
-                        Message = "Upload successful.",
-                        Data = new
-                        {
-                            RecordsProcessed = result
-                        }
-                    });
-                }
-                else
-                {
-                    return StatusCode(500, new
-                    {
-                        Status = 500,
-                        Message = "Upload failed. No records were processed.",
-                        Data = (object)null
-                    });
-                }
+                    statusCode = 200,
+                    message = "Trail balance data uploaded successfully.",
+                    data = resultIds
+                });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new
                 {
-                    Status = 500,
-                    Message = "An error occurred while uploading Excel data.",
-                    Error = ex.Message,
-                    InnerException = ex.InnerException?.Message
+                    statusCode = 500,
+                    message = "An error occurred while uploading trail balance data.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //SaveTrailBalance
+        [HttpPost("SaveTrailBalance")]
+        public async Task<IActionResult> SaveTrailBalance([FromBody] List<TrailBalanceDto> dtos)
+        {
+            try
+            {
+                if (dtos == null || !dtos.Any())
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "No trail balance data received.",
+                        data = (object)null
+                    });
+                }
+
+                var resultIds = await _ScheduleExcelUploadService.SaveTrailBalanceAsync(dtos);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Trail balance data uploaded successfully.",
+                    data = resultIds
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while uploading trail balance data.",
+                    error = ex.Message
                 });
             }
         }

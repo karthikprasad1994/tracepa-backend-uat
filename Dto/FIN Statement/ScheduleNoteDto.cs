@@ -12,7 +12,7 @@
         //GetFinancialYear
         public class FinancialYearDto
         {
-            public int Year_Id { get; set; }
+            public int YearId { get; set; }
             public string? Id { get; set; }
         }
 

@@ -27,6 +27,7 @@ namespace TracePca.Controllers
             var result = await _LoginInterface.GetAllUsersAsync();
             return Ok(result);
         }
+       
         [HttpPost("sendOtp")]
         public async Task<IActionResult> SendOtp([FromBody] OtpReqDto request)
         {
@@ -169,6 +170,20 @@ namespace TracePca.Controllers
         [HttpDelete("{id}")]
         public void Delete(int id)
         {
+        }
+
+        [HttpGet("CheckAndAddAccessCodeConnectionString/{accessCode}")]
+        public async Task<IActionResult> CheckAndAddAccessCodeConnectionString(string accessCode)
+        {
+            try
+            {
+                var (exists, message) = await _LoginInterface.CheckAndAddAccessCodeConnectionStringAsync(accessCode);
+                return Ok(new { statusCode = 200, message = message, data = exists });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "An error occurred while checking the access code.", error = ex.Message });
+            }
         }
     }
 }

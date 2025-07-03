@@ -97,24 +97,23 @@ namespace TracePca.Service.Communication_with_client
 
 
         public async Task<string> GetLoeTemplateSignedOnAsync(
-     string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId, string dateFormat)
+      string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId)
         {
             const string query = @"
-        SELECT ISNULL(FORMAT(LOET_ApprovedOn, @DateFormat), '') AS LOET_ApprovedOn
-        FROM LOE_Template
-        WHERE LOET_CustomerId = @CustomerId
-          AND LOET_FunctionId = @AuditTypeId
-          AND LOET_CompID = @CompanyId
-          AND LOET_LOEID IN (
-              SELECT LOE_Id
-              FROM SAD_CUST_LOE
-              WHERE LOE_YearId = @YearId
-                AND LOE_CustomerId = @CustomerId
-          )";
+    SELECT ISNULL(FORMAT(LOET_ApprovedOn, 'dd-MM-yyyy'), '') AS LOET_ApprovedOn
+    FROM LOE_Template
+    WHERE LOET_CustomerId = @CustomerId
+      AND LOET_FunctionId = @AuditTypeId
+      AND LOET_CompID = @CompanyId
+      AND LOET_LOEID IN (
+          SELECT LOE_Id
+          FROM SAD_CUST_LOE
+          WHERE LOE_YearId = @YearId
+            AND LOE_CustomerId = @CustomerId
+      )";
 
             var parameters = new
             {
-                DateFormat = dateFormat,
                 CustomerId = customerId,
                 AuditTypeId = auditTypeId,
                 CompanyId = companyId,
@@ -125,6 +124,7 @@ namespace TracePca.Service.Communication_with_client
             var approvedOn = await connection.ExecuteScalarAsync<string>(query, parameters);
             return approvedOn ?? string.Empty;
         }
+
 
         public async Task<string> GetCustomerFinancialYearAsync(string connectionKey, int companyId, int customerId)
         {
@@ -1173,6 +1173,9 @@ namespace TracePca.Service.Communication_with_client
             var requestedId = await GetRequestedIdAsync(request.ExportType);
             var existingId = await CheckAndGetDRLPKIDAsync(request.FinancialYearId, request.CustomerId, request.AuditNo, requestedId);
 
+            var generatedFileName = $"DRL_{request.CustomerId}_{DateTime.Now:yyyyMMddHHmmss}.{format}";
+            var tempFilePath = Path.Combine(Path.GetTempPath(), generatedFileName);
+
             var drlLog = new DRLLogDto
             {
                 Id = existingId,
@@ -1192,76 +1195,76 @@ namespace TracePca.Service.Communication_with_client
                 ReportType = request.ReportType
             };
 
-            await SaveDRLLogAsync(drlLog);
+            // Save DRL log, attachments, remarks, and generate the report file
+            var drlId = await SaveDRLLogWithAttachmentAsync(drlLog, tempFilePath, format);
 
+            // Read the generated file
+            var fileBytes = await File.ReadAllBytesAsync(tempFilePath);
+            var contentType = format.ToLower() == "pdf"
+                ? "application/pdf"
+                : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-            byte[] fileBytes;
-            string contentType;
-            string fileName = request.ReferenceNumber ?? "DRL_Report";
-
-            if (format.ToLower() == "pdf")
-            {
-                fileBytes = await GeneratePdfAsync(request);
-                contentType = "application/pdf";
-                fileName += ".pdf";
-            }
-            else
-            {
-                fileBytes = await GenerateWordAsync(request);
-                contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-                fileName += ".docx";
-            }
-
-            return (fileBytes, contentType, fileName);
+            return (fileBytes, contentType, generatedFileName);
         }
+
 
         private async Task<byte[]> GeneratePdfAsync(DRLRequestDto request)
         {
             return await Task.Run(() =>
             {
+                QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = true;
+
                 var document = QuestPDF.Fluent.Document.Create(container =>
                 {
                     container.Page(page =>
                     {
-                        page.Size(595, 842); // A4 size
+                        page.Size(595, 842); // A4
                         page.Margin(40);
 
                         page.Content().Column(column =>
                         {
                             // Header
-                            column.Item().AlignCenter().PaddingBottom(10)
-                                  .Text("GeneralReport").FontSize(18).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("General Report")
+                                .FontSize(18).Bold();
 
-                            column.Item().Text($"Ref.No.: {request.ReferenceNumber} - {request.Title}")
-                                         .FontSize(12).Bold();
+                            column.Item().PaddingBottom(4)
+                                .Text($"{request.ReferenceNumber?.Replace("\r", "").Replace("\n", "")} - {request.Title?.Replace("\r", "").Replace("\n", "")}")
+                                .FontSize(12).Bold();
 
-                            column.Item().Text($"Date: {DateTime.Today:dd MMM yyyy}").FontSize(10);
-                            column.Item().Text(request.CompanyName).FontSize(10);
-                            column.Item().Text(request.Address).FontSize(10);
-                            column.Item().PaddingBottom(10);
+                            column.Item().PaddingBottom(2).Text($"Date: {DateTime.Today:dd MMM yyyy}").FontSize(10);
+                            column.Item().PaddingBottom(2).Text((request.CompanyName ?? "").Replace("\r", "").Replace("\n", "")).FontSize(10);
+                            column.Item().PaddingBottom(10).Text((request.Address ?? "").Replace("\r", "").Replace("\n", "")).FontSize(10);
 
-                            // Title
-                            column.Item().PaddingBottom(10)
-                                  .Text(request.Title)
-                                  .FontSize(14).Bold().Underline();
+                            // Report Title
+                            column.Item().PaddingBottom(10).Text((request.Title ?? "").Replace("\r", "").Replace("\n", ""))
+                                .FontSize(14).Bold().Underline();
 
                             // Template Items
-                            foreach (var item in request.TemplateItems)
+                            foreach (var item in request.TemplateItems ?? new List<DRLTemplateItem>())
                             {
-                                column.Item().Text("• " + item.Heading).FontSize(11).Bold();
+                                // Heading
+                                if (!string.IsNullOrWhiteSpace(item.Heading))
+                                {
+                                    var headingText = "• " + item.Heading.Trim().Replace("\r", "").Replace("\n", "");
+                                    column.Item().PaddingBottom(2).Text(headingText).FontSize(11).Bold();
+                                }
 
+                                // Description
                                 if (!string.IsNullOrWhiteSpace(item.Description))
                                 {
-                                    // Split multiline description by newline
                                     var lines = item.Description
-                                                    .Replace("\r\n", "\n")
-                                                    .Replace("\r", "")
-                                                    .Split('\n');
+                                        .Replace("\r\n", "\n")
+                                        .Replace("\r", "\n")
+                                        .Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
                                     foreach (var line in lines)
                                     {
-                                        if (!string.IsNullOrWhiteSpace(line))
-                                            column.Item().Text(line.Trim()).FontSize(10);
+                                        var trimmed = line.Trim();
+                                        if (!string.IsNullOrWhiteSpace(trimmed))
+                                        {
+                                            var safeText = trimmed.Replace("\r", "").Replace("\n", "");
+                                            column.Item().PaddingBottom(1).Text(safeText).FontSize(10);
+                                        }
                                     }
                                 }
 
@@ -1270,7 +1273,7 @@ namespace TracePca.Service.Communication_with_client
 
                             // Footer
                             column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
-                            column.Item().Text("M.S. Madhava Rao").FontSize(10).Bold();
+                            column.Item().PaddingTop(2).Text("M.S. Madhava Rao").FontSize(10).Bold();
                             column.Item().Text("Chartered Accountant").FontSize(10);
                         });
                     });
@@ -1281,6 +1284,8 @@ namespace TracePca.Service.Communication_with_client
                 return ms.ToArray();
             });
         }
+
+
 
 
 
@@ -1363,6 +1368,8 @@ namespace TracePca.Service.Communication_with_client
         //    catch (Exception ex)
         //    {
         //        // Optional: Log the email error here
+
+
         //        Console.WriteLine($"Error sending DRL report email: {ex.Message}");
         //        throw;
         //    }
@@ -1382,29 +1389,50 @@ namespace TracePca.Service.Communication_with_client
             {
                 int drlId = dto.Id;
 
-                // 1. Insert or Update Audit_DRLLog
                 if (dto.Id == 0)
                 {
+                    // Manually get next ADRL_ID (Absent Number)
+                    var getNextIdSql = @"
+                SELECT ISNULL(MAX(ADRL_ID), 0) + 1 
+                FROM Audit_DRLLog WITH (TABLOCKX, HOLDLOCK);";
+
+                    drlId = await connection.ExecuteScalarAsync<int>(getNextIdSql, transaction: transaction);
+                    var existingAttachId = await connection.ExecuteScalarAsync<int>(
+              @"SELECT ATCH_ID FROM EDT_ATTACHMENTS WHERE ATCH_drlid = @RequestedListId order by ATCH_ID desc",
+              new { RequestedListId = dto.RequestedListId }, transaction);
+                    int attachIdToMap;
+                    if (existingAttachId == 0)
+                    {
+                        attachIdToMap = await connection.ExecuteScalarAsync<int>(
+                            @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
+                            new { CompanyId = dto.CompanyId }, transaction);
+                    }
+                    else
+                    {
+                        attachIdToMap = existingAttachId;
+                    }
                     var insert = @"
                 INSERT INTO Audit_DRLLog (
+                    ADRL_ID,
                     ADRL_YearID, ADRL_AuditNo, ADRL_CustID,
                     ADRL_RequestedListID, ADRL_RequestedTypeID,
                     ADRL_RequestedOn, ADRL_TimlinetoResOn,
                     ADRL_EmailID, ADRL_Comments,
                     ADRL_CrBy, ADRL_UpdatedBy,
-                    ADRL_IPAddress, ADRL_CompID, ADRL_ReportType
+                    ADRL_IPAddress, ADRL_CompID, ADRL_ReportType, ADRL_ATTACHID
                 ) VALUES (
+                    @Id,
                     @YearId, @AuditNo, @CustomerId,
                     @RequestedListId, @RequestedTypeId,
                     @RequestedOn, @TimelineToRespond,
                     @EmailIds, @Comments,
                     @CreatedBy, @UpdatedBy,
-                    @IPAddress, @CompanyId, @ReportType
-                );
-                SELECT CAST(SCOPE_IDENTITY() AS INT);";
+                    @IPAddress, @CompanyId, @ReportType, @AttachId
+                );";
 
-                    drlId = await connection.ExecuteScalarAsync<int>(insert, new
+                    await connection.ExecuteAsync(insert, new
                     {
+                        Id = drlId,
                         dto.YearId,
                         dto.AuditNo,
                         dto.CustomerId,
@@ -1418,8 +1446,11 @@ namespace TracePca.Service.Communication_with_client
                         UpdatedBy = dto.UpdatedBy,
                         IPAddress = dto.IPAddress,
                         CompanyId = dto.CompanyId,
-                        ReportType = dto.ReportType
+                        ReportType = dto.ReportType,
+                        AttachId = attachIdToMap
                     }, transaction);
+
+                    dto.Id = drlId; // Update DTO with generated ID
                 }
                 else
                 {
@@ -1427,6 +1458,7 @@ namespace TracePca.Service.Communication_with_client
                 UPDATE Audit_DRLLog SET
                     ADRL_RequestedOn = @RequestedOn,
                     ADRL_TimlinetoResOn = @TimelineToRespond,
+                    ADRL_RequestedListID = @RequestedListId,
                     ADRL_EmailID = @EmailIds,
                     ADRL_Comments = @Comments,
                     ADRL_UpdatedBy = @UpdatedBy,
@@ -1437,13 +1469,82 @@ namespace TracePca.Service.Communication_with_client
                     {
                         dto.RequestedOn,
                         dto.TimelineToRespond,
+                        dto.RequestedListId,
                         dto.EmailIds,
                         dto.Comments,
                         UpdatedBy = dto.UpdatedBy,
                         ReportType = dto.ReportType,
-                        dto.Id
+                        Id = dto.Id
                     }, transaction);
+
+                    drlId = dto.Id;
                 }
+                //int drlId = dto.Id;
+
+                //// 1. Insert or Update Audit_DRLLog
+                //if (dto.Id == 0)
+                //{
+                //    var insert = @"
+                //INSERT INTO Audit_DRLLog (
+                //    ADRL_YearID, ADRL_AuditNo, ADRL_CustID,
+                //    ADRL_RequestedListID, ADRL_RequestedTypeID,
+                //    ADRL_RequestedOn, ADRL_TimlinetoResOn,
+                //    ADRL_EmailID, ADRL_Comments,
+                //    ADRL_CrBy, ADRL_UpdatedBy,
+                //    ADRL_IPAddress, ADRL_CompID, ADRL_ReportType
+                //) VALUES (
+                //    @YearId, @AuditNo, @CustomerId,
+                //    @RequestedListId, @RequestedTypeId,
+                //    @RequestedOn, @TimelineToRespond,
+                //    @EmailIds, @Comments,
+                //    @CreatedBy, @UpdatedBy,
+                //    @IPAddress, @CompanyId, @ReportType
+                //);
+                //SELECT CAST(SCOPE_IDENTITY() AS INT);";
+
+                //    drlId = await connection.ExecuteScalarAsync<int>(insert, new
+                //    {
+                //        dto.YearId,
+                //        dto.AuditNo,
+                //        dto.CustomerId,
+                //        dto.RequestedListId,
+                //        dto.RequestedTypeId,
+                //        dto.RequestedOn,
+                //        dto.TimelineToRespond,
+                //        dto.EmailIds,
+                //        dto.Comments,
+                //        CreatedBy = dto.CreatedBy,
+                //        UpdatedBy = dto.UpdatedBy,
+                //        IPAddress = dto.IPAddress,
+                //        CompanyId = dto.CompanyId,
+                //        ReportType = dto.ReportType
+                //    }, transaction);
+                //}
+                //else
+                //{
+                //    var update = @"
+                //UPDATE Audit_DRLLog SET
+                //    ADRL_RequestedOn = @RequestedOn,
+                //    ADRL_TimlinetoResOn = @TimelineToRespond,
+                //    ADRL_RequestedListID = @RequestedListId,
+
+                //    ADRL_EmailID = @EmailIds,
+                //    ADRL_Comments = @Comments,
+                //    ADRL_UpdatedBy = @UpdatedBy,
+                //    ADRL_ReportType = @ReportType
+                //WHERE ADRL_ID = @Id";
+
+                //    await connection.ExecuteAsync(update, new
+                //    {
+                //        dto.RequestedOn,
+                //        dto.TimelineToRespond,
+                //        dto.EmailIds,
+                //        dto.Comments,
+                //        UpdatedBy = dto.UpdatedBy,
+                //        ReportType = dto.ReportType,
+                //        dto.Id
+                //    }, transaction);
+                //}
 
                 // 2. Fetch customer & template data
                 var customerData = await GetCustomerDetailsWithTemplatesAsync(dto.CompanyId, dto.CustomerId, dto.ReportType);
@@ -1456,13 +1557,12 @@ namespace TracePca.Service.Communication_with_client
                 Directory.CreateDirectory(outputFolder);
 
                 var fileName = Path.GetFileName(filePath);
-                var generatedFilePath = Path.Combine(outputFolder, fileName);
+                var generatedFilePath = filePath; // Use the temp path passed in
 
                 if (fileType.ToLower() == "pdf")
                     GeneratePdf(customerData, generatedFilePath);
                 else
                     GenerateWord(customerData, generatedFilePath);
-
                 // 4. Save metadata in EDT_ATTACHMENTS
                 //var attachId = await connection.ExecuteScalarAsync<int>(
                 //    @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
@@ -1471,6 +1571,26 @@ namespace TracePca.Service.Communication_with_client
                 var docId = await connection.ExecuteScalarAsync<int>(
                     @"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
                     new { CompanyId = dto.CompanyId }, transaction);
+
+
+                var preAttachId = await connection.ExecuteScalarAsync<int>(
+                  @"SELECT ATCH_ID FROM EDT_ATTACHMENTS WHERE ATCH_drlid = @RequestedListId order by ATCH_ID desc",
+                  new { RequestedListId = dto.RequestedListId }, transaction);
+                var AttachId = 0;
+
+                if (preAttachId == 0)
+                {
+                    AttachId = await connection.ExecuteScalarAsync<int>(
+                     @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
+                     new { CompanyId = dto.CompanyId }, transaction);
+                }
+                else
+                {
+                    AttachId = preAttachId;
+                }
+
+                   
+
 
                 var extension = Path.GetExtension(fileName)?.TrimStart('.') ?? "unk";
                 var fileSize = new FileInfo(generatedFilePath).Length;
@@ -1481,19 +1601,21 @@ namespace TracePca.Service.Communication_with_client
                 ATCH_CREATEDBY, ATCH_MODIFIEDBY, ATCH_VERSION,
                 ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename,
                 ATCH_CREATEDON, ATCH_Status, ATCH_CompID,
-                Atch_Vstatus, ATCH_ReportType
+                Atch_Vstatus, ATCH_ReportType, ATCH_AuditID, 
+               ATCH_drlid
+
             )
             VALUES (
                 @AttachId, @DocId, @FileName, @Extension,
                 @CreatedBy, @CreatedBy, 1,
                 @Flag, @Size, 0, 0,
                 GETDATE(), 'X', @CompanyId,
-                @Status, @ReportType
+                'C', @ReportType, @AuditNo, @RequestedListId
             );";
 
                 await connection.ExecuteAsync(insertAttach, new
                 {
-                    AttachId = dto.AttachId,
+                    AttachId = AttachId,
                     DocId = docId,
                     FileName = fileName.Length > 95 ? fileName.Substring(0, 95) : fileName.Replace("&", " and"),
                     Extension = extension,
@@ -1501,44 +1623,53 @@ namespace TracePca.Service.Communication_with_client
                     Flag = 1,
                     Size = fileSize,
                     CompanyId = dto.CompanyId,
-                    ReportType = dto.ReportType
+                    ReportType = dto.ReportType,
+                  //  Status = dto.Status,
+                    AuditNo = dto.AuditNo,
+                    RequestedListId = dto.RequestedListId
+
                 }, transaction);
 
                 // 5. Generate next Remark ID
                 var remarkId = await connection.ExecuteScalarAsync<int>(
                     @"SELECT ISNULL(MAX(SAR_ID), 0) + 1 
-      FROM StandardAudit_Audit_DRLLog_RemarksHistory 
-      WHERE SAR_SAC_ID = @CustomerId AND SAR_SA_ID = @AuditId",
+      FROM StandardAudit_Audit_DRLLog_RemarksHistory",
                     new { dto.CustomerId, dto.AuditNo }, transaction);
 
                 // 6. Insert into Remarks History
                 await connection.ExecuteAsync(
                     @"INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
         SAR_ID, SAR_SAC_ID, SAR_SA_ID, SAR_DRLId,
-        SAR_Remarks, SAR_Date, SAR_RemarksType,
-        SAR_AttchId, SAR_AtthachDocId, SAR_TimlinetoResOn, SAR_ReportType
+        SAR_Remarks, SAR_Date, SAR_RemarksType, sar_Yearid,
+        SAR_AttchId, SAR_AtthachDocId, SAR_TimlinetoResOn, SAR_ReportType, SAR_CompID, SAR_MASid
     ) VALUES (
-        @RemarkId, @CustomerId, @AuditId, @DRLId,
-        @Remark, @RequestedOn, @Type,
-        @AttachId, @DocId, @TimelineToRespond, @ReportType
+        @RemarkId, @CustomerId, @AuditNo, @RequestedListId,
+        @Remark, @RequestedOn, @Type, @YearId,
+        @AttachId, @DocId, @TimelineToRespond, @ReportType, @CompanyId, @SarMasId
     )",
                     new
                     {
                         RemarkId = remarkId,
                         CustomerId = dto.CustomerId,
-                        AuditId = dto.AuditNo,
+                        AuditNo = dto.AuditNo,
                         DRLId = drlId,
                         Remark = dto.Comments, // or dto.Remark if that's available
                         RequestedOn = dto.RequestedOn,
                         Type = dto.RequestedTypeId, // or another appropriate value
-                        AttachId = dto.AttachId,
+                        AttachId = AttachId,
                         DocId = docId,
                         TimelineToRespond = dto.TimelineToRespond,
-                        ReportType = dto.ReportType
+                        ReportType = dto.ReportType,
+                        RequestedListId = dto.RequestedListId,
+                        YearId = dto.YearId,
+                        CompanyId = dto.CompanyId,
+                        SarMasId = drlId
+
                     }, transaction);
 
 
                 transaction.Commit();
+              //  await SendBeginningOfAuditEmailAsync(dto);
 
                 return drlId;
             }
@@ -1548,6 +1679,64 @@ namespace TracePca.Service.Communication_with_client
                 throw;
             }
         }
+
+//        private async Task SendBeginningOfAuditEmailAsync(DRLLogDto dto)
+//        {
+//            if (dto.EmailIds == null || !dto.EmailIds.Any())
+//                return;
+
+//            var smtpClient = new System.Net.Mail.SmtpClient("your-smtp-host") // Replace with actual SMTP host
+//            {
+//                Port = 587,
+//                Credentials = new NetworkCredential("trace@mmcspl.com", "your-password"),
+                
+                
+//                // Replace with actual credentials
+//                EnableSsl = true
+//            };
+
+//            var mail = new MailMessage
+//            {
+//                From = new MailAddress("trace@mmcspl.com"),
+//                Subject = $"Intimation mail for Beginning of the Audit - #{dto.AuditNo}",
+//                IsBodyHtml = true
+//            };
+
+//            // First email is added as "To"
+//            mail.To.Add(dto.EmailIds[0]);
+
+//            // Remaining emails are added as "CC"
+//            for (int i = 1; i < dto.EmailIds.Count; i++)
+//            {
+//                mail.CC.Add(dto.EmailIds[i]);
+//            }
+
+//            // Optional: if you still need a comma-separated string version somewhere
+//            var emailIdsString = string.Join(",", dto.EmailIds);
+
+//            string body = $@"
+//<p><strong>Intimation mail</strong></p>
+//<p>Document Requested</p>
+//<p>Greetings from TRACe PA.</p>
+//<p>This mail is an intimation for sharing the documents requested by the Auditor's office.</p>
+//<p><strong>Beginning of the Audit</strong></p>
+//<p><strong>Audit No.:</strong> {dto.AuditNo} - Statutory Audit</p>
+//<p><strong>Report Type:</strong> {dto.ReportType}</p>
+//<p><strong>Document Requested List:</strong> Beginning of the Audit</p>
+//<p><strong>Comments:</strong> {dto.Comments}</p>
+//<br />
+//<p>Please login to TRACe PA website using the link and credentials shared with you.</p>
+//<p><a href='https://tracepacust-user.multimedia.interactivedns.com/'>TRACe PA Portal</a></p>
+//<br />
+//<p>Thanks,</p>
+//<p>TRACe PA Team</p>";
+
+//            mail.Body = body;
+
+//            await smtpClient.SendMailAsync(mail);
+//        }
+
+
 
 
         public async Task<int> GetDuringSelfAttachIdAsync(int companyId, int yearId, int customerId, int auditId, int drlId)
@@ -2350,10 +2539,10 @@ VALUES (
 
                 await transaction.CommitAsync();
                 var auditInfo = await GetAuditInfoByIdAsync(dto.CustomerId);
-                foreach (var email in dto.EmailIds)
-                {
-                    await SendAuditLifecycleEmailAsync(email, auditInfo.AuditNo, auditInfo.AuditName, dto.Remarks);
-                }
+                //foreach (var email in dto.EmailIds)
+                //{
+                //    await SendAuditLifecycleEmailAsync(email, auditInfo.AuditNo, auditInfo.AuditName, dto.Remarks);
+                //}
                 return (true, "DRL status updated successfully.");
             }
             catch (Exception)
@@ -3924,6 +4113,8 @@ WHERE CMM_CompID = @CompId
         LEFT JOIN StandardAudit_Audit_DRLLog_RemarksHistory a ON a.SAR_AttchId = ATCH_ID
         WHERE SAR_SAC_ID = @CustomerId
           AND SAR_SA_ID = @AuditId
+         AND sar_Yearid = @YearId 
+
           
           AND ATCH_ReportType = @ReportTypeId";
 

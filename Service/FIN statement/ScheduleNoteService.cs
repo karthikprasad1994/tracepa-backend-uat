@@ -19,7 +19,7 @@ namespace TracePca.Service.FIN_statement
             _dbcontext = dbcontext;
         }
         //GetCustomersName
-        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int icompId)
+        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -32,11 +32,11 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<CustDto>(query, new { CompID = icompId });
+            return await connection.QueryAsync<CustDto>(query, new { CompID = CompId });
         }
 
         //GetFinancialYear
-        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int icompId)
+        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -51,11 +51,11 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = icompId });
+            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = CompId });
         }
 
         //GetSubHeadingname(Notes For SubHeading)
-        public async Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int customerId, int subHeadingId)
+        public async Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CustomerId, int SubHeadingId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -72,8 +72,8 @@ WHERE ASHN_CustomerId = @CustomerId
 
             return await connection.QueryAsync<SubHeadingNoteDto>(query, new
             {
-                CustomerId = customerId,
-                SubHeadingId = subHeadingId
+                CustomerId = CustomerId,
+                SubHeadingId = SubHeadingId
             });
         }
 
@@ -137,7 +137,7 @@ WHERE ASHN_CustomerId = @CustomerId
         }
 
         //GetBranch(Notes For Ledger)
-        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int compId, int custId)
+        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -150,11 +150,11 @@ WHERE ASHN_CustomerId = @CustomerId
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<CustBranchDto>(query, new { compId, custId });
+            return await connection.QueryAsync<CustBranchDto>(query, new { CompId, CustId });
         }
 
         //GetLedger(Notes For Ledger)
-        public async Task<IEnumerable<LedgerIndividualDto>> GetLedgerIndividualDetailsAsync(int customerId, int subHeadingId)
+        public async Task<IEnumerable<LedgerIndividualDto>> GetLedgerIndividualDetailsAsync(int CustomerId, int SubHeadingId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -171,8 +171,8 @@ WHERE ASHL_CustomerId = @CustomerId
 
             return await connection.QueryAsync<LedgerIndividualDto>(query, new
             {
-                CustomerId = customerId,
-                SubHeadingId = subHeadingId
+                CustomerId = CustomerId,
+                SubHeadingId = SubHeadingId
             });
         }
 

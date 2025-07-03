@@ -32,5 +32,18 @@ namespace TracePca.Interface.Audit
         Task<List<AssignedCheckpointDto>> GetAssignedCheckpointsAsync(int auditId, int custId, string heading);
         Task<IEnumerable<GeneralMasterDto>> LoadGeneralMastersAsync(int iACID, string sType);
         Task<CustomerDetailsDto> GetCustomerDetailsAsync(int iACID, int iCustId);
+        Task<AuditStatusDto> GetAuditStatusAsync(int saId, int companyId);
+        Task<bool> CheckScheduleQuarterDetailsAsync(ScheduleQuarterCheckDto dto);
+        Task<bool> IsCustomerLoeApprovedAsync(int customerId, int yearId);
+        Task<string> GetLOESignedOnAsync(int compid, int auditTypeId, int customerId, int yearId);
+        Task<string> GetLOEStatusAsync(int compid, int auditTypeId, int customerId, int yearId);
+        Task<(DateTime? StartDate, DateTime? EndDate)> GetScheduleQuarterDateDetailsAsync(int iAcID, int iAuditID, int iQuarterID);
+
+        Task<dynamic?> LoadCustomerMasterAsync(int companyId, int customerId);
+        Task<string[]> SaveEmployeeDetailsAsync(EmployeeDto employee);
+        Task<DataTable> LoadExistingEmployeeDetailsAsync(int companyId, int userId);
+
+        Task<IEnumerable<dynamic>> LoadActiveRoleAsync(int companyId);
+
     }
 }

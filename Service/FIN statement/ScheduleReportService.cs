@@ -1,13 +1,11 @@
-﻿using System.Data;
+﻿using Dapper;
+using System.Globalization;
 using System.Text;
-using ClosedXML.Excel;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
 using TracePca.Interface.FIN_Statement;
-using static TracePca.Dto.FIN_Statement.ScheduleFormatDto;
 using static TracePca.Dto.FIN_Statement.ScheduleReportDto;
-using static TracePca.Service.FIN_statement.ScheduleReportService;
 
 namespace TracePca.Service.FIN_statement
 {
@@ -24,7 +22,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetCustomersName
-        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int icompId)
+        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -37,11 +35,11 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<CustDto>(query, new { CompID = icompId });
+            return await connection.QueryAsync<CustDto>(query, new { CompID = CompId });
         }
 
         //GetFinancialYear
-        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int icompId)
+        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -56,11 +54,11 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = icompId });
+            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = CompId });
         }
 
         //GetBranchName
-        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int compId, int custId)
+        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -73,11 +71,11 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<CustBranchDto>(query, new { compId, custId });
+            return await connection.QueryAsync<CustBranchDto>(query, new { CompId, CustId });
         }
 
         //GetCompanyName
-        public async Task<IEnumerable<CompanyDetailsDto>> GetCompanyNameAsync(int iCompId)
+        public async Task<IEnumerable<CompanyDetailsDto>> GetCompanyNameAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -91,17 +89,17 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<CompanyDetailsDto>(query, new { CompID = iCompId });
+            return await connection.QueryAsync<CompanyDetailsDto>(query, new { CompID = CompId });
         }
 
         //GetPartners
-        public async Task<IEnumerable<PartnersDto>> LoadCustomerPartnersAsync(int compId, int detailsId)
+        public async Task<IEnumerable<PartnersDto>> LoadCustomerPartnersAsync(int CompId, int DetailsId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
             string query;
 
-            if (detailsId != 0)
+            if (DetailsId != 0)
             {
                 query = @"
             SELECT 
@@ -128,12 +126,12 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<PartnersDto>(query, new { compId, detailsId });
+            return await connection.QueryAsync<PartnersDto>(query, new { CompId, DetailsId });
         }
 
         //GetSubHeading
         public async Task<IEnumerable<SubHeadingDto>> GetSubHeadingAsync(
-        int iCompId, int iScheduleId, int iCustId, int iHeadingId)
+        int CompId, int ScheduleId, int CustId, int HeadingId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -153,9 +151,9 @@ namespace TracePca.Service.FIN_statement
 
             var result = await connection.QueryAsync<SubHeadingDto>(query, new
             {
-                CustId = iCustId,
-                ScheduleId = iScheduleId,
-                HeadingId = iHeadingId
+                CustId = CustId,
+                ScheduleId = ScheduleId,
+                HeadingId = HeadingId
             });
 
             return result;
@@ -163,7 +161,7 @@ namespace TracePca.Service.FIN_statement
 
         //GetItem
         public async Task<IEnumerable<ItemDto>> GetItemAsync(
-        int iCompId, int iScheduleId, int iCustId, int iHeadingId, int iSubHeadId)
+        int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -182,15 +180,15 @@ namespace TracePca.Service.FIN_statement
 
             var result = await connection.QueryAsync<ItemDto>(query, new
             {
-                CustId = iCustId,
-                ScheduleId = iScheduleId,
-                SubHeadId = iSubHeadId
+                CustId = CustId,
+                ScheduleId = ScheduleId,
+                SubHeadId = SubHeadId
             });
             return result;
         }
 
         //GetDateFormat
-        public async Task<string> GetDateFormatSelectionAsync(int companyId, string configKey)
+        public async Task<string> GetDateFormatSelectionAsync(int CompanyId, string ConfigKey)
         {
             const string query = @"
         SELECT SAD_Config_Value 
@@ -202,8 +200,8 @@ namespace TracePca.Service.FIN_statement
 
             var configValue = await connection.ExecuteScalarAsync<string>(query, new
             {
-                Key = configKey,
-                CompanyId = companyId
+                Key = ConfigKey,
+                CompanyId = CompanyId
             });
 
             return configValue switch
@@ -220,173 +218,160 @@ namespace TracePca.Service.FIN_statement
             };
         }
 
-        //LoadButton
-        public async Task<IEnumerable<ReportDto>> GenerateReportAsync(
-    int reportType,
-    int scheduleTypeId,
-    int accountId,
-    int customerId,
-    int yearId,
-    string? branchIds = null,
-    string? subHeadingIds = null,
-    string? itemIds = null)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //LoadButtonForSummaryReportPandL
+        //public async Task<List<BalanceSheetRow>> GetBalanceSheetAsync(int iACID, int yearID, int custID, int scheduleTypeID, int repType, int chkPt, int inAmt, string selectedBranches, int roundOff, string selectedSHeading, string selectedItems, int stat)
+        //{
+        //    var rows = new List<BalanceSheetRow>();
+        //    using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    await conn.OpenAsync();
 
-            var sql = GetQueryByReportType(reportType, scheduleTypeId, branchIds, subHeadingIds, itemIds);
+        //    double totalDebit = 0, prevTotalDebit = 0;
+        //    double dPandLamt = 0, dPrevPandLamt = 0;
 
-            var parameters = new
-            {
-                ScheduleTypeId = scheduleTypeId,
-                AccountId = accountId,
-                CustomerId = customerId,
-                CurrentYearId = yearId,
-                PreviousYearId = yearId - 1
-            };
+        //    int orgTypeId = await conn.QueryFirstOrDefaultAsync<int>("SELECT OrgTypeId FROM OrgTable WHERE CompanyID = @iACID AND CustID = @custID", new { iACID, custID });
 
-            await connection.OpenAsync();
+        //    foreach (var noteType in new[] { 2, 1 })
+        //    {
+        //        if (noteType == 2 && (repType != 1 || scheduleTypeID != 4))
+        //        {
+        //            rows.Add(new BalanceSheetRow { SrNo = "", HeadingName = orgTypeId == 28 ? "<B>EQUITY AND LIABILITIES</B>" : "<B>PARTNERS FUND AND LIABILITIES</B>" });
+        //        }
+        //        else if (noteType == 1)
+        //        {
+        //            rows.Add(new BalanceSheetRow { SrNo = "", HeadingName = "<B>ASSETS</B>" });
+        //        }
 
-            var result = await connection.QueryAsync<ReportDto>(sql, parameters);
+        //        var headings = await conn.QueryAsync<dynamic>(@"
+        //        SELECT AST_HeadingID, ASH_Name AS HeadingName FROM ACC_ScheduleTemplates
+        //        LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID = AST_HeadingID
+        //        WHERE AST_Schedule_type = @scheduleTypeID AND AST_Companytype = @custID AND a.ASH_Notes = @noteType
+        //        GROUP BY AST_HeadingID, ASH_Name
+        //        ORDER BY AST_HeadingID",
+        //            new { scheduleTypeID, custID, noteType });
 
-            return result;
-        }
+        //        int srIndex = 1;
+        //        foreach (var heading in headings)
+        //        {
+        //            string headingName = heading.HeadingName;
+        //            int headingId = (int)heading.AST_HeadingID;
 
-        public byte[] ExportToExcel(IEnumerable<ReportDto> data)
-        {
-            using var workbook = new XLWorkbook();
-            var worksheet = workbook.Worksheets.Add("Report");
-            var currentRow = 1;
+        //            double crTotal = await GetAmountAsync(conn, headingId, yearID, iACID, custID, selectedBranches, "CrTotal", scheduleTypeID);
+        //            double dbTotal = await GetAmountAsync(conn, headingId, yearID, iACID, custID, selectedBranches, "DbTotal", scheduleTypeID);
+        //            double prevCrTotal = await GetAmountAsync(conn, headingId, yearID - 1, iACID, custID, selectedBranches, "CrTotal", scheduleTypeID);
+        //            double prevDbTotal = await GetAmountAsync(conn, headingId, yearID - 1, iACID, custID, selectedBranches, "DbTotal", scheduleTypeID);
 
-            worksheet.Cell(currentRow, 1).Value = "SrNo";
-            worksheet.Cell(currentRow, 2).Value = "HeadingName";
-            worksheet.Cell(currentRow, 3).Value = "HeaderSLNo";
-            worksheet.Cell(currentRow, 4).Value = "SubHeaderSLNo";
-            worksheet.Cell(currentRow, 5).Value = "Notes";
-            worksheet.Cell(currentRow, 6).Value = "PrevYearTotal";
+        //            double net = dbTotal - crTotal;
+        //            double prevNet = prevDbTotal - prevCrTotal;
 
-            foreach (var row in data)
-            {
-                currentRow++;
-                worksheet.Cell(currentRow, 1).Value = row.SrNo;
-                worksheet.Cell(currentRow, 2).Value = row.HeadingName;
-                worksheet.Cell(currentRow, 3).Value = row.HeaderSLNo;
-                worksheet.Cell(currentRow, 4).Value = row.SubHeaderSLNo;
-                worksheet.Cell(currentRow, 5).Value = row.Notes;
-                worksheet.Cell(currentRow, 6).Value = row.PrevYearTotal;
-            }
+        //            totalDebit += net;
+        //            prevTotalDebit += prevNet;
 
-            using var stream = new MemoryStream();
-            workbook.SaveAs(stream);
-            return stream.ToArray();
-        }
+        //            rows.Add(new BalanceSheetRow
+        //            {
+        //                SrNo = srIndex.ToString(),
+        //                HeadingName = $"<b>{headingName}</b>",
+        //                HeaderSLNo = FormatAmount(net / inAmt, roundOff),
+        //                PrevYearTotal = FormatAmount(prevNet / inAmt, roundOff)
+        //            });
 
-        private string GetQueryByReportType(int reportType, int scheduleTypeId, string? branches, string? subHeadings, string? items)
-        {
-            return (reportType, scheduleTypeId) switch
-            {
-                (1, 3) => SummaryPLQuery(branches, subHeadings, items),
-                (1, 4) => SummaryBalanceSheetQuery(branches, subHeadings, items),
-                (2, 3) => DetailedPLQuery(branches, subHeadings, items),
-                (2, 4) => DetailedBalanceSheetQuery(branches, subHeadings, items),
-                _ => throw new InvalidOperationException("Invalid report or schedule type.")
-            };
-        }
+        //            if (custID == 28 && headingName?.Trim() == "(b) Reserves and surplus")
+        //            {
+        //                dPandLamt = await GetPandLFinalAmtAsync(conn, yearID, custID, scheduleTypeID, selectedBranches);
+        //                dPrevPandLamt = await GetPandLFinalAmtAsync(conn, yearID - 1, custID, 3, selectedBranches);
 
-        private string BuildOptionalFilters(string? branches, string? subHeadings, string? items)
-        {
-            var filters = new List<string>();
-            if (!string.IsNullOrWhiteSpace(branches))
-                filters.Add($"bud.Atbud_Branchnameid IN ({branches})");
-            if (!string.IsNullOrWhiteSpace(subHeadings))
-                filters.Add($"bud.ATBUD_Subheading IN ({subHeadings})");
-            if (!string.IsNullOrWhiteSpace(items))
-                filters.Add($"bud.ATBUD_itemid IN ({items})");
+        //                rows.Add(new BalanceSheetRow
+        //                {
+        //                    SrNo = "",
+        //                    HeadingName = "&nbsp;&nbsp;&nbsp;&nbsp;(b) Reserves and surplus",
+        //                    HeaderSLNo = FormatAmount(dPandLamt / inAmt, roundOff),
+        //                    PrevYearTotal = FormatAmount(dPrevPandLamt / inAmt, roundOff),
+        //                    Notes = "1"
+        //                });
 
-            return filters.Count > 0 ? " AND " + string.Join(" AND ", filters) : string.Empty;
-        }
+        //                totalDebit += dPandLamt;
+        //                prevTotalDebit += dPrevPandLamt;
+        //            }
 
-        private string SummaryPLQuery(string? branches, string? subHeadings, string? items) => $@"
-SELECT DISTINCT ATBUD_Headingid,
-       ASH_Name AS HeadingName,
-       FORMAT(SUM(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 'N2') AS HeaderSLNo,
-       NULL AS SubHeaderSLNo,
-       CAST(a.ASH_Notes AS VARCHAR) AS Notes,
-       FORMAT(SUM(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 'N2') AS PrevYearTotal,
-       '1' AS SrNo
-FROM Acc_TrailBalance_Upload_Details bud
-LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID = bud.ATBUD_Headingid AND a.ASH_Notes = 1
-LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = bud.ATBUD_Description
-    AND d.ATBU_YEARId = @CurrentYearId AND d.ATBU_CustId = @CustomerId AND bud.ATBUD_YEARId = @CurrentYearId
-    AND d.ATBU_Branchid = bud.Atbud_Branchnameid
-LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = bud.ATBUD_Description
-    AND e.ATBU_YEARId = @PreviousYearId AND e.ATBU_CustId = @CustomerId AND bud.ATBUD_YEARId = @PreviousYearId
-    AND e.ATBU_Branchid = bud.Atbud_Branchnameid
-WHERE bud.ATBUD_Schedule_type = @ScheduleTypeId
-  AND bud.ATBUD_compid = @AccountId
-  AND bud.ATBUD_CustId = @CustomerId
-  AND EXISTS (
-      SELECT 1 FROM ACC_ScheduleTemplates s
-      WHERE s.AST_HeadingID = bud.ATBUD_Headingid AND s.AST_AccHeadId IN (1, 2)
-  )
-{BuildOptionalFilters(branches, subHeadings, items)}
-GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes";
+        //            srIndex++;
+        //        }
+        //    }
 
-        private string SummaryBalanceSheetQuery(string? branches, string? subHeadings, string? items) => @"
-SELECT AST_HeadingID AS SrNo,
-       ASH_Name AS HeadingName,
-       NULL AS HeaderSLNo,
-       NULL AS SubHeaderSLNo,
-       NULL AS Notes,
-       NULL AS PrevYearTotal
-FROM ACC_ScheduleTemplates
-LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID = AST_HeadingID
-WHERE AST_Schedule_type = @ScheduleTypeId
-  AND AST_Companytype = @CustomerId
-  AND a.ASH_Notes = 2
-GROUP BY AST_HeadingID, ASH_Name
-ORDER BY AST_HeadingID";
+        //    if (scheduleTypeID == 3)
+        //    {
+        //        rows.Add(new BalanceSheetRow
+        //        {
+        //            SrNo = "",
+        //            HeadingName = "<B>Net Ordinary Income</B>",
+        //            HeaderSLNo = FormatAmount(totalDebit / inAmt, roundOff),
+        //            PrevYearTotal = FormatAmount(prevTotalDebit / inAmt, roundOff)
+        //        });
+        //    }
 
-        private string DetailedPLQuery(string? branches, string? subHeadings, string? items) => $@"
-SELECT DISTINCT ATBUD_Headingid,
-       ASH_Name AS HeadingName,
-       FORMAT(SUM(d.ATBU_Closing_TotalCredit_Amount), 'N2') AS HeaderSLNo,
-       NULL AS SubHeaderSLNo,
-       CAST(a.ASH_Notes AS VARCHAR) AS Notes,
-       '-' AS PrevYearTotal,
-       '1' AS SrNo
-FROM Acc_TrailBalance_Upload_Details bud
-LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID = bud.ATBUD_Headingid
-LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = bud.ATBUD_Description
-WHERE bud.ATBUD_Schedule_type = @ScheduleTypeId
-  AND bud.ATBUD_compid = @AccountId
-  AND bud.ATBUD_CustId = @CustomerId
-  AND EXISTS (
-      SELECT 1 FROM ACC_ScheduleTemplates s
-      WHERE s.AST_HeadingID = bud.ATBUD_Headingid AND s.AST_AccHeadId = 1
-  )
-{BuildOptionalFilters(branches, subHeadings, items)}
-GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes";
+        //    rows.Add(new BalanceSheetRow
+        //    {
+        //        SrNo = "",
+        //        HeadingName = "<B>Total</B>",
+        //        HeaderSLNo = FormatAmount(totalDebit / inAmt, roundOff),
+        //        PrevYearTotal = FormatAmount(prevTotalDebit / inAmt, roundOff)
+        //    });
 
-        private string DetailedBalanceSheetQuery(string? branches, string? subHeadings, string? items) => $@"
-SELECT DISTINCT ATBUD_Headingid,
-       ASH_Name AS HeadingName,
-       FORMAT(SUM(d.ATBU_Closing_TotalDebit_Amount), 'N2') AS HeaderSLNo,
-       NULL AS SubHeaderSLNo,
-       CAST(a.ASH_Notes AS VARCHAR) AS Notes,
-       '-' AS PrevYearTotal,
-       '1' AS SrNo
-FROM Acc_TrailBalance_Upload_Details bud
-LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID = bud.ATBUD_Headingid
-LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = bud.ATBUD_Description
-WHERE bud.ATBUD_Schedule_type = @ScheduleTypeId
-  AND bud.ATBUD_compid = @AccountId
-  AND bud.ATBUD_CustId = @CustomerId
-  AND EXISTS (
-      SELECT 1 FROM ACC_ScheduleTemplates s
-      WHERE s.AST_HeadingID = bud.ATBUD_Headingid AND s.AST_AccHeadId = 2
-  )
-{BuildOptionalFilters(branches, subHeadings, items)}
-GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes";
+        //    return rows;
+        //}
+
+        //private string FormatAmount(double amount, int roundOff)
+        //{
+        //    if (amount == 0) return "-";
+        //    return amount < 0
+        //        ? $"({Math.Abs(amount).ToString($"N{roundOff}", CultureInfo.InvariantCulture)})"
+        //        : amount.ToString($"N{roundOff}", CultureInfo.InvariantCulture);
+        //}
+
+        //private async Task<double> GetAmountAsync(SqlConnection conn, int headingId, int yearId, int compId, int custId, string branches, string columnType, int scheduleTypeId)
+        //{
+        //    string columnName = columnType == "CrTotal"
+        //        ? "ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount), 0)"
+        //        : "ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount), 0)";
+
+        //    string sql = $@"
+        //    SELECT {columnName}
+        //    FROM Acc_TrailBalance_Upload_Details bud
+        //    LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = bud.ATBUD_Description
+        //        AND d.ATBU_YEARId = @YearID
+        //        AND d.ATBU_CustId = @CustID
+        //        AND d.ATBU_Branchid = bud.Atbud_Branchnameid
+        //    WHERE bud.ATBUD_Schedule_type = @ScheduleTypeID
+        //        AND bud.ATBUD_compid = @CompID
+        //        AND bud.ATBUD_CustId = @CustID
+        //        AND bud.ATBUD_Headingid = @HeadingID
+        //        {(branches != "0" ? "AND d.Atbu_Branchid IN (" + branches + ")" : string.Empty)}";
+
+        //    return await conn.ExecuteScalarAsync<double>(sql, new
+        //    {
+        //        YearID = yearId,
+        //        CompID = compId,
+        //        CustID = custId,
+        //        ScheduleTypeID = scheduleTypeId,
+        //        HeadingID = headingId
+        //    });
+        //}
+
+        //private async Task<double> GetPandLFinalAmtAsync(SqlConnection conn, int yearId, int custId, int scheduleTypeId, string branches)
+        //{
+        //    string sql = $@"
+        //    SELECT ISNULL(SUM(ATBU_Closing_TotalDebit_Amount - ATBU_Closing_TotalCredit_Amount), 0)
+        //    FROM Acc_TrailBalance_Upload
+        //    WHERE ATBU_YEARId = @YearID
+        //      AND ATBU_CustId = @CustID
+        //      AND ATBU_Schedule_type = @ScheduleTypeID
+        //      {(branches != "0" ? "AND ATBU_Branchid IN (" + branches + ")" : string.Empty)}";
+
+        //    return await conn.ExecuteScalarAsync<double>(sql, new
+        //    {
+        //        YearID = yearId,
+        //        CustID = custId,
+        //        ScheduleTypeID = scheduleTypeId
+        //    });
+        //}
     }
 }
 

@@ -1,4 +1,5 @@
-﻿using TracePca.Dto.Audit;
+﻿using Microsoft.AspNetCore.Mvc;
+using TracePca.Dto.Audit;
 using TracePca.Dto.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 namespace TracePca.Interface.FIN_Statement
@@ -6,28 +7,28 @@ namespace TracePca.Interface.FIN_Statement
     public interface ScheduleMappingInterface
     {
         //GetCustomersName
-        Task<IEnumerable<CustDto>> GetCustomerNameAsync(int icompId);
+        Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId);
 
         //GetFinancialYear
-        Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int icompId);
+        Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CompId);
 
         //GetDuration
-        Task<IEnumerable<CustDurationDto>> GetDurationAsync(int compId, int custId);
+        Task<int?> GetCustomerDurationIdAsync(int CompId, int CustId);
 
         //GetBranchName
-        Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int compId, int custId);
+        Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId);
 
         //GetScheduleHeading
-        Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int compId, int custId, int scheduleTypeId);
+        Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int CompId, int CustId, int ScheduleTypeId);
 
         //GetScheduleSub-Heading
-        Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(int compId, int custId, int scheduleTypeId);
+        Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(int CompId, int CustId, int ScheduleTypeId);
 
         //GetScheduleItem
-        Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(int compId, int custId, int scheduleTypeId);
+        Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(int CompId, int CustId, int CcheduleTypeId);
 
         //GetScheduleSub-Item
-        Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(int compId, int custId, int scheduleTypeId);
+        Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(int CompId, int CustId, int ScheduleTypeId);
 
         ////SaveOrUpdateTrialBalanceUpload
         //Task<int[]> SaveTrailBalanceUploadAsync(int iCompId, TrailBalanceUploadDto dto);
@@ -36,14 +37,14 @@ namespace TracePca.Interface.FIN_Statement
         //Task<int[]> SaveTrailBalanceUploadDetailsAsync(int iCompId, TrailBalanceUploadDetailsDto dto);
 
         //GetTotalAmount
-        Task<IEnumerable<CustCOASummaryDto>> GetCustCOAMasterDetailsAsync(int compId, int custId, int yearId, int branchId, int durationId);
+        Task<IEnumerable<CustCOASummaryDto>> GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId);
 
         //GetTrialBalance(Grid)
         Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(
-        int compId, int custId, int yearId, int scheduleTypeId, int unmapped, int branchId, int durationId);
+        int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId);
 
         //SaveScheduleTemplate
-        Task<int[]> UploadTrialBalanceExcelAsync(int companyId, AccTrailBalanceUploadBatchDto dto);
+        Task<int[]> UploadTrialBalanceExcelAsync(int CompanyId, AccTrailBalanceUploadBatchDto dto);
 
         //UploadExcelFile
         //Task<ExcelUploadResultDto> UploadScheduleExcelAsync(IFormFile file, int clientId, int branchId, int yearId, int quarter, string accessCode, int accessCodeId, string username);
@@ -58,6 +59,6 @@ namespace TracePca.Interface.FIN_Statement
         FileDownloadResult GetExcelTemplate();
 
         //SaveTrailBalanceDetails
-        Task<int[]> SaveTrailBalanceDetailsAsync(int iCompId, TrailBalanceDetailsDto HeaderDto);
+        Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, TrailBalanceDetailsDto HeaderDto);
     }
 }

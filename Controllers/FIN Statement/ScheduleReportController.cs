@@ -22,12 +22,12 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetCustomersName
         [HttpGet("GetCustomersName")]
-        public async Task<IActionResult> GetCustomerName([FromQuery] int icompId)
+        public async Task<IActionResult> GetCustomerName([FromQuery] int CompId)
         {
 
             try
             {
-                var result = await _ScheduleReportService.GetCustomerNameAsync(icompId);
+                var result = await _ScheduleReportService.GetCustomerNameAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -59,11 +59,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetFinancialYear
         [HttpGet("GetFinancialYear")]
-        public async Task<IActionResult> GetFinancialYear([FromQuery] int icompId)
+        public async Task<IActionResult> GetFinancialYear([FromQuery] int CompId)
         {
             try
             {
-                var result = await _ScheduleReportService.GetFinancialYearAsync(icompId);
+                var result = await _ScheduleReportService.GetFinancialYearAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -95,11 +95,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetBranchName
         [HttpGet("GetBranchName")]
-        public async Task<IActionResult> GetBranchName([FromQuery] int icompId, [FromQuery] int icustId)
+        public async Task<IActionResult> GetBranchName([FromQuery] int CompId, [FromQuery] int CustId)
         {
             try
             {
-                var result = await _ScheduleReportService.GetBranchNameAsync(icompId, icustId);
+                var result = await _ScheduleReportService.GetBranchNameAsync(CompId, CustId);
 
                 if (result == null || !result.Any())
                 {
@@ -131,11 +131,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetCompanyName
         [HttpGet("GetCompanyName")]
-        public async Task<IActionResult> GetCopanyName([FromQuery] int iCompId)
+        public async Task<IActionResult> GetCopanyName([FromQuery] int CompId)
         {
             try
             {
-                var result = await _ScheduleReportService.GetCompanyNameAsync(iCompId);
+                var result = await _ScheduleReportService.GetCompanyNameAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -167,11 +167,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetPartner
         [HttpGet("LoadCustomerPartners")]
-        public async Task<ActionResult<IEnumerable<PartnersDto>>> LoadCustomerPartners(int compId, int detailsId)
+        public async Task<ActionResult<IEnumerable<PartnersDto>>> LoadCustomerPartners(int CompId, int DetailsId)
         {
             try
             {
-                var result = await _ScheduleReportService.LoadCustomerPartnersAsync(compId, detailsId);
+                var result = await _ScheduleReportService.LoadCustomerPartnersAsync(CompId, DetailsId);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -183,11 +183,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetSubHeading
         [HttpGet("GetSubHeading")]
-        public async Task<IActionResult> GetSubHeading([FromQuery] int iCompId, [FromQuery] int iScheduleId, [FromQuery] int iCustId, [FromQuery] int iHeadingId)
+        public async Task<IActionResult> GetSubHeading([FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId)
         {
             try
             {
-                if (iHeadingId <= 0)
+                if (HeadingId <= 0)
                 {
                     return BadRequest(new
                     {
@@ -198,7 +198,7 @@ namespace TracePca.Controllers.FIN_Statement
                 }
 
                 var result = await _ScheduleReportService.GetSubHeadingAsync(
-                    iCompId, iScheduleId, iCustId, iHeadingId);
+                    CompId, ScheduleId, CustId, HeadingId);
 
                 if (result == null || !result.Any())
                 {
@@ -231,13 +231,13 @@ namespace TracePca.Controllers.FIN_Statement
         //Getitem
         [HttpGet("GetItem")]
         public async Task<IActionResult> GetItem(
-        [FromQuery] int iCompId, [FromQuery] int iScheduleId, [FromQuery] int iCustId, [FromQuery] int iHeadingId, [FromQuery] int iSubHeadId)
+        [FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId, [FromQuery] int SubHeadId)
         {
             try
             {
                 // Call service method
                 var result = await _ScheduleReportService.GetItemAsync(
-                    iCompId, iScheduleId, iCustId, iHeadingId, iSubHeadId);
+                    CompId, ScheduleId, CustId, HeadingId, SubHeadId);
 
                 // Check for no data
                 if (result == null || !result.Any())
@@ -272,9 +272,9 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetDateFormat
         [HttpGet("GetDateFormatSelection")]
-        public async Task<IActionResult> GetDateFormatSelection([FromQuery] int companyId, [FromQuery] string configKey)
+        public async Task<IActionResult> GetDateFormatSelection([FromQuery] int CompanyId, [FromQuery] string ConfigKey)
         {
-            if (string.IsNullOrEmpty(configKey) || companyId <= 0)
+            if (string.IsNullOrEmpty(ConfigKey) || CompanyId <= 0)
             {
                 return BadRequest(new
                 {
@@ -286,7 +286,7 @@ namespace TracePca.Controllers.FIN_Statement
 
             try
             {
-                var result = await _ScheduleReportService.GetDateFormatSelectionAsync(companyId, configKey);
+                var result = await _ScheduleReportService.GetDateFormatSelectionAsync(CompanyId, ConfigKey);
 
                 return Ok(new
                 {
@@ -306,77 +306,6 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
-
-        //LoadButton
-        [HttpGet("LoadReport")]
-        public async Task<IActionResult> LoadReport(
-        [FromQuery] int reportType,
-        [FromQuery] int scheduleTypeId,
-        [FromQuery] int accountId,
-        [FromQuery] int customerId,
-        [FromQuery] int yearId,
-        [FromQuery] string? branchIds,
-        [FromQuery] string? subHeadingIds,
-        [FromQuery] string? itemIds)
-        {
-            try
-            {
-                var data = await _ScheduleReportService.GenerateReportAsync(
-                    reportType, scheduleTypeId, accountId, customerId, yearId,
-                    branchIds, subHeadingIds, itemIds);
-
-                return Ok(new
-                {
-                    Status = 200,
-                    Message = "Report generated successfully.",
-                    Data = data
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    Status = 500,
-                    Message = "An error occurred while generating the report.",
-                    Error = ex.Message,
-                    Inner = ex.InnerException?.Message
-                });
-            }
-        }
-
-        [HttpGet("ExportReport")]
-        public async Task<IActionResult> ExportReportToExcel(
-            [FromQuery] int reportType,
-            [FromQuery] int scheduleTypeId,
-            [FromQuery] int accountId,
-            [FromQuery] int customerId,
-            [FromQuery] int yearId,
-            [FromQuery] string? branchIds,
-            [FromQuery] string? subHeadingIds,
-            [FromQuery] string? itemIds)
-        {
-            try
-            {
-                var data = await _ScheduleReportService.GenerateReportAsync(
-                    reportType, scheduleTypeId, accountId, customerId, yearId,
-                    branchIds, subHeadingIds, itemIds);
-
-                var excelFile = _ScheduleReportService.ExportToExcel(data);
-
-                return File(excelFile,
-                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            "Report.xlsx");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    Status = 500,
-                    Message = "An error occurred while exporting the report.",
-                    Error = ex.Message,
-                    Inner = ex.InnerException?.Message
-                });
-            }
-        }
     }
 }
+

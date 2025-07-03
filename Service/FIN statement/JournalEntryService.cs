@@ -25,7 +25,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetCustomersName
-        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int icompId)
+        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -38,11 +38,11 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<CustDto>(query, new { CompID = icompId });
+            return await connection.QueryAsync<CustDto>(query, new { CompID = CompId });
         }
 
         //GetFinancialYear
-        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int icompId)
+        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -57,7 +57,7 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = icompId });
+            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = CompId });
         }
 
         //GetDuration
@@ -73,7 +73,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetBranchName
-        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int compId, int custId)
+        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -86,17 +86,17 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<CustBranchDto>(query, new { compId, custId });
+            return await connection.QueryAsync<CustBranchDto>(query, new { CompId, CustId });
         }
 
         //GetJournalEntryInformation
         public async Task<IEnumerable<JournalEntryInformationDto>> GetJournalEntryInformationAsync(
-            int compId, int userId, string status, int custId, int yearId, int branchId, string dateFormat, int durationId)
+            int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
 
-            var statusFilter = status switch
+            var statusFilter = Status switch
             {
                 "0" => "A",
                 "1" => "D",
@@ -123,17 +123,17 @@ namespace TracePca.Service.FIN_statement
             if (!string.IsNullOrEmpty(statusFilter))
                 sql.Append(" AND Acc_JE_Status = @statusFilter");
 
-            if (branchId != 0)
+            if (BranchId != 0)
                 sql.Append(" AND acc_je_BranchID = @branchId");
 
-            if (durationId != 0)
+            if (DurationId != 0)
                 sql.Append(" AND Acc_JE_QuarterId = @durationId");
 
             sql.Append(" ORDER BY Acc_JE_ID ASC");
 
             var entries = (await connection.QueryAsync<JournalEntryInformationDto>(
                 sql.ToString(),
-                new { compId, custId, yearId, branchId, durationId, statusFilter, dateFormat }
+                new { CompId, CustId, YearId, BranchId, DurationId, statusFilter, DateFormat }
             )).ToList();
 
             foreach (var entry in entries)
@@ -150,7 +150,7 @@ namespace TracePca.Service.FIN_statement
             WHERE Ajtb_Masid = @entryId AND AJTB_CustId = @custId
             GROUP BY AJTB_DescName, AJTB_Debit";
 
-                var details = await connection.QueryAsync(detailQuery, new { entryId = entry.Id, custId });
+                var details = await connection.QueryAsync(detailQuery, new { entryId = entry.Id, CustId });
 
                 var debDescriptions = new List<string>();
                 var credDescriptions = new List<string>();

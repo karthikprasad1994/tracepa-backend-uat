@@ -22,12 +22,12 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetCustomersName
         [HttpGet("GetCustomersName")]
-        public async Task<IActionResult> GetCustomerName([FromQuery] int icompId)
+        public async Task<IActionResult> GetCustomerName([FromQuery] int CompId)
         {
 
             try
             {
-                var result = await _JournalEntryService.GetCustomerNameAsync(icompId);
+                var result = await _JournalEntryService.GetCustomerNameAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -59,11 +59,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetFinancialYear
         [HttpGet("GetFinancialYear")]
-        public async Task<IActionResult> GetFinancialYear([FromQuery] int icompId)
+        public async Task<IActionResult> GetFinancialYear([FromQuery] int CompId)
         {
             try
             {
-                var result = await _JournalEntryService.GetFinancialYearAsync(icompId);
+                var result = await _JournalEntryService.GetFinancialYearAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -94,25 +94,49 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //GetDuration
-        [HttpGet("GetDurationId")]
-        public async Task<IActionResult> GetCustomerDurationId([FromQuery] int compId, [FromQuery] int custId)
-        {
-            var durationId = await _JournalEntryService.GetCustomerDurationIdAsync(compId, custId);
-            if (durationId == null)
-            {
-                return NotFound("Duration ID not found.");
-            }
-
-            return Ok(new { Cust_DurtnId = durationId });
-        }
-
-        //GetBranchName
-        [HttpGet("GetBranchName")]
-        public async Task<IActionResult> GetBranchName([FromQuery] int icompId, [FromQuery] int icustId)
+        [HttpGet("GetCustomerDurationId")]
+        public async Task<IActionResult> GetCustomerDurationId([FromQuery] int CompId, [FromQuery] int CustId)
         {
             try
             {
-                var result = await _JournalEntryService.GetBranchNameAsync(icompId, icustId);
+                var durationId = await _JournalEntryService.GetCustomerDurationIdAsync(CompId, CustId);
+
+                if (durationId == null)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "Duration ID not found for the provided Company ID and Customer ID.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Duration ID retrieved successfully.",
+                    data = new { Cust_DurtnId = durationId }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the duration ID.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        //GetBranchName
+        [HttpGet("GetBranchName")]
+        public async Task<IActionResult> GetBranchName([FromQuery] int CompId, [FromQuery] int CustId)
+        {
+            try
+            {
+                var result = await _JournalEntryService.GetBranchNameAsync(CompId, CustId);
 
                 if (result == null || !result.Any())
                 {
@@ -145,19 +169,19 @@ namespace TracePca.Controllers.FIN_Statement
         //GetJournalEntryInformation
         [HttpGet("GetJournalEntryInformation")]
         public async Task<IActionResult> GetJournalEntryInformation(
-        [FromQuery] int compId,
-        [FromQuery] int userId,
-        [FromQuery] string status,
-        [FromQuery] int custId,
-        [FromQuery] int yearId,
-        [FromQuery] int branchId,
-        [FromQuery] string dateFormat,
-        [FromQuery] int durationId)
+        [FromQuery] int CompId,
+        [FromQuery] int UserId,
+        [FromQuery] string Status,
+        [FromQuery] int CustId,
+        [FromQuery] int YearId,
+        [FromQuery] int BranchId,
+        [FromQuery] string DateFormat,
+        [FromQuery] int DurationId)
         {
             try
             {
                 var result = await _JournalEntryService.GetJournalEntryInformationAsync(
-                    compId, userId, status, custId, yearId, branchId, dateFormat, durationId);
+                    CompId, UserId, Status, CustId, YearId, BranchId, DateFormat, DurationId);
 
                 return Ok(new
                 {

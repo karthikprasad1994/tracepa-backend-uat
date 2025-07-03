@@ -19,7 +19,6 @@ namespace TracePca.Interface
        // Task<LoginResponse> LoginUser(string email, string password);
         Task<LoginResponse> LoginUserAsync(string email, string password);
         SqlConnection GetConnection(string customerCode);
-
-
+        Task<(bool Success, string Message)> CheckAndAddAccessCodeConnectionStringAsync(string accessCode);
     }
 }
