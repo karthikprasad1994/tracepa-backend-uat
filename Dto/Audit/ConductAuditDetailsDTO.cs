@@ -28,8 +28,6 @@ namespace TracePca.Dto.Audit
         public int? SAC_WorkpaperID { get; set; }
         public string? SAC_WorkpaperNo { get; set; }
         public string? SAC_WorkpaperRef { get; set; }
-        public int? SAC_ATCHDOCID { get; set; }
-        public int? SAC_DRLCount { get; set; }
     }
 
     public class ConductAuditWorkPaperDetailsDTO
