@@ -1,8 +1,7 @@
-<<<<<<< HEAD
+
 ﻿using System.Text;
 using System.Text.Json.Serialization;
-=======
->>>>>>> d331559b13661c24c60124ced3cfdb1154009f15
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
