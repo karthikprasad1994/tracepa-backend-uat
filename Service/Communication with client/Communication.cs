@@ -410,34 +410,34 @@ WHERE LOET_CustomerId = @CustomerId
 
 
 
-     //   public async Task<IEnumerable<AuditScheduleDto>> LoadScheduledAuditNosAsync(
-     //string connectionStringName, int companyId, int financialYearId, int customerId)
-     //   {
-     //       var connectionString = _configuration.GetConnectionString(connectionStringName);
-     //       using var connection = new SqlConnection(connectionString);
-     //       await connection.OpenAsync();
+        //   public async Task<IEnumerable<AuditScheduleDto>> LoadScheduledAuditNosAsync(
+        //string connectionStringName, int companyId, int financialYearId, int customerId)
+        //   {
+        //       var connectionString = _configuration.GetConnectionString(connectionStringName);
+        //       using var connection = new SqlConnection(connectionString);
+        //       await connection.OpenAsync();
 
-     //       var sql = @"
-     //   SELECT SA_ID, SA_AuditNo + ' - ' + CMM_Desc AS SA_AuditNo
-     //   FROM StandardAudit_Schedule
-     //   LEFT JOIN Content_Management_Master ON CMM_ID = SA_AuditTypeID
-     //   WHERE SA_CompID = @CompanyId";
+        //       var sql = @"
+        //   SELECT SA_ID, SA_AuditNo + ' - ' + CMM_Desc AS SA_AuditNo
+        //   FROM StandardAudit_Schedule
+        //   LEFT JOIN Content_Management_Master ON CMM_ID = SA_AuditTypeID
+        //   WHERE SA_CompID = @CompanyId";
 
-     //       if (financialYearId > 0)
-     //           sql += " AND SA_YearID = @FinancialYearId";
+        //       if (financialYearId > 0)
+        //           sql += " AND SA_YearID = @FinancialYearId";
 
-     //       if (customerId > 0)
-     //           sql += " AND SA_CustID = @CustomerId";
+        //       if (customerId > 0)
+        //           sql += " AND SA_CustID = @CustomerId";
 
-     //       sql += " ORDER BY SA_ID DESC";
-                                                                                  
-     //       return await connection.QueryAsync<AuditScheduleDto>(sql, new)
-     //       {
-     //           CompanyId = companyId,
-     //           FinancialYearId = financialYearId,                                                                                         
-     //           CustomerId = customerId
-     //       });
-     //   }
+        //       sql += " ORDER BY SA_ID DESC";
+
+        //       return await connection.QueryAsync<AuditScheduleDto>(sql, new)
+        //       {
+        //           CompanyId = companyId,
+        //           FinancialYearId = financialYearId,                                                                                         
+        //           CustomerId = customerId
+        //       });
+        //   }
 
 
         public async Task<IEnumerable<ReportTypeDto>> LoadAllReportTypeDetailsDRLAsync(
@@ -2770,12 +2770,12 @@ VALUES (
                     {
                         AdrlId = existingId.Value,
                         YearId = dto.YearId,
-                       // EmailIds = emailIdsCsv,
+                        // EmailIds = emailIdsCsv,
                         Remarks = dto.Remark,
                         UserId = dto.UserId,
                         IpAddress = dto.IpAddress,
                         CompId = dto.CompId,
-                       // AttchDocId = dto.DocId,
+                        // AttchDocId = dto.DocId,
                         ReportType = dto.ReportType,
                         AttachId = dto.AtchId
                     }, transaction);
@@ -2800,7 +2800,7 @@ VALUES (
                     @UserId, @IpAddress, @CompId, @Status,
                     @ReportType, GETDATE(), GETDATE(), @AttachId
                 );";
-                   // var emailIdsCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
+                    // var emailIdsCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
                     await connection.ExecuteAsync(insertSql, new
                     {
                         AdrlId = nextAdrlId,
@@ -2808,7 +2808,7 @@ VALUES (
                         AuditId = dto.AuditId,
                         CustomerId = dto.CustomerId,
                         RequestedId = requestedId,
-                      //  EmailIds = emailIdsCsv,
+                        //  EmailIds = emailIdsCsv,
                         Remarks = dto.Remark,
                         UserId = dto.UserId,
                         IpAddress = dto.IpAddress,
@@ -3049,7 +3049,7 @@ ORDER BY
                         await transaction.CommitAsync();
 
                         // ✅ Return attachId along with the message
-                        return $"Attachment upload (if provided), details saved successfully. AttachId: {attachId}";
+                        return $"File uploaded Successfully. AttachId: {attachId}";
                     }
                     catch (Exception ex)
                     {
@@ -3770,18 +3770,18 @@ WHERE SA_ID = @AuditId";
 
             // Step 1: Try to load from LOE_Template_Details
             var primaryQuery = @"
-        SELECT 
-            LTD_ID AS PKID,  
-            LTD_HeadingID AS LOEHeadingID, 
-            LTD_Heading AS LOEHeading, 
-            LTD_Decription AS LOEDesc
-        FROM LOE_Template_Details 
-        WHERE 
-            LTD_LOE_ID = @LoeTemplateId 
-            AND LTD_ReportTypeID = @ReportTypeId 
-            AND LTD_FormName = @FormName 
-            AND LTD_CompID = @CompId 
-        ORDER BY LTD_ID";
+SELECT 
+    LTD_ID AS PKID,  
+    LTD_HeadingID AS LOEHeadingID, 
+    LTD_Heading AS LOEHeading, 
+    LTD_Decription AS LOEDesc
+FROM LOE_Template_Details 
+WHERE 
+    LTD_LOE_ID = @LoeTemplateId 
+    AND LTD_ReportTypeID = @ReportTypeId 
+    AND LTD_FormName = @FormName 
+    AND LTD_CompID = @CompId 
+ORDER BY LTD_ID";
 
             var loeDetails = (await connection.QueryAsync<LOEHeadingDto>(primaryQuery, new
             {
@@ -3792,9 +3792,13 @@ WHERE SA_ID = @AuditId";
             })).ToList();
 
             if (loeDetails.Any())
+            {
+                string previewPath = GeneratePdfByFormName(sFormName, $"LOE - {sFormName}", loeDetails);
+                loeDetails.ForEach(x => x.PreviewPdfPath = previewPath);
                 return loeDetails;
+            }
 
-            // Step 2: Try to get TEM_ContentId from SAD_Finalisation_Report_Template
+            // Step 2: Get TEM_ContentId
             var contentIdQuery = @"SELECT TEM_ContentId FROM SAD_Finalisation_Report_Template WHERE TEM_FunctionId = @ReportTypeId";
             var contentId = await connection.ExecuteScalarAsync<string>(contentIdQuery, new { ReportTypeId = reportTypeId });
 
@@ -3804,15 +3808,15 @@ WHERE SA_ID = @AuditId";
             {
                 // Step 3: Load using RCM_Id IN (TEM_ContentId)
                 var fallbackQueryWithContent = $@"
-        SELECT 
-            RCM_Id AS LOEHeadingID, 
-            RCM_Heading AS LOEHeading, 
-            RCM_Description AS LOEDesc
-        FROM SAD_ReportContentMaster 
-        WHERE 
-            RCM_Id IN ({contentId}) 
-            AND RCM_ReportId = @ReportTypeId 
-        ORDER BY RCM_Id";
+SELECT 
+    RCM_Id AS LOEHeadingID, 
+    RCM_Heading AS LOEHeading, 
+    RCM_Description AS LOEDesc
+FROM SAD_ReportContentMaster 
+WHERE 
+    RCM_Id IN ({contentId}) 
+    AND RCM_ReportId = @ReportTypeId 
+ORDER BY RCM_Id";
 
                 fallbackHeadings = (await connection.QueryAsync<LOEHeadingDto>(fallbackQueryWithContent, new
                 {
@@ -3823,14 +3827,14 @@ WHERE SA_ID = @AuditId";
             {
                 // Step 4: Load all headings by ReportTypeId
                 var fallbackQuery = @"
-        SELECT 
-            RCM_Id AS LOEHeadingID, 
-            RCM_Heading AS LOEHeading, 
-            RCM_Description AS LOEDesc
-        FROM SAD_ReportContentMaster 
-        WHERE 
-            RCM_ReportId = @ReportTypeId 
-        ORDER BY RCM_Id";
+SELECT 
+    RCM_Id AS LOEHeadingID, 
+    RCM_Heading AS LOEHeading, 
+    RCM_Description AS LOEDesc
+FROM SAD_ReportContentMaster 
+WHERE 
+    RCM_ReportId = @ReportTypeId 
+ORDER BY RCM_Id";
 
                 fallbackHeadings = (await connection.QueryAsync<LOEHeadingDto>(fallbackQuery, new
                 {
@@ -3838,7 +3842,65 @@ WHERE SA_ID = @AuditId";
                 })).ToList();
             }
 
+            if (fallbackHeadings.Any())
+            {
+                string previewPath = GeneratePdfByFormName(sFormName, $"LOE - {sFormName}", fallbackHeadings);
+                fallbackHeadings.ForEach(x => x.PreviewPdfPath = previewPath);
+            }
+
             return fallbackHeadings;
+        }
+
+
+        private string GeneratePdfByFormName(string formName, string title, List<LOEHeadingDto> items)
+        {
+            var fileName = $"{formName}.pdf";
+            var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Uploads", "LOE");
+
+            if (!Directory.Exists(folderPath))
+                Directory.CreateDirectory(folderPath);
+
+            var filePath = Path.Combine(folderPath, fileName);
+
+            // 🔐 Disable strict glyph check before generating
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            QuestPDF.Fluent.Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Margin(30);
+
+                    page.Header()
+                        .AlignCenter()
+                        .Text(title)
+                        .FontSize(18)
+                        .Bold();
+
+                    page.Content().Column(col =>
+                    {
+                        foreach (var item in items)
+                        {
+                            col.Item().Text($"• {item.LOEHeading}")
+                                .FontSize(14)
+                                .Bold();
+
+                            col.Item().PaddingBottom(10).Text(text =>
+                            {
+                                var desc = item.LOEDesc ?? string.Empty;
+                                var lines = desc.Replace("\r", "").Split('\n');
+
+                                foreach (var line in lines)
+                                {
+                                    text.Line(line).FontSize(12);
+                                }
+                            });
+                        }
+                    });
+                });
+            }).GeneratePdf(filePath);
+
+            return $"https://tracelites.multimedia.interactivedns.com/Uploads/LOE/{fileName}";
         }
 
 
@@ -4895,8 +4957,72 @@ VALUES (
             var (drlId, isInsert) = await SaveOrUpdateAuditDrlLogAsync(dto);
             dto.DrlId = drlId;
             await SaveRemarksHistoryAsync(dto, masId: drlId);
+            await SendDuringAuditEmailAsync(dto);
             return (drlId, isInsert);
         }
+
+        private async Task SendDuringAuditEmailAsync(InsertAuditRemarksDto dto)
+        {
+            if (dto.EmailId == null || !dto.EmailId.Any())
+                return;
+
+            // ✅ Fetch Audit Info
+            var (auditNo, auditName) = await GetAuditInfoByIdAsync(dto.AuditId);
+
+            var smtpClient = new System.Net.Mail.SmtpClient("smtp.gmail.com")
+            {
+                Port = 587,
+                Credentials = new NetworkCredential("harsha.s2700@gmail.com", "edvemvlmgfkcasrp"),
+                EnableSsl = true
+            };
+
+            var mail = new MailMessage
+            {
+                From = new MailAddress("harsha.s2700@gmail.com"),
+                Subject = $"Intimation mail for sharing the Documents requested by the Auditor - {auditNo}",
+                IsBodyHtml = true
+            };
+
+            // ✅ Add To and CC
+            mail.To.Add(dto.EmailId[0]);
+            for (int i = 1; i < dto.EmailId.Count; i++)
+            {
+                mail.CC.Add(dto.EmailId[i]);
+            }
+
+            var requestedOn = dto.RequestedOn;
+
+            // ✅ Updated Body with AuditNo and AuditName
+            string body = $@"
+        <p><strong>Intimation mail</strong></p>
+        <p>Document Requested</p>
+        <p>Greetings from TRACe PA.</p>
+        <p>This mail is an intimation for sharing the documents requested by the Auditor's office.</p>
+
+        <p><strong>Audit No.:</strong> {auditNo} - {auditName} and Date : {requestedOn}</p>
+        <p><strong>Document Requested List:</strong> Journal Entries</p>";
+
+            if (!string.IsNullOrWhiteSpace(dto.Remark))
+            {
+                body += $@"
+        <p><strong>Specific request for client:</strong></p>
+        <p>{dto.Remark}</p>";
+            }
+
+            body += @"
+        <br />
+        <p>Please login to TRACe PA website using the link and credentials shared with you.</p>
+        <p><a href='https://tracepacust-user.multimedia.interactivedns.com/'>TRACe PA Portal</a></p>
+        <p>Home page of the application will show you the list of documents requested by the auditor. Upload all the requested documents using links provided.</p>
+        <br />
+        <p>Thanks,</p>
+        <p>TRACe PA Team</p>";
+
+            mail.Body = body;
+
+            await smtpClient.SendMailAsync(mail);
+        }
+
 
 
 

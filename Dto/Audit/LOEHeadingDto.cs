@@ -6,5 +6,8 @@
         public int LOEHeadingID { get; set; }
         public string LOEHeading { get; set; }
         public string LOEDesc { get; set; }
+        public string PreviewPdfPath { get; set; }
+
+
     }
 }
