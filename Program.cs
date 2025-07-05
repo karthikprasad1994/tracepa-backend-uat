@@ -1,27 +1,11 @@
 
 ﻿using System.Text;
-
-
 using System.Text.Json.Serialization;
-<<<<<<< HEAD
-=======
-
-
-
->>>>>>> 97d76df4c6f868a17e823448b01f0abe5f1ffa38
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OfficeOpenXml;
-
-using System.Text;
-using System.Text.Json.Serialization;
-using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
-using Microsoft.IdentityModel.Tokens;
-using OfficeOpenXml;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Interface;
@@ -38,7 +22,6 @@ using TracePca.Service.AssetService;
 using TracePca.Service.Audit;
 using TracePca.Service.Communication_with_client;
 using TracePca.Service.DigitalFiling;
-using TracePca.Service.DigitalFilling;
 using TracePca.Service.FIN_statement;
 using TracePca.Service.FixedAssetsService;
 using TracePca.Service.Master;
