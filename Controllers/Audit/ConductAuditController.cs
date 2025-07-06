@@ -263,6 +263,27 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpGet("DownloadAttachment")]
+        public async Task<IActionResult> DownloadAttachment(int compId, int attachId, int docId)
+        {
+            try
+            {
+                var (isFileExists, messageOrfileUrl) = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId);
+                if (isFileExists)
+                {
+                    return Ok(new { statusCode = 200, success = true, fileUrl = messageOrfileUrl });
+                }
+                else
+                {
+                    return Ok(new { statusCode = 200, success = false, message = messageOrfileUrl });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while downloading the file: {ex.Message}" });
+            }
+        }
+
         [HttpPost("GenerateAndDownloadWorkpapersReport")]
         public async Task<IActionResult> GenerateAndDownloadWorkpapersReport(int compId, int auditId, string format = "pdf")
         {
