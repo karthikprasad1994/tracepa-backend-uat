@@ -339,5 +339,19 @@ namespace TracePca.Controllers.Audit
                 return StatusCode(500, new { statusCode = 500, message = "Failed to generate report." });
             }
         }
+
+        [HttpGet("LoadUsersByCustomerIdDDL")]
+        public async Task<IActionResult> LoadUsersByCustomerIdDDL(int custId)
+        {
+            try
+            {
+                var dropdownData = await _conductAuditInterface.LoadUsersByCustomerIdDDLAsync(custId);
+                return Ok(new { statusCode = 200, message = "Customer user dropdown data fetched successfully.", data = dropdownData });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load Customer user dropdown data.", error = ex.Message });
+            }
+        }
     }
 }

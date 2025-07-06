@@ -986,5 +986,24 @@ namespace TracePca.Service.Audit
                 return ms.ToArray();
             });
         }
+
+        public async Task<AuditDropDownListDataDTO> LoadUsersByCustomerIdDDLAsync(int custId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var userList = await connection.QueryAsync<DropDownListData>(@"SELECT usr_FullName As Name,usr_Id As ID from Sad_UserDetails where usr_CompanyId = @CustId And (usr_DelFlag='A' or usr_DelFlag='B' or usr_DelFlag='L') And Usr_Email IS NOT NULL And Usr_Email<>'' order by usr_FullName", new { CustId = custId });
+                return new AuditDropDownListDataDTO
+                {
+                    CustomerUserList = userList.ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while loading customer user dropdown data.", ex);
+            }
+        }
     }
 }

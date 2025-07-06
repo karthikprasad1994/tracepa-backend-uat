@@ -21,5 +21,6 @@ namespace TracePca.Interface.Audit
         Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadCheckPointsReportAsync(int compId, int auditId, string format);
         Task<string> GenerateWorkpapersReportAndGetURLPathAsync(int compId, int auditId, string format);
         Task<string> GenerateCheckPointsReportAndGetURLPathAsync(int compId, int auditId, string format);
+        Task<AuditDropDownListDataDTO> LoadUsersByCustomerIdDDLAsync(int custId);
     }
 }
