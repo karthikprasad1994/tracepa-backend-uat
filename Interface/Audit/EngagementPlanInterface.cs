@@ -21,5 +21,8 @@ namespace TracePca.Interface.Audit
         Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadReportAsync(int compId, int epPKid, string format);
         Task<string> GenerateReportAndGetURLPathAsync(int compId, int epPKid, string format);
         Task<bool> SendEmailAndSaveEngagementPlanExportDataAsync(EngagementPlanReportExportDetailsDTO dto);
+        Task<LOEStatusSummary> GetLOEProgressAsync(int compId, int yearId, int custId);
+        Task<AuditStatusSummary> GetAuditProgressAsync(int compId, int yearId, int custId);
+        Task<PassedDueDatesSummary> GetAuditPassedDueDatesAsync(int compId, int yearId, int custId);
     }
 }

@@ -1278,7 +1278,7 @@ WHERE LOET_CustomerId = @CustomerId
             string outputDir = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedReports");
             Directory.CreateDirectory(outputDir);
 
-            string baseFileName = $"CustomerReport_{customerId}_{DateTime.Now:yyyyMMddHHmmss}";
+            string baseFileName = $"CustomerReport_{customerId}_{DateTime.Now:yyyyMMddHHmmss}";            
             string wordFilePath = Path.Combine(outputDir, baseFileName + ".docx");
             string pdfFilePath = Path.Combine(outputDir, baseFileName + ".pdf");
 
@@ -3900,7 +3900,7 @@ ORDER BY RCM_Id";
                 });
             }).GeneratePdf(filePath);
 
-            return $"https://tracelites.multimedia.interactivedns.com/Uploads/LOE/{fileName}";
+            return $"https/tracepacore.multimedia.interactivedns.com/Uploads/LOE/{fileName}";
         }
 
 

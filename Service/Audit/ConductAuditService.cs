@@ -455,7 +455,7 @@ namespace TracePca.Service.Audit
         {
             if (dto == null) throw new ArgumentNullException(nameof(dto));
             const string query = @"UPDATE StandardAudit_ScheduleCheckPointList SET SAC_ConductedBy = @SAC_ConductedBy, SAC_LastUpdatedOn = GETDATE(), SAC_Annexure = @SAC_Annexure, SAC_Remarks = @SAC_Remarks,
-                    SAC_TestResult = @SAC_TestResult, SAC_AttachID = @SAC_AttachID WHERE SAC_ID = @SAC_ID AND SAC_SA_ID = @SAC_SA_ID AND SAC_CheckPointID = @SAC_CheckPointID AND SAC_CompID = @SAC_CompID;";
+                    SAC_TestResult = @SAC_TestResult WHERE SAC_ID = @SAC_ID AND SAC_SA_ID = @SAC_SA_ID AND SAC_CheckPointID = @SAC_CheckPointID AND SAC_CompID = @SAC_CompID;";
             try
             {
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -985,6 +985,25 @@ namespace TracePca.Service.Audit
                 document.GeneratePdf(ms);
                 return ms.ToArray();
             });
+        }
+
+        public async Task<AuditDropDownListDataDTO> LoadUsersByCustomerIdDDLAsync(int custId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var userList = await connection.QueryAsync<DropDownListData>(@"SELECT usr_FullName As Name,usr_Id As ID from Sad_UserDetails where usr_CompanyId = @CustId And (usr_DelFlag='A' or usr_DelFlag='B' or usr_DelFlag='L') And Usr_Email IS NOT NULL And Usr_Email<>'' order by usr_FullName", new { CustId = custId });
+                return new AuditDropDownListDataDTO
+                {
+                    CustomerUserList = userList.ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while loading customer user dropdown data.", ex);
+            }
         }
     }
 }
