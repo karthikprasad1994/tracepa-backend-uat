@@ -1447,10 +1447,10 @@ WHERE LOET_CustomerId = @CustomerId
             // Fetch customer + template data
             var customerData = await GetCustomerDetailsWithTemplatesAsync(request.CompanyId, request.CustomerId, request.ReportType);
 
-<<<<<<< HEAD
+
             // Save DRL log and generate the report
-            var drlId = await SaveDRLLogWithAttachmentAsync(drlLog, tempFilePath, format);
-=======
+            //var drlId = await SaveDRLLogWithAttachmentAsync(drlLog, tempFilePath, format);
+
             if (customerData == null)
                 throw new Exception("Customer data not found.");
 
@@ -1459,7 +1459,7 @@ WHERE LOET_CustomerId = @CustomerId
                 GeneratePdf(customerData, tempFilePath);
             else
                 GenerateWord(customerData, tempFilePath);
->>>>>>> 238af970841fe5e2a16d7ee0177162e93ab15f22
+
 
             if (!File.Exists(tempFilePath))
                 throw new FileNotFoundException($"Expected file not found at {tempFilePath}");
@@ -1641,7 +1641,7 @@ WHERE LOET_CustomerId = @CustomerId
         //    }
         //}
 
-        public async Task<int> SaveDRLLogWithAttachmentAsync(DRLLogDto dto, string filePath, string fileType)
+      public async Task<int> SaveDRLLogWithAttachmentAsync(DRLLogDto dto, string filePath, string fileType)
         {
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
 
@@ -1653,69 +1653,74 @@ WHERE LOET_CustomerId = @CustomerId
             {
                 int drlId = dto.Id;
 
-                // 1. Insert or Update DRLLog
                 if (dto.Id == 0)
                 {
-                    drlId = await connection.ExecuteScalarAsync<int>(
-                        @"SELECT ISNULL(MAX(ADRL_ID), 0) + 1 
-                  FROM Audit_DRLLog WITH (TABLOCKX, HOLDLOCK);",
-                        transaction: transaction
-                    );
+                    // Manually get next ADRL_ID (Absent Number)
+                    var getNextIdSql = @"
+                SELECT ISNULL(MAX(ADRL_ID), 0) + 1 
+                FROM Audit_DRLLog WITH (TABLOCKX, HOLDLOCK);";
 
+                    drlId = await connection.ExecuteScalarAsync<int>(getNextIdSql, transaction: transaction);
                     var existingAttachId = await connection.ExecuteScalarAsync<int>(
-                        @"SELECT TOP 1 ATCH_ID FROM EDT_ATTACHMENTS WHERE ATCH_drlid = @RequestedListId ORDER BY ATCH_ID DESC",
-                        new { RequestedListId = dto.RequestedListId }, transaction);
-
-                    int attachIdToMap = existingAttachId == 0
-                        ? await connection.ExecuteScalarAsync<int>(
+              @"SELECT ATCH_ID FROM EDT_ATTACHMENTS WHERE ATCH_drlid = @RequestedListId order by ATCH_ID desc",
+              new { RequestedListId = dto.RequestedListId }, transaction);
+                    int attachIdToMap;
+                    if (existingAttachId == 0)
+                    {
+                        attachIdToMap = await connection.ExecuteScalarAsync<int>(
                             @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
-                            new { CompanyId = dto.CompanyId }, transaction)
-                        : existingAttachId;
+                            new { CompanyId = dto.CompanyId }, transaction);
+                    }
+                    else
+                    {
+                        attachIdToMap = existingAttachId;
+                    }
 
                     var emailIdsCsv = dto.EmailIds != null ? string.Join(",", dto.EmailIds) : null;
-
-                    await connection.ExecuteAsync(@"
+                    var insert = @"
                 INSERT INTO Audit_DRLLog (
-                    ADRL_ID, ADRL_YearID, ADRL_AuditNo, ADRL_CustID,
-                    ADRL_RequestedListID, ADRL_RequestedTypeID, ADRL_RequestedOn,
-                    ADRL_TimlinetoResOn, ADRL_EmailID, ADRL_Comments,
-                    ADRL_CrBy, ADRL_UpdatedBy, ADRL_IPAddress, ADRL_CompID,
-                    ADRL_ReportType, ADRL_ATTACHID
-                )
-                VALUES (
-                    @Id, @YearId, @AuditNo, @CustomerId,
-                    @RequestedListId, @RequestedTypeId, @RequestedOn,
-                    @TimelineToRespond, @EmailIds, @Comments,
-                    @CreatedBy, @UpdatedBy, @IPAddress, @CompanyId,
-                    @ReportType, @AttachId
-                );",
-                        new
-                        {
-                            Id = drlId,
-                            dto.YearId,
-                            dto.AuditNo,
-                            dto.CustomerId,
-                            dto.RequestedListId,
-                            dto.RequestedTypeId,
-                            dto.RequestedOn,
-                            dto.TimelineToRespond,
-                            EmailIds = emailIdsCsv,
-                            dto.Comments,
-                            dto.CreatedBy,
-                            dto.UpdatedBy,
-                            dto.IPAddress,
-                            dto.CompanyId,
-                            dto.ReportType,
-                            AttachId = attachIdToMap
-                        }, transaction);
+                    ADRL_ID,
+                    ADRL_YearID, ADRL_AuditNo, ADRL_CustID,
+                    ADRL_RequestedListID, ADRL_RequestedTypeID,
+                    ADRL_RequestedOn, ADRL_TimlinetoResOn,
+                    ADRL_EmailID, ADRL_Comments,
+                    ADRL_CrBy, ADRL_UpdatedBy,
+                    ADRL_IPAddress, ADRL_CompID, ADRL_ReportType, ADRL_ATTACHID
+                ) VALUES (
+                    @Id,
+                    @YearId, @AuditNo, @CustomerId,
+                    @RequestedListId, @RequestedTypeId,
+                    @RequestedOn, @TimelineToRespond,
+                    @EmailIds, @Comments,
+                    @CreatedBy, @UpdatedBy,
+                    @IPAddress, @CompanyId, @ReportType, @AttachId
+                );";
 
-                    dto.Id = drlId;
+                    await connection.ExecuteAsync(insert, new
+                    {
+                        Id = drlId,
+                        dto.YearId,
+                        dto.AuditNo,
+                        dto.CustomerId,
+                        dto.RequestedListId,
+                        dto.RequestedTypeId,
+                        dto.RequestedOn,
+                        dto.TimelineToRespond,
+                        EmailIds = emailIdsCsv,
+                        dto.Comments,
+                        CreatedBy = dto.CreatedBy,
+                        UpdatedBy = dto.UpdatedBy,
+                        IPAddress = dto.IPAddress,
+                        CompanyId = dto.CompanyId,
+                        ReportType = dto.ReportType,
+                        AttachId = attachIdToMap
+                    }, transaction);
+
+                    dto.Id = drlId; // Update DTO with generated ID
                 }
                 else
                 {
-                    var emailIdsCsv = dto.EmailIds != null ? string.Join(",", dto.EmailIds) : null;
-
-                    await connection.ExecuteAsync(@"
+                    var update = @"
                 UPDATE Audit_DRLLog SET
                     ADRL_RequestedOn = @RequestedOn,
                     ADRL_TimlinetoResOn = @TimelineToRespond,
@@ -1724,99 +1729,119 @@ WHERE LOET_CustomerId = @CustomerId
                     ADRL_Comments = @Comments,
                     ADRL_UpdatedBy = @UpdatedBy,
                     ADRL_ReportType = @ReportType
-                WHERE ADRL_ID = @Id",
-                        new
-                        {
-                            dto.RequestedOn,
-                            dto.TimelineToRespond,
-                            dto.RequestedListId,
-                            EmailIds = emailIdsCsv,
-                            dto.Comments,
-                            dto.UpdatedBy,
-                            dto.ReportType,
-                            Id = dto.Id
-                        }, transaction);
+                WHERE ADRL_ID = @Id";
+                    var emailIdsCsv = dto.EmailIds != null ? string.Join(",", dto.EmailIds) : null;
+
+
+                    await connection.ExecuteAsync(update, new
+                    {
+                        dto.RequestedOn,
+                        dto.TimelineToRespond,
+                        dto.RequestedListId,
+                        EmailIds = emailIdsCsv,
+                        dto.Comments,
+                        UpdatedBy = dto.UpdatedBy,
+                        ReportType = dto.ReportType,
+                        Id = dto.Id
+                    }, transaction);
 
                     drlId = dto.Id;
                 }
+                //int drlId = dto.Id;
 
-                // 2. Get customer data
+                //// 1. Insert or Update Audit_DRLLog
+                //if (dto.Id == 0)
+                //{
+                //    var insert = @"
+                //INSERT INTO Audit_DRLLog (
+                //    ADRL_YearID, ADRL_AuditNo, ADRL_CustID,
+                //    ADRL_RequestedListID, ADRL_RequestedTypeID,
+                //    ADRL_RequestedOn, ADRL_TimlinetoResOn,
+                //    ADRL_EmailID, ADRL_Comments,
+                //    ADRL_CrBy, ADRL_UpdatedBy,
+                //    ADRL_IPAddress, ADRL_CompID, ADRL_ReportType
+                //) VALUES (
+                //    @YearId, @AuditNo, @CustomerId,
+                //    @RequestedListId, @RequestedTypeId,
+                //    @RequestedOn, @TimelineToRespond,
+                //    @EmailIds, @Comments,
+                //    @CreatedBy, @UpdatedBy,
+                //    @IPAddress, @CompanyId, @ReportType
+                //);
+                //SELECT CAST(SCOPE_IDENTITY() AS INT);";
+
+                //    drlId = await connection.ExecuteScalarAsync<int>(insert, new
+                //    {
+                //        dto.YearId,
+                //        dto.AuditNo,
+                //        dto.CustomerId,
+                //        dto.RequestedListId,
+                //        dto.RequestedTypeId,
+                //        dto.RequestedOn,
+                //        dto.TimelineToRespond,
+                //        dto.EmailIds,
+                //        dto.Comments,
+                //        CreatedBy = dto.CreatedBy,
+                //        UpdatedBy = dto.UpdatedBy,
+                //        IPAddress = dto.IPAddress,
+                //        CompanyId = dto.CompanyId,
+                //        ReportType = dto.ReportType
+                //    }, transaction);
+                //}
+                //else
+                //{
+                //    var update = @"
+                //UPDATE Audit_DRLLog SET
+                //    ADRL_RequestedOn = @RequestedOn,
+                //    ADRL_TimlinetoResOn = @TimelineToRespond,
+                //    ADRL_RequestedListID = @RequestedListId,
+
+                //    ADRL_EmailID = @EmailIds,
+                //    ADRL_Comments = @Comments,
+                //    ADRL_UpdatedBy = @UpdatedBy,
+                //    ADRL_ReportType = @ReportType
+                //WHERE ADRL_ID = @Id";
+
+                //    await connection.ExecuteAsync(update, new
+                //    {
+                //        dto.RequestedOn,
+                //        dto.TimelineToRespond,
+                //        dto.EmailIds,
+                //        dto.Comments,
+                //        UpdatedBy = dto.UpdatedBy,
+                //        ReportType = dto.ReportType,
+                //        dto.Id
+                //    }, transaction);
+                //}
+
+                // 2. Fetch customer & template data
                 var customerData = await GetCustomerDetailsWithTemplatesAsync(dto.CompanyId, dto.CustomerId, dto.ReportType);
+
                 if (customerData == null)
                     throw new Exception("Customer data not found.");
 
-                // 3. Get file save base path and user login name
-                //  string basePath = await connection.ExecuteScalarAsync<string>(
-                //      @"SELECT sad_Config_Value 
-                //FROM sad_config_settings 
-                //WHERE sad_Config_Key = 'ImgPath' AND sad_compid = @CompId",
-                //      new { CompId = dto.CompanyId }, transaction);
+                // 3. Generate Word/PDF
+                var outputFolder = Path.Combine("DRLReports", dto.CompanyId.ToString(), dto.CustomerId.ToString());
+                Directory.CreateDirectory(outputFolder);
 
-                //  string userLoginName = await connection.ExecuteScalarAsync<string>(
-                //      @"SELECT usr_LoginName 
-                //FROM SAD_UserDetails 
-                //WHERE usr_Id = @UserId",
-                //      new { UserId = dto.CreatedBy }, transaction);
+                var fileName = Path.GetFileName(filePath);
+                var generatedFilePath = filePath; // Use the temp path passed in
 
-                //  if (string.IsNullOrWhiteSpace(basePath))
-                //      throw new Exception("Base path not found.");
-                //  if (string.IsNullOrWhiteSpace(userLoginName))
-                //      throw new Exception("User login name not found.");
-
-                //  // 4. Construct file save path
-                //  var targetFolder = Path.Combine(basePath.TrimEnd(Path.DirectorySeparatorChar), "Tempfolder", userLoginName, "Upload");
-                //  Directory.CreateDirectory(targetFolder);
-
-                //  var fileName = $"DRL_{dto.CustomerId}_{DateTime.Now:yyyyMMddHHmmss}.{fileType}";
-                var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\.."));
-                var targetFolder = Path.Combine(projectRoot, "GeneratedReports");
-                Directory.CreateDirectory(targetFolder); // Ensure folder exists
-
-                var fileName = $"DRL_{dto.CustomerId}_{DateTime.Now:yyyyMMddHHmmss}.{fileType}";
-                var generatedFilePath = Path.Combine(targetFolder, fileName);
-                Directory.CreateDirectory(Path.GetDirectoryName(generatedFilePath)); // ✅ Fix here
-
-               
-                // 5. Generate Word or PDF
                 if (fileType.ToLower() == "pdf")
                     GeneratePdf(customerData, generatedFilePath);
                 else
                     GenerateWord(customerData, generatedFilePath);
-                var basePath = await connection.ExecuteScalarAsync<string>(
-@"SELECT sad_Config_Value 
-  FROM sad_config_settings 
-  WHERE sad_Config_Key = 'ImgPath' AND sad_compid = @CompId",
-new { CompId = dto.CompanyId }, transaction);
+                // 4. Save metadata in EDT_ATTACHMENTS
+                //var attachId = await connection.ExecuteScalarAsync<int>(
+                //    @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
+                //    new { CompanyId = dto.CompanyId }, transaction);
 
-                // 🔹 Fetch login name
-                
-                var UserId = await connection.ExecuteScalarAsync<string>(
-                    @"SELECT usr_Id
-      FROM SAD_UserDetails 
-      WHERE usr_Id = @UserId",
-                    new { UserId = dto.CreatedBy }, transaction);
-
-                // 🔹 Validate both
-                if (string.IsNullOrWhiteSpace(basePath))
-                    throw new Exception("Base path not found.");
-                if (string.IsNullOrWhiteSpace(UserId))
-                    throw new Exception("User login name not found.");
-
-                // 🔹 Final legacy folder path
-                var legacyPath = Path.Combine(basePath.TrimEnd(Path.DirectorySeparatorChar), "GeneratedReports", UserId, "Upload");
-                Directory.CreateDirectory(legacyPath);
-
-                // 🔹 Copy file from internal to legacy path
-                var legacyFullFilePath = Path.Combine(legacyPath, fileName);
-                File.Copy(generatedFilePath, legacyFullFilePath, overwrite: true);
-
-                // 6. Insert into EDT_ATTACHMENTS
                 var docId = await connection.ExecuteScalarAsync<int>(
                     @"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
                     new { CompanyId = dto.CompanyId }, transaction);
 
+
                 var preAttachId = await connection.ExecuteScalarAsync<int>(
-<<<<<<< HEAD
                   @"SELECT ATCH_ID FROM EDT_ATTACHMENTS WHERE ATCH_drlid = @RequestedListId order by ATCH_ID desc",
                   new { RequestedListId = dto.RequestedListId }, transaction);
                 var AttachId = 0;
@@ -1832,28 +1857,21 @@ new { CompId = dto.CompanyId }, transaction);
                     AttachId = preAttachId;
                 }
 
+                   
 
-=======
-                    @"SELECT TOP 1 ATCH_ID FROM EDT_ATTACHMENTS WHERE ATCH_drlid = @RequestedListId ORDER BY ATCH_ID DESC",
-                    new { RequestedListId = dto.RequestedListId }, transaction);
->>>>>>> db4614da780e936bf8f913b98ee15451f06cc104
-
-                var attachId = preAttachId == 0
-                    ? await connection.ExecuteScalarAsync<int>(
-                        @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompanyId",
-                        new { CompanyId = dto.CompanyId }, transaction)
-                    : preAttachId;
 
                 var extension = Path.GetExtension(fileName)?.TrimStart('.') ?? "unk";
                 var fileSize = new FileInfo(generatedFilePath).Length;
 
-                await connection.ExecuteAsync(@"
+                var insertAttach = @"
             INSERT INTO EDT_ATTACHMENTS (
                 ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT,
                 ATCH_CREATEDBY, ATCH_MODIFIEDBY, ATCH_VERSION,
                 ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename,
                 ATCH_CREATEDON, ATCH_Status, ATCH_CompID,
-                Atch_Vstatus, ATCH_ReportType, ATCH_AuditID, ATCH_drlid
+                Atch_Vstatus, ATCH_ReportType, ATCH_AuditID, 
+               ATCH_drlid
+
             )
             VALUES (
                 @AttachId, @DocId, @FileName, @Extension,
@@ -1861,23 +1879,8 @@ new { CompId = dto.CompanyId }, transaction);
                 @Flag, @Size, 0, 0,
                 GETDATE(), 'X', @CompanyId,
                 'C', @ReportType, @AuditNo, @RequestedListId
-            );",
-                    new
-                    {
-                        AttachId = attachId,
-                        DocId = docId,
-                        FileName = fileName.Length > 95 ? fileName.Substring(0, 95) : fileName.Replace("&", " and"),
-                        Extension = extension,
-                        CreatedBy = dto.CreatedBy,
-                        Flag = 1,
-                        Size = fileSize,
-                        CompanyId = dto.CompanyId,
-                        ReportType = dto.ReportType,
-                        AuditNo = dto.AuditNo,
-                        RequestedListId = dto.RequestedListId
-                    }, transaction);
+            );";
 
-<<<<<<< HEAD
                 await connection.ExecuteAsync(insertAttach, new
                 {
                     AttachId = AttachId,
@@ -1889,55 +1892,51 @@ new { CompId = dto.CompanyId }, transaction);
                     Size = fileSize,
                     CompanyId = dto.CompanyId,
                     ReportType = dto.ReportType,
-                    //  Status = dto.Status,
+                  //  Status = dto.Status,
                     AuditNo = dto.AuditNo,
                     RequestedListId = dto.RequestedListId
 
                 }, transaction);
 
                 // 5. Generate next Remark ID
-=======
-                // 7. Insert into Remarks History
->>>>>>> db4614da780e936bf8f913b98ee15451f06cc104
                 var remarkId = await connection.ExecuteScalarAsync<int>(
                     @"SELECT ISNULL(MAX(SAR_ID), 0) + 1 
-              FROM StandardAudit_Audit_DRLLog_RemarksHistory",
-                    transaction: transaction);
+      FROM StandardAudit_Audit_DRLLog_RemarksHistory",
+                    new { dto.CustomerId, dto.AuditNo }, transaction);
 
-                await connection.ExecuteAsync(@"
-            INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
-                SAR_ID, SAR_SAC_ID, SAR_SA_ID, SAR_DRLId,
-                SAR_Remarks, SAR_Date, SAR_RemarksType, sar_Yearid,
-                SAR_AttchId, SAR_AtthachDocId, SAR_TimlinetoResOn, SAR_ReportType,
-                SAR_CompID, SAR_MASid
-            )
-            VALUES (
-                @RemarkId, @CustomerId, @AuditNo, @DRLId,
-                @Remarks, @Date, @RemarksType, @YearId,
-                @AttachId, @DocId, @TimelineToRespond, @ReportType,
-                @CompanyId, @SarMasId
-            );",
+                // 6. Insert into Remarks History
+                await connection.ExecuteAsync(
+                    @"INSERT INTO StandardAudit_Audit_DRLLog_RemarksHistory (
+        SAR_ID, SAR_SAC_ID, SAR_SA_ID, SAR_DRLId,
+        SAR_Remarks, SAR_Date, SAR_RemarksType, sar_Yearid,
+        SAR_AttchId, SAR_AtthachDocId, SAR_TimlinetoResOn, SAR_ReportType, SAR_CompID, SAR_MASid
+    ) VALUES (
+        @RemarkId, @CustomerId, @AuditNo, @RequestedListId,
+        @Remark, @RequestedOn, @Type, @YearId,
+        @AttachId, @DocId, @TimelineToRespond, @ReportType, @CompanyId, @SarMasId
+    )",
                     new
                     {
                         RemarkId = remarkId,
                         CustomerId = dto.CustomerId,
                         AuditNo = dto.AuditNo,
                         DRLId = drlId,
-                        Remarks = dto.Comments,
-                        Date = dto.RequestedOn,
-                        RemarksType = dto.RequestedTypeId,
-                        YearId = dto.YearId,
-                        AttachId = attachId,
+                        Remark = dto.Comments, // or dto.Remark if that's available
+                        RequestedOn = dto.RequestedOn,
+                        Type = dto.RequestedTypeId, // or another appropriate value
+                        AttachId = AttachId,
                         DocId = docId,
                         TimelineToRespond = dto.TimelineToRespond,
                         ReportType = dto.ReportType,
+                        RequestedListId = dto.RequestedListId,
+                        YearId = dto.YearId,
                         CompanyId = dto.CompanyId,
                         SarMasId = drlId
+
                     }, transaction);
 
-                transaction.Commit();
 
-                // 8. Send Email (if needed)
+                transaction.Commit();
                 await SendBeginningOfAuditEmailAsync(dto);
 
                 return drlId;
@@ -1948,6 +1947,18 @@ new { CompId = dto.CompanyId }, transaction);
                 throw;
             }
         }
+
+//        private async Task<string> GetReportTypeNameAsync(SqlConnection connection, SqlTransaction transaction, int reportTypeId)
+//        {
+//            const string query = @"
+//SELECT TOP 1 RT_ReportTypeName 
+//FROM Report_Type_Master 
+//WHERE RT_ReportTypeID = @ReportTypeId";
+
+//            var result = await connection.ExecuteScalarAsync<string>(query, new { ReportTypeId = reportTypeId }, transaction);
+//            return result ?? "N/A";
+//        }
+
 
 
         //    public async Task<int> SaveDRLLogWithAttachmentAsync(DRLLogDto dto, string filePath, string fileType)
@@ -2562,10 +2573,10 @@ ORDER BY ATCH_CREATEDON";
             // Step 4: Generate or get attachment ID
             var docId = await GenerateNextDocIdAsync(dto.CustomerId, dto.AuditId);
             int newAttachId = attachId;
-<<<<<<< HEAD
+
             // int newAttachId = await GetOrCreateAttachmentIdAsync(requestedId);
-=======
->>>>>>> db4614da780e936bf8f913b98ee15451f06cc104
+
+
 
             if (newAttachId == 0)
             {

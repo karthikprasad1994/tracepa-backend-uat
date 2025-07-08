@@ -5,10 +5,8 @@
     <Controller_SelectedScaffolderID>ApiControllerWithActionsScaffolder</Controller_SelectedScaffolderID>
     <Controller_SelectedScaffolderCategoryPath>root/Common/Api</Controller_SelectedScaffolderCategoryPath>
     <WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
-<<<<<<< HEAD
-    <NameOfLastUsedPublishProfile>E:\Harsha\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile3.pubxml</NameOfLastUsedPublishProfile>
-=======
-    <NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\TracePa BackEnd Updated\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
->>>>>>> 238af970841fe5e2a16d7ee0177162e93ab15f22
+    <NameOfLastUsedPublishProfile>
+      C:\Users\Crcuial\Desktop\Trace-B\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml
+    </NameOfLastUsedPublishProfile>
   </PropertyGroup>
 </Project>
