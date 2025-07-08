@@ -1183,13 +1183,9 @@ namespace TracePca.Controllers
         {
             try
             {
-                await _AuditInterface.GenerateAndLogDRLReportAsync(request, format);
+                var (fileBytes, contentType, fileName) = await _AuditInterface.GenerateDRLReportWithoutSavingAsync(request, "pdf");
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "File exported successfully"
-                });
+                return File(fileBytes, contentType, fileName);
             }
             catch
             {
@@ -1514,6 +1510,19 @@ namespace TracePca.Controllers
                 });
             }
         }
+
+        [HttpPost("Local-upload-multiple")]
+        public async Task<IActionResult> UploadMultiple([FromForm] LocalAttachmentDto dto)
+        {
+            if (dto.Files == null || !dto.Files.Any())
+                return BadRequest("No files uploaded.");
+
+            var ids = await _AuditInterface.SaveAttachmentsAsync(dto);
+            return Ok(new { UploadedAttachmentIds = ids });
+        }
+
+
+
 
     }
 
