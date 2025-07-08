@@ -58,7 +58,7 @@ namespace TracePca.Interface.Audit
 
         Task UpdateScheduleCheckPointRemarksAnnexureAsync(UpdateScheduleCheckPointDto dto);
         Task<string> UploadAndSaveAttachmentsAsync(AddFileDto dto);
-        Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndLogDRLReportAsync(DRLRequestDto request, string format);
+        //Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndLogDRLReportAsync(DRLRequestDto request, string format);
         Task<CustomerInvoiceDto> GetCustomerDetailsForInvoiceAsync(int companyId, int customerId);
         Task<CustomerDataDto> GetCustomerDetailsWithTemplatesAsync(int companyId, int customerId, int reportTypeId);
         Task<(string WordFilePath, string PdfFilePath)> GenerateCustomerReportFilesAsync(int companyId, int customerId, int reportTypeId);
@@ -116,6 +116,15 @@ namespace TracePca.Interface.Audit
         Task<IEnumerable<DRLDetailsDto>> LoadPostAndPreAuditAsync(
     string connectionString, int customerId, int auditId, int reportType);
 
+<<<<<<< HEAD
+        Task<List<int>> SaveAttachmentsAsync(LocalAttachmentDto attachmentDto);
+
+        Task<(byte[] fileBytes, string contentType, string fileName)> GenerateDRLReportWithoutSavingAsync(DRLRequestDto request, string format);
+
+=======
         Task<IEnumerable<dynamic>> GetReportHistoryComments(ReportHistoryCommentsDto dto);
+>>>>>>> db4614da780e936bf8f913b98ee15451f06cc104
     }
+
+
 }

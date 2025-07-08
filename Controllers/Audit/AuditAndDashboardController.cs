@@ -626,11 +626,10 @@ namespace TracePca.Controllers.Audit
                     page.Content().PaddingVertical(10).Column(col =>
                     {
                         // Main Heading
-                        col.Item().PaddingBottom(2).AlignCenter().Text("Audit Report").Bold().FontSize(20);
+                        col.Item().PaddingBottom(2).AlignCenter().Text("Audit Schedule Report").Bold().FontSize(20);
                         col.Item().AlignCenter().LineHorizontal(1).LineColor(Colors.Black);
 
                         // Section: General Information
-                        col.Item().PaddingBottom(5).Text("General Information").Bold().FontSize(14).Underline();
 
                         col.Item().PaddingBottom(3).Text(text =>
                         {
@@ -641,6 +640,7 @@ namespace TracePca.Controllers.Audit
                         {
                             text.Span("Customer Name: ").SemiBold(); text.Span(Clean(request.CustomerName));
                         });
+                        col.Item().PaddingBottom(5).Text("Audit Team:").Bold().FontSize(14);
 
                         col.Item().PaddingBottom(3).Text(text =>
                         {
@@ -665,36 +665,34 @@ namespace TracePca.Controllers.Audit
                         col.Item().PaddingVertical(10).LineHorizontal(0.5f).LineColor(Colors.Grey.Medium);
 
                         // Section: Schedule Intervals
-                        col.Item().PaddingBottom(5).Text("Schedule Intervals").Bold().FontSize(14).Underline();
+                        //col.Item().Table(table =>
+                        //{
+                        //    table.ColumnsDefinition(columns =>
+                        //    {
+                        //        columns.RelativeColumn(); // From Date
+                        //        columns.RelativeColumn(); // To Date
+                        //        columns.RelativeColumn(); // Description
+                        //    });
 
-                        col.Item().Table(table =>
-                        {
-                            table.ColumnsDefinition(columns =>
-                            {
-                                columns.RelativeColumn(); // From Date
-                                columns.RelativeColumn(); // To Date
-                                columns.RelativeColumn(); // Description
-                            });
+                        //    table.Header(header =>
+                        //    {
+                        //        header.Cell().Element(HeaderCellStyle).AlignCenter().Text("From Date").Bold();
+                        //        header.Cell().Element(HeaderCellStyle).AlignCenter().Text("To Date").Bold();
+                        //        header.Cell().Element(HeaderCellStyle).AlignCenter().Text("Description").Bold();
+                        //    });
 
-                            table.Header(header =>
-                            {
-                                header.Cell().Element(HeaderCellStyle).AlignCenter().Text("From Date").Bold();
-                                header.Cell().Element(HeaderCellStyle).AlignCenter().Text("To Date").Bold();
-                                header.Cell().Element(HeaderCellStyle).AlignCenter().Text("Description").Bold();
-                            });
-
-                            foreach (DataRow row in dt.Rows)
-                            {
-                                table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["FromDate"]?.ToString()));
-                                table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["ToDate"]?.ToString()));
-                                table.Cell().Element(CellStyle).Text(Clean(row["Description"]?.ToString()));
-                            }
-                        });
+                        //    foreach (DataRow row in dt.Rows)
+                        //    {
+                        //        table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["FromDate"]?.ToString()));
+                        //        table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["ToDate"]?.ToString()));
+                        //        table.Cell().Element(CellStyle).Text(Clean(row["Description"]?.ToString()));
+                        //    }
+                        //});
 
                         col.Item().PaddingVertical(10).LineHorizontal(0.5f).LineColor(Colors.Grey.Medium);
 
                         // Section: Team Assignments
-                        col.Item().PaddingBottom(5).Text("Team Assignments").Bold().FontSize(14).Underline();
+                        col.Item().PaddingBottom(5).Text("Heading").Bold().FontSize(14).Underline();
 
                         col.Item().Table(table =>
                         {
@@ -726,7 +724,7 @@ namespace TracePca.Controllers.Audit
                         col.Item().PaddingVertical(10).LineHorizontal(0.5f).LineColor(Colors.Grey.Medium);
 
                         // Section: Final Checklist
-                        col.Item().PaddingBottom(5).Text("Final Checklist").Bold().FontSize(14).Underline();
+                        col.Item().PaddingBottom(5).Text("Checkpoints").Bold().FontSize(14).Underline();
 
                         col.Item().Table(table =>
                         {
