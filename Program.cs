@@ -3,12 +3,11 @@
 
 
 using System.Text.Json.Serialization;
-<<<<<<< HEAD
-=======
 
 
 
->>>>>>> 97d76df4c6f868a17e823448b01f0abe5f1ffa38
+
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
