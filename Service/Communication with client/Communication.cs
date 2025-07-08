@@ -56,14 +56,17 @@ namespace TracePca.Service.Communication_with_client
     public class Communication : AuditInterface
     {
         private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
 
 
-        public Communication(IConfiguration configuration)
+        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
 
             _configuration = configuration;
+            _httpContextAccessor = httpContextAccessor;
         }
+        
 
 
         public async Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey)
@@ -1435,7 +1438,12 @@ WHERE LOET_CustomerId = @CustomerId
             var existingId = await CheckAndGetDRLPKIDAsync(request.FinancialYearId, request.CustomerId, request.AuditNo, requestedId);
 
             var generatedFileName = $"DRL_{request.CustomerId}_{DateTime.Now:yyyyMMddHHmmss}.{format}";
-            var tempFilePath = Path.Combine(Path.GetTempPath(), generatedFileName);
+
+            // ✅ Use consistent file path with SaveDRLLogWithAttachmentAsync
+            var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\.."));
+            var outputFolder = Path.Combine(projectRoot, "GeneratedReports");
+            Directory.CreateDirectory(outputFolder);
+            var tempFilePath = Path.Combine(outputFolder, generatedFileName);
 
             var drlLog = new DRLLogDto
             {
@@ -1456,10 +1464,12 @@ WHERE LOET_CustomerId = @CustomerId
                 ReportType = request.ReportType
             };
 
-            // Save DRL log, attachments, remarks, and generate the report file
+            // Save DRL log and generate the report
             var drlId = await SaveDRLLogWithAttachmentAsync(drlLog, tempFilePath, format);
 
-            // Read the generated file
+            if (!File.Exists(tempFilePath))
+                throw new FileNotFoundException($"Expected file not found at {tempFilePath}");
+
             var fileBytes = await File.ReadAllBytesAsync(tempFilePath);
             var contentType = format.ToLower() == "pdf"
                 ? "application/pdf"
@@ -1467,6 +1477,7 @@ WHERE LOET_CustomerId = @CustomerId
 
             return (fileBytes, contentType, generatedFileName);
         }
+
 
 
         private async Task<byte[]> GeneratePdfAsync(DRLRequestDto request)
@@ -1741,35 +1752,69 @@ WHERE LOET_CustomerId = @CustomerId
                     throw new Exception("Customer data not found.");
 
                 // 3. Get file save base path and user login name
-                string basePath = await connection.ExecuteScalarAsync<string>(
-                    @"SELECT sad_Config_Value 
-              FROM sad_config_settings 
-              WHERE sad_Config_Key = 'ImgPath' AND sad_compid = @CompId",
-                    new { CompId = dto.CompanyId }, transaction);
+                //  string basePath = await connection.ExecuteScalarAsync<string>(
+                //      @"SELECT sad_Config_Value 
+                //FROM sad_config_settings 
+                //WHERE sad_Config_Key = 'ImgPath' AND sad_compid = @CompId",
+                //      new { CompId = dto.CompanyId }, transaction);
 
-                string userLoginName = await connection.ExecuteScalarAsync<string>(
-                    @"SELECT usr_LoginName 
-              FROM SAD_UserDetails 
-              WHERE usr_Id = @UserId",
-                    new { UserId = dto.CreatedBy }, transaction);
+                //  string userLoginName = await connection.ExecuteScalarAsync<string>(
+                //      @"SELECT usr_LoginName 
+                //FROM SAD_UserDetails 
+                //WHERE usr_Id = @UserId",
+                //      new { UserId = dto.CreatedBy }, transaction);
 
-                if (string.IsNullOrWhiteSpace(basePath))
-                    throw new Exception("Base path not found.");
-                if (string.IsNullOrWhiteSpace(userLoginName))
-                    throw new Exception("User login name not found.");
+                //  if (string.IsNullOrWhiteSpace(basePath))
+                //      throw new Exception("Base path not found.");
+                //  if (string.IsNullOrWhiteSpace(userLoginName))
+                //      throw new Exception("User login name not found.");
 
-                // 4. Construct file save path
-                var targetFolder = Path.Combine(basePath.TrimEnd(Path.DirectorySeparatorChar), "Tempfolder", userLoginName, "Upload");
-                Directory.CreateDirectory(targetFolder);
+                //  // 4. Construct file save path
+                //  var targetFolder = Path.Combine(basePath.TrimEnd(Path.DirectorySeparatorChar), "Tempfolder", userLoginName, "Upload");
+                //  Directory.CreateDirectory(targetFolder);
+
+                //  var fileName = $"DRL_{dto.CustomerId}_{DateTime.Now:yyyyMMddHHmmss}.{fileType}";
+                var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\.."));
+                var targetFolder = Path.Combine(projectRoot, "GeneratedReports");
+                Directory.CreateDirectory(targetFolder); // Ensure folder exists
 
                 var fileName = $"DRL_{dto.CustomerId}_{DateTime.Now:yyyyMMddHHmmss}.{fileType}";
                 var generatedFilePath = Path.Combine(targetFolder, fileName);
+                Directory.CreateDirectory(Path.GetDirectoryName(generatedFilePath)); // ✅ Fix here
 
+               
                 // 5. Generate Word or PDF
                 if (fileType.ToLower() == "pdf")
                     GeneratePdf(customerData, generatedFilePath);
                 else
                     GenerateWord(customerData, generatedFilePath);
+                var basePath = await connection.ExecuteScalarAsync<string>(
+@"SELECT sad_Config_Value 
+  FROM sad_config_settings 
+  WHERE sad_Config_Key = 'ImgPath' AND sad_compid = @CompId",
+new { CompId = dto.CompanyId }, transaction);
+
+                // 🔹 Fetch login name
+                
+                var UserId = await connection.ExecuteScalarAsync<string>(
+                    @"SELECT usr_Id
+      FROM SAD_UserDetails 
+      WHERE usr_Id = @UserId",
+                    new { UserId = dto.CreatedBy }, transaction);
+
+                // 🔹 Validate both
+                if (string.IsNullOrWhiteSpace(basePath))
+                    throw new Exception("Base path not found.");
+                if (string.IsNullOrWhiteSpace(UserId))
+                    throw new Exception("User login name not found.");
+
+                // 🔹 Final legacy folder path
+                var legacyPath = Path.Combine(basePath.TrimEnd(Path.DirectorySeparatorChar), "GeneratedReports", UserId, "Upload");
+                Directory.CreateDirectory(legacyPath);
+
+                // 🔹 Copy file from internal to legacy path
+                var legacyFullFilePath = Path.Combine(legacyPath, fileName);
+                File.Copy(generatedFilePath, legacyFullFilePath, overwrite: true);
 
                 // 6. Insert into EDT_ATTACHMENTS
                 var docId = await connection.ExecuteScalarAsync<int>(
@@ -2178,20 +2223,16 @@ WHERE LOET_CustomerId = @CustomerId
         //        }
         //    }
 
-        private async Task<string> GetReportTypeNameAsync(int reportTypeId)
-        {
-            const string query = @"
-    SELECT TOP 1 RT_ReportTypeName 
-    FROM Report_Type_Master 
-    WHERE RT_ReportTypeID = @ReportTypeId";
+    //    private async Task<string> GetReportTypeNameAsync(SqlConnection connection, SqlTransaction transaction, int reportTypeId)
+    //    {
+    //        const string query = @"
+    //SELECT TOP 1 RT_ReportTypeName 
+    //FROM Report_Type_Master 
+    //WHERE RT_ReportTypeID = @ReportTypeId";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
-
-            var result = await connection.ExecuteScalarAsync<string>(query, new { ReportTypeId = reportTypeId });
-
-            return result ?? "N/A";
-        }
+    //        var result = await connection.ExecuteScalarAsync<string>(query, new { ReportTypeId = reportTypeId }, transaction);
+    //        return result ?? "N/A";
+    //    }
 
 
         private async Task SendBeginningOfAuditEmailAsync(DRLLogDto dto)
@@ -2201,7 +2242,7 @@ WHERE LOET_CustomerId = @CustomerId
 
             // ✅ Get real Audit No & Name from DB
             var (auditNo, auditName) = await GetAuditInfoByIdAsync(dto.AuditNo);
-            var reportTypeName = await GetReportTypeNameAsync(dto.ReportType);
+          //  var reportTypeName = await GetReportTypeNameAsync(connection, transaction, dto.ReportType);
 
             var smtpClient = new System.Net.Mail.SmtpClient("smtp.gmail.com")
             {
@@ -2232,7 +2273,7 @@ WHERE LOET_CustomerId = @CustomerId
 <p><strong>Beginning of the Audit</strong></p>
 
 <p><strong>Audit No.:</strong> {auditNo} - {auditName}</p>
-<p><strong>Report Type:</strong> {reportTypeName}</p>
+<p><strong>Report Type:</strong> </p>
 <p><strong>Document Requested List:</strong> Beginning of the Audit</p>
 <p><strong>Comments:</strong> {dto.Comments}</p>
 
@@ -3899,8 +3940,12 @@ ORDER BY RCM_Id";
                     });
                 });
             }).GeneratePdf(filePath);
+            var request = _httpContextAccessor.HttpContext.Request;
+            var baseUrl = $"{request.Scheme}://{request.Host}";
+            return $"{baseUrl}/Uploads/LOE/{fileName}";
 
-            return $"https/tracepacore.multimedia.interactivedns.com/Uploads/LOE/{fileName}";
+
+            // return $"https/tracepacore.multimedia.interactivedns.com/Uploads/LOE/{fileName}";
         }
 
 
