@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TracePca.Interface.FIN_Statement;
+using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleFormatDto;
 using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 
@@ -20,20 +21,21 @@ namespace TracePca.Controllers.FIN_Statement
             _ScheduleFormatService = ScheduleFormatInterface;
         }
 
-        //GetSecheduleFormat-ClientName
-        [HttpGet("GetScheduleFormatClientName")]
-        public async Task<IActionResult> GetAllCustomersAsync([FromQuery] int iCompId)
+        //GetCustomerName
+        [HttpGet("GetCustomersName")]
+        public async Task<IActionResult> GetCustomerName([FromQuery] int CompId)
         {
+
             try
             {
-                var result = await _ScheduleFormatService.GetScheduleFormatClientAsync(iCompId); // Pass actual value or remove sAC if unused
+                var result = await _ScheduleFormatService.GetCustomerNameAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No customers found.",
+                        message = "No Customer name found.",
                         data = (object)null
                     });
                 }
@@ -41,7 +43,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Customer list fetched successfully.",
+                    message = "Customer name loaded successfully.",
                     data = result
                 });
             }
@@ -50,19 +52,19 @@ namespace TracePca.Controllers.FIN_Statement
                 return StatusCode(500, new
                 {
                     statusCode = 500,
-                    message = "An error occurred while retrieving customer data.",
+                    message = "An error occurred while fetching company types.",
                     error = ex.Message
                 });
             }
         }
 
-        //GetScheduleFormat-Heading
-        [HttpGet("GetScheduleFormatHeading")]
-        public async Task<IActionResult> GetScheduleFormatHeadingAsync([FromQuery] int iCompId, [FromQuery] int iScheduleId, [FromQuery] int iCustId, [FromQuery] int iAccHead)
+        //GetScheduleHeading
+        [HttpGet("GetScheduleHeading")]
+        public async Task<IActionResult> GetScheduleFormatHeadingAsync([FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int AccHead)
         {
             try
             {
-                var result = await _ScheduleFormatService.GetScheduleFormatHeadingAsync(iCompId, iScheduleId, iCustId, iAccHead);
+                var result = await _ScheduleFormatService.GetScheduleFormatHeadingAsync(CompId, ScheduleId, CustId, AccHead);
 
                 if (result == null || !result.Any())
                 {
@@ -92,13 +94,13 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GetScheduleFormat-SubHeading
-        [HttpGet("GetScheduleFormatSubHeading")]
-        public async Task<IActionResult> GetScheduleFormatSubHeadingAsync([FromQuery] int iCompId, [FromQuery] int iScheduleId, [FromQuery] int iCustId, [FromQuery] int iHeadingId)
+        //GetScheduleSubHeading
+        [HttpGet("GetScheduleSubHeading")]
+        public async Task<IActionResult> GetScheduleFormatSubHeadingAsync([FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId)
         {
             try
             {
-                if (iHeadingId <= 0)
+                if (HeadingId <= 0)
                 {
                     return BadRequest(new
                     {
@@ -109,7 +111,7 @@ namespace TracePca.Controllers.FIN_Statement
                 }
 
                 var result = await _ScheduleFormatService.GetScheduleFormatSubHeadingAsync(
-                    iCompId, iScheduleId, iCustId, iHeadingId);
+                    CompId, ScheduleId, CustId, HeadingId);
 
                 if (result == null || !result.Any())
                 {
@@ -139,16 +141,16 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GetScheduleFormat-ItemUnderSubHeading
-        [HttpGet("GetScheduleFormatItemsUnderSubHeading")]
+        //GetScheduleItem
+        [HttpGet("GetScheduleItem")]
         public async Task<IActionResult> GetScheduleFormatItemsAsync(
-        [FromQuery] int iCompId, [FromQuery] int iScheduleId, [FromQuery] int iCustId, [FromQuery] int iHeadingId, [FromQuery] int iSubHeadId)
+        [FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId, [FromQuery] int SubHeadId)
         {
             try
             {
                 // Call service method
                 var result = await _ScheduleFormatService.GetScheduleFormatItemsAsync(
-                    iCompId, iScheduleId, iCustId, iHeadingId, iSubHeadId);
+                    CompId, ScheduleId, CustId, HeadingId, SubHeadId);
 
                 // Check for no data
                 if (result == null || !result.Any())
@@ -181,15 +183,15 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GetScheduleFormat-SubitemsUnderItems
-        [HttpGet("GetScheduleFormatSubItems")]
+        //GetScheduleSubitems
+        [HttpGet("GetScheduleSubItem")]
         public async Task<IActionResult> GetScheduleFormatSubItemsAsync(
-       [FromQuery] int iCompId, [FromQuery] int iScheduleId, [FromQuery] int iCustId, [FromQuery] int iHeadingId, [FromQuery] int iSubHeadId, [FromQuery] int iItemId)
+       [FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId, [FromQuery] int SubHeadId, [FromQuery] int ItemId)
         {
             try
             {
                 var result = await _ScheduleFormatService.GetScheduleFormatSubItemsAsync(
-                    iCompId, iScheduleId, iCustId, iHeadingId, iSubHeadId, iItemId);
+                    CompId, ScheduleId, CustId, HeadingId, SubHeadId, ItemId);
 
                 if (result == null || !result.Any())
                 {
@@ -222,14 +224,14 @@ namespace TracePca.Controllers.FIN_Statement
         //GetScheduleTemplate
         [HttpGet("GetScheduleTemplate")]
         public async Task<IActionResult> GetScheduleTemplateAsync(
-    [FromQuery] int iCompId,
-    [FromQuery] int iScheduleId,
-    [FromQuery] int iCustId,
-    [FromQuery] int iAccHead)
+    [FromQuery] int CompId,
+    [FromQuery] int ScheduleId,
+    [FromQuery] int CustId,
+    [FromQuery] int AccHead)
         {
             try
             {
-                var result = await _ScheduleFormatService.GetScheduleTemplateAsync(iCompId, iScheduleId, iCustId, iAccHead);
+                var result = await _ScheduleFormatService.GetScheduleTemplateAsync(CompId, ScheduleId, CustId, AccHead);
 
                 if (result == null || !result.Any())
                 {
@@ -259,13 +261,13 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //ScheduleFormatDeleteScheduleTemplate(Grid)
+        //DeleteScheduleTemplate(Grid)
         [HttpDelete("DeleteSchedulesTemplate")]
-        public async Task<IActionResult> DeleteScheduleTemplateAsync(int iCompId, int scheduleType, int custId, int selectedValue, int mainId)
+        public async Task<IActionResult> DeleteScheduleTemplateAsync(int CompId, int ScheduleType, int CustId, int SelectedValue, int MainId)
         {
             try
             {
-                bool result = await _ScheduleFormatService.DeleteScheduleTemplateAsync(iCompId, scheduleType, custId, selectedValue, mainId);
+                bool result = await _ScheduleFormatService.DeleteScheduleTemplateAsync(CompId, ScheduleType, CustId, SelectedValue, MainId);
 
                 if (result)
                 {
@@ -297,9 +299,9 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //SaveOrUpdateScheduleFormatHeading
-        [HttpPost("SaveOrUpdateScheduleFormatHeading")]
-        public async Task<IActionResult> SaveScheduleHeadingAndTemplateAsync([FromQuery] int iCompId, [FromBody] SaveScheduleFormatHeadingDto dto)
+        //SaveOrUpdateScheduleHeading
+        [HttpPost("SaveOrUpdateScheduleHeading")]
+        public async Task<IActionResult> SaveScheduleHeadingAndTemplateAsync([FromQuery] int CompId, [FromBody] SaveScheduleHeadingDto dto)
         {
             if (dto == null)
             {
@@ -314,7 +316,7 @@ namespace TracePca.Controllers.FIN_Statement
             {
                 bool isUpdate = dto.ASH_ID > 0;
 
-                var result = await _ScheduleFormatService.SaveScheduleHeadingAndTemplateAsync(iCompId, dto);
+                var result = await _ScheduleFormatService.SaveScheduleHeadingAndTemplateAsync(CompId, dto);
 
                 string successMessage = isUpdate
                     ? "Schedule Heading successfully updated."
@@ -344,9 +346,9 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //SaveScheduleFormatSub-HeadingAndTemplate
-        [HttpPost("SaveOrUpdateScheduleFormatSubHeading")]
-        public async Task<IActionResult> SaveScheduleSubHeadingAndTemplate([FromQuery] int iCompId, [FromBody] SaveScheduleFormatSub_HeaddingDto dto)
+        //SaveScheduleSubHeading
+        [HttpPost("SaveOrUpdateScheduleSubHeading")]
+        public async Task<IActionResult> SaveScheduleSubHeadingAndTemplate([FromQuery] int CompId, [FromBody] SaveScheduleSubHeadingDto dto)
         {
             if (dto == null)
             {
@@ -361,7 +363,7 @@ namespace TracePca.Controllers.FIN_Statement
             {
                 bool isUpdate = dto.ASSH_ID > 0;
 
-                var result = await _ScheduleFormatService.SaveScheduleSubHeadingAndTemplateAsync(iCompId, dto);
+                var result = await _ScheduleFormatService.SaveScheduleSubHeadingAndTemplateAsync(CompId, dto);
 
                 string successMessage = isUpdate
                     ? "Schedule Heading successfully updated."
@@ -391,9 +393,9 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //SaveScheduleFormatItemsAndTemplate
-        [HttpPost("SaveOrUpdateScheduleFormatItems")]
-        public async Task<IActionResult> SaveScheduleItemAndTemplateAsync([FromQuery] int iCompId, [FromBody] SaveScheduleFormatItemDto dto)
+        //SaveScheduleItem
+        [HttpPost("SaveOrUpdateScheduleItems")]
+        public async Task<IActionResult> SaveScheduleItemAndTemplateAsync([FromQuery] int CompId, [FromBody] SaveScheduleItemDto dto)
         {
             if (dto == null)
             {
@@ -408,7 +410,7 @@ namespace TracePca.Controllers.FIN_Statement
             {
                 bool isUpdate = dto.ASI_ID > 0;
 
-                var result = await _ScheduleFormatService.SaveScheduleItemAndTemplateAsync(iCompId, dto);
+                var result = await _ScheduleFormatService.SaveScheduleItemAndTemplateAsync(CompId, dto);
 
                 string successMessage = isUpdate
                     ? "Schedule Heading successfully updated."
@@ -438,9 +440,9 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //SaveScheduleFormatSub-ItemAndHeading
-        [HttpPost("SaveOrUpdateScheduleFormatSub-Items")]
-        public async Task<IActionResult> SaveScheduleSubItemAndTemplateAsync([FromQuery] int iCompId, [FromBody] SaveScheduleFormatSub_ItemDto dto)
+        //SaveScheduleSubItem
+        [HttpPost("SaveOrUpdateScheduleSubItem")]
+        public async Task<IActionResult> SaveScheduleSubItemAndTemplateAsync([FromQuery] int CompId, [FromBody] SaveScheduleSubItemDto dto)
         {
             if (dto == null)
             {
@@ -455,7 +457,7 @@ namespace TracePca.Controllers.FIN_Statement
             {
                 bool isUpdate = dto.ASSI_ID > 0;
 
-                var result = await _ScheduleFormatService.SaveScheduleSubItemAndTemplateAsync(iCompId, dto);
+                var result = await _ScheduleFormatService.SaveScheduleSubItemAndTemplateAsync(CompId, dto);
 
                 string successMessage = isUpdate
                     ? "Schedule Heading successfully updated."

@@ -24,12 +24,12 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetCustomersName
         [HttpGet("GetCustomersName")]
-        public async Task<IActionResult> GetCustomerName([FromQuery] int icompId)
+        public async Task<IActionResult> GetCustomerName([FromQuery] int CompId)
         {
 
             try
             {
-                var result = await _ScheduleNoteService.GetCustomerNameAsync(icompId);
+                var result = await _ScheduleNoteService.GetCustomerNameAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -40,7 +40,6 @@ namespace TracePca.Controllers.FIN_Statement
                         data = (object)null
                     });
                 }
-
                 return Ok(new
                 {
                     statusCode = 200,
@@ -61,11 +60,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetFinancialYear
         [HttpGet("GetFinancialYear")]
-        public async Task<IActionResult> GetFinancialYear([FromQuery] int icompId)
+        public async Task<IActionResult> GetFinancialYear([FromQuery] int CompId)
         {
             try
             {
-                var result = await _ScheduleNoteService.GetFinancialYearAsync(icompId);
+                var result = await _ScheduleNoteService.GetFinancialYearAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -97,11 +96,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetSubHeadingname(Notes For SubHeading)
         [HttpGet("SubHeading-NotesForSubHeading")]
-        public async Task<IActionResult> GetSubHeadingNotes(int customerId, int subHeadingId)
+        public async Task<IActionResult> GetSubHeadingNotes(int CustomerId, int SubHeadingId)
         {
             try
             {
-                var notes = await _ScheduleNoteService.GetSubHeadingDetailsAsync(customerId, subHeadingId);
+                var notes = await _ScheduleNoteService.GetSubHeadingDetailsAsync(CustomerId, SubHeadingId);
 
                 if (notes == null || !notes.Any())
                 {
@@ -180,11 +179,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetBranch(Notes For Ledger)
         [HttpGet("GetBranchNameNotesForLedger")]
-        public async Task<IActionResult> GetBranchName([FromQuery] int icompId, [FromQuery] int icustId)
+        public async Task<IActionResult> GetBranchName([FromQuery] int CompId, [FromQuery] int CustId)
         {
             try
             {
-                var result = await _ScheduleNoteService.GetBranchNameAsync(icompId, icustId);
+                var result = await _ScheduleNoteService.GetBranchNameAsync(CompId, CustId);
 
                 if (result == null || !result.Any())
                 {
@@ -216,11 +215,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetLedger(Notes For Ledger)
         [HttpGet("GetLedgerNotesForLedger")]
-        public async Task<IActionResult> GetLedgerIndividualDetails([FromQuery] int customerId, [FromQuery] int subHeadingId)
+        public async Task<IActionResult> GetLedgerIndividualDetails([FromQuery] int CustomerId, [FromQuery] int SubHeadingId)
         {
             try
             {
-                var result = await _ScheduleNoteService.GetLedgerIndividualDetailsAsync(customerId, subHeadingId);
+                var result = await _ScheduleNoteService.GetLedgerIndividualDetailsAsync(CustomerId, SubHeadingId);
 
                 if (result != null && result.Any())
                 {

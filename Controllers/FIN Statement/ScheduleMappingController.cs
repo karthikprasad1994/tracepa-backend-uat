@@ -28,12 +28,12 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetCustomersName
         [HttpGet("GetCustomersName")]
-        public async Task<IActionResult> GetCustomerName([FromQuery] int icompId)
+        public async Task<IActionResult> GetCustomerName([FromQuery] int CompId)
         {
 
             try
             {
-                var result = await _ScheduleMappingService.GetCustomerNameAsync(icompId);
+                var result = await _ScheduleMappingService.GetCustomerNameAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -65,11 +65,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetFinancialYear
         [HttpGet("GetFinancialYear")]
-        public async Task<IActionResult> GetFinancialYear([FromQuery] int icompId)
+        public async Task<IActionResult> GetFinancialYear([FromQuery] int CompId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetFinancialYearAsync(icompId);
+                var result = await _ScheduleMappingService.GetFinancialYearAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -100,48 +100,49 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //GetDuration
-        [HttpGet("GetDuration")]
-        public async Task<IActionResult> GetDuration([FromQuery] int compId, [FromQuery] int custId)
+        [HttpGet("GetCustomerDurationId")]
+        public async Task<IActionResult> GetCustomerDurationId([FromQuery] int CompId, [FromQuery] int CustId)
         {
             try
             {
-                var data = await _ScheduleMappingService.GetDurationAsync(compId, custId);
+                var durationId = await _ScheduleMappingService.GetCustomerDurationIdAsync(CompId, CustId);
 
-                if (data == null || !data.Any())
+                if (durationId == null)
                 {
                     return NotFound(new
                     {
-                        status = 404,
-                        message = "No duration found for the given customer and company.",
+                        statusCode = 404,
+                        message = "Duration ID not found for the provided Company ID and Customer ID.",
                         data = (object)null
                     });
                 }
 
                 return Ok(new
                 {
-                    status = 200,
-                    message = "Duration loaded successfully.",
-                    data = data
+                    statusCode = 200,
+                    message = "Duration ID retrieved successfully.",
+                    data = new { Cust_DurtnId = durationId }
                 });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new
                 {
-                    status = 500,
-                    message = "Internal server error.",
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the duration ID.",
                     error = ex.Message
                 });
             }
         }
 
+
         //GetBranchName
         [HttpGet("GetBranchName")]
-        public async Task<IActionResult> GetBranchName([FromQuery] int icompId, [FromQuery] int icustId)
+        public async Task<IActionResult> GetBranchName([FromQuery] int CompId, [FromQuery] int CustId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetBranchNameAsync(icompId, icustId);
+                var result = await _ScheduleMappingService.GetBranchNameAsync(CompId, CustId);
 
                 if (result == null || !result.Any())
                 {
@@ -173,11 +174,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleHeading
         [HttpGet("GetScheduleHeading")]
-        public async Task<IActionResult> GetScheduleHeadings(int icompId, int icustId, int ischeduleTypeId)
+        public async Task<IActionResult> GetScheduleHeadings(int CompId, int CustId, int ScheduleTypeId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetScheduleHeadingAsync(icompId, icustId, ischeduleTypeId);
+                var result = await _ScheduleMappingService.GetScheduleHeadingAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -209,11 +210,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleSub-Heading
         [HttpGet("GetScheduleSubHeading")]
-        public async Task<IActionResult> GetScheduleSubHeading(int icompId, int icustId, int ischeduleTypeId)
+        public async Task<IActionResult> GetScheduleSubHeading(int CompId, int CustId, int ScheduleTypeId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetScheduleItemAsync(icompId, icustId, ischeduleTypeId);
+                var result = await _ScheduleMappingService.GetScheduleItemAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -249,11 +250,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleItem
         [HttpGet("GetScheduleItem")]
-        public async Task<IActionResult> GetScheduleItem(int icompId, int icustId, int ischeduleTypeId)
+        public async Task<IActionResult> GetScheduleItem(int CompId, int CustId, int ScheduleTypeId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetScheduleItemAsync(icompId, icustId, ischeduleTypeId);
+                var result = await _ScheduleMappingService.GetScheduleItemAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -289,11 +290,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleSub-Item
         [HttpGet("GetScheduleSubItem")]
-        public async Task<IActionResult> GetScheduleSubItem(int icompId, int icustId, int ischeduleTypeId)
+        public async Task<IActionResult> GetScheduleSubItem(int CompId, int CustId, int ScheduleTypeId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetScheduleSubItemAsync(icompId, icustId, ischeduleTypeId);
+                var result = await _ScheduleMappingService.GetScheduleSubItemAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -327,110 +328,110 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //SaveOrUpdateTrialBalanceUpload
-        [HttpPost("SaveOrUpdateTrailBalanceUpload")]
-        public async Task<IActionResult> SaveTrailBalanceUploadAsync([FromQuery] int iCompId, [FromBody] TrailBalanceUploadDto dto)
-        {
-            if (dto == null)
-            {
-                return BadRequest(new
-                {
-                    Status = 400,
-                    Message = "Invalid input: DTO is null",
-                    Data = (object)null
-                });
-            }
+        ////SaveOrUpdateTrialBalanceUpload
+        //[HttpPost("SaveOrUpdateTrailBalanceUpload")]
+        //public async Task<IActionResult> SaveTrailBalanceUploadAsync([FromQuery] int iCompId, [FromBody] TrailBalanceUploadDto dto)
+        //{
+        //    if (dto == null)
+        //    {
+        //        return BadRequest(new
+        //        {
+        //            Status = 400,
+        //            Message = "Invalid input: DTO is null",
+        //            Data = (object)null
+        //        });
+        //    }
 
-            try
-            {
-                bool isUpdate = dto.ATBU_ID > 0;
+        //    try
+        //    {
+        //        bool isUpdate = dto.ATBU_ID > 0;
 
-                var result = await _ScheduleMappingService.SaveTrailBalanceUploadAsync(iCompId, dto);
+        //        var result = await _ScheduleMappingService.SaveTrailBalanceUploadAsync(iCompId, dto);
 
-                string successMessage = isUpdate
-                    ? "Trail balance upload details successfully updated."
-                    : "Trail balance upload details successfully created.";
+        //        string successMessage = isUpdate
+        //            ? "Trail balance upload details successfully updated."
+        //            : "Trail balance upload details successfully created.";
 
-                return Ok(new
-                {
-                    Status = 200,
-                    Message = successMessage,
-                    Data = new
-                    {
-                        UpdateOrSave = result[0],
-                        Oper = result[1],
-                        IsUpdate = isUpdate
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    Status = 500,
-                    Message = "An error occurred while processing your request.",
-                    Error = ex.Message,
-                    InnerException = ex.InnerException?.Message
-                });
-            }
-        }
+        //        return Ok(new
+        //        {
+        //            Status = 200,
+        //            Message = successMessage,
+        //            Data = new
+        //            {
+        //                UpdateOrSave = result[0],
+        //                Oper = result[1],
+        //                IsUpdate = isUpdate
+        //            }
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            Status = 500,
+        //            Message = "An error occurred while processing your request.",
+        //            Error = ex.Message,
+        //            InnerException = ex.InnerException?.Message
+        //        });
+        //    }
+        //}
 
-        //SaveOrUpdateTrialBalanceUploadDetails
-        [HttpPost("SaveOrUpdateTrailBalanceUploadDetails")]
-        public async Task<IActionResult> SaveTrailBalanceUploadDetailsAsync([FromQuery] int iCompId, [FromBody] TrailBalanceUploadDetailsDto dto)
-        {
-            if (dto == null)
-            {
-                return BadRequest(new
-                {
-                    Status = 400,
-                    Message = "Invalid input: DTO is null",
-                    Data = (object)null
-                });
-            }
+        ////SaveOrUpdateTrialBalanceUploadDetails
+        //[HttpPost("SaveOrUpdateTrailBalanceUploadDetails")]
+        //public async Task<IActionResult> SaveTrailBalanceUploadDetailsAsync([FromQuery] int iCompId, [FromBody] TrailBalanceUploadDetailsDto dto)
+        //{
+        //    if (dto == null)
+        //    {
+        //        return BadRequest(new
+        //        {
+        //            Status = 400,
+        //            Message = "Invalid input: DTO is null",
+        //            Data = (object)null
+        //        });
+        //    }
 
-            try
-            {
-                bool isUpdate = dto.ATBUD_ID > 0;
+        //    try
+        //    {
+        //        bool isUpdate = dto.ATBUD_ID > 0;
 
-                var result = await _ScheduleMappingService.SaveTrailBalanceUploadDetailsAsync(iCompId, dto);
+        //        var result = await _ScheduleMappingService.SaveTrailBalanceUploadDetailsAsync(iCompId, dto);
 
-                string successMessage = isUpdate
-                    ? "Trail balance upload details successfully updated."
-                    : "Trail balance upload details successfully created.";
+        //        string successMessage = isUpdate
+        //            ? "Trail balance upload details successfully updated."
+        //            : "Trail balance upload details successfully created.";
 
-                return Ok(new
-                {
-                    Status = 200,
-                    Message = successMessage,
-                    Data = new
-                    {
-                        UpdateOrSave = result[0],
-                        Oper = result[1],
-                        IsUpdate = isUpdate
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    Status = 500,
-                    Message = "An error occurred while processing your request.",
-                    Error = ex.Message,
-                    InnerException = ex.InnerException?.Message
-                });
-            }
-        }
+        //        return Ok(new
+        //        {
+        //            Status = 200,
+        //            Message = successMessage,
+        //            Data = new
+        //            {
+        //                UpdateOrSave = result[0],
+        //                Oper = result[1],
+        //                IsUpdate = isUpdate
+        //            }
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            Status = 500,
+        //            Message = "An error occurred while processing your request.",
+        //            Error = ex.Message,
+        //            InnerException = ex.InnerException?.Message
+        //        });
+        //    }
+        //}
 
         //GetTotalAmount
         [HttpGet("GetTotalAmount")]
         public async Task<IActionResult> GetCustCOAMasterDetails(
-        int compId, int custId, int yearId, int branchId, int durationId)
+        int CompId, int CustId, int YearId, int BranchId, int DurationId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetCustCOAMasterDetailsAsync(compId, custId, yearId, branchId, durationId);
+                var result = await _ScheduleMappingService.GetCustCOAMasterDetailsAsync(CompId, CustId, YearId, BranchId, DurationId);
 
                 if (result != null && result.Any())
                 {
@@ -465,11 +466,11 @@ namespace TracePca.Controllers.FIN_Statement
         //GetTrialBalance(Grid)
         [HttpGet("GetTrailBalance(Grid)")]
         public async Task<IActionResult> GetCustCOADetails(
-    int compId, int custId, int yearId, int scheduleTypeId, int unmapped, int branchId, int durationId)
+    int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetCustCOADetailsAsync(compId, custId, yearId, scheduleTypeId, unmapped, branchId, durationId);
+                var result = await _ScheduleMappingService.GetCustCOADetailsAsync(CompId, CustId, YearId, ScheduleTypeId, Unmapped, BranchId, DurationId);
 
                 if (result != null && result.Any())
                 {
@@ -501,16 +502,16 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveScheduleTemplate
         [HttpPost("SaveScheduleTemplate")]
-        public async Task<IActionResult> UploadTrialBalance([FromQuery] int companyId, [FromBody] AccTrailBalanceUploadBatchDto dto)
+        public async Task<IActionResult> UploadTrialBalance([FromQuery] int CompanyId, [FromBody] AccTrailBalanceUploadBatchDto dto)
         {
             try
             {
-                var resultIds = await _ScheduleMappingService.UploadTrialBalanceExcelAsync(companyId, dto);
+                var resultIds = await _ScheduleMappingService.UploadTrialBalanceExcelAsync(CompanyId, dto);
 
                 return Ok(new
                 {
                     status = 200,
-                    message = "Trial balance uploaded successfully.",
+                    message = "Schedule Template uploaded successfully.",
                     data = new
                     {
                         ResultIds = resultIds
@@ -657,6 +658,35 @@ namespace TracePca.Controllers.FIN_Statement
                 return NotFound("File not found.");
 
             return File(result.FileBytes, result.ContentType, result.FileName);
+        }
+
+        //SaveTrailBalanceDetails
+        [HttpPost("SaveTrailBalanceDetails")]
+        public async Task<IActionResult> SaveTrailBalanceDetails([FromQuery] int CompId, [FromBody] TrailBalanceDetailsDto HeaderDto)
+        {
+            try
+            {
+                var resultIds = await _ScheduleMappingService.SaveTrailBalanceDetailsAsync(CompId, HeaderDto);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Trail Balance uploaded successfully.",
+                    data = new
+                    {
+                        ResultIds = resultIds
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while uploading trial balance.",
+                    error = ex.Message
+                });
+            }
         }
     }
 }

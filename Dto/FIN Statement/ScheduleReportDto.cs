@@ -63,16 +63,5 @@ namespace TracePca.Dto.FIN_Statement
             public int CompanyId { get; set; }
             public string ConfigKey { get; set; }
         }
-
-        //LoadButton
-        public class ReportDto
-        {
-            public string SrNo { get; set; }
-            public string HeadingName { get; set; }
-            public string HeaderSLNo { get; set; }
-            public string SubHeaderSLNo { get; set; }
-            public string Notes { get; set; }
-            public string PrevYearTotal { get; set; }
-        }
     }
 }

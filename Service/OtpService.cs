@@ -1,13 +1,14 @@
-﻿using MailKit.Net.Smtp;
-using MailKit.Security;
-using Microsoft.IdentityModel.Tokens;
-using MimeKit;
-using MimeKit.Text;
-
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Dapper;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using Microsoft.Data.SqlClient;
+using Microsoft.IdentityModel.Tokens;
+using MimeKit;
+using MimeKit.Text;
 
 public class OtpService
 {
@@ -20,15 +21,42 @@ public class OtpService
 
     }
 
-    public async Task<(string Token, string Otp)> GenerateAndSendOtpJwtAsync(string email)
-    {
-        string token = GenerateOtpJwt(email, out string otpCode);
 
-        // Send OTP via Email
+    public async Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email)
+    {
+        using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+        await connection.OpenAsync();
+
+        var existingUser = await connection.QueryFirstOrDefaultAsync<string>(
+            @"SELECT MCR_CustomerEmail FROM MMCS_CustomerRegistration WHERE LOWER(MCR_CustomerEmail) = LOWER(@Email)",
+            new { Email = email });
+
+        if (existingUser != null)
+        {
+            return (false, "User already exists with this email.", null);
+        }
+
+        string otpCode;
+        string otpJwt = GenerateOtpJwt(email, out otpCode);
+
+        // Send email to user here
         await SendEmailAsync(email, otpCode);
 
-        return (token, otpCode); // Return both token and OTP
+        return (true, "OTP sent successfully.", otpJwt);
     }
+
+
+
+
+    //public async Task<(string Token, string Otp)> GenerateAndSendOtpJwtAsync(string email)
+    //{
+    //    string token = GenerateOtpJwt(email, out string otpCode);
+
+    //    // Send OTP via Email
+    //    await SendEmailAsync(email, otpCode);
+
+    //    return (token, otpCode); // Return both token and OTP
+    //}
 
 
     private string GenerateOtpJwt(string email, out string otpCode)

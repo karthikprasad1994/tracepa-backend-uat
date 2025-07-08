@@ -2,42 +2,42 @@
 {
     public class ScheduleFormatDto
     {
-        //ScheduleFormatClient
-        public class ScheduleFormatClientDto
+        //GetCustomerName
+        public class CustDto
         {
             public int Cust_Id { get; set; }
-            public string Cust_Name { get; set; }
+            public string? Cust_Name { get; set; }
         }
 
-        //ScheduleFormatHeading
-        public class ScheduleFormatHeadingDto
+        //GetScheduleHeading
+        public class ScheduleHeadingDto
         {
             public int HeadingId { get; set; }
             public string HeadingName { get; set; }
         }
 
-        //ScheduleFormatSub-Heading
-        public class ScheduleFormatSubHeadingDto
+        //GetScheduleSubHeading
+        public class ScheduleSubHeadingDto
         {
             public int SubheadingID { get; set; }
             public string SubheadingName { get; set; }
         }
 
-        //ScheduleFormatItem
-        public class SFItemUnderSubHeadingDto
+        //GetScheduleItem
+        public class ScheduleItemDto
         {
             public int ItemsId { get; set; }
             public string ItemsName { get; set; }
         }
 
-        //ScheduleFormatSub-Item
-        public class SFSubItemsUnderItemsDto
+        //GetScheduleSubItem
+        public class ScheduleSubItemDto
         {
             public int SubitemsId { get; set; }
             public string SubitemsName { get; set; }
         }
 
-        //ScheduleFormatTemplate
+        //ScheduleTemplate
         public class ScheduleFormatTemplateDto
         {
             public int AST_ID { get; set; }
@@ -53,15 +53,15 @@
             public string AccHeadName { get; set; }
         }
 
-        //ScheduleFormatDeleteScheduleTemplate(Grid)
+        //DeleteScheduleTemplate(Grid)
         public class DeleteScheduleTemplateDto
         {
             public int StatusCode { get; set; }
             public string Message { get; set; }
         }
 
-        //SaveScheduleFormatHeading
-        public class SaveScheduleFormatHeadingDto
+        //SaveScheduleHeading
+        public class SaveScheduleHeadingDto
         {
             public int ASH_ID { get; set; }
             public string ASH_Name { get; set; }
@@ -96,8 +96,8 @@
             public int AST_Company_limit { get; set; }
         }
 
-        //SaveScheduleFormatSub-Heading
-        public class SaveScheduleFormatSub_HeaddingDto
+        //SaveScheduleSubHeading
+        public class SaveScheduleSubHeadingDto
         {
             public int ASSH_ID { get; set; }
             public string ASSH_Name { get; set; }
@@ -132,8 +132,8 @@
             public int AST_Company_limit { get; set; }
         }
 
-        //SaveScheduleFormatItem
-        public class SaveScheduleFormatItemDto
+        //SaveScheduleItem
+        public class SaveScheduleItemDto
         {
             // Item Fields
             public int ASI_ID { get; set; }
@@ -168,8 +168,8 @@
             public int AST_Company_limit { get; set; }
         }
 
-        //SaveScheduleFormatSub-Item
-        public class SaveScheduleFormatSub_ItemDto
+        //SaveScheduleSubItem
+        public class SaveScheduleSubItemDto
         {
             public int ASSI_ID { get; set; }
             public string? ASSI_Name { get; set; }

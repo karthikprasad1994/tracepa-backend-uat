@@ -25,7 +25,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetCustomersName
-        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int icompId)
+        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -38,18 +38,18 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<CustDto>(query, new { CompID = icompId });
+            return await connection.QueryAsync<CustDto>(query, new { CompID = CompId });
         }
 
         //GetFinancialYear
-        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int icompId)
+        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
             var query = @"
         SELECT 
-            YMS_YEARID,
-            YMS_ID 
+            YMS_YEARID AS YearId,
+            YMS_ID AS Id
         FROM YEAR_MASTER 
         WHERE YMS_FROMDATE < DATEADD(year, +1, GETDATE()) 
           AND YMS_CompId = @CompID 
@@ -57,27 +57,23 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = icompId });
+            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = CompId });
         }
 
         //GetDuration
-        public async Task<IEnumerable<CustDurationDto>> GetDurationAsync(int compId, int custId)
+        public async Task<int?> GetCustomerDurationIdAsync(int compId, int custId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            var query = "SELECT Cust_DurtnId FROM SAD_CUSTOMER_MASTER WHERE CUST_CompID = @CompId AND CUST_ID = @CustId";
 
-            var query = @"
-        SELECT 
-            ISNULL(Cust_DurtnId, 0) AS Cust_DurtnId  
-        FROM SAD_CUSTOMER_MASTER 
-        WHERE Cust_CompID = @compId AND cust_id = @custId";
+            var parameters = new { CompId = compId, CustId = custId };
+            var result = await connection.QueryFirstOrDefaultAsync<int?>(query, parameters);
 
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<CustDurationDto>(query, new { compId, custId });
+            return result;
         }
 
         //GetBranchName
-        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int compId, int custId)
+        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -90,17 +86,17 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<CustBranchDto>(query, new { compId, custId });
+            return await connection.QueryAsync<CustBranchDto>(query, new { CompId, CustId });
         }
 
         //GetJournalEntryInformation
         public async Task<IEnumerable<JournalEntryInformationDto>> GetJournalEntryInformationAsync(
-            int compId, int userId, string status, int custId, int yearId, int branchId, string dateFormat, int durationId)
+            int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
 
-            var statusFilter = status switch
+            var statusFilter = Status switch
             {
                 "0" => "A",
                 "1" => "D",
@@ -127,17 +123,17 @@ namespace TracePca.Service.FIN_statement
             if (!string.IsNullOrEmpty(statusFilter))
                 sql.Append(" AND Acc_JE_Status = @statusFilter");
 
-            if (branchId != 0)
+            if (BranchId != 0)
                 sql.Append(" AND acc_je_BranchID = @branchId");
 
-            if (durationId != 0)
+            if (DurationId != 0)
                 sql.Append(" AND Acc_JE_QuarterId = @durationId");
 
             sql.Append(" ORDER BY Acc_JE_ID ASC");
 
             var entries = (await connection.QueryAsync<JournalEntryInformationDto>(
                 sql.ToString(),
-                new { compId, custId, yearId, branchId, durationId, statusFilter, dateFormat }
+                new { CompId, CustId, YearId, BranchId, DurationId, statusFilter, DateFormat }
             )).ToList();
 
             foreach (var entry in entries)
@@ -154,7 +150,7 @@ namespace TracePca.Service.FIN_statement
             WHERE Ajtb_Masid = @entryId AND AJTB_CustId = @custId
             GROUP BY AJTB_DescName, AJTB_Debit";
 
-                var details = await connection.QueryAsync(detailQuery, new { entryId = entry.Id, custId });
+                var details = await connection.QueryAsync(detailQuery, new { entryId = entry.Id, CustId });
 
                 var debDescriptions = new List<string>();
                 var credDescriptions = new List<string>();

@@ -5,32 +5,30 @@ namespace TracePca.Interface.FIN_Statement
     public interface ScheduleReportInterface
     {
         //GetCustomersName
-        Task<IEnumerable<CustDto>> GetCustomerNameAsync(int icompId);
+        Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId);
 
         //GetFinancialYear
-        Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int icompId);
+        Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CcompId);
 
         //GetBranchName
-        Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int compId, int custId);
+        Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId);
 
         //GetCompanyName
-        Task<IEnumerable<CompanyDetailsDto>> GetCompanyNameAsync(int iCompId);
+        Task<IEnumerable<CompanyDetailsDto>> GetCompanyNameAsync(int CompId);
 
         //GetPartners
-        Task<IEnumerable<PartnersDto>> LoadCustomerPartnersAsync(int compId, int detailsId);
+        Task<IEnumerable<PartnersDto>> LoadCustomerPartnersAsync(int CompId, int DetailsId);
 
         //GetSubHeading
         Task<IEnumerable<SubHeadingDto>> GetSubHeadingAsync(
-       int iCompId, int iScheduleId, int iCustId, int iHeadingId);
+       int CompId, int ScheduleId, int CustId, int HeadingId);
 
         //GetItem
         Task<IEnumerable<ItemDto>> GetItemAsync(
-        int iCompId, int iScheduleId, int iCustId, int iHeadingId, int iSubHeadId);
+        int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId);
 
         //GetDateFormat
-        Task<string> GetDateFormatSelectionAsync(int companyId, string configKey);
-
-        //LoadButton
-        Task<IEnumerable<ReportDto>> GenerateReportAsync(int reportType, int scheduleTypeId, int accountId, int customerId, int yearId);
+        Task<string> GetDateFormatSelectionAsync(int CompanyId, string ConfigKey);
     }
 }
+                         

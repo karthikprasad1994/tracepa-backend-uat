@@ -214,6 +214,27 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpPost("UploadAndSaveCheckPointAttachment")]
+        public async Task<IActionResult> UploadAndSaveCheckPointAttachment([FromForm] FileAttachmentDTO dto, int auditId, int checkPointId)
+        {
+            try
+            {
+                var (attachmentId, relativeFilePath) = await _conductAuditInterface.UploadAndSaveCheckPointAttachmentAsync(dto, auditId, checkPointId);
+                if (attachmentId > 0)
+                {
+                    return Ok(new { success = true, message = "File uploaded and saved successfully.", data = attachmentId });
+                }
+                else
+                {
+                    return StatusCode(500, new { success = false, message = "File upload failed. No attachment record was saved." });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while uploading the file: {ex.Message}" });
+            }
+        }
+
         [HttpPost("RemoveAttachmentDoc")]
         public async Task<IActionResult> RemoveAttachmentDoc(int compId, int attachId, int docId, int userId)
         {
@@ -242,22 +263,38 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpGet("DownloadAttachment")]
+        public async Task<IActionResult> DownloadAttachment(int compId, int attachId, int docId)
+        {
+            try
+            {
+                var (isFileExists, messageOrfileUrl) = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId);
+                if (isFileExists)
+                {
+                    return Ok(new { statusCode = 200, success = true, fileUrl = messageOrfileUrl });
+                }
+                else
+                {
+                    return Ok(new { statusCode = 200, success = false, message = messageOrfileUrl });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while downloading the file: {ex.Message}" });
+            }
+        }
+
         [HttpPost("GenerateAndDownloadWorkpapersReport")]
         public async Task<IActionResult> GenerateAndDownloadWorkpapersReport(int compId, int auditId, string format = "pdf")
         {
             try
             {
                 var (fileBytes, contentType, fileName) = await _conductAuditInterface.GenerateAndDownloadWorkpapersReportAsync(compId, auditId, format);
-
                 return File(fileBytes, contentType, fileName);
             }
             catch
             {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "Failed to generate report."
-                });
+                return StatusCode(500, new { statusCode = 500, message = "Failed to generate report." });
             }
         }
 
@@ -267,16 +304,53 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var (fileBytes, contentType, fileName) = await _conductAuditInterface.GenerateAndDownloadCheckPointsReportAsync(compId, auditId, format);
-
                 return File(fileBytes, contentType, fileName);
             }
             catch
             {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "Failed to generate report."
-                });
+                return StatusCode(500, new { statusCode = 500, message = "Failed to generate report." });
+            }
+        }
+
+        [HttpPost("GenerateWorkpapersReportAndGetURLPath")]
+        public async Task<IActionResult> GenerateWorkpapersReportAndGetURLPath(int compId, int auditId, string format = "pdf")
+        {
+            try
+            {
+                var url = await _conductAuditInterface.GenerateWorkpapersReportAndGetURLPathAsync(compId, auditId, format);
+                return Ok(new { statusCode = 200, message = "Conduct Audit Workpaper report generated successfully. Download URL is available.", fileUrl = url });
+            }
+            catch
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to generate report." });
+            }
+        }
+
+        [HttpPost("GenerateCheckPointsReportAndGetURLPath")]
+        public async Task<IActionResult> GenerateCheckPointsReportAndGetURLPath(int compId, int auditId, string format = "pdf")
+        {
+            try
+            {
+                var url = await _conductAuditInterface.GenerateCheckPointsReportAndGetURLPathAsync(compId, auditId, format);
+                return Ok(new { statusCode = 200, message = "Conduct Audit CheckPoints report generated successfully. Download URL is available.", fileUrl = url });
+            }
+            catch
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to generate report." });
+            }
+        }
+
+        [HttpGet("LoadUsersByCustomerIdDDL")]
+        public async Task<IActionResult> LoadUsersByCustomerIdDDL(int custId)
+        {
+            try
+            {
+                var dropdownData = await _conductAuditInterface.LoadUsersByCustomerIdDDLAsync(custId);
+                return Ok(new { statusCode = 200, message = "Customer user dropdown data fetched successfully.", data = dropdownData });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load Customer user dropdown data.", error = ex.Message });
             }
         }
     }

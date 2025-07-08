@@ -28,13 +28,13 @@ namespace TracePca.Service.Audit
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
-        private readonly IHttpContextAccessor HttpContextAccessor;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public EngagementPlanService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
-            HttpContextAccessor = httpContextAccessor;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<AuditDropDownListDataDTO> LoadAllDDLDataAsync(int compId)
@@ -582,7 +582,7 @@ namespace TracePca.Service.Audit
 
                 await File.WriteAllBytesAsync(tempFilePath, fileBytes);
 
-                string baseUrl = $"{HttpContextAccessor.HttpContext.Request.Scheme}://{HttpContextAccessor.HttpContext.Request.Host}";
+                string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
                 string downloadUrl = $"{baseUrl}/temp/{fileName}";
 
                 return (true, downloadUrl);
@@ -600,8 +600,7 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
 
-                var userList = await connection.QueryAsync<DropDownListData>(@"SELECT usr_FullName As Name,usr_Id As ID from Sad_UserDetails where usr_Type = 'C' and usr_CompanyId = @CustId order by usr_FullName", new { CustId = custId });
-
+                var userList = await connection.QueryAsync<DropDownListData>(@"SELECT usr_FullName As Name,usr_Id As ID from Sad_UserDetails where usr_CompanyId = @CustId And (usr_DelFlag='A' or usr_DelFlag='B' or usr_DelFlag='L') And Usr_Email IS NOT NULL And Usr_Email<>'' order by usr_FullName", new { CustId = custId });
                 return new AuditDropDownListDataDTO
                 {
                     CustomerUserList = userList.ToList()
@@ -787,7 +786,7 @@ namespace TracePca.Service.Audit
 
                 await File.WriteAllBytesAsync(filePath, fileBytes);
 
-                string baseUrl = $"{HttpContextAccessor.HttpContext.Request.Scheme}://{HttpContextAccessor.HttpContext.Request.Host}";
+                string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
                 string downloadUrl = $"{baseUrl}/temp/{fileName}";
 
                 return downloadUrl;
@@ -1060,6 +1059,80 @@ namespace TracePca.Service.Audit
             catch (Exception ex)
             {
                 throw new ApplicationException("An error occurred while sending the email.", ex);
+            }
+        }
+
+        public async Task<LOEStatusSummary> GetLOEProgressAsync(int compId, int yearId, int custId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var parameters = new { CompId = compId, YearID = yearId, CustId = custId };
+
+                var result = await connection.QueryFirstOrDefaultAsync<LOEStatusSummary>(@"SELECT COUNT(*) AS TotalLOEs, SUM(CASE WHEN LOE_STATUS = 'A' THEN 1 ELSE 0 END) AS ApprovedLOEs,
+                    SUM(CASE WHEN LOE_STATUS != 'A' THEN 1 ELSE 0 END) AS PendingLOEs FROM SAD_CUST_LOE WHERE LOE_CompID = @CompId And LOE_YearId = @YearId And (@CustId <= 0 OR LOE_CustomerId = @CustId)", parameters);
+                return result ?? new LOEStatusSummary();
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting LOE progress data.", ex);
+            }
+        }
+
+        public async Task<AuditStatusSummary> GetAuditProgressAsync(int compId, int yearId, int custId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var parameters = new { CompId = compId, YearID = yearId, CustId = custId };
+
+                var result = await connection.QueryFirstOrDefaultAsync<AuditStatusSummary>(@"SELECT
+                    COUNT(*) AS TotalAudits,
+                    SUM(CASE WHEN SA_Status = 1 THEN 1 ELSE 0 END) AS Scheduled,
+                    SUM(CASE WHEN SA_Status = 2 THEN 1 ELSE 0 END) AS CommunicationWithClient,
+                    SUM(CASE WHEN SA_Status = 3 THEN 1 ELSE 0 END) AS TBR,
+                    SUM(CASE WHEN SA_Status = 4 THEN 1 ELSE 0 END) AS ConductAudit,
+                    SUM(CASE WHEN SA_Status = 5 THEN 1 ELSE 0 END) AS Report,
+                    SUM(CASE WHEN SA_Status = 10 THEN 1 ELSE 0 END) AS Completed,
+                    SUM(CASE WHEN SA_Status = 0 THEN 1 ELSE 0 END) AS AuditStarted,
+                    SUM(CASE WHEN SA_Status <> 10 THEN 1 ELSE 0 END) AS InProgress
+                    FROM StandardAudit_Schedule WHERE SA_CompID = @CompId AND SA_YearID = @YearId AND (@CustId <= 0 OR SA_CustID = @CustId)", parameters);
+
+                return result ?? new AuditStatusSummary();
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting Audit progress data.", ex);
+            }
+        }
+
+        public async Task<PassedDueDatesSummary> GetAuditPassedDueDatesAsync(int compId, int yearId, int custId)
+        {
+            try
+            {
+                //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                //await connection.OpenAsync();
+
+                //var parameters = new { CompId = compId, YearID = yearId, CustId = custId };
+
+                //var result = await connection.QueryFirstOrDefaultAsync<PassedDueDatesSummary>(@"", parameters);
+                //return result ?? new PassedDueDatesSummary();
+
+                await Task.CompletedTask;
+                return new PassedDueDatesSummary
+                {
+                    OverdueAudits = 0,
+                    LastDue = DateTime.MinValue,
+                    HighRisk = false
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting Audit Passed due dates data.", ex);
             }
         }
     }

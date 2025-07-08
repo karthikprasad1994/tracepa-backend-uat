@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using TracePca.Dto.AssetRegister;
 using TracePca.Dto.Audit;
+using TracePca.Dto.DigitalFilling;
 using TracePca.Interface.Audit;
 using TracePca.Interface.FixedAssetsInterface;
 
@@ -103,11 +104,11 @@ namespace TracePca.Controllers.Audit
 
 
         [HttpGet("GetDocumentRequestSummary")]
-        public async Task<IActionResult> GetDocumentRequestSummary([FromQuery] int compId, [FromQuery] int customerId, [FromQuery] int auditNo, [FromQuery] int requestId, [FromQuery] int yearId)
+        public async Task<IActionResult> GetDocumentRequestSummary([FromQuery] int compId, [FromQuery] int customerId, [FromQuery] int auditNo,   [FromQuery] int yearId)
         {
             try
             {
-                var documentSummary = await _AuditSummaryInterface.GetDocumentRequestSummaryAsync(compId, customerId, auditNo, requestId, yearId);
+                var documentSummary = await _AuditSummaryInterface.GetDocumentRequestSummaryAsync(compId, customerId, auditNo, yearId);
 
                 if (documentSummary != null && documentSummary.Any())
                 {
@@ -407,7 +408,7 @@ namespace TracePca.Controllers.Audit
                 // Log the error (optional)
                 // _logger.LogError(ex, "Error updating asset details.");
 
-                // Return error response
+                // Return error responseg
                 return StatusCode(500, new { message = "An error occurred while updating asset details.", error = ex.Message });
             }
         }
@@ -436,6 +437,99 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpGet("GetCAMAttachmentDetails")]
+        public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID)
+        {
+            try
+            {
+                var camDetails = await _AuditSummaryInterface.GetCAMAttachmentDetailsAsync(AttachID);
 
+                if (camDetails != null && camDetails.Any())
+                {
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "Critical Audit Matter Attachment details fetched successfully.",
+                        data = new
+                        {
+                            camDetails = camDetails
+                        }
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No Critical Audit Matter Attachment details found for the selected filters.",
+                        data = new
+                        {
+                            camDetails = new List<object>()
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = $"Internal server error: {ex.Message}",
+                    data = new
+                    {
+                        camDetails = new List<object>()
+                    }
+                });
+            }
+        }
+
+
+
+
+        //[HttpPost("GetCAMAttachmentDetails")]
+        //public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID, [FromBody] CAMAttachmentDetailsDto dto)
+        //{
+        //	try
+        //	{
+        //		var camDetails = await _AuditSummaryInterface.GetCAMAttachmentDetailsAsync(AttachID, dto);
+
+        //		if (camDetails != null && camDetails.Any())
+        //		{
+        //			return Ok(new
+        //			{
+        //				statusCode = 200,
+        //				message = "Critical Audit Matter Attachment details fetched successfully.",
+        //				data = new
+        //				{
+        //					camDetails = camDetails
+        //				}
+        //			});
+        //		}
+        //		else
+        //		{
+        //			return NotFound(new
+        //			{
+        //				statusCode = 404,
+        //				message = "No Critical Audit Matter Attachment details found for the selected filters.",
+        //				data = new
+        //				{
+        //					camDetails = new List<object>()
+        //				}
+        //			});
+        //		}
+        //	}
+        //	catch (Exception ex)
+        //	{
+        //		return StatusCode(500, new
+        //		{
+        //			statusCode = 500,
+        //			message = $"Internal server error: {ex.Message}",
+        //			data = new
+        //			{
+        //				camDetails = new List<object>()
+        //			}
+        //		});
+        //	}
+        //}
     }
 }

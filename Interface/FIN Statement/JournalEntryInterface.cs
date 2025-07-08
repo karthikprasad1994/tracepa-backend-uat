@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using static TracePca.Dto.FIN_Statement.JournalEntryDto;
 
 namespace TracePca.Interface.FIN_Statement
@@ -7,19 +8,19 @@ namespace TracePca.Interface.FIN_Statement
     {
 
         //GetCustomersName
-        Task<IEnumerable<CustDto>> GetCustomerNameAsync(int icompId);
+        Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId);
 
         //GetFinancialYear
-        Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int icompId);
+        Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CompId);
 
         //GetDuration
-        Task<IEnumerable<CustDurationDto>> GetDurationAsync(int compId, int custId);
+        Task<int?> GetCustomerDurationIdAsync(int CompId, int CustId);
 
         //GetBranchName
-        Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int compId, int custId);
+        Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId);
 
         //GetJournalEntryInformation
         Task<IEnumerable<JournalEntryInformationDto>> GetJournalEntryInformationAsync(
-            int compId, int userId, string status, int custId, int yearId, int branchId, string dateFormat, int durationId);
+            int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId);
     }
 }

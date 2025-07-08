@@ -1,15 +1,18 @@
+
+﻿using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OfficeOpenXml;
-using System.Text;
-using System.Text.Json.Serialization;
+using Microsoft.Extensions.FileProviders;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Interface;
 using TracePca.Interface.AssetMaserInterface;
 using TracePca.Interface.Audit;
 using TracePca.Interface.DigitalFiling;
+using TracePca.Interface.DigitalFilling;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.FixedAssetsInterface;
 using TracePca.Interface.Master;
@@ -25,6 +28,9 @@ using TracePca.Service.Master;
 using TracePca.Service.ProfileSetting;
 //using TracePca.Interface.AssetMaserInterface;
 
+
+
+ 
 
 var builder = WebApplication.CreateBuilder(args);
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
@@ -61,6 +67,10 @@ builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 builder.Services.AddScoped<JournalEntryInterface, JournalEntryService>();
+builder.Services.AddScoped<ScheduleNoteInterface, ScheduleNoteService>();
+builder.Services.AddScoped<ScheduleReportInterface, ScheduleReportService>();
+builder.Services.AddScoped<ScheduleExcelUploadInterface, ScheduleExcelUploadService>();
+builder.Services.AddScoped<ScheduleMastersInterface, ScheduleMastersService>();
 
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
 builder.Services.AddScoped<SubCabinetsInterface, SubCabinetsService>();
@@ -80,6 +90,10 @@ builder.Services.AddScoped<ConductAuditInterface, TracePca.Service.Audit.Conduct
 builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMasterService>();
 
 
+builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
+builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();
+
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -88,6 +102,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowReactApp", policy =>
     {
         policy.WithOrigins(
+
              "http://localhost:3000", // React app for local development
               "http://localhost:4000", 
               "https://tracelites.multimedia.interactivedns.com"
@@ -136,14 +151,23 @@ app.UseCors("AllowReactApp");
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
+
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")),
+    RequestPath = ""
+});
 
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.UseStaticFiles();
 
 app.Run();
