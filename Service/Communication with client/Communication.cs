@@ -1435,42 +1435,52 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<(byte[] fileBytes, string contentType, string fileName)> GenerateDRLReportWithoutSavingAsync(DRLRequestDto request, string format)
         {
-            // Generate temp file name and path
-            var generatedFileName = $"DRL_{request.CustomerId}_{DateTime.Now:yyyyMMddHHmmss}.{format}";
+            // ✅ Generate a safe file name
+            var generatedFileName = $"DRL_{request.CustomerId}_{DateTime.Now:yyyyMMddHHmmss}.{format.ToLower()}";
 
-            // ✅ Use consistent file path with SaveDRLLogWithAttachmentAsync
-            var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\.."));
-            var outputFolder = Path.Combine(projectRoot, "GeneratedReports");
-            Directory.CreateDirectory(outputFolder);
+            // ✅ Use system temp directory (cloud-safe)
+            var outputFolder = Path.Combine(Path.GetTempPath(), "GeneratedReports");
+            Directory.CreateDirectory(outputFolder); // creates the folder if it doesn't exist
+
             var tempFilePath = Path.Combine(outputFolder, generatedFileName);
 
-            // Fetch customer + template data
+            // ✅ Fetch required customer data
             var customerData = await GetCustomerDetailsWithTemplatesAsync(request.CompanyId, request.CustomerId, request.ReportType);
-
-
-            // Save DRL log and generate the report
-            //var drlId = await SaveDRLLogWithAttachmentAsync(drlLog, tempFilePath, format);
-
             if (customerData == null)
                 throw new Exception("Customer data not found.");
 
-            // Generate report file (PDF or Word)
+            // ✅ Generate report
             if (format.ToLower() == "pdf")
                 GeneratePdf(customerData, tempFilePath);
             else
                 GenerateWord(customerData, tempFilePath);
 
-
+            // ✅ Ensure the file was created
             if (!File.Exists(tempFilePath))
                 throw new FileNotFoundException($"Expected file not found at {tempFilePath}");
 
-            var fileBytes = await File.ReadAllBytesAsync(tempFilePath);
-            var contentType = format.ToLower() == "pdf"
-                ? "application/pdf"
-                : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            try
+            {
+                // ✅ Read file as bytes to return
+                var fileBytes = await File.ReadAllBytesAsync(tempFilePath);
 
-            return (fileBytes, contentType, generatedFileName);
+                // ✅ Set correct content type
+                var contentType = format.ToLower() == "pdf"
+                    ? "application/pdf"
+                    : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+                return (fileBytes, contentType, generatedFileName);
+            }
+            finally
+            {
+                // ✅ Clean up the temporary file
+                if (File.Exists(tempFilePath))
+                {
+                    File.Delete(tempFilePath);
+                }
+            }
         }
+
 
 
 
