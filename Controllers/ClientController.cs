@@ -126,7 +126,7 @@ namespace TracePca.Controllers
                 {
                     status = 200,
                     message = "Report types retrieved successfully.",
-                    data = reportTypes
+                   data = reportTypes
                 });
             }
             catch (Exception ex)
@@ -633,17 +633,20 @@ namespace TracePca.Controllers
         public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId,int ReportType)
         {
             try
+
             {
                 var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId, ReportType);
 
                 return Ok(new
                 {
                     StatusCode = 200,
-                    Message = result.Count > 0 ? "Attachments loaded successfully." : "No attachments found.",
+                   Message = result.Count > 0 ? "Attachments loaded successfully." : "No attachments found.",
                     Data = result
                 });
             }
             catch (Exception ex)
+
+            
             {
                 return StatusCode(500, new
                 {
