@@ -1,20 +1,18 @@
 
 ﻿using System.Text;
 using System.Text.Json.Serialization;
-
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OfficeOpenXml;
-using System.Text;
-using System.Text.Json.Serialization;
+using Microsoft.Extensions.FileProviders;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Interface;
 using TracePca.Interface.AssetMaserInterface;
 using TracePca.Interface.Audit;
 using TracePca.Interface.DigitalFiling;
+using TracePca.Interface.DigitalFilling;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.FixedAssetsInterface;
 using TracePca.Interface.Master;
@@ -22,10 +20,7 @@ using TracePca.Interface.ProfileSetting;
 using TracePca.Service;
 using TracePca.Service.AssetService;
 using TracePca.Service.Audit;
-using TracePca.Interface.DigitalFilling;
-using TracePca.Service.DigitalFilling;
 using TracePca.Service.Communication_with_client;
-
 using TracePca.Service.DigitalFiling;
 using TracePca.Service.FIN_statement;
 using TracePca.Service.FixedAssetsService;
@@ -50,9 +45,11 @@ builder.Services.AddControllers()
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpContextAccessor();
 
 
 builder.Services.AddControllers()
+
 .AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
@@ -162,6 +159,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")),
+    RequestPath = ""
+});
 
 app.UseAuthorization();
 

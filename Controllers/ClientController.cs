@@ -126,7 +126,7 @@ namespace TracePca.Controllers
                 {
                     status = 200,
                     message = "Report types retrieved successfully.",
-                    data = reportTypes
+                   data = reportTypes
                 });
             }
             catch (Exception ex)
@@ -633,17 +633,20 @@ namespace TracePca.Controllers
         public async Task<IActionResult> LoadAttachments(string connectionStringName, int companyId, int attachId,int ReportType)
         {
             try
+
             {
                 var result = await _AuditInterface.LoadAttachmentsAsync(connectionStringName, companyId, attachId, ReportType);
 
                 return Ok(new
                 {
                     StatusCode = 200,
-                    Message = result.Count > 0 ? "Attachments loaded successfully." : "No attachments found.",
+                   Message = result.Count > 0 ? "Attachments loaded successfully." : "No attachments found.",
                     Data = result
                 });
             }
             catch (Exception ex)
+
+            
             {
                 return StatusCode(500, new
                 {
@@ -1225,13 +1228,9 @@ namespace TracePca.Controllers
         {
             try
             {
-                await _AuditInterface.GenerateAndLogDRLReportAsync(request, format);
+                var (fileBytes, contentType, fileName) = await _AuditInterface.GenerateDRLReportWithoutSavingAsync(request, "pdf");
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "File exported successfully"
-                });
+                return File(fileBytes, contentType, fileName);
             }
             catch
             {
@@ -1556,6 +1555,33 @@ namespace TracePca.Controllers
                 });
             }
         }
+
+        [HttpPost("Local-upload-multiple")]
+        public async Task<IActionResult> UploadMultiple([FromForm] LocalAttachmentDto dto)
+        {
+            if (dto.Files == null || !dto.Files.Any())
+                return BadRequest("No files uploaded.");
+
+            var ids = await _AuditInterface.SaveAttachmentsAsync(dto);
+            return Ok(new { UploadedAttachmentIds = ids });
+        }
+
+        [HttpPost("GetDocumentPath")]
+        public async Task<IActionResult> GetHttpsDocumentPathModulewise([FromBody] GetDocumentPathRequestDto dto)
+        {
+            try
+            {
+                var path = await _AuditInterface.GetHttpsDocumentPathModulewiseAsync(dto);
+                if (string.IsNullOrWhiteSpace(path))
+                    return NotFound("Document Not Exist.");
+                return Ok(new { fileUrl = path });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
 
     }
 

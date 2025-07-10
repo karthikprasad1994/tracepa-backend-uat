@@ -155,4 +155,31 @@ namespace TracePca.Dto.Audit
         public string? IPAddress { get; set; }
         public int CompId { get; set; }
     }
+
+    public class LOEStatusSummary
+    {
+        public int TotalLOEs { get; set; }
+        public int ApprovedLOEs { get; set; }
+        public int PendingLOEs { get; set; }
+    }
+
+    public class AuditStatusSummary
+    {
+        public int TotalAudits { get; set; }
+        public int Scheduled { get; set; }
+        public int CommunicationWithClient { get; set; }
+        public int TBR { get; set; }
+        public int ConductAudit { get; set; }
+        public int Report { get; set; }
+        public int Completed { get; set; }
+        public int AuditStarted { get; set; }
+        public int InProgress { get; set; }
+    }
+
+    public class PassedDueDatesSummary
+    {
+        public int OverdueAudits { get; set; }
+        public DateTime? LastDue { get; set; }
+        public Boolean? HighRisk { get; set; } = false;
+    }
 }
