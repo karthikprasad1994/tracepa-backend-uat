@@ -121,6 +121,9 @@ namespace TracePca.Interface.Audit
         Task<(byte[] fileBytes, string contentType, string fileName)> GenerateDRLReportWithoutSavingAsync(DRLRequestDto request, string format);
 
         Task<IEnumerable<dynamic>> GetReportHistoryComments(ReportHistoryCommentsDto dto);
+
+        Task<string> GetHttpsDocumentPathModulewiseAsync(GetDocumentPathRequestDto dto);
+
     }
 
 

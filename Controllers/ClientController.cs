@@ -1566,7 +1566,21 @@ namespace TracePca.Controllers
             return Ok(new { UploadedAttachmentIds = ids });
         }
 
-
+        [HttpPost("GetDocumentPath")]
+        public async Task<IActionResult> GetHttpsDocumentPathModulewise([FromBody] GetDocumentPathRequestDto dto)
+        {
+            try
+            {
+                var path = await _AuditInterface.GetHttpsDocumentPathModulewiseAsync(dto);
+                if (string.IsNullOrWhiteSpace(path))
+                    return NotFound("Document Not Exist.");
+                return Ok(new { fileUrl = path });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
 
 
     }

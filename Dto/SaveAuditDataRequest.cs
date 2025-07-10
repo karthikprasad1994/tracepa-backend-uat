@@ -1,4 +1,5 @@
-﻿using TracePca.Dto.Audit;
+﻿using System.Text.Json.Serialization;
+using TracePca.Dto.Audit;
 
 namespace TracePca.Dto
 {
@@ -18,10 +19,10 @@ namespace TracePca.Dto
 
     public class LocalAttachmentDto
     {
-        public List<IFormFile> Files { get; set; } = new();
+        public List<IFormFile>? Files { get; set; } = new();
 
         public string ModuleName { get; set; } = string.Empty;
-        public string AccessCodeDirectory { get; set; } = string.Empty;
+        public string? AccessCodeDirectory { get; set; } = string.Empty;
 
         public int CompanyId { get; set; }
         public int UserId { get; set; }
