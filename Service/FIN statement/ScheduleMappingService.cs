@@ -960,8 +960,380 @@ WHERE ATBUD_Description = @AtbudDescription
             };
         }
 
-        //SaveTrailBalanceDetails
-        public async Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, TrailBalanceDetailsDto dto)
+        ////SaveTrailBalanceDetails
+        //public async Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, TrailBalanceDetailsDto dto)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    await connection.OpenAsync();
+        //    using var transaction = connection.BeginTransaction();
+
+        //    try
+        //    {
+        //        int iPKId = dto.ATBU_ID;
+        //        int updateOrSave, oper;
+
+        //        // --- Save Trail Balance Upload (Main) ---
+        //        using (var uploadCommand = new SqlCommand("spAcc_TrailBalance_Upload", connection, transaction))
+        //        {
+        //            uploadCommand.CommandType = CommandType.StoredProcedure;
+
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_ID", dto.ATBU_ID);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_CODE", dto.ATBU_CODE ?? string.Empty);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_Description", dto.ATBU_Description ?? string.Empty);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_CustId", dto.ATBU_CustId);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_Opening_Debit_Amount", dto.ATBU_Opening_Debit_Amount);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_Opening_Credit_Amount", dto.ATBU_Opening_Credit_Amount);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_TR_Debit_Amount", dto.ATBU_TR_Debit_Amount);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_TR_Credit_Amount", dto.ATBU_TR_Credit_Amount);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_Closing_Debit_Amount", dto.ATBU_Closing_Debit_Amount);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_Closing_Credit_Amount", dto.ATBU_Closing_Credit_Amount);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_DELFLG", "A");
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_CRBY", dto.ATBU_CRBY);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_STATUS", "C");
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_UPDATEDBY", dto.ATBU_UPDATEDBY);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_IPAddress", dto.ATBU_IPAddress ?? string.Empty);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_CompId", dto.ATBU_CompId);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_YEARId", dto.ATBU_YEARId);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_Branchid", dto.ATBU_Branchid);
+        //            uploadCommand.Parameters.AddWithValue("@ATBU_QuarterId", dto.ATBU_QuarterId);
+
+        //            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+        //            var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+        //            uploadCommand.Parameters.Add(updateOrSaveParam);
+        //            uploadCommand.Parameters.Add(operParam);
+
+        //            // Optional: soft update
+        //            var updateQuery = @"
+        //        UPDATE Acc_TrailBalance_Upload
+        //        SET ATBU_DelFlg = 'A'
+        //        WHERE ATBU_CompId = @CompId AND ATBU_ID = @ATBU_ID";
+        //            await connection.ExecuteAsync(updateQuery, new { CompId = CompId, dto.ATBU_ID }, transaction);
+
+        //            await uploadCommand.ExecuteNonQueryAsync();
+
+        //            updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+        //            oper = (int)(operParam.Value ?? 0);
+        //        }
+
+        //        bool isNewUpload = dto.ATBU_ID == 0 || updateOrSave == 1;
+        //        if (iPKId == 0)
+
+        //            // --- Save Trail Balance Upload Details ---
+        //            using (var detailsCommand = new SqlCommand("spAcc_TrailBalance_Upload_Details", connection, transaction))
+        //        {
+        //            detailsCommand.CommandType = CommandType.StoredProcedure;
+
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_ID", dto.ATBUD_ID);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_Masid", oper); // Use main ATBU_ID as foreign key
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_CODE", dto.ATBUD_CODE ?? string.Empty);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_Description", dto.ATBUD_Description ?? string.Empty);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_CustId", dto.ATBUD_CustId);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_SChedule_Type", dto.ATBUD_SChedule_Type);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_Branchid", dto.ATBUD_Branchid);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_QuarterId", dto.ATBUD_QuarterId);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_Company_Type", dto.ATBUD_Company_Type);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_Headingid", dto.ATBUD_Headingid);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_Subheading", dto.ATBUD_Subheading);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_itemid", dto.ATBUD_itemid);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_Subitemid", dto.ATBUD_Subitemid);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_DELFLG", dto.ATBUD_DELFLG ?? string.Empty);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_CRBY", dto.ATBUD_CRBY);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_UPDATEDBY", dto.ATBUD_UPDATEDBY);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_STATUS", dto.ATBUD_STATUS ?? string.Empty);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_Progress", dto.ATBUD_Progress ?? string.Empty);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_IPAddress", dto.ATBUD_IPAddress ?? string.Empty);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_CompId", dto.ATBUD_CompId);
+        //            detailsCommand.Parameters.AddWithValue("@ATBUD_YEARId", dto.ATBUD_YEARId);
+
+        //            var updateOrSaveParamDet = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+        //            var operParamDet = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+        //            detailsCommand.Parameters.Add(updateOrSaveParamDet);
+        //            detailsCommand.Parameters.Add(operParamDet);
+
+        //            // Optional: soft update
+        //            var updateDetailsQuery = @"
+        //        UPDATE Acc_TrailBalance_Upload_Details
+        //        SET ATBUD_DelFlg = 'A'
+        //        WHERE ATBUD_CompId = @CompId AND ATBUD_ID = @ATBUD_ID";
+        //            await connection.ExecuteAsync(updateDetailsQuery, new { CompId = CompId, dto.ATBUD_ID }, transaction);
+
+        //            await detailsCommand.ExecuteNonQueryAsync();
+        //        }
+
+        //        transaction.Commit();
+        //        return new int[] { updateOrSave, oper };
+        //    }
+        //    catch
+        //    {
+        //        transaction.Rollback();
+        //        throw;
+        //    }
+        //}
+
+        //SaveTrailBalnceDetails
+        public async Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDetailsDto> dtos)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            var insertedIds = new List<int>();
+
+            try
+            {
+                foreach (var dto in dtos)
+                {
+                    int updateOrSave = 0, oper = 0;
+
+                    // Step 1: Resolve schedule mapping IDs from names
+                    int subItemId = 0, itemId = 0, subHeadingId = 0, headingId = 0, scheduleType = 0;
+
+                    if (!string.IsNullOrWhiteSpace(dto.Excel_SubItem))
+                        subItemId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleSubItems", "ASSI_ID", dto.Excel_SubItem, dto.ATBU_CustId);
+
+                    if (!string.IsNullOrWhiteSpace(dto.Excel_Item))
+                        itemId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleItems", "ASI_ID", dto.Excel_Item, dto.ATBU_CustId);
+
+                    if (!string.IsNullOrWhiteSpace(dto.Excel_SubHeading))
+                        subHeadingId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleSubHeading", "ASSH_ID", dto.Excel_SubHeading, dto.ATBU_CustId);
+
+                    if (!string.IsNullOrWhiteSpace(dto.Excel_Heading))
+                        headingId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleHeading", "ASH_ID", dto.Excel_Heading, dto.ATBU_CustId);
+
+                    // Optional: Fetch ScheduleType from template
+                    scheduleType = await GetScheduleTypeFromTemplateAsync(connection, transaction, subItemId, itemId, subHeadingId, headingId, dto.ATBUD_Company_Type);
+
+                    // --- Master Insert ---
+                    using (var cmdMaster = new SqlCommand("spAcc_TrailBalance_Upload", connection, transaction))
+                    {
+                        cmdMaster.CommandType = CommandType.StoredProcedure;
+
+                        cmdMaster.Parameters.AddWithValue("@ATBU_ID", dto.ATBU_ID);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_CODE", dto.ATBU_CODE ?? string.Empty);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_Description", dto.ATBU_Description ?? string.Empty);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_CustId", dto.ATBU_CustId);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_Opening_Debit_Amount", dto.ATBU_Opening_Debit_Amount);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_Opening_Credit_Amount", dto.ATBU_Opening_Credit_Amount);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_TR_Debit_Amount", dto.ATBU_TR_Debit_Amount);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_TR_Credit_Amount", dto.ATBU_TR_Credit_Amount);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_Closing_Debit_Amount", dto.ATBU_Closing_Debit_Amount);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_Closing_Credit_Amount", dto.ATBU_Closing_Credit_Amount);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_DELFLG", dto.ATBU_DELFLG ?? "A");
+                        cmdMaster.Parameters.AddWithValue("@ATBU_CRBY", dto.ATBU_CRBY);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_STATUS", dto.ATBU_STATUS ?? "C");
+                        cmdMaster.Parameters.AddWithValue("@ATBU_UPDATEDBY", dto.ATBU_UPDATEDBY);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_IPAddress", dto.ATBU_IPAddress ?? "127.0.0.1");
+                        cmdMaster.Parameters.AddWithValue("@ATBU_CompId", dto.ATBU_CompId);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_YEARId", dto.ATBU_YEARId);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_Branchid", dto.ATBU_Branchid);
+                        cmdMaster.Parameters.AddWithValue("@ATBU_QuarterId", dto.ATBU_QuarterId);
+
+                        var output1 = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        var output2 = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        cmdMaster.Parameters.Add(output1);
+                        cmdMaster.Parameters.Add(output2);
+
+                        await cmdMaster.ExecuteNonQueryAsync();
+
+                        updateOrSave = (int)(output1.Value ?? 0);
+                        oper = (int)(output2.Value ?? 0);
+                    }
+
+                    // --- Detail Insert ---
+                    using (var cmdDetail = new SqlCommand("spAcc_TrailBalance_Upload_Details", connection, transaction))
+                    {
+                        cmdDetail.CommandType = CommandType.StoredProcedure;
+
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_ID", dto.ATBUD_ID);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_Masid", oper);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_CODE", dto.ATBUD_CODE ?? string.Empty);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_Description", dto.ATBUD_Description ?? string.Empty);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_CustId", dto.ATBUD_CustId);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_SChedule_Type", scheduleType);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_Branchid", dto.ATBUD_Branchid);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_QuarterId", dto.ATBUD_QuarterId);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_Company_Type", dto.ATBUD_Company_Type);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_Headingid", headingId);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_Subheading", subHeadingId);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_itemid", itemId);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_SubItemid", subItemId);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_DELFLG", dto.ATBUD_DELFLG ?? "A");
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_CRBY", dto.ATBUD_CRBY);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_UPDATEDBY", dto.ATBUD_UPDATEDBY);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_STATUS", dto.ATBUD_STATUS ?? "C");
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_Progress", dto.ATBUD_Progress ?? "Uploaded");
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_IPAddress", dto.ATBUD_IPAddress ?? "127.0.0.1");
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_CompId", dto.ATBUD_CompId);
+                        cmdDetail.Parameters.AddWithValue("@ATBUD_YEARId", dto.ATBU_YEARId);
+
+                        var output1 = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        var output2 = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        cmdDetail.Parameters.Add(output1);
+                        cmdDetail.Parameters.Add(output2);
+
+                        await cmdDetail.ExecuteNonQueryAsync();
+                        insertedIds.Add((int)(output2.Value ?? 0));
+                    }
+                }
+
+                transaction.Commit();
+                return insertedIds.ToArray();
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+        private async Task<int> GetIdFromNameAsync(SqlConnection conn, SqlTransaction tran, string table, string column, string name, int orgType)
+        {
+            string nameCol = column.Replace("_ID", "_Name");
+            string orgCol = column.Replace("_ID", "_Orgtype");
+
+            var query = $"SELECT ISNULL({column}, 0) FROM {table} WHERE {nameCol} = @name AND {orgCol} = @orgType";
+            using var cmd = new SqlCommand(query, conn, tran);
+            cmd.Parameters.AddWithValue("@name", name.Trim());
+            cmd.Parameters.AddWithValue("@orgType", orgType);
+
+            var result = await cmd.ExecuteScalarAsync();
+            return Convert.ToInt32(result ?? 0);
+        }
+        private async Task<int> GetScheduleTypeFromTemplateAsync(SqlConnection conn, SqlTransaction tran, int subItemId, int itemId, int subHeadingId, int headingId, int orgType)
+        {
+            string query = "";
+
+            if (subItemId > 0)
+                query = "SELECT ISNULL(AST_Schedule_type, 0) FROM ACC_ScheduleTemplates WHERE AST_SubItemID = @id AND AST_Companytype = @orgType";
+            else if (itemId > 0)
+                query = "SELECT ISNULL(AST_Schedule_type, 0) FROM ACC_ScheduleTemplates WHERE AST_ItemID = @id AND AST_SubItemID = 0 AND AST_Companytype = @orgType";
+            else if (subHeadingId > 0)
+                query = "SELECT ISNULL(AST_Schedule_type, 0) FROM ACC_ScheduleTemplates WHERE AST_SubHeadingID = @id AND AST_Companytype = @orgType";
+            else if (headingId > 0)
+                query = "SELECT ISNULL(AST_Schedule_type, 0) FROM ACC_ScheduleTemplates WHERE AST_HeadingID = @id AND AST_Companytype = @orgType";
+            else
+                return 0;
+
+            using var cmd = new SqlCommand(query, conn, tran);
+            cmd.Parameters.AddWithValue("@id", subItemId > 0 ? subItemId : itemId > 0 ? itemId : subHeadingId > 0 ? subHeadingId : headingId);
+            cmd.Parameters.AddWithValue("@orgType", orgType);
+
+            var result = await cmd.ExecuteScalarAsync();
+            return Convert.ToInt32(result ?? 0);
+        }
+
+        //UpdateTrailBalance
+        public async Task<List<int>> UpdateTrailBalanceAsync(List<UpdateTrailBalanceDto> dtos)
+        {
+            var resultIds = new List<int>();
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                foreach (var dto in dtos)
+                {
+                    int iPKId = dto.ATBUD_ID;
+                    int updateOrSave, oper;
+
+                    using (var detailsCommand = new SqlCommand("spAcc_TrailBalance_Upload_Details", connection, transaction))
+                    {
+                        detailsCommand.CommandType = CommandType.StoredProcedure;
+
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_ID", dto.ATBUD_ID);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_CODE", dto.ATBUD_CODE ?? string.Empty);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_Description", dto.ATBUD_Description ?? string.Empty);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_CustId", dto.ATBUD_CustId);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_SChedule_Type", dto.ATBUD_SChedule_Type);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_Branchid", dto.ATBUD_Branchid);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_QuarterId", dto.ATBUD_QuarterId);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_Company_Type", dto.ATBUD_Company_Type);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_Headingid", dto.ATBUD_Headingid);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_Subheading", dto.ATBUD_Subheading);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_itemid", dto.ATBUD_itemid);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_Subitemid", dto.ATBUD_Subitemid);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_DELFLG", dto.ATBUD_DELFLG ?? "A");
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_CRBY", dto.ATBUD_CRBY);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_UPDATEDBY", dto.ATBUD_UPDATEDBY);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_STATUS", dto.ATBUD_STATUS ?? "C");
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_Progress", dto.ATBUD_Progress ?? "Uploaded");
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_IPAddress", dto.ATBUD_IPAddress ?? string.Empty);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_CompId", dto.ATBUD_CompId);
+                        detailsCommand.Parameters.AddWithValue("@ATBUD_YEARId", dto.ATBUD_YEARId);
+
+                        var detailOutput1 = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        var detailOutput2 = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        detailsCommand.Parameters.Add(detailOutput1);
+                        detailsCommand.Parameters.Add(detailOutput2);
+
+                        await detailsCommand.ExecuteNonQueryAsync();
+                    }
+                }
+                transaction.Commit();
+                return resultIds;
+            }
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+                throw new Exception("Error while saving Trail Balance data: " + ex.Message, ex);
+            }
+        }
+
+        //LoadSubHeadingByHeading
+        public async Task<IEnumerable<LoadSubHeadingByHeadingDto>> GetSubHeadingsByHeadingIdAsync(int headingId, int orgType)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var query = @"
+SELECT ASSH_ID AS Id, ASSH_Name AS Name 
+FROM ACC_ScheduleSubHeading 
+WHERE ASSH_HeadingID = @HeadingId 
+  AND ASSH_OrgType = @OrgType 
+  AND ISNULL(ASSH_DELFLG, 'A') = 'A'";
+
+            await connection.OpenAsync();
+            var result = await connection.QueryAsync<LoadSubHeadingByHeadingDto>(query, new { HeadingId = headingId, OrgType = orgType });
+            return result;
+        }
+
+        //LoadItemBySubHeading
+        public async Task<IEnumerable<LoadItemBySubHeadingDto>> GetItemsBySubHeadingIdAsync(int subHeadingId, int orgType)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var query = @"
+SELECT ASI_ID AS Id, ASI_Name AS Name 
+FROM ACC_ScheduleItems 
+WHERE ASI_SubHeadingID = @SubHeadingId 
+  AND ASI_OrgType = @OrgType 
+  AND ISNULL(ASI_DELFLG, 'A') = 'A'";
+
+            await connection.OpenAsync();
+            var result = await connection.QueryAsync<LoadItemBySubHeadingDto>(query, new { SubHeadingId = subHeadingId, OrgType = orgType });
+            return result;
+        }
+
+        //LoadSubItemByItem
+        public async Task<IEnumerable<LoadSubItemByItemDto>> GetSubItemsByItemIdAsync(int itemId, int orgType)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var query = @"
+SELECT ASSI_ID AS Id, ASSI_Name AS Name 
+FROM ACC_ScheduleSubItems 
+WHERE ASSI_ItemsID = @ItemId 
+  AND ASSI_OrgType = @OrgType 
+  AND ISNULL(ASSI_DELFLG, 'A') = 'A'";
+
+            await connection.OpenAsync();
+            var result = await connection.QueryAsync<LoadSubItemByItemDto>(query, new { ItemId = itemId, OrgType = orgType });
+            return result;
+        }
+
+        //GetPreviousLoadId
+        public async Task<(int? HeadingId, int? SubHeadingId, int? ItemId)> GetPreviousLoadIdAsync(
+  int? subItemId = null, int? itemId = null, int? subHeadingId = null)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
@@ -969,99 +1341,63 @@ WHERE ATBUD_Description = @AtbudDescription
 
             try
             {
-                int iPKId = dto.ATBU_ID;
-                int updateOrSave, oper;
+                int? finalHeadingId = null;
+                int? finalSubHeadingId = null;
+                int? finalItemId = null;
+                int? finalSubItemId = null;
 
-                // --- Save Trail Balance Upload (Main) ---
-                using (var uploadCommand = new SqlCommand("spAcc_TrailBalance_Upload", connection, transaction))
+                // If sub-item is selected, get item > sub-heading > heading
+                if (subItemId.HasValue && subItemId > 0)
                 {
-                    uploadCommand.CommandType = CommandType.StoredProcedure;
+                    var query = @"
+              SELECT 
+                  si.ASSI_ItemsID AS ItemId,
+                  i.ASI_SubHeadingID AS SubHeadingId,
+                  sh.ASSH_HeadingID AS HeadingId
+              FROM ACC_ScheduleSubItems si
+              JOIN ACC_ScheduleItems i ON si.ASSI_ItemsID = i.ASI_ID
+              JOIN ACC_ScheduleSubHeading sh ON i.ASI_SubHeadingID = sh.ASSH_ID
+              WHERE si.ASSI_ID = @SubItemId";
 
-                    uploadCommand.Parameters.AddWithValue("@ATBU_ID", dto.ATBU_ID);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_CODE", dto.ATBU_CODE ?? string.Empty);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_Description", dto.ATBU_Description ?? string.Empty);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_CustId", dto.ATBU_CustId);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_Opening_Debit_Amount", dto.ATBU_Opening_Debit_Amount);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_Opening_Credit_Amount", dto.ATBU_Opening_Credit_Amount);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_TR_Debit_Amount", dto.ATBU_TR_Debit_Amount);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_TR_Credit_Amount", dto.ATBU_TR_Credit_Amount);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_Closing_Debit_Amount", dto.ATBU_Closing_Debit_Amount);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_Closing_Credit_Amount", dto.ATBU_Closing_Credit_Amount);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_DELFLG", "A");
-                    uploadCommand.Parameters.AddWithValue("@ATBU_CRBY", dto.ATBU_CRBY);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_STATUS", "C");
-                    uploadCommand.Parameters.AddWithValue("@ATBU_UPDATEDBY", dto.ATBU_UPDATEDBY);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_IPAddress", dto.ATBU_IPAddress ?? string.Empty);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_CompId", dto.ATBU_CompId);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_YEARId", dto.ATBU_YEARId);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_Branchid", dto.ATBU_Branchid);
-                    uploadCommand.Parameters.AddWithValue("@ATBU_QuarterId", dto.ATBU_QuarterId);
+                    var result = await connection.QueryFirstOrDefaultAsync<(int?, int?, int?)>(
+                        query, new { SubItemId = subItemId }, transaction);
 
-                    var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                    var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                    uploadCommand.Parameters.Add(updateOrSaveParam);
-                    uploadCommand.Parameters.Add(operParam);
-
-                    // Optional: soft update
-                    var updateQuery = @"
-                UPDATE Acc_TrailBalance_Upload
-                SET ATBU_DelFlg = 'A'
-                WHERE ATBU_CompId = @CompId AND ATBU_ID = @ATBU_ID";
-                    await connection.ExecuteAsync(updateQuery, new { CompId = CompId, dto.ATBU_ID }, transaction);
-
-                    await uploadCommand.ExecuteNonQueryAsync();
-
-                    updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
-                    oper = (int)(operParam.Value ?? 0);
+                    finalItemId = result.Item1;
+                    finalSubHeadingId = result.Item2;
+                    finalHeadingId = result.Item3;
+                    finalSubItemId = subItemId;
                 }
-
-                bool isNewUpload = dto.ATBU_ID == 0 || updateOrSave == 1;
-                if (iPKId == 0)
-
-                    // --- Save Trail Balance Upload Details ---
-                    using (var detailsCommand = new SqlCommand("spAcc_TrailBalance_Upload_Details", connection, transaction))
+                // If item is selected, get sub-heading > heading
+                else if (itemId.HasValue && itemId > 0)
                 {
-                    detailsCommand.CommandType = CommandType.StoredProcedure;
+                    var query = @"
+              SELECT 
+                  ASI_SubHeadingID AS SubHeadingId,
+                  (SELECT ASSH_HeadingID FROM ACC_ScheduleSubHeading WHERE ASSH_ID = ASI_SubHeadingID) AS HeadingId
+              FROM ACC_ScheduleItems
+              WHERE ASI_ID = @ItemId";
 
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_ID", dto.ATBUD_ID);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_Masid", oper); // Use main ATBU_ID as foreign key
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_CODE", dto.ATBUD_CODE ?? string.Empty);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_Description", dto.ATBUD_Description ?? string.Empty);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_CustId", dto.ATBUD_CustId);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_SChedule_Type", dto.ATBUD_SChedule_Type);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_Branchid", dto.ATBUD_Branchid);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_QuarterId", dto.ATBUD_QuarterId);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_Company_Type", dto.ATBUD_Company_Type);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_Headingid", dto.ATBUD_Headingid);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_Subheading", dto.ATBUD_Subheading);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_itemid", dto.ATBUD_itemid);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_Subitemid", dto.ATBUD_Subitemid);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_DELFLG", dto.ATBUD_DELFLG ?? string.Empty);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_CRBY", dto.ATBUD_CRBY);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_UPDATEDBY", dto.ATBUD_UPDATEDBY);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_STATUS", dto.ATBUD_STATUS ?? string.Empty);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_Progress", dto.ATBUD_Progress ?? string.Empty);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_IPAddress", dto.ATBUD_IPAddress ?? string.Empty);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_CompId", dto.ATBUD_CompId);
-                    detailsCommand.Parameters.AddWithValue("@ATBUD_YEARId", dto.ATBUD_YEARId);
+                    var result = await connection.QueryFirstOrDefaultAsync<(int?, int?)>(
+                        query, new { ItemId = itemId }, transaction);
 
-                    var updateOrSaveParamDet = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                    var operParamDet = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                    detailsCommand.Parameters.Add(updateOrSaveParamDet);
-                    detailsCommand.Parameters.Add(operParamDet);
+                    finalSubHeadingId = result.Item1;
+                    finalHeadingId = result.Item2;
+                    finalItemId = itemId;
+                }
+                // If sub-heading is selected, get heading
+                else if (subHeadingId.HasValue && subHeadingId > 0)
+                {
+                    var query = @"SELECT ASSH_HeadingID FROM ACC_ScheduleSubHeading WHERE ASSH_ID = @SubHeadingId";
 
-                    // Optional: soft update
-                    var updateDetailsQuery = @"
-                UPDATE Acc_TrailBalance_Upload_Details
-                SET ATBUD_DelFlg = 'A'
-                WHERE ATBUD_CompId = @CompId AND ATBUD_ID = @ATBUD_ID";
-                    await connection.ExecuteAsync(updateDetailsQuery, new { CompId = CompId, dto.ATBUD_ID }, transaction);
+                    finalHeadingId = await connection.ExecuteScalarAsync<int?>(
+                        query, new { SubHeadingId = subHeadingId }, transaction);
 
-                    await detailsCommand.ExecuteNonQueryAsync();
+                    finalSubHeadingId = subHeadingId;
                 }
 
                 transaction.Commit();
-                return new int[] { updateOrSave, oper };
+
+                return (finalHeadingId, finalSubHeadingId, finalItemId);
             }
             catch
             {

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Data;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using TracePca.Dto.FIN_Statement;
@@ -214,7 +215,7 @@ namespace TracePca.Controllers.FIN_Statement
         {
             try
             {
-                var result = await _ScheduleMappingService.GetScheduleItemAsync(CompId, CustId, ScheduleTypeId);
+                var result = await _ScheduleMappingService.GetScheduleSubHeadingAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -232,8 +233,8 @@ namespace TracePca.Controllers.FIN_Statement
                     message = "Sub-Heading retrieved successfully.",
                     data = result.Select(item => new
                     {
-                        id = item.ASI_ID,
-                        name = item.ASI_Name
+                        id = item.ASSH_ID,
+                        name = item.ASSH_Name
                     })
                 });
             }
@@ -661,12 +662,41 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //SaveTrailBalanceDetails
+        //[HttpPost("SaveTrailBalanceDetails")]
+        //public async Task<IActionResult> SaveTrailBalanceDetails([FromQuery] int CompId, [FromBody] TrailBalanceDetailsDto HeaderDto)
+        //{
+        //    try
+        //    {
+        //        var resultIds = await _ScheduleMappingService.SaveTrailBalanceDetailsAsync(CompId, HeaderDto);
+
+        //        return Ok(new
+        //        {
+        //            status = 200,
+        //            message = "Trail Balance uploaded successfully.",
+        //            data = new
+        //            {
+        //                ResultIds = resultIds
+        //            }
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            status = 500,
+        //            message = "An error occurred while uploading trial balance.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+        //SaveTrailBalanceDetails
         [HttpPost("SaveTrailBalanceDetails")]
-        public async Task<IActionResult> SaveTrailBalanceDetails([FromQuery] int CompId, [FromBody] TrailBalanceDetailsDto HeaderDto)
+        public async Task<IActionResult> SaveTrailBalanceDetails([FromQuery] int CompId, [FromBody] List<TrailBalanceDetailsDto> HeaderDtos)
         {
             try
             {
-                var resultIds = await _ScheduleMappingService.SaveTrailBalanceDetailsAsync(CompId, HeaderDto);
+                var resultIds = await _ScheduleMappingService.SaveTrailBalanceDetailsAsync(CompId, HeaderDtos);
 
                 return Ok(new
                 {
@@ -687,6 +717,169 @@ namespace TracePca.Controllers.FIN_Statement
                     error = ex.Message
                 });
             }
+        }
+
+        //UpdateTrailBalance
+        [HttpPost("SaveTrailBalance")]
+        public async Task<IActionResult> UpdateTrailBalance([FromBody] List<UpdateTrailBalanceDto> dtos)
+        {
+            try
+            {
+                if (dtos == null || !dtos.Any())
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "No trail balance data received.",
+                        data = (object)null
+                    });
+                }
+
+                var resultIds = await _ScheduleMappingService.UpdateTrailBalanceAsync(dtos);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Trail balance data uploaded successfully.",
+                    data = resultIds
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while uploading trail balance data.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //LoadSubHeadingByHeadingDto
+        [HttpGet("subheadings")]
+        public async Task<IActionResult> GetSubHeadingsByHeadingIdAsync([FromQuery] int headingId, [FromQuery] int orgType)
+        {
+            try
+            {
+                var result = await _ScheduleMappingService.GetSubHeadingsByHeadingIdAsync(headingId, orgType);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No subheadings found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Subheadings fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving subheadings.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //LoadItemBySubHeadingDto
+        [HttpGet("items")]
+        public async Task<IActionResult> GetItemsBySubHeadingIdAsync([FromQuery] int subHeadingId, [FromQuery] int orgType)
+        {
+            try
+            {
+                var result = await _ScheduleMappingService.GetItemsBySubHeadingIdAsync(subHeadingId, orgType);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No items found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Items fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving items.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //LoadSubItemByItemDto
+        [HttpGet("subitems")]
+        public async Task<IActionResult> GetSubItemsByItemIdAsync([FromQuery] int itemId, [FromQuery] int orgType)
+        {
+            try
+            {
+                var result = await _ScheduleMappingService.GetSubItemsByItemIdAsync(itemId, orgType);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No subitems found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Subitems fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving subitems.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //GetPreviousLoadId
+        [HttpPost("GetPreviousLoadId")]
+        public async Task<IActionResult> GetPreviousLoadIdAsync([FromBody] HierarchyRequestDto request)
+        {
+            if (request.SubItemId is null && request.ItemId is null && request.SubHeadingId is null)
+                return BadRequest("At least one of SubItemId, ItemId, or SubHeadingId must be provided.");
+
+            var (headingId, subHeadingId, itemId) = await _ScheduleMappingService.GetPreviousLoadIdAsync(
+                request.SubItemId, request.ItemId, request.SubHeadingId);
+
+            var response = new HierarchyResponseDto
+            {
+                HeadingId = headingId,
+                SubHeadingId = subHeadingId,
+                ItemId = itemId
+            };
+            return Ok(response);
         }
     }
 }

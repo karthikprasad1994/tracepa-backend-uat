@@ -35,7 +35,7 @@ namespace TracePca.Controllers.FIN_Statement
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No Customer name found.",
+                        message = "No company types found.",
                         data = (object)null
                     });
                 }
@@ -43,7 +43,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Customer name loaded successfully.",
+                    message = "Company types loaded successfully.",
                     data = result
                 });
             }

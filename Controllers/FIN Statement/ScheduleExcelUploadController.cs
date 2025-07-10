@@ -182,6 +182,76 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
+        //SaveScheduleTemplate(P and L)
+        [HttpPost("SaveScheduleTemplate(P and L)")]
+        public async Task<IActionResult> SaveSchedulePandL([FromBody] List<ScheduleTemplatePandLDto> dtos)
+        {
+            if (dtos == null || !dtos.Any())
+            {
+                return BadRequest(new
+                {
+                    StatusCode = 400,
+                    Message = "No schedule data provided."
+                });
+            }
+
+            try
+            {
+                var resultIds = await _ScheduleExcelUploadService.SaveSchedulePandLAsync(dtos);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "Schedule data saved successfully.",
+                    Data = resultIds
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving schedule data.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //SaveScheduleTemplate(BalanceSheet)
+        [HttpPost("SaveScheduleTemplate(BalnceSheet)")]
+        public async Task<IActionResult> SaveScheduleBalanceSheet([FromBody] List<ScheduleTemplateBalanceSheetDto> dtos)
+        {
+            if (dtos == null || !dtos.Any())
+            {
+                return BadRequest(new
+                {
+                    StatusCode = 400,
+                    Message = "No schedule data provided."
+                });
+            }
+
+            try
+            {
+                var resultIds = await _ScheduleExcelUploadService.SaveScheduleBalanceSheetAsync(dtos);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "Schedule data saved successfully.",
+                    Data = resultIds
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving schedule data.",
+                    Error = ex.Message
+                });
+            }
+        }
+
         //SaveOpeningBalance
         [HttpPost("SaveOpeningBalance")]
         public async Task<IActionResult> SaveOpeningBalance([FromBody] List<OpeningBalanceDto> dtos)
@@ -249,6 +319,70 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     statusCode = 500,
                     message = "An error occurred while uploading trail balance data.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //SaveClientTrailBalance
+        [HttpPost("SaveClientTrailBalance")]
+        public async Task<IActionResult> UploadClientTrailBalance([FromBody] List<ClientTrailBalance> items)
+        {
+            if (items == null || !items.Any())
+                return BadRequest("No data provided.");
+
+            try
+            {
+                var result = await _ScheduleExcelUploadService.ClientTrailBalanceAsync(items);
+                return Ok(new
+                {
+                    Success = true,
+                    Message = "Client Trail Balance uploaded successfully.",
+                    SavedIds = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Success = false,
+                    Message = "An error occurred while uploading data.",
+                    Details = ex.Message
+                });
+            }
+        }
+
+        //SaveJournalEntry
+        [HttpPost("SaveJournalEntry")]
+        public async Task<IActionResult> SaveCompleteTrailBalance([FromBody] List<TrailBalanceCompositeModel> models)
+        {
+            try
+            {
+                if (models == null || !models.Any())
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "Invalid input data.",
+                        data = (object)null
+                    });
+                }
+
+                var result = await _ScheduleExcelUploadService.SaveCompleteTrailBalanceAsync(models);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Trail balance data saved successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while saving trail balance data.",
                     error = ex.Message
                 });
             }
