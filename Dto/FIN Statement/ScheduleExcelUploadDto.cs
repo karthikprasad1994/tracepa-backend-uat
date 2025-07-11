@@ -292,7 +292,7 @@
             public int ATBUD_Headingid { get; set; }
             public int ATBUD_Subheading { get; set; }
             public int ATBUD_itemid { get; set; }
-            public int ATBUD_Subitemid { get; set; }
+            public int ATBUD_SubItemid { get; set; }
             public string ATBUD_DELFLG { get; set; }
             public int ATBUD_CRBY { get; set; }
             public int ATBUD_UPDATEDBY { get; set; }
@@ -301,6 +301,17 @@
             public string ATBUD_IPAddress { get; set; }
             public int ATBUD_CompId { get; set; }
             public int ATBUD_YEARId { get; set; }
+
+            public string? ItemName { get; set; }
+            public string? HeadingName { get; set; }
+            public string? SubItemName { get; set; }
+            public string? SubHeadingName { get; set; }
+
+            public string Excel_SubItem { get; set; }
+            public string Excel_Item { get; set; }
+            public string Excel_SubHeading { get; set; }
+            public string Excel_Heading { get; set; }
+
         }
 
         //SaveClientTrailBalance
@@ -336,7 +347,6 @@
             public JournalEntryDto JournalEntry { get; set; }
             public List<JournalTransactionDetailsDto> TransactionDetailsList { get; set; }
         }
-
         public class TrailBalanceUploadDto
         {
             public int ATBU_ID { get; set; }
@@ -359,7 +369,6 @@
             public int ATBU_Branchid { get; set; }
             public int ATBU_QuarterId { get; set; }
         }
-
         public class TrailBalanceUploadDetailsDto
         {
             public int ATBUD_ID { get; set; }
@@ -384,7 +393,6 @@
             public int ATBUD_CompId { get; set; }
             public int ATBUD_YEARId { get; set; }
         }
-
         public class JournalEntryDto
         {
             public int Acc_JE_ID { get; set; }
@@ -416,7 +424,6 @@
             public int Acc_JE_QuarterId { get; set; }
             public string Acc_JE_Comnments { get; set; }
         }
-
         public class JournalTransactionDetailsDto
         {
             public int AJTB_ID { get; set; }

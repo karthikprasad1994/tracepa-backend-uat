@@ -290,35 +290,27 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveTrailBalance
         [HttpPost("SaveTrailBalance")]
-        public async Task<IActionResult> SaveTrailBalance([FromBody] List<TrailBalanceDto> dtos)
+        public async Task<IActionResult> SaveTrailBalanceDetails([FromQuery] int CompId, [FromBody] List<TrailBalanceDto> HeaderDtos)
         {
             try
             {
-                if (dtos == null || !dtos.Any())
-                {
-                    return BadRequest(new
-                    {
-                        statusCode = 400,
-                        message = "No trail balance data received.",
-                        data = (object)null
-                    });
-                }
-
-                var resultIds = await _ScheduleExcelUploadService.SaveTrailBalanceAsync(dtos);
-
+                var resultIds = await _ScheduleExcelUploadService.SaveTrailBalanceDetailsAsync(CompId, HeaderDtos);
                 return Ok(new
                 {
-                    statusCode = 200,
-                    message = "Trail balance data uploaded successfully.",
-                    data = resultIds
+                    status = 200,
+                    message = "Trail Balance uploaded successfully.",
+                    data = new
+                    {
+                        ResultIds = resultIds
+                    }
                 });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new
                 {
-                    statusCode = 500,
-                    message = "An error occurred while uploading trail balance data.",
+                    status = 500,
+                    message = "An error occurred while uploading trial balance.",
                     error = ex.Message
                 });
             }
