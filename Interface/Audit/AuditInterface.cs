@@ -123,6 +123,8 @@ namespace TracePca.Interface.Audit
         Task<IEnumerable<dynamic>> GetReportHistoryComments(ReportHistoryCommentsDto dto);
 
         Task<string> GetHttpsDocumentPathModulewiseAsync(GetDocumentPathRequestDto dto);
+        byte[] GeneratePdfByFormName(string formName, string title, List<LOEHeadingDto> headings,int reportTypeId,int loeTemplateId,int customerId);
+
 
     }
 

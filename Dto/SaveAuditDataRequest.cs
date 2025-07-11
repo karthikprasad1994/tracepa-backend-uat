@@ -33,9 +33,9 @@ namespace TracePca.Dto
         public int CustomerId { get; set; }
 
         public string RequestedOn { get; set; } = string.Empty;
-        public string TimelineToRespondOn { get; set; } = string.Empty;
+        public string? TimelineToRespondOn { get; set; } = string.Empty;
         public List<string> EmailIds { get; set; } = new();
-        public string Comments { get; set; } = string.Empty;
+        public string? Comments { get; set; } = string.Empty;
 
         public int ReportType { get; set; }
 
