@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -31,6 +32,7 @@ namespace TracePca.Service
         private readonly OtpService _otpService;
         private readonly IWebHostEnvironment _env;
         private readonly string _appSettingsPath;
+        private readonly IDbConnection _db;
 
         public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DynamicDbContext context, OtpService otpService, IWebHostEnvironment env)
         {
@@ -42,6 +44,7 @@ namespace TracePca.Service
             _otpService = otpService;
             _env = env;
             _appSettingsPath = Path.Combine(env.ContentRootPath, "appsettings.json");
+            _db = new SqlConnection(configuration.GetConnectionString("DefaultConnection"));
         }
 
         public async Task<object> GetAllUsersAsync()
@@ -486,6 +489,7 @@ namespace TracePca.Service
 
 
         public async Task<LoginResponse> LoginUserAsync(string email, string password)
+
         {
             try
             {
@@ -658,6 +662,41 @@ namespace TracePca.Service
                 throw new Exception($"Error generating JWT token: {ex.Message}");
             }
         }
+
+        public async Task<string> GetLoginUserPermissionTraceAsync(UserPermissionRequestDto dto)
+        {
+            string query;
+            int userRoleLevel = 0;
+            
+            int moduleId = 0;
+            string permissionList = "";
+
+            // 1. Get user role level
+            query = "SELECT Usr_GrpOrUserLvlPerm FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_CompID = @CompanyId";
+            userRoleLevel = await _db.ExecuteScalarAsync<int>(query, new { UserId = dto.UserId, CompanyId = dto.CompanyId });
+
+            // 2. Get module ID by code
+            query = "SELECT Mod_ID FROM SAD_MODULE WHERE Mod_Code = @ModuleCode AND Mod_compid = @CompanyId";
+            moduleId = await _db.ExecuteScalarAsync<int>(query, new { ModuleCode = dto.ModuleCode, CompanyId = dto.CompanyId });
+
+            if (moduleId == 0)
+                return ""; // or return null/false as per your use case
+
+            // 3. Check if user is a Partner
+            query = "SELECT COUNT(1) FROM sad_userDetails WHERE Usr_ID = @UserId AND usr_Partner = 1 AND Usr_CompID = @CompanyId";
+            bool isPartner = await _db.ExecuteScalarAsync<int>(query, new { UserId = dto.UserId, CompanyId = dto.CompanyId }) > 0;
+
+            if (isPartner)
+            {
+                query = "SELECT OP_OperationName FROM SAD_Mod_Operations WHERE OP_CompID = @CompanyId AND OP_ModuleID = @ModuleId";
+                var permissions = await _db.QueryAsync<string>(query, new { CompanyId = dto.CompanyId, ModuleId = moduleId });
+
+                permissionList = string.Join(",", permissions);
+            }
+
+            return permissionList;
+        }
+
 
         public async Task<(bool Success, string Message)> CheckAndAddAccessCodeConnectionStringAsync(string accessCode)
         {
