@@ -663,39 +663,34 @@ namespace TracePca.Service
             }
         }
 
-        public async Task<string> GetLoginUserPermissionTraceAsync(UserPermissionRequestDto dto)
+        public async Task<List<OperationPermissionDto>> GetLoginUserPermissionTraceAsync(UserPermissionRequestDto dto)
         {
             string query;
-            int userRoleLevel = 0;
-            
-            int moduleId = 0;
-            string permissionList = "";
 
-            // 1. Get user role level
+            // Optional: role level, can be removed if unused
             query = "SELECT Usr_GrpOrUserLvlPerm FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_CompID = @CompanyId";
-            userRoleLevel = await _db.ExecuteScalarAsync<int>(query, new { UserId = dto.UserId, CompanyId = dto.CompanyId });
+            int userRoleLevel = await _db.ExecuteScalarAsync<int>(query, new { UserId = dto.UserId, CompanyId = dto.CompanyId });
 
-            // 2. Get module ID by code
-            query = "SELECT Mod_ID FROM SAD_MODULE WHERE Mod_Code = @ModuleCode AND Mod_compid = @CompanyId";
-            moduleId = await _db.ExecuteScalarAsync<int>(query, new { ModuleCode = dto.ModuleCode, CompanyId = dto.CompanyId });
-
-            if (moduleId == 0)
-                return ""; // or return null/false as per your use case
-
-            // 3. Check if user is a Partner
-            query = "SELECT COUNT(1) FROM sad_userDetails WHERE Usr_ID = @UserId AND usr_Partner = 1 AND Usr_CompID = @CompanyId";
+            // Check if user is Partner
+            query = "SELECT COUNT(1) FROM Sad_UserDetails WHERE Usr_ID = @UserId AND usr_Partner = 1 AND Usr_CompID = @CompanyId";
             bool isPartner = await _db.ExecuteScalarAsync<int>(query, new { UserId = dto.UserId, CompanyId = dto.CompanyId }) > 0;
 
             if (isPartner)
             {
-                query = "SELECT OP_OperationName FROM SAD_Mod_Operations WHERE OP_CompID = @CompanyId AND OP_ModuleID = @ModuleId";
-                var permissions = await _db.QueryAsync<string>(query, new { CompanyId = dto.CompanyId, ModuleId = moduleId });
+                // Fetch all operation names for the company
+                query = "SELECT OP_OperationName FROM SAD_Mod_Operations WHERE OP_CompID = @CompanyId";
+                var operations = await _db.QueryAsync<string>(query, new { CompanyId = dto.CompanyId });
 
-                permissionList = string.Join(",", permissions);
+                return operations
+                    .Distinct()
+                    .Select(op => new OperationPermissionDto { Operation = op })
+                    .ToList();
             }
 
-            return permissionList;
+            // If not a partner, return empty list
+            return new List<OperationPermissionDto>();
         }
+
 
 
         public async Task<(bool Success, string Message)> CheckAndAddAccessCodeConnectionStringAsync(string accessCode)

@@ -22,6 +22,8 @@ namespace TracePca.Interface
         SqlConnection GetConnection(string customerCode);
         Task<(bool Success, string Message)> CheckAndAddAccessCodeConnectionStringAsync(string accessCode);
 
-          Task<string> GetLoginUserPermissionTraceAsync(UserPermissionRequestDto dto);
+        //  Task<string> GetLoginUserPermissionTraceAsync(UserPermissionRequestDto dto);
+        Task<List<OperationPermissionDto>> GetLoginUserPermissionTraceAsync(UserPermissionRequestDto dto);
+
     }
 }

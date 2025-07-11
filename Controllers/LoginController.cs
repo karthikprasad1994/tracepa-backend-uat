@@ -174,22 +174,20 @@ namespace TracePca.Controllers
         }
 
 
-        [HttpGet("Login-permissions")]
+        [HttpGet("Loginpermissions")]
         public async Task<IActionResult> GetUserPermissions([FromQuery] UserPermissionRequestDto dto)
         {
             try
             {
-                var result = await _LoginInterface.GetLoginUserPermissionTraceAsync(dto);
+                var result = await _LoginInterface.GetLoginUserPermissionTraceAsync(dto); // now returns List<OperationPermissionDto>
 
-
-
-                if (string.IsNullOrWhiteSpace(result))
+                if (result == null || !result.Any())
                 {
                     return NotFound(new
                     {
                         statusCode = 404,
                         message = "No permissions found for the user.",
-                        permissions = (string)null
+                        permissions = new List<object>()
                     });
                 }
 
