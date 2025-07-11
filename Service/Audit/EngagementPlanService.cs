@@ -664,6 +664,8 @@ namespace TracePca.Service.Audit
                     var insertRequestQuery = @"INSERT INTO Doc_Reviewremarks (DR_ID, DR_Custid, DR_DocLoeId_Branchid, DR_DocYearid, DR_DocStatus, DR_DocType, DR_Date, DR_CreatedBy, DR_CreatedOn, DR_CompId, DR_emailSentTo, DR_IPAddress, DR_Observation, DR_DocDelflag) 
                         VALUES (@DR_ID, @DR_Custid, @DR_DocLoeId_Branchid, @DR_DocYearid, 'W', 'C', GETDATE(), @DR_CreatedBy, GETDATE(), @DR_CompId, @DR_emailSentTo, @DR_IPAddress, @DR_Observation, 'LOE');";
 
+                    List<int> customerUserIds = dto.CustomerUserIds;
+                    string emailSentTo = string.Join(",", customerUserIds);
                     await connection.ExecuteAsync(insertRequestQuery, new
                     {
                         DR_ID = requestId,
@@ -671,7 +673,7 @@ namespace TracePca.Service.Audit
                         DR_DocLoeId_Branchid = dto.LOEId,
                         DR_DocYearid = dto.YearId,
                         DR_CreatedBy = dto.UserId,
-                        DR_emailSentTo = dto.CustomerUserIds,
+                        DR_emailSentTo = emailSentTo,
                         DR_CompId = dto.CompId,
                         DR_IPAddress = dto.IPAddress,
                         DR_Observation = dto.Comments
@@ -990,8 +992,8 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
 
-                var emailList = (await connection.QueryAsync<string>(@"SELECT usr_Email FROM Sad_UserDetails WHERE USR_ID IN @UserIds", new { UserIds = dto.CustomerUserIds })
-                        ).Where(email => !string.IsNullOrWhiteSpace(email)).Distinct().ToList();
+                List<int> customerUserIds = dto.CustomerUserIds;
+                var emailList = (await connection.QueryAsync<string>(@"SELECT usr_Email FROM Sad_UserDetails WHERE USR_ID IN @UserIds", new { UserIds = customerUserIds })).Where(email => !string.IsNullOrWhiteSpace(email)).Distinct().ToList();
                 var reportDetails = await GetEngagementPlanReportDetailsByIdAsync(dto.CompId, dto.LOEId);
 
                 string subject = $"Intimation mail To Review The LOE for Client - {reportDetails.Customer}";
@@ -1000,10 +1002,10 @@ namespace TracePca.Service.Audit
                     <!DOCTYPE html><html><head><style>
                         table, th, td {{ border: 1px solid black; border-collapse: collapse; }}
                     </style></head><body>
-                        <p style='font-size:15px;font-family:Calibri,sans-serif;text-align:center;'>Dear Sir/Ma'am</p>
+                        <p style='font-size:15px;font-family:Calibri,sans-serif;text-align:left;'>Dear Sir/Ma'am</p>
                         <table style='width:100%;border:1px solid black;'>
                             <tr>
-                                <td style='padding:10px;text-align:center;'>
+                                <td style='padding:10px;text-align:left;'>
                                     <strong>Client Name:</strong> {reportDetails.Customer}<br/>
                                     <strong>LOE No.:</strong> {reportDetails.EngagementPlanNo}
                                 </td>
@@ -1015,10 +1017,10 @@ namespace TracePca.Service.Audit
                                 </td>
                             </tr>
                         </table>
-                        <p style='font-size:15px;font-family:Calibri,sans-serif;text-align:center;'>
+                        <p style='font-size:15px;font-family:Calibri,sans-serif;text-align:left;'>
                             <strong>Click Here: </strong>
-                            <a href='https://tracemkt.multimedia.interactivedns.com/'>
-                                tracemkt
+                            <a href='https://tracepacust-user.multimedia.interactivedns.com'>
+                                TRACePA
                             </a>
                         </p>
                         <p>Please login to TRACe PA website using the above link and credentials shared with you.</p>

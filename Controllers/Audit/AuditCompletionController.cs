@@ -196,5 +196,41 @@ namespace TracePca.Controllers.Audit
                 });
             }
         }
+
+        [HttpGet("LoadAllAuditAttachmentsByAuditId")]
+        public async Task<IActionResult> LoadAllAuditAttachmentsByAuditId(int compId, int auditId)
+        {
+            try
+            {
+                var result = await _auditCompletionInterface.LoadAllAuditAttachmentsByAuditIdAsync(compId, auditId);
+                var isAnyDataPresent = result.BeginningAuditAttachments?.Count > 0 || result.DuringAuditAttachments?.Count > 0 || result.NearingEndAuditAttachments?.Count > 0 || result.WorkpaperAttachments?.Count > 0 || result.ConductAuditAttachments?.Count > 0;
+                return Ok(new { success = true, message = isAnyDataPresent ? "Attachments loaded successfully." : "No attachments found.", data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "An error occurred while loading attachments.", error = ex.Message });
+            }
+        }
+
+        [HttpGet("DownloadAllAuditAttachmentsByAuditId")]
+        public async Task<IActionResult> DownloadAllAuditAttachmentsByAuditId(int compId, int auditId, int userId, string ipAddress)
+        {
+            try
+            {
+                var (isFileExists, messageOrfileUrl) = await _auditCompletionInterface.DownloadAllAuditAttachmentsByAuditIdAsync(compId, auditId, userId, ipAddress);
+                if (isFileExists)
+                {
+                    return Ok(new { statusCode = 200, success = true, fileUrl = messageOrfileUrl });
+                }
+                else
+                {
+                    return Ok(new { statusCode = 200, success = false, message = messageOrfileUrl });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while downloading the file: {ex.Message}" });
+            }
+        }
     }
 }

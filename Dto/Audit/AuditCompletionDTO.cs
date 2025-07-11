@@ -115,4 +115,13 @@ namespace TracePca.Dto.Audit
         public string? LTD_Heading { get; set; }
         public string? LTD_Decription { get; set; }
     }
+
+    public class StandardAuditAllAttachmentsDTO
+    {
+        public List<AttachmentDetailsDTO> BeginningAuditAttachments { get; set; } = new();
+        public List<AttachmentDetailsDTO> DuringAuditAttachments { get; set; } = new();
+        public List<AttachmentDetailsDTO> NearingEndAuditAttachments { get; set; } = new();
+        public List<AttachmentDetailsDTO> WorkpaperAttachments { get; set; } = new();
+        public List<AttachmentDetailsDTO> ConductAuditAttachments { get; set; } = new();
+    }
 }
