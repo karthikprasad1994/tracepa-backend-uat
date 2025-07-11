@@ -1,11 +1,14 @@
 ﻿using System.Data;
 using System.Net;
 using System.Net.Mail;
+using System.Security.Cryptography;
 using System.Text;
+using Azure.Core;
 using Dapper;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing.Diagrams;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
+using DocumentFormat.OpenXml.Office2016.Excel;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -58,16 +61,18 @@ namespace TracePca.Service.Communication_with_client
     {
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IWebHostEnvironment _env;
 
 
 
-        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env)
         {
 
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
+            _env = env;
         }
-        
+
 
 
         public async Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey)
@@ -1282,7 +1287,7 @@ WHERE LOET_CustomerId = @CustomerId
             string outputDir = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedReports");
             Directory.CreateDirectory(outputDir);
 
-            string baseFileName = $"CustomerReport_{customerId}_{DateTime.Now:yyyyMMddHHmmss}";            
+            string baseFileName = $"CustomerReport_{customerId}_{DateTime.Now:yyyyMMddHHmmss}";
             string wordFilePath = Path.Combine(outputDir, baseFileName + ".docx");
             string pdfFilePath = Path.Combine(outputDir, baseFileName + ".pdf");
 
@@ -1435,42 +1440,52 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<(byte[] fileBytes, string contentType, string fileName)> GenerateDRLReportWithoutSavingAsync(DRLRequestDto request, string format)
         {
-            // Generate temp file name and path
-            var generatedFileName = $"DRL_{request.CustomerId}_{DateTime.Now:yyyyMMddHHmmss}.{format}";
+            // ✅ Generate a safe file name
+            var generatedFileName = $"DRL_{request.CustomerId}_{DateTime.Now:yyyyMMddHHmmss}.{format.ToLower()}";
 
-            // ✅ Use consistent file path with SaveDRLLogWithAttachmentAsync
-            var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\.."));
-            var outputFolder = Path.Combine(projectRoot, "GeneratedReports");
-            Directory.CreateDirectory(outputFolder);
+            // ✅ Use system temp directory (cloud-safe)
+            var outputFolder = Path.Combine(Path.GetTempPath(), "GeneratedReports");
+            Directory.CreateDirectory(outputFolder); // creates the folder if it doesn't exist
+
             var tempFilePath = Path.Combine(outputFolder, generatedFileName);
 
-            // Fetch customer + template data
+            // ✅ Fetch required customer data
             var customerData = await GetCustomerDetailsWithTemplatesAsync(request.CompanyId, request.CustomerId, request.ReportType);
-
-
-            // Save DRL log and generate the report
-            //var drlId = await SaveDRLLogWithAttachmentAsync(drlLog, tempFilePath, format);
-
             if (customerData == null)
                 throw new Exception("Customer data not found.");
 
-            // Generate report file (PDF or Word)
+            // ✅ Generate report
             if (format.ToLower() == "pdf")
                 GeneratePdf(customerData, tempFilePath);
             else
                 GenerateWord(customerData, tempFilePath);
 
-
+            // ✅ Ensure the file was created
             if (!File.Exists(tempFilePath))
                 throw new FileNotFoundException($"Expected file not found at {tempFilePath}");
 
-            var fileBytes = await File.ReadAllBytesAsync(tempFilePath);
-            var contentType = format.ToLower() == "pdf"
-                ? "application/pdf"
-                : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            try
+            {
+                // ✅ Read file as bytes to return
+                var fileBytes = await File.ReadAllBytesAsync(tempFilePath);
 
-            return (fileBytes, contentType, generatedFileName);
+                // ✅ Set correct content type
+                var contentType = format.ToLower() == "pdf"
+                    ? "application/pdf"
+                    : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+                return (fileBytes, contentType, generatedFileName);
+            }
+            finally
+            {
+                // ✅ Clean up the temporary file
+                if (File.Exists(tempFilePath))
+                {
+                    File.Delete(tempFilePath);
+                }
+            }
         }
+
 
 
 
@@ -1641,7 +1656,7 @@ WHERE LOET_CustomerId = @CustomerId
         //    }
         //}
 
-      public async Task<int> SaveDRLLogWithAttachmentAsync(DRLLogDto dto, string filePath, string fileType)
+        public async Task<int> SaveDRLLogWithAttachmentAsync(DRLLogDto dto, string filePath, string fileType)
         {
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
 
@@ -1857,7 +1872,7 @@ WHERE LOET_CustomerId = @CustomerId
                     AttachId = preAttachId;
                 }
 
-                   
+
 
 
                 var extension = Path.GetExtension(fileName)?.TrimStart('.') ?? "unk";
@@ -1892,7 +1907,7 @@ WHERE LOET_CustomerId = @CustomerId
                     Size = fileSize,
                     CompanyId = dto.CompanyId,
                     ReportType = dto.ReportType,
-                  //  Status = dto.Status,
+                    //  Status = dto.Status,
                     AuditNo = dto.AuditNo,
                     RequestedListId = dto.RequestedListId
 
@@ -1948,16 +1963,16 @@ WHERE LOET_CustomerId = @CustomerId
             }
         }
 
-//        private async Task<string> GetReportTypeNameAsync(SqlConnection connection, SqlTransaction transaction, int reportTypeId)
-//        {
-//            const string query = @"
-//SELECT TOP 1 RT_ReportTypeName 
-//FROM Report_Type_Master 
-//WHERE RT_ReportTypeID = @ReportTypeId";
+        //        private async Task<string> GetReportTypeNameAsync(SqlConnection connection, SqlTransaction transaction, int reportTypeId)
+        //        {
+        //            const string query = @"
+        //SELECT TOP 1 RT_ReportTypeName 
+        //FROM Report_Type_Master 
+        //WHERE RT_ReportTypeID = @ReportTypeId";
 
-//            var result = await connection.ExecuteScalarAsync<string>(query, new { ReportTypeId = reportTypeId }, transaction);
-//            return result ?? "N/A";
-//        }
+        //            var result = await connection.ExecuteScalarAsync<string>(query, new { ReportTypeId = reportTypeId }, transaction);
+        //            return result ?? "N/A";
+        //        }
 
 
 
@@ -2268,16 +2283,16 @@ WHERE LOET_CustomerId = @CustomerId
         //        }
         //    }
 
-    //    private async Task<string> GetReportTypeNameAsync(SqlConnection connection, SqlTransaction transaction, int reportTypeId)
-    //    {
-    //        const string query = @"
-    //SELECT TOP 1 RT_ReportTypeName 
-    //FROM Report_Type_Master 
-    //WHERE RT_ReportTypeID = @ReportTypeId";
+        //    private async Task<string> GetReportTypeNameAsync(SqlConnection connection, SqlTransaction transaction, int reportTypeId)
+        //    {
+        //        const string query = @"
+        //SELECT TOP 1 RT_ReportTypeName 
+        //FROM Report_Type_Master 
+        //WHERE RT_ReportTypeID = @ReportTypeId";
 
-    //        var result = await connection.ExecuteScalarAsync<string>(query, new { ReportTypeId = reportTypeId }, transaction);
-    //        return result ?? "N/A";
-    //    }
+        //        var result = await connection.ExecuteScalarAsync<string>(query, new { ReportTypeId = reportTypeId }, transaction);
+        //        return result ?? "N/A";
+        //    }
 
 
         private async Task SendBeginningOfAuditEmailAsync(DRLLogDto dto)
@@ -2287,7 +2302,7 @@ WHERE LOET_CustomerId = @CustomerId
 
             // ✅ Get real Audit No & Name from DB
             var (auditNo, auditName) = await GetAuditInfoByIdAsync(dto.AuditNo);
-          //  var reportTypeName = await GetReportTypeNameAsync(connection, transaction, dto.ReportType);
+            //  var reportTypeName = await GetReportTypeNameAsync(connection, transaction, dto.ReportType);
 
             var smtpClient = new System.Net.Mail.SmtpClient("smtp.gmail.com")
             {
@@ -2418,6 +2433,9 @@ SELECT
     Atch_DocID,
     ATCH_DRLID,
     ATCH_FNAME,
+ CASE 
+        WHEN ATCH_ReportType > 0 THEN  RTM_ReportTypeName 
+    END AS ReportName,
     ATCH_EXT,
     ATCH_Desc,
     ATCH_CreatedBy,
@@ -2431,6 +2449,7 @@ SELECT
         WHEN Atch_Vstatus = 'DS' THEN 'Received'
     END AS Atch_Vstatus
 FROM edt_attachments
+LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ATCH_ReportType
 WHERE ATCH_CompID = @CompanyId 
   AND ATCH_ID = @AttachId 
   AND ATCH_Status <> 'D' 
@@ -2443,7 +2462,7 @@ WHERE ATCH_CompID = @CompanyId
 
             query += @"
   AND Atch_Vstatus IN ('A', 'AS', 'C', 'DS')
-ORDER BY ATCH_CREATEDON";
+ORDER BY Atch_DocID desc";
 
             var rawData = (await connection.QueryAsync(query, new
             {
@@ -2466,6 +2485,7 @@ ORDER BY ATCH_CREATEDON";
                     AtchID = Convert.ToInt32(row.Atch_DocID),
                     DrlId = Convert.ToInt32(row.ATCH_DRLID),
                     FName = $"{row.ATCH_FNAME}.{row.ATCH_EXT}",
+                    ReportName = row.ReportName?.ToString() ?? "",
                     FDescription = row.ATCH_Desc?.ToString() ?? "",
                     CreatedById = Convert.ToInt32(row.ATCH_CreatedBy),
                     CreatedBy = await GetUserFullNameAsync(connectionStringName, companyId, Convert.ToInt32(row.ATCH_CreatedBy)),
@@ -2516,68 +2536,26 @@ ORDER BY ATCH_CREATEDON";
 
             var safeFileName = Path.GetFileName(file.FileName);
             var fileExt = Path.GetExtension(safeFileName)?.TrimStart('.');
+            var fileBaseName = Path.GetFileNameWithoutExtension(safeFileName)
+                                    .Replace("&", " and");
+            fileBaseName = fileBaseName.Substring(0, Math.Min(fileBaseName.Length, 95));
 
-            string basePath;
-            string userLoginName;
+            // Step 1: Resolve base upload path
+            var basePath = EnsureDirectoryExists(GetConfigValue("ImgPath"), dto.UserId.ToString(), "Upload");
 
-            // Step 1: Get base path and user login name from DB
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
-                await connection.OpenAsync();
-
-                // Get file saving base path from sad_config_settings
-                basePath = await connection.ExecuteScalarAsync<string>(
-                    @"SELECT sad_Config_Value 
-              FROM sad_config_settings 
-              WHERE sad_Config_Key = 'ImgPath' AND sad_compid = @CompId",
-                    new { CompId = dto.CompId });
-
-                if (string.IsNullOrWhiteSpace(basePath))
-                    throw new Exception("Base path not configured in sad_config_settings.");
-
-                // Get UserLoginName from SAD_UserDetails
-                userLoginName = await connection.ExecuteScalarAsync<string>(
-                    @"SELECT usr_LoginName 
-              FROM SAD_UserDetails 
-              WHERE usr_Id = @UserId",
-                    new { UserId = dto.UserId });
-
-                if (string.IsNullOrWhiteSpace(userLoginName))
-                    throw new Exception($"User login name not found for user ID: {dto.UserId}");
-
-                // map to dto (if needed elsewhere)
-            }
-
-            // Step 2: Create folder structure like VB.NET: Tempfolder\UserLoginName\Upload
-            var foldersToCreate = new List<string> { "Tempfolder", userLoginName, "Upload" };
-
-            foreach (var folder in foldersToCreate)
-            {
-                if (!string.IsNullOrWhiteSpace(folder))
-                {
-                    basePath = Path.Combine(basePath.TrimEnd(Path.DirectorySeparatorChar), folder);
-                    if (!Directory.Exists(basePath))
-                        Directory.CreateDirectory(basePath);
-                }
-            }
-
-            // Step 3: Save file with original name (no GUID)
-            var uniqueFileName = safeFileName;
-            var fullFilePath = Path.Combine(basePath, uniqueFileName);
+            // Step 2: Save the uploaded file to disk
+            var fullFilePath = Path.Combine(basePath, safeFileName);
 
             using (var stream = new FileStream(fullFilePath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
             }
 
-            // Step 4: Generate or get attachment ID
+            // Step 3: Generate document ID
             var docId = await GenerateNextDocIdAsync(dto.CustomerId, dto.AuditId);
+
+            // Step 4: Determine attachment ID
             int newAttachId = attachId;
-
-            // int newAttachId = await GetOrCreateAttachmentIdAsync(requestedId);
-
-
-
             if (newAttachId == 0)
             {
                 var existingAttachId = await GetExistingAttachmentIdByDrlIdAsync(requestedId, dto.AuditId);
@@ -3089,6 +3067,7 @@ ORDER BY
             {
                 await connection.OpenAsync();
                 using (var transaction = await connection.BeginTransactionAsync())
+
                 {
                     try
                     {
@@ -3114,6 +3093,8 @@ ORDER BY
                                 }
                                 dto.AtchId = attachId;
                             }
+
+
 
                             // Save file and insert into Edt_Attachments
                             filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, dto.DrlId, dto.ReportType);
@@ -5131,7 +5112,10 @@ VALUES (
 
             var sql = @"
 SELECT 
-    CMM_ID, CMM_Desc, DRL_DRLID, DRL_Name, ADRL_ID AS DrlpkId, ADRL_YearID, ADRL_AuditNo, ADRL_FunID, 
+    CMM_ID,  CASE 
+        WHEN ADRL_ReportType > 0 THEN CMM_Desc + ' - ' + RTM_ReportTypeName 
+        ELSE CMM_Desc 
+    END AS CMM_Desc, DRL_DRLID, DRL_Name, ADRL_ID AS DrlpkId, ADRL_YearID, ADRL_AuditNo, ADRL_FunID, 
     ACM_Checkpoint, ADRL_CustID, ADRL_RequestedListID, ADRL_RequestedTypeID, ADRL_RequestedOn, 
     ADRL_TimlinetoResOn, ADRL_EmailID, ADRL_Comments, ADRL_Status, ADRL_AttachID, ADRL_CompID, 
     ADRL_ReceivedComments, ADRL_LogStatus, ADRL_ReceivedOn, ADRL_ReportType
@@ -5139,6 +5123,9 @@ FROM Audit_DRLLog
 LEFT JOIN AuditType_Checklist_Master ON ACM_ID = ADRL_FunID
 LEFT JOIN Content_Management_Master 
     ON CMM_ID = ADRL_RequestedListID AND CMM_CompID = @CompId
+LEFT JOIN SAD_ReportTypeMaster 
+    ON ADRL_ReportType = RTM_Id
+
 LEFT JOIN Audit_Doc_Request_List ON DRL_DRLID = ADRL_RequestedTypeID AND DRL_CompID = @CompId
 WHERE ADRL_CompID = @CompId
   AND ADRL_AuditNo = @AuditNo";
@@ -5647,10 +5634,25 @@ WHERE
             var savedAttachmentIds = new List<int>();
             var attachmentId = 0;
             var documentId = 0;
+
+
+            // ✅ Skip if there are no files to process
+            if (request.Files == null || !request.Files.Any())
+            {
+                return savedAttachmentIds; // Return empty list
+            }
+
             request.AccessCodeDirectory = GetConfigValue("ImgPath");
+
             foreach (var file in request.Files)
             {
                 var tempFolderPath = EnsureDirectoryExists(request.AccessCodeDirectory, request.UserId.ToString(), "Upload");
+                //if (file.FileName == "empty.txt")
+                //{
+                //    file.FileName = "";
+                //}
+
+
                 var originalFileName = Path.GetFileName(file.FileName);
                 var tempFilePath = Path.Combine(tempFolderPath, originalFileName);
 
@@ -5662,6 +5664,12 @@ WHERE
                 var fileExtension = Path.GetExtension(originalFileName).TrimStart('.').ToLower();
                 var fileBaseName = Path.GetFileNameWithoutExtension(originalFileName).Replace("&", " and");
                 fileBaseName = fileBaseName.Substring(0, Math.Min(fileBaseName.Length, 95));
+
+                if (file.FileName == "empty.txt")
+                {
+                    fileExtension = "";
+                    fileBaseName = "";
+                }
                 var fileSize = new FileInfo(tempFilePath).Length;
 
                 attachmentId = request.AttachmentId == 0 ? GetNextId("ATCH_ID", request.CompanyId) : request.AttachmentId;
@@ -5678,11 +5686,11 @@ WHERE
                     byte[] fileData = await File.ReadAllBytesAsync(tempFilePath);
                     using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                     string sql = @"INSERT INTO EDT_ATTACHMENTS 
-                                (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, 
-                                 ATCH_VERSION, ATCH_FLAG, ATCH_OLE, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
-                                 ATCH_Status, ATCH_CompID)
-                                VALUES (@ATCH_ID, @ATCH_DOCID, @ATCH_FNAME, @ATCH_EXT, @CREATEDBY, @MODIFIEDBY, 1, 0, @ATCH_OLE, 
-                                @SIZE, 0, 0, GETDATE(), 'X', @COMPID)";
+                          (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, 
+                           ATCH_VERSION, ATCH_FLAG, ATCH_OLE, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
+                           ATCH_Status, ATCH_CompID)
+                          VALUES (@ATCH_ID, @ATCH_DOCID, @ATCH_FNAME, @ATCH_EXT, @CREATEDBY, @MODIFIEDBY, 1, 0, @ATCH_OLE, 
+                          @SIZE, 0, 0, GETDATE(), 'X', @COMPID)";
 
                     await conn.ExecuteAsync(sql, new
                     {
@@ -5701,11 +5709,11 @@ WHERE
                 {
                     using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                     string sql = @"INSERT INTO EDT_ATTACHMENTS 
-                                (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, 
-                                 ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
-                                 ATCH_Status, ATCH_CompID, Atch_Vstatus)
-                                VALUES (@ATCH_ID, @ATCH_DOCID, @ATCH_FNAME, @ATCH_EXT, @CREATEDBY, @MODIFIEDBY, 1, 0, 
-                                        @SIZE, 0, 0, GETDATE(), 'X', @COMPID, 'A')";
+                          (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, 
+                           ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
+                           ATCH_Status, ATCH_CompID, Atch_Vstatus)
+                          VALUES (@ATCH_ID, @ATCH_DOCID, @ATCH_FNAME, @ATCH_EXT, @CREATEDBY, @MODIFIEDBY, 1, 0, 
+                                  @SIZE, 0, 0, GETDATE(), 'X', @COMPID, 'A')";
 
                     await conn.ExecuteAsync(sql, new
                     {
@@ -5729,10 +5737,9 @@ WHERE
                 savedAttachmentIds.Add(attachmentId);
             }
 
-
+            // ✅ You can still log something even if attachments were skipped
             await SaveDRLLogDetailsAsync(request, attachmentId, documentId);
             return savedAttachmentIds;
-
         }
 
 
@@ -6033,7 +6040,7 @@ WHERE SA_ID = @AuditId";
             await smtpClient.SendMailAsync(message);
         }
 
-        private async Task DuringSendDuringAuditEmailAsync(List<string> EmailIds,int AuditNo,int ReportType,string RequestedOn,string Comments)
+        private async Task DuringSendDuringAuditEmailAsync(List<string> EmailIds, int AuditNo, int ReportType, string RequestedOn, string Comments)
         {
             if (EmailIds == null || !EmailIds.Any())
                 return;
@@ -6090,7 +6097,113 @@ WHERE SA_ID = @AuditId";
 
             await smtpClient.SendMailAsync(mail);
         }
+        public async Task<string> GetHttpsDocumentPathModulewiseAsync(GetDocumentPathRequestDto dto)
+        {
+            if (dto.AttachDocId == 0) return string.Empty;
+            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await conn.OpenAsync();
+            string sql = $"SELECT ATCH_DocId, ATCH_FNAME, atch_ext, atch_ole FROM EDT_ATTACHMENTS WHERE ATCH_CompID={dto.CompanyId} AND ATCH_ID = {dto.AttachId} AND ATCH_DOCID = {dto.AttachDocId}";
+            var reader = await conn.ExecuteReaderAsync(sql);
 
+            if (reader.HasRows)
+            {
+                while (await reader.ReadAsync())
+                {
+                    string fileName = reader["ATCH_FNAME"].ToString();
+                    string ext = reader["atch_ext"].ToString();
+                    int docId = Convert.ToInt32(reader["ATCH_DocId"]);
+
+                    string downloadDir = Path.Combine(_env.WebRootPath, "Tempfolder", dto.UserId, "Download");
+                    Directory.CreateDirectory(downloadDir);
+                    string downloadFilePath = Path.Combine(downloadDir, $"{fileName}.{ext}");
+
+                    if (File.Exists(downloadFilePath))
+                        File.Delete(downloadFilePath);
+
+                    string filesInDb = conn.ExecuteScalar($"SELECT Sad_Config_Value FROM Sad_Config_Settings WHERE Sad_Config_Key='FilesInDB' AND Sad_CompID={dto.CompanyId}").ToString();
+                    var AccessCodeDirectory = GetConfigValue("ImgPath");
+                    if (filesInDb.ToUpper() == "TRUE")
+                    {
+                        byte[] buffer = (byte[])reader["atch_ole"];
+                        await File.WriteAllBytesAsync(downloadFilePath, buffer);
+                    }
+                    else
+                    {
+                        string folder = (docId / 301).ToString();
+                        string encryptedPath = CheckOrCreateFileIsImageOrDocumentDirectory(AccessCodeDirectory, dto.Module, folder, downloadFilePath);
+                        string encryptedFile = Path.Combine(encryptedPath, $"{docId}.{ext}");
+
+                        if (File.Exists(encryptedFile))
+                        {
+                            try
+                            {
+                                Decrypt(encryptedFile, downloadFilePath);
+                            }
+                            catch
+                            {
+                                File.Copy(encryptedFile, downloadFilePath, true);
+                            }
+                        }
+                    }
+
+                    if (File.Exists(downloadFilePath))
+                    {
+                        string httpRoot = conn.ExecuteScalar($"SELECT Sad_Config_Value FROM Sad_Config_Settings WHERE Sad_Config_Key='DisplayPath' AND Sad_CompID={dto.CompanyId}").ToString();
+                        return $"{httpRoot.TrimEnd('/')}/Tempfolder/{dto.UserId}/Download/{fileName}.{ext}";
+                    }
+                }
+            }
+
+            reader.Close();
+            return string.Empty;
+        }
+
+        public string CheckOrCreateFileIsImageOrDocumentDirectory(string accessCodeDirectory, string module, string folder, string filePath)
+        {
+            if (string.IsNullOrEmpty(module)) return string.Empty;
+
+            string fileExtension = Path.GetExtension(filePath)?.ToLower();
+            string[] imageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv" };
+            string[] documentExtensions = { ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar" };
+
+            string fileType = imageExtensions.Contains(fileExtension) ? "Images" :
+                              documentExtensions.Contains(fileExtension) ? "Documents" : "Others";
+
+            string modulePath = Path.Combine(accessCodeDirectory, module);
+            if (!Directory.Exists(modulePath)) Directory.CreateDirectory(modulePath);
+
+            string finalPath = Path.Combine(modulePath, fileType, folder);
+            if (!Directory.Exists(finalPath)) Directory.CreateDirectory(finalPath);
+
+            return finalPath;
+        }
+
+        public void Decrypt(string inputFilePath, string outputFilePath)
+        {
+            string encryptionKey = "MAKV2SPBNI99212";
+
+            using (Aes aes = Aes.Create())
+            {
+                var pdb = new Rfc2898DeriveBytes(encryptionKey, new byte[] {
+                0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D,
+                0x65, 0x64, 0x76, 0x65, 0x64, 0x65,
+                0x76
+            });
+
+                aes.Key = pdb.GetBytes(32);
+                aes.IV = pdb.GetBytes(16);
+
+                using FileStream fsInput = new FileStream(inputFilePath, FileMode.Open);
+                using CryptoStream cs = new CryptoStream(fsInput, aes.CreateDecryptor(), CryptoStreamMode.Read);
+                using FileStream fsOutput = new FileStream(outputFilePath, FileMode.Create);
+
+                int data;
+                while ((data = cs.ReadByte()) != -1)
+                {
+                    fsOutput.WriteByte((byte)data);
+                }
+            }
+        }
     }
-    }
+}
 

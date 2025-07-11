@@ -17,7 +17,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetCustomerName
-        public async Task<IEnumerable<Dto.FIN_Statement.ScheduleExcelUploadDto.CustDto>> GetCustomerNameAsync(int CompId)
+        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -30,7 +30,7 @@ namespace TracePca.Service.FIN_statement
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<Dto.FIN_Statement.ScheduleExcelUploadDto.CustDto>(query, new { CompID = CompId });
+            return await connection.QueryAsync<CustDto>(query, new { CompID = CompId });
         }
 
         //GetScheduleHeading
@@ -361,7 +361,6 @@ WHERE AST_CompId = @CompId
                 throw;
             }
         }
-
 
         //SaveScheduleSubHeadingAndTemplate
         public async Task<int[]> SaveScheduleSubHeadingAndTemplateAsync(int CompId, SaveScheduleSubHeadingDto dto)
@@ -738,9 +737,6 @@ WHERE AST_CompId = @CompId
             }
         }
 
-        Task<IEnumerable<ScheduleFormatDto.CustDto>> ScheduleFormatInterface.GetCustomerNameAsync(int CompId)
-        {
-            throw new NotImplementedException();
-        }
+        
     }
 }

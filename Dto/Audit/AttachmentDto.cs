@@ -8,6 +8,9 @@
         public int AtchID { get; set; }
         public int DrlId { get; set; }
         public string FName { get; set; }
+
+        public string ReportName { get; set; }
+
         public string FDescription { get; set; }
         public int CreatedById { get; set; }
         public string CreatedBy { get; set; }
@@ -19,4 +22,13 @@
 
         public int? ReportType { get; set; }
     }
+    public class GetDocumentPathRequestDto
+    {
+        public int CompanyId { get; set; }
+        public string Module { get; set; }
+        public string UserId { get; set; }
+        public int AttachId { get; set; }
+        public int AttachDocId { get; set; }
+    }
+
 }
