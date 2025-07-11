@@ -3,9 +3,9 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using OfficeOpenXml;
-using Microsoft.Extensions.FileProviders;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Interface;
@@ -15,6 +15,7 @@ using TracePca.Interface.DigitalFiling;
 using TracePca.Interface.DigitalFilling;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.FixedAssetsInterface;
+using TracePca.Interface.LedgerReview;
 using TracePca.Interface.Master;
 using TracePca.Interface.ProfileSetting;
 using TracePca.Service;
@@ -24,6 +25,7 @@ using TracePca.Service.Communication_with_client;
 using TracePca.Service.DigitalFiling;
 using TracePca.Service.FIN_statement;
 using TracePca.Service.FixedAssetsService;
+using TracePca.Service.LedgerReview;
 using TracePca.Service.Master;
 using TracePca.Service.ProfileSetting;
 //using TracePca.Interface.AssetMaserInterface;
@@ -94,6 +96,8 @@ builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMa
 
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();
+builder.Services.AddScoped<LedgerReviewInterface, LedgerReviewService>();
+
 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

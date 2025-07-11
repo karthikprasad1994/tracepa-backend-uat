@@ -174,6 +174,45 @@ namespace TracePca.Controllers
         }
 
 
+        [HttpGet("Loginpermissions")]
+        public async Task<IActionResult> GetUserPermissions([FromQuery] UserPermissionRequestDto dto)
+        {
+            try
+            {
+                var result = await _LoginInterface.GetLoginUserPermissionTraceAsync(dto); // now returns List<OperationPermissionDto>
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No permissions found for the user.",
+                        permissions = new List<object>()
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Permissions fetched successfully.",
+                    permissions = result
+                });
+            }
+            catch (Exception ex)
+            {
+                // Optional: log the exception
+
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while processing your request.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+
         [HttpPost]
         [Route("UsersLogin")]
         public async Task<IActionResult> LoginUser([FromBody] LoginDto user)
