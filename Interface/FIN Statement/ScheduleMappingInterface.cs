@@ -58,7 +58,26 @@ namespace TracePca.Interface.FIN_Statement
         //DownloadUploadableExcelAndTemplate
         FileDownloadResult GetExcelTemplate();
 
-        //SaveTrailBalanceDetails
-        Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, TrailBalanceDetailsDto HeaderDto);
+        ////SaveTrailBalanceDetails
+        //Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, TrailBalanceDetailsDto HeaderDto);
+
+        //SaveTrailbalnceDetails
+        Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDetailsDto> dtos);
+
+        //UpdateTrailBalnce
+        Task<List<int>> UpdateTrailBalanceAsync(List<UpdateTrailBalanceDto> dtos);
+
+        //LoadSubHeadingByHeadingDto
+        Task<IEnumerable<LoadSubHeadingByHeadingDto>> GetSubHeadingsByHeadingIdAsync(int headingId, int orgType);
+
+        //LoadItemBySubHeadingDto
+        Task<IEnumerable<LoadItemBySubHeadingDto>> GetItemsBySubHeadingIdAsync(int subHeadingId, int orgType);
+
+        //LoadSubItemByItemDto
+        Task<IEnumerable<LoadSubItemByItemDto>> GetSubItemsByItemIdAsync(int itemId, int orgType);
+
+        //GetPreviousLoadId
+        Task<(int? HeadingId, int? SubHeadingId, int? ItemId)> GetPreviousLoadIdAsync(
+  int? subItemId = null, int? itemId = null, int? subHeadingId = null);
     }
 }
