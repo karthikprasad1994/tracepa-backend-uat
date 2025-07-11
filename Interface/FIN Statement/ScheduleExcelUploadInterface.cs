@@ -2,6 +2,7 @@
 using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
 
 
+
 namespace TracePca.Interface.FIN_Statement
 {
     public interface ScheduleExcelUploadInterface
@@ -21,10 +22,22 @@ namespace TracePca.Interface.FIN_Statement
         //GetBranchName
         Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId);
 
+        //SaveScheduleTemplate(P and L)
+        Task<List<int>> SaveSchedulePandLAsync(List<ScheduleTemplatePandLDto> dtos);
+
+        //SaveScheduleTemplate(Balance Sheet)
+        Task<List<int>> SaveScheduleBalanceSheetAsync(List<ScheduleTemplateBalanceSheetDto> dtos);
+
         //SaveOpeningBalance
         Task<List<int>> SaveOpeningBalanceAsync(List<OpeningBalanceDto> dtos);
 
         //SaveTrailBalance
-        Task<List<int>> SaveTrailBalanceAsync(List<TrailBalanceDto> dtos);
+        Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDto> dtos);
+
+        //SaveClientTrailBalance
+        Task<List<int>> ClientTrailBalanceAsync(List<ClientTrailBalance> items);
+
+        //SaveJournalEntry
+        Task<List<int>> SaveCompleteTrailBalanceAsync(List<TrailBalanceCompositeModel> models);
     }
 }

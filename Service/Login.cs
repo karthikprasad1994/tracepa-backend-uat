@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -31,6 +32,7 @@ namespace TracePca.Service
         private readonly OtpService _otpService;
         private readonly IWebHostEnvironment _env;
         private readonly string _appSettingsPath;
+        private readonly IDbConnection _db;
 
         public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DynamicDbContext context, OtpService otpService, IWebHostEnvironment env)
         {
@@ -42,6 +44,7 @@ namespace TracePca.Service
             _otpService = otpService;
             _env = env;
             _appSettingsPath = Path.Combine(env.ContentRootPath, "appsettings.json");
+            _db = new SqlConnection(configuration.GetConnectionString("DefaultConnection"));
         }
 
         public async Task<object> GetAllUsersAsync()
@@ -486,6 +489,7 @@ namespace TracePca.Service
 
 
         public async Task<LoginResponse> LoginUserAsync(string email, string password)
+
         {
             try
             {
@@ -658,6 +662,36 @@ namespace TracePca.Service
                 throw new Exception($"Error generating JWT token: {ex.Message}");
             }
         }
+
+        public async Task<List<OperationPermissionDto>> GetLoginUserPermissionTraceAsync(UserPermissionRequestDto dto)
+        {
+            string query;
+
+            // Optional: role level, can be removed if unused
+            query = "SELECT Usr_GrpOrUserLvlPerm FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_CompID = @CompanyId";
+            int userRoleLevel = await _db.ExecuteScalarAsync<int>(query, new { UserId = dto.UserId, CompanyId = dto.CompanyId });
+
+            // Check if user is Partner
+            query = "SELECT COUNT(1) FROM Sad_UserDetails WHERE Usr_ID = @UserId AND usr_Partner = 1 AND Usr_CompID = @CompanyId";
+            bool isPartner = await _db.ExecuteScalarAsync<int>(query, new { UserId = dto.UserId, CompanyId = dto.CompanyId }) > 0;
+
+            if (isPartner)
+            {
+                // Fetch all operation names for the company
+                query = "SELECT OP_OperationName FROM SAD_Mod_Operations WHERE OP_CompID = @CompanyId";
+                var operations = await _db.QueryAsync<string>(query, new { CompanyId = dto.CompanyId });
+
+                return operations
+                    .Distinct()
+                    .Select(op => new OperationPermissionDto { Operation = op })
+                    .ToList();
+            }
+
+            // If not a partner, return empty list
+            return new List<OperationPermissionDto>();
+        }
+
+
 
         public async Task<(bool Success, string Message)> CheckAndAddAccessCodeConnectionStringAsync(string accessCode)
         {

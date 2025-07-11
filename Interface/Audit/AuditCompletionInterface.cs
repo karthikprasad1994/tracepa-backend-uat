@@ -1,4 +1,5 @@
-﻿using TracePca.Dto.Audit;
+﻿using System.Threading.Tasks;
+using TracePca.Dto.Audit;
 
 namespace TracePca.Interface.Audit
 {
@@ -16,5 +17,7 @@ namespace TracePca.Interface.Audit
         Task<List<ConductAuditReportDetailDTO>> GetConductAuditReportAsync(int compId, int auditId);
         Task<List<ConductAuditObservationDTO>> GetConductAuditObservationsAsync(int compId, int auditId);
         Task<List<ConductAuditWorkPaperDTO>> LoadConductAuditWorkPapersAsync(int compId, int auditId);
+        Task<StandardAuditAllAttachmentsDTO> LoadAllAuditAttachmentsByAuditIdAsync(int compId, int auditId);
+        Task<(bool, string)> DownloadAllAuditAttachmentsByAuditIdAsync(int compId, int auditId, int userId, string ipAddress);
     }
 }

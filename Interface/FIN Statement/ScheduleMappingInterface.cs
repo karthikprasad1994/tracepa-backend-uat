@@ -30,12 +30,6 @@ namespace TracePca.Interface.FIN_Statement
         //GetScheduleSub-Item
         Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(int CompId, int CustId, int ScheduleTypeId);
 
-        ////SaveOrUpdateTrialBalanceUpload
-        //Task<int[]> SaveTrailBalanceUploadAsync(int iCompId, TrailBalanceUploadDto dto);
-
-        ////SaveOrUpdateTrialBalanceUploadDetails
-        //Task<int[]> SaveTrailBalanceUploadDetailsAsync(int iCompId, TrailBalanceUploadDetailsDto dto);
-
         //GetTotalAmount
         Task<IEnumerable<CustCOASummaryDto>> GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId);
 
@@ -58,7 +52,23 @@ namespace TracePca.Interface.FIN_Statement
         //DownloadUploadableExcelAndTemplate
         FileDownloadResult GetExcelTemplate();
 
-        //SaveTrailBalanceDetails
-        Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, TrailBalanceDetailsDto HeaderDto);
+        //SaveTrailbalnceDetails
+        Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDetailsDto> dtos);
+
+        //UpdateTrailBalnce
+        Task<List<int>> UpdateTrailBalanceAsync(List<UpdateTrailBalanceDto> dtos);
+
+        //LoadSubHeadingByHeadingDto
+        Task<IEnumerable<LoadSubHeadingByHeadingDto>> GetSubHeadingsByHeadingIdAsync(int headingId, int orgType);
+
+        //LoadItemBySubHeadingDto
+        Task<IEnumerable<LoadItemBySubHeadingDto>> GetItemsBySubHeadingIdAsync(int subHeadingId, int orgType);
+
+        //LoadSubItemByItemDto
+        Task<IEnumerable<LoadSubItemByItemDto>> GetSubItemsByItemIdAsync(int itemId, int orgType);
+
+        //GetPreviousLoadId
+        Task<(int? HeadingId, int? SubHeadingId, int? ItemId)> GetPreviousLoadIdAsync(
+  int? subItemId = null, int? itemId = null, int? subHeadingId = null);
     }
 }

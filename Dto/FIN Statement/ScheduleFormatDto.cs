@@ -126,6 +126,7 @@
             public string AST_STATUS { get; set; }
             public int AST_UPDATEDBY { get; set; }
             public string AST_IPAddress { get; set; }
+            public int AST_CompId { get; set; }
             public int AST_YEARId { get; set; }
             public int AST_Schedule_type { get; set; }
             public int AST_Companytype { get; set; }
@@ -162,6 +163,7 @@
             public string? AST_STATUS { get; set; }
             public int AST_UPDATEDBY { get; set; }
             public string? AST_IPAddress { get; set; }
+            public int AST_CompId { get; set; }
             public int AST_YEARId { get; set; }
             public int AST_Schedule_type { get; set; }
             public int AST_Companytype { get; set; }
@@ -199,6 +201,7 @@
             public string? AST_STATUS { get; set; }
             public int AST_UPDATEDBY { get; set; }
             public string? AST_IPAddress { get; set; }
+            public int AST_CompId { get; set; }
             public int AST_YEARId { get; set; }
             public int AST_Schedule_type { get; set; }
             public int AST_Companytype { get; set; }
