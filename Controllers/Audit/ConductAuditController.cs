@@ -171,7 +171,7 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var result = await _conductAuditInterface.UpdateConductAuditCheckPointRemarksAndAnnexureAsync(dto);
-                return Ok(new { statusCode = 200, message = "Checkpoint remarks and other details updated.", data = result });
+                return Ok(new { statusCode = 200, message = "Checkpoint remarks and other details updated successfully.", data = result });
             }
             catch (Exception ex)
             {
@@ -198,7 +198,7 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var (attachmentId, relativeFilePath) = await _engagementInterface.UploadAndSaveAttachmentAsync(dto);
+                var (attachmentId, relativeFilePath) = await _engagementInterface.UploadAndSaveAttachmentAsync(dto, "StandardAudit");
                 if (attachmentId > 0)
                 {
                     return Ok(new { success = true, message = "File uploaded and saved successfully.", data = attachmentId });
@@ -219,7 +219,7 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var (attachmentId, relativeFilePath) = await _conductAuditInterface.UploadAndSaveCheckPointAttachmentAsync(dto, auditId, checkPointId);
+                var (attachmentId, relativeFilePath) = await _conductAuditInterface.UploadAndSaveCheckPointAttachmentAsync(dto, auditId, checkPointId, "StandardAudit");
                 if (attachmentId > 0)
                 {
                     return Ok(new { success = true, message = "File uploaded and saved successfully.", data = attachmentId });
@@ -268,7 +268,7 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var (isFileExists, messageOrfileUrl) = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId);
+                var (isFileExists, messageOrfileUrl) = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId, "StandardAudit");
                 if (isFileExists)
                 {
                     return Ok(new { statusCode = 200, success = true, fileUrl = messageOrfileUrl });
@@ -351,6 +351,20 @@ namespace TracePca.Controllers.Audit
             catch (Exception ex)
             {
                 return StatusCode(500, new { statusCode = 500, message = "Failed to load Customer user dropdown data.", error = ex.Message });
+            }
+        }
+
+        [HttpPost("UpdateConductAuditWorkPaperReviewer")]
+        public async Task<IActionResult> UpdateConductAuditWorkPaperReviewer(int compID, int auditId, int workpaperId, int userId, string reviewerComments)
+        {
+            try
+            {
+                var result = await _conductAuditInterface.UpdateConductAuditWorkPaperReviewerAsync(compID, auditId, workpaperId, userId, reviewerComments);
+                return Ok(new { statusCode = 200, message = "Reviewer comments updated successfully.", data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to update reviewer comments details.", error = ex.Message });
             }
         }
     }

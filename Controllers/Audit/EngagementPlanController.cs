@@ -157,7 +157,7 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var (attachmentId, relativeFilePath) = await _engagementInterface.UploadAndSaveAttachmentAsync(dto);
+                var (attachmentId, relativeFilePath) = await _engagementInterface.UploadAndSaveAttachmentAsync(dto, "StandardAudit");
                 if (attachmentId > 0)
                 {
                     return Ok(new { success = true, message = "File uploaded and saved successfully.", data = attachmentId });
@@ -206,7 +206,7 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var (isFileExists, messageOrfileUrl) = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId);
+                var (isFileExists, messageOrfileUrl) = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId, "StandardAudit");
                 if (isFileExists)
                 {
                     return Ok(new { statusCode = 200, success = true, fileUrl = messageOrfileUrl });
