@@ -1,13 +1,16 @@
 ﻿using Dapper;
+using DocumentFormat.OpenXml.Bibliography;
+using DocumentFormat.OpenXml.InkML;
 using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.Data.SqlClient;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using TracePca.Data;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
-using QuestPDF.Fluent;
-using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
 using Colors = QuestPDF.Helpers.Colors;
@@ -104,7 +107,7 @@ namespace TracePca.Service.Audit
                 throw new ApplicationException("An error occurred while loading all DDL data", ex);
             }
         }
-        
+
         public async Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId)
         {
             try
@@ -112,15 +115,18 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
 
-                var sql = @"SELECT SA.SA_ID As ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name FROM StandardAudit_Schedule SA
-                LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId";
-                if (custId > 0)
-                {
-                    sql += " AND SA.SA_CustID = @CustId ";
-                }
-                sql += @"AND (EXISTS (SELECT 1 FROM sad_userdetails WHERE usr_CompID = @CompId AND usr_ID = @UserId AND usr_Partner = 1 AND usr_DelFlag IN ('A','B','L'))
-                OR (',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR
-                    ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%')) ORDER BY SA.SA_ID DESC";
+                var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
+                    CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
+                    CASE WHEN ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isReviewer,
+                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor                
+                    FROM StandardAudit_Schedule SA LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
+                    WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId ";
+
+                if (custId > 0) { sql += " AND SA.SA_CustID = @CustId "; }
+
+                sql += @" AND (EXISTS (SELECT 1 FROM sad_userdetails WHERE usr_CompID = @CompId AND usr_ID = @UserId AND usr_Partner = 1 AND usr_DelFlag IN ('A','B','L'))
+                OR (',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' 
+                OR ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%')) ORDER BY SA.SA_ID DESC;";
 
                 var parameters = new
                 {
@@ -130,7 +136,7 @@ namespace TracePca.Service.Audit
                     UserId = userId
                 };
 
-                var auditNoList = await connection.QueryAsync<DropDownListData>(sql, parameters);
+                var auditNoList = await connection.QueryAsync<AuditDropDownListData>(sql, parameters);
                 return new AuditDropDownListDataDTO
                 {
                     ExistingAuditNoList = auditNoList.ToList()
@@ -469,7 +475,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<(int attachmentId, string relativeFilePath)> UploadAndSaveCheckPointAttachmentAsync(FileAttachmentDTO dto, int auditId, int checkPointId)
+        public async Task<(int attachmentId, string relativeFilePath)> UploadAndSaveCheckPointAttachmentAsync(FileAttachmentDTO dto, int auditId, int checkPointId, string module)
         {
             try
             {
@@ -482,23 +488,28 @@ namespace TracePca.Service.Audit
                 int attachId = dto.ATCH_ID == 0 ? await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID }) : dto.ATCH_ID;
                 int docId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID });
 
-                string originalFileName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
-                string safeFileName = originalFileName.Replace("&", " and");
-                safeFileName = safeFileName.Length > 95 ? safeFileName.Substring(0, 95) : safeFileName;
-
-                string fileExt = Path.GetExtension(dto.File.FileName)?.TrimStart('.').ToLower() ?? "unk";
+                // Prepare file metadata
+                string originalName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
+                string safeFileName = (originalName.Replace("&", " and")).Substring(0, Math.Min(95, originalName.Length));
+                string fileExt = Path.GetExtension(dto.File.FileName)?.ToLower() ?? ".unk";
                 long fileSize = dto.File.Length;
 
-                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
-                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+                // Determine file type
+                string[] imageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv" };
+                string[] documentExtensions = { ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar" };
+                string fileType = imageExtensions.Contains(fileExt) ? "Images" : documentExtensions.Contains(fileExt) ? "Documents" : "Others";
 
-                if (!Directory.Exists(absoluteFolder))
-                    Directory.CreateDirectory(absoluteFolder);
+                // Build file path
+                string basePath = GetTRACeConfigValue("ImgPath"); // Or Directory.GetCurrentDirectory()
+                string folderChunk = (docId / 301).ToString();
+                string savePath = Path.Combine(basePath, module, fileType, folderChunk);
+                if (!Directory.Exists(savePath))
+                    Directory.CreateDirectory(savePath);
 
-                string uniqueFileName = $"{docId}.{fileExt}";
-                string fullFilePath = Path.Combine(absoluteFolder, uniqueFileName);
-
-                using (var stream = new FileStream(fullFilePath, FileMode.Create))
+                // Save the file
+                string uniqueFileName = $"{docId}{fileExt}";
+                string fullPath = Path.Combine(savePath, uniqueFileName);
+                using (var stream = new FileStream(fullPath, FileMode.Create))
                 {
                     await dto.File.CopyToAsync(stream);
                 }
@@ -528,7 +539,7 @@ namespace TracePca.Service.Audit
                     SAC_CompID = dto.ATCH_COMPID
                 });
 
-                return (attachId, fullFilePath.Replace("\\", "/"));
+                return (attachId, fullPath.Replace("\\", "/"));
             }
             catch (Exception ex)
             {
@@ -597,11 +608,6 @@ namespace TracePca.Service.Audit
                     throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
                 }
 
-                string relativeFolder = Path.Combine("Uploads", "Audit").ToString();
-                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
-                string fullFilePath = Path.Combine(absoluteFolder, "Audit_Workpaper.pdf");
-                await File.WriteAllBytesAsync(fullFilePath, fileBytes);
-
                 return (fileBytes, contentType, fileName);
             }
             catch (Exception ex)
@@ -629,16 +635,20 @@ namespace TracePca.Service.Audit
                     throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
                 }
 
-                string relativeFolder = Path.Combine("Uploads", "Audit").ToString();
-                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
-                string fullFilePath = Path.Combine(absoluteFolder, "Conduct_Audit.pdf");
-                await File.WriteAllBytesAsync(fullFilePath, fileBytes);
-
                 return (fileBytes, contentType, fileName);
             }
             catch (Exception ex)
             {
                 throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+        
+        public string GetTRACeConfigValue(string key)
+        {
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                var query = "SELECT SAD_Config_Value FROM [dbo].[Sad_Config_Settings] WHERE SAD_Config_Key = @Key";
+                return connection.QueryFirstOrDefault<string>(query, new { Key = key });
             }
         }
 
@@ -648,7 +658,8 @@ namespace TracePca.Service.Audit
             {
                 byte[] fileBytes;
                 string contentType;
-                string fileName = "Conduct_Audit_Workpaper";
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Conduct_Audit_Workpaper_{ timestamp}";
 
                 if (format.ToLower() == "pdf")
                 {
@@ -661,11 +672,10 @@ namespace TracePca.Service.Audit
                     throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
                 }
 
-                var tempPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "temp");
-                if (!Directory.Exists(tempPath))
-                    Directory.CreateDirectory(tempPath);
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
 
-                var filePath = Path.Combine(tempPath, fileName);
+                var filePath = Path.Combine(tempFolder, fileName);
                 if (System.IO.File.Exists(filePath))
                 {
                     System.IO.File.Delete(filePath);
@@ -674,7 +684,7 @@ namespace TracePca.Service.Audit
                 await File.WriteAllBytesAsync(filePath, fileBytes);
 
                 string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
-                string downloadUrl = $"{baseUrl}/temp/{fileName}";
+                string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{fileName}";
 
                 return downloadUrl;
             }
@@ -690,7 +700,8 @@ namespace TracePca.Service.Audit
             {
                 byte[] fileBytes;
                 string contentType;
-                string fileName = "Conduct_Audit_CheckPoints";
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Conduct_Audit_CheckPoints_{timestamp}";
 
                 if (format.ToLower() == "pdf")
                 {
@@ -703,11 +714,10 @@ namespace TracePca.Service.Audit
                     throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
                 }
 
-                var tempPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "temp");
-                if (!Directory.Exists(tempPath))
-                    Directory.CreateDirectory(tempPath);
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
 
-                var filePath = Path.Combine(tempPath, fileName);
+                var filePath = Path.Combine(tempFolder, fileName);
                 if (System.IO.File.Exists(filePath))
                 {
                     System.IO.File.Delete(filePath);
@@ -716,7 +726,7 @@ namespace TracePca.Service.Audit
                 await File.WriteAllBytesAsync(filePath, fileBytes);
 
                 string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
-                string downloadUrl = $"{baseUrl}/temp/{fileName}";
+                string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{fileName}";
 
                 return downloadUrl;
             }
@@ -1003,6 +1013,33 @@ namespace TracePca.Service.Audit
             catch (Exception ex)
             {
                 throw new ApplicationException("An error occurred while loading customer user dropdown data.", ex);
+            }
+        }
+
+        public async Task<bool> UpdateConductAuditWorkPaperReviewerAsync(int compID, int auditId, int workpaperId, int userId, string reviewerComments)
+        {
+            const string query = @"UPDATE StandardAudit_ScheduleConduct_WorkPaper SET SSW_ReviewerComments = @SSW_ReviewerComments, SSW_ReviewedBy = @SSW_ReviewedBy, SSW_ReviewedOn = GETDATE()
+                WHERE SSW_SA_ID = @SSW_SA_ID AND SSW_CompID = @SSW_CompID AND SSW_ID = @SSW_ID;";
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var parameters = new
+                {
+                    SSW_CompID = compID,
+                    SSW_SA_ID = auditId,
+                    SSW_ID = workpaperId,
+                    SSW_ReviewedBy = userId,
+                    SSW_ReviewerComments = reviewerComments
+                };
+
+                int rows = await connection.ExecuteAsync(query, parameters);
+                return rows > 0;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("Error updating reviewer comments for audit workpaper.", ex);
             }
         }
     }

@@ -840,19 +840,31 @@ namespace TracePca.Controllers
 
 
         [HttpGet("LoadLOEHeading")]
-        public async Task<IActionResult> LoadLOEHeading([FromQuery] string sFormName, [FromQuery] int compId, [FromQuery] int reportTypeId, [FromQuery] int loeTemplateId)
+        public async Task<IActionResult> LoadLOEHeading([FromQuery] string sFormName, [FromQuery] int compId, [FromQuery] int reportTypeId, [FromQuery] int loeTemplateId, [FromQuery] int customerId)
         {
             try
             {
-                var result = await _AuditInterface.LoadLOEHeadingAsync(sFormName, compId, reportTypeId, loeTemplateId);
-                return Ok(result);
+                var headings = await _AuditInterface.LoadLOEHeadingAsync(sFormName, compId, reportTypeId, loeTemplateId);
+
+                if (headings == null || !headings.Any())
+                    return NotFound("No LOE headings found.");
+
+                var pdfBytes = _AuditInterface.GeneratePdfByFormName(sFormName, $"LOE - {sFormName}", headings, reportTypeId, loeTemplateId, customerId);
+
+                var response = new
+                {
+                    headings,
+                    pdfBase64 = Convert.ToBase64String(pdfBytes)
+                };
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
-
-                return StatusCode(500, "An error occurred while loading LOE headings.");
+                return StatusCode(500, $"Error: {ex.Message}");
             }
         }
+
 
 
 

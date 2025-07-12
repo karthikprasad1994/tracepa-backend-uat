@@ -329,102 +329,6 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        ////SaveOrUpdateTrialBalanceUpload
-        //[HttpPost("SaveOrUpdateTrailBalanceUpload")]
-        //public async Task<IActionResult> SaveTrailBalanceUploadAsync([FromQuery] int iCompId, [FromBody] TrailBalanceUploadDto dto)
-        //{
-        //    if (dto == null)
-        //    {
-        //        return BadRequest(new
-        //        {
-        //            Status = 400,
-        //            Message = "Invalid input: DTO is null",
-        //            Data = (object)null
-        //        });
-        //    }
-
-        //    try
-        //    {
-        //        bool isUpdate = dto.ATBU_ID > 0;
-
-        //        var result = await _ScheduleMappingService.SaveTrailBalanceUploadAsync(iCompId, dto);
-
-        //        string successMessage = isUpdate
-        //            ? "Trail balance upload details successfully updated."
-        //            : "Trail balance upload details successfully created.";
-
-        //        return Ok(new
-        //        {
-        //            Status = 200,
-        //            Message = successMessage,
-        //            Data = new
-        //            {
-        //                UpdateOrSave = result[0],
-        //                Oper = result[1],
-        //                IsUpdate = isUpdate
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            Status = 500,
-        //            Message = "An error occurred while processing your request.",
-        //            Error = ex.Message,
-        //            InnerException = ex.InnerException?.Message
-        //        });
-        //    }
-        //}
-
-        ////SaveOrUpdateTrialBalanceUploadDetails
-        //[HttpPost("SaveOrUpdateTrailBalanceUploadDetails")]
-        //public async Task<IActionResult> SaveTrailBalanceUploadDetailsAsync([FromQuery] int iCompId, [FromBody] TrailBalanceUploadDetailsDto dto)
-        //{
-        //    if (dto == null)
-        //    {
-        //        return BadRequest(new
-        //        {
-        //            Status = 400,
-        //            Message = "Invalid input: DTO is null",
-        //            Data = (object)null
-        //        });
-        //    }
-
-        //    try
-        //    {
-        //        bool isUpdate = dto.ATBUD_ID > 0;
-
-        //        var result = await _ScheduleMappingService.SaveTrailBalanceUploadDetailsAsync(iCompId, dto);
-
-        //        string successMessage = isUpdate
-        //            ? "Trail balance upload details successfully updated."
-        //            : "Trail balance upload details successfully created.";
-
-        //        return Ok(new
-        //        {
-        //            Status = 200,
-        //            Message = successMessage,
-        //            Data = new
-        //            {
-        //                UpdateOrSave = result[0],
-        //                Oper = result[1],
-        //                IsUpdate = isUpdate
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            Status = 500,
-        //            Message = "An error occurred while processing your request.",
-        //            Error = ex.Message,
-        //            InnerException = ex.InnerException?.Message
-        //        });
-        //    }
-        //}
-
         //GetTotalAmount
         [HttpGet("GetTotalAmount")]
         public async Task<IActionResult> GetCustCOAMasterDetails(
@@ -660,35 +564,6 @@ namespace TracePca.Controllers.FIN_Statement
 
             return File(result.FileBytes, result.ContentType, result.FileName);
         }
-
-        //SaveTrailBalanceDetails
-        //[HttpPost("SaveTrailBalanceDetails")]
-        //public async Task<IActionResult> SaveTrailBalanceDetails([FromQuery] int CompId, [FromBody] TrailBalanceDetailsDto HeaderDto)
-        //{
-        //    try
-        //    {
-        //        var resultIds = await _ScheduleMappingService.SaveTrailBalanceDetailsAsync(CompId, HeaderDto);
-
-        //        return Ok(new
-        //        {
-        //            status = 200,
-        //            message = "Trail Balance uploaded successfully.",
-        //            data = new
-        //            {
-        //                ResultIds = resultIds
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            status = 500,
-        //            message = "An error occurred while uploading trial balance.",
-        //            error = ex.Message
-        //        });
-        //    }
-        //}
 
         //SaveTrailBalanceDetails
         [HttpPost("SaveTrailBalanceDetails")]

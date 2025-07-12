@@ -2,6 +2,7 @@
 using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
 
 
+
 namespace TracePca.Interface.FIN_Statement
 {
     public interface ScheduleExcelUploadInterface
@@ -31,7 +32,7 @@ namespace TracePca.Interface.FIN_Statement
         Task<List<int>> SaveOpeningBalanceAsync(List<OpeningBalanceDto> dtos);
 
         //SaveTrailBalance
-        Task<List<int>> SaveTrailBalanceAsync(List<TrailBalanceDto> dtos);
+        Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDto> dtos);
 
         //SaveClientTrailBalance
         Task<List<int>> ClientTrailBalanceAsync(List<ClientTrailBalance> items);

@@ -1896,7 +1896,41 @@ ORDER BY SrNo";
             return result ?? "N/A";
         }
 
+        public string GetFormattedDate(string accessCode, int accessCodeId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
+            var query = @"SELECT SAD_Config_Value 
+                      FROM SAD_Config_Settings 
+                      WHERE SAD_Config_Key = @Key AND SAD_CompId = @AccessCodeId";
+
+            var configValue = connection.QueryFirstOrDefault<string>(query, new
+            {
+                Key = "DateFormat",
+                AccessCodeId = accessCodeId
+            });
+
+            if (string.IsNullOrWhiteSpace(configValue))
+                return DateTime.Now.ToString("dd-MMM-yyyy"); // default format
+
+            return FormatDate(DateTime.Now, configValue);
+        }
+
+        private string FormatDate(DateTime dt, string code)
+        {
+            return code.Trim() switch
+            {
+                "1" => dt.ToString("dd-MMM-yy"),
+                "2" => dt.ToString("dd/MM/yyyy"),
+                "3" => dt.ToString("MM/dd/yyyy"),
+                "4" => dt.ToString("yyyy/MM/dd"),
+                "5" => dt.ToString("MMM-dd-yy"),
+                "6" => dt.ToString("MMM/dd/yy"),
+                "7" => dt.ToString("MM-dd-yyyy"),
+                "8" => dt.ToString("MMM/dd/yyyy"),
+                _ => dt.ToString("dd-MMM-yyyy") // fallback
+            };
+        }
         //public async Task SaveGraceFormOperations(int accessCodeId, int userId, string module, string action, string operation, int yearId, string yearName, string auditNo, string remarks, string ipAddress)
         //{
         //    using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
