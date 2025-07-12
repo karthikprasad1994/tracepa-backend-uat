@@ -663,33 +663,65 @@ namespace TracePca.Service
             }
         }
 
-        public async Task<List<OperationPermissionDto>> GetLoginUserPermissionTraceAsync(UserPermissionRequestDto dto)
+        public async Task<List<FormPermissionDto>> GetUserPermissionsWithFormNameAsync(int companyId, int userId)
         {
-            string query;
+            var userRoleLevel = await _db.ExecuteScalarAsync<int>(
+                "SELECT Usr_GrpOrUserLvlPerm FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_CompID = @CompanyId",
+                new { UserId = userId, CompanyId = companyId });
 
-            // Optional: role level, can be removed if unused
-            query = "SELECT Usr_GrpOrUserLvlPerm FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_CompID = @CompanyId";
-            int userRoleLevel = await _db.ExecuteScalarAsync<int>(query, new { UserId = dto.UserId, CompanyId = dto.CompanyId });
+            var isPartner = await _db.ExecuteScalarAsync<int?>(
+                "SELECT Usr_ID FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_Partner = 1 AND Usr_CompID = @CompanyId",
+                new { UserId = userId, CompanyId = companyId });
 
-            // Check if user is Partner
-            query = "SELECT COUNT(1) FROM Sad_UserDetails WHERE Usr_ID = @UserId AND usr_Partner = 1 AND Usr_CompID = @CompanyId";
-            bool isPartner = await _db.ExecuteScalarAsync<int>(query, new { UserId = dto.UserId, CompanyId = dto.CompanyId }) > 0;
+            IEnumerable<FormPermissionDto> results;
 
-            if (isPartner)
+            if (isPartner.HasValue)
             {
-                // Fetch all operation names for the company
-                query = "SELECT OP_OperationName FROM SAD_Mod_Operations WHERE OP_CompID = @CompanyId";
-                var operations = await _db.QueryAsync<string>(query, new { CompanyId = dto.CompanyId });
+                results = await _db.QueryAsync<FormPermissionDto>(
+                    @"SELECT DISTINCT m.Mod_Description AS FormName, o.OP_OperationName AS Permission
+              FROM SAD_MODULE m
+              JOIN SAD_Mod_Operations o ON m.Mod_ID = o.OP_ModuleID
+              WHERE  m.Mod_CompID = @CompanyId",
+                    new { CompanyId = companyId });
+            }
+            else
+            {
+                if (userRoleLevel == 1)
+                {
+                    results = await _db.QueryAsync<FormPermissionDto>(
+                        @"SELECT DISTINCT m.Mod_Description AS FormName, o.OP_OperationName AS Permission
+                  FROM SAD_MODULE m
+                  JOIN SAD_Mod_Operations o ON m.Mod_ID = o.OP_ModuleID
+                  JOIN SAD_UsrOrGrp_Permission p ON o.OP_PKID = p.Perm_OPPKID
+                  WHERE p.Perm_UsrorGrpID = @UserId 
+                    AND p.Perm_PType = 'U' 
+                    AND m.Mod_Parent = 4
+                    AND p.Perm_CompID = @CompanyId",
+                        new { UserId = userId, CompanyId = companyId });
+                }
+                else
+                {
+                    var roleId = await _db.ExecuteScalarAsync<int>(
+                        "SELECT Usr_Role FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_CompID = @CompanyId",
+                        new { UserId = userId, CompanyId = companyId });
 
-                return operations
-                    .Distinct()
-                    .Select(op => new OperationPermissionDto { Operation = op })
-                    .ToList();
+                    results = await _db.QueryAsync<FormPermissionDto>(
+                        @"SELECT DISTINCT m.Mod_Description AS FormName, o.OP_OperationName AS Permission
+                  FROM SAD_MODULE m
+                  JOIN SAD_Mod_Operations o ON m.Mod_ID = o.OP_ModuleID
+                  JOIN SAD_UsrOrGrp_Permission p ON o.OP_PKID = p.Perm_OPPKID
+                  WHERE p.Perm_UsrorGrpID = @RoleId 
+                    AND p.Perm_PType = 'R' 
+                    AND m.Mod_Parent = 4
+                    AND p.Perm_CompID = @CompanyId",
+                        new { RoleId = roleId, CompanyId = companyId });
+                }
             }
 
-            // If not a partner, return empty list
-            return new List<OperationPermissionDto>();
+            return results.ToList();
         }
+
+
 
 
 
