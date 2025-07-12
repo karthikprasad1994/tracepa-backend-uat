@@ -97,7 +97,6 @@ namespace TracePca.Controllers
             {
                 // Extract the JWT token from Authorization header
                 var token = Request.Headers["Authorization"].ToString();
-
                 if (string.IsNullOrWhiteSpace(token))
                 {
                     return BadRequest(new { statuscode = 400, message = "Authorization token is missing in the header." });
