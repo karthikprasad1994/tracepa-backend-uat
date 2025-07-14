@@ -56,5 +56,11 @@
             public int ASSI_ID { get; set; }
             public string ASSI_Name { get; set; }
         }
+
+        //GetCustomerOrgType
+        public class OrgTypeDto
+        {
+            public string OrgType { get; set; }
+        }
     }
 }

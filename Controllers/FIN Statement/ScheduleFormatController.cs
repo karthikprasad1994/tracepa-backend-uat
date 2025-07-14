@@ -21,43 +21,6 @@ namespace TracePca.Controllers.FIN_Statement
             _ScheduleFormatService = ScheduleFormatInterface;
         }
 
-        //GetCustomerName
-        [HttpGet("GetCustomersName")]
-        public async Task<IActionResult> GetCustomerName([FromQuery] int CompId)
-        {
-
-            try
-            {
-                var result = await _ScheduleFormatService.GetCustomerNameAsync(CompId);
-
-                if (result == null || !result.Any())
-                {
-                    return NotFound(new
-                    {
-                        statusCode = 404,
-                        message = "No company types found.",
-                        data = (object)null
-                    });
-                }
-
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Company types loaded successfully.",
-                    data = result
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An error occurred while fetching company types.",
-                    error = ex.Message
-                });
-            }
-        }
-
         //GetScheduleHeading
         [HttpGet("GetScheduleHeading")]
         public async Task<IActionResult> GetScheduleFormatHeadingAsync([FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int AccHead)
@@ -558,6 +521,32 @@ namespace TracePca.Controllers.FIN_Statement
                     Message = "An error occurred while processing your request.",
                     Error = ex.Message,
                     InnerException = ex.InnerException?.Message
+                });
+            }
+        }
+
+        //GetScheduleTemplateCount
+        [HttpGet("ScheduleCount")]
+        public async Task<IActionResult> GetScheduleTemplateCount([FromQuery] int CustId, [FromQuery] int CompId)
+        {
+            try
+            {
+                var result = await _ScheduleFormatService.GetScheduleFormatItemsAsync(CustId, CompId);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Schedule template count retrieved successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the template count.",
+                    error = ex.Message
                 });
             }
         }

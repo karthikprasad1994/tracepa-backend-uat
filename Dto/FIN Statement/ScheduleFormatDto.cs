@@ -2,12 +2,6 @@
 {
     public class ScheduleFormatDto
     {
-        //GetCustomerName
-        public class CustDto
-        {
-            public int Cust_Id { get; set; }
-            public string? Cust_Name { get; set; }
-        }
 
         //GetScheduleHeading
         public class ScheduleHeadingDto
@@ -233,5 +227,12 @@
             public int AGA_Createdby { get; set; }
             public string AGA_IPAddress { get; set; }
         }
+
+        //GetScheduleTemplateCount
+        public class ScheduleTemplateCountDto
+        {
+            public int TemplateCount { get; set; }
+        }
+
     }
 }

@@ -172,5 +172,23 @@ namespace TracePca.Service.FIN_statement
             await connection.OpenAsync();
             return await connection.QueryAsync<ScheduleSubItemDto>(query, new { CompId, CustId, ScheduleTypeId });
         }
+
+        //GetCustomerOrgType
+        public async Task<string> GetCustomerOrgTypeAsync(int CustId, int CompId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var query = @"
+        SELECT ISNULL(cmm_Desc, '') 
+        FROM SAD_CUSTOMER_MASTER
+        LEFT JOIN Content_Management_Master 
+            ON Content_Management_Master.cmm_id = SAD_CUSTOMER_MASTER.CUST_ORGTYPEID
+        WHERE SAD_CUSTOMER_MASTER.CUST_ID = @CustId AND SAD_CUSTOMER_MASTER.CUST_CompID = @CompId";
+
+            var result = await connection.QueryFirstOrDefaultAsync<string>(query, new { CustId, CompId });
+
+            return result;
+        }
+
     }
 }

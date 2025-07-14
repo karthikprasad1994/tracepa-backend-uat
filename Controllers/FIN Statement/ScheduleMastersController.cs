@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
+using static TracePca.Dto.FIN_Statement.ScheduleMastersDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -315,6 +316,45 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     statusCode = 500,
                     message = "An error occurred while retrieving schedule items.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //GetCustomerOrgType
+        [HttpGet("GetCustomerOrgType")]
+        public async Task<IActionResult> GetCustomerOrgType([FromQuery] int CustId, [FromQuery] int CompId)
+        {
+            try
+            {
+                var result = await _ScheduleMastersService.GetCustomerOrgTypeAsync(CustId, CompId);
+
+                if (string.IsNullOrWhiteSpace(result))
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "Customer organization type not found.",
+                        data = (string)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Customer organization type retrieved successfully.",
+                    data = new
+                    {
+                        orgType = result
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the organization type.",
                     error = ex.Message
                 });
             }

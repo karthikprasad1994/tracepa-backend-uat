@@ -4,28 +4,6 @@ namespace TracePca.Dto.FIN_Statement
 {
     public class ScheduleReportDto
     {
-        private readonly object _ScheduleReportService;
-
-        //GetCustomersName
-        public class CustDto
-        {
-            public int Cust_Id { get; set; }
-            public string? Cust_Name { get; set; }
-        }
-
-        //GetFinancialYear
-        public class FinancialYearDto
-        {
-            public int YMS_YEARID { get; set; }
-            public string? YMS_ID { get; set; }
-        }
-
-        //GetBranchName
-        public class CustBranchDto
-        {
-            public int Branchid { get; set; }
-            public string? BranchName { get; set; }
-        }
 
         //GetCompanyName
         public class CompanyDetailsDto

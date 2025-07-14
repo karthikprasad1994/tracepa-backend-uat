@@ -27,5 +27,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetScheduleSubItem
         Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(int CompId, int CustId, int ScheduleTypeId);
+
+        //GetCustomerOrgType
+        Task<string> GetCustomerOrgTypeAsync(int CustId, int CompId);
     }
 }

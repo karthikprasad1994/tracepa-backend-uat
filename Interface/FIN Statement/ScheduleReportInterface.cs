@@ -4,14 +4,6 @@ namespace TracePca.Interface.FIN_Statement
 {
     public interface ScheduleReportInterface
     {
-        //GetCustomersName
-        Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId);
-
-        //GetFinancialYear
-        Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CcompId);
-
-        //GetBranchName
-        Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId);
 
         //GetCompanyName
         Task<IEnumerable<CompanyDetailsDto>> GetCompanyNameAsync(int CompId);

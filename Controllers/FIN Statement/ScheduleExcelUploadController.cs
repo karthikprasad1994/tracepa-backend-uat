@@ -37,154 +37,9 @@ namespace TracePca.Controllers.FIN_Statement
             return File(result.FileBytes, result.ContentType, result.FileName);
         }
 
-        //GetCustomersName
-        [HttpGet("GetCustomersName")]
-        public async Task<IActionResult> GetCustomerName([FromQuery] int CompId)
-        {
-
-            try
-            {
-                var result = await _ScheduleExcelUploadService.GetCustomerNameAsync(CompId);
-
-                if (result == null || !result.Any())
-                {
-                    return NotFound(new
-                    {
-                        statusCode = 404,
-                        message = "No Customer name found.",
-                        data = (object)null
-                    });
-                }
-
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Customer name loaded successfully.",
-                    data = result
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An error occurred while fetching company types.",
-                    error = ex.Message
-                });
-            }
-        }
-
-        //GetFinancialYear
-        [HttpGet("GetFinancialYear")]
-        public async Task<IActionResult> GetFinancialYear([FromQuery] int CompId)
-        {
-            try
-            {
-                var result = await _ScheduleExcelUploadService.GetFinancialYearAsync(CompId);
-
-                if (result == null || !result.Any())
-                {
-                    return NotFound(new
-                    {
-                        statusCode = 404,
-                        message = "No Financial types found.",
-                        data = (object)null
-                    });
-                }
-
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Financial types loaded successfully.",
-                    data = result
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An error occurred while fetching company types.",
-                    error = ex.Message
-                });
-            }
-        }
-
-        //GetDuration
-        [HttpGet("GetCustomerDurationId")]
-        public async Task<IActionResult> GetCustomerDurationId([FromQuery] int CompId, [FromQuery] int CustId)
-        {
-            try
-            {
-                var durationId = await _ScheduleExcelUploadService.GetCustomerDurationIdAsync(CompId, CustId);
-
-                if (durationId == null)
-                {
-                    return NotFound(new
-                    {
-                        statusCode = 404,
-                        message = "Duration ID not found for the provided Company ID and Customer ID.",
-                        data = (object)null
-                    });
-                }
-
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Duration ID retrieved successfully.",
-                    data = new { Cust_DurtnId = durationId }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An error occurred while retrieving the duration ID.",
-                    error = ex.Message
-                });
-            }
-        }
-
-        //GetBranchName
-        [HttpGet("GetBranchName")]
-        public async Task<IActionResult> GetBranchName([FromQuery] int CompId, [FromQuery] int CustId)
-        {
-            try
-            {
-                var result = await _ScheduleExcelUploadService.GetBranchNameAsync(CompId, CustId);
-
-                if (result == null || !result.Any())
-                {
-                    return NotFound(new
-                    {
-                        statusCode = 404,
-                        message = "No Branch name found.",
-                        data = (object)null
-                    });
-                }
-
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Branch name loaded successfully.",
-                    data = result
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An error occurred while fetching company types.",
-                    error = ex.Message
-                });
-            }
-        }
-
         //SaveScheduleTemplate(P and L)
         [HttpPost("SaveScheduleTemplate(P and L)")]
-        public async Task<IActionResult> SaveSchedulePandL([FromBody] List<ScheduleTemplatePandLDto> dtos)
+        public async Task<IActionResult> SaveSchedulePandL([FromQuery] int CompId, [FromBody] List<ScheduleTemplatePandLDto> dtos)
         {
             if (dtos == null || !dtos.Any())
             {
@@ -197,7 +52,7 @@ namespace TracePca.Controllers.FIN_Statement
 
             try
             {
-                var resultIds = await _ScheduleExcelUploadService.SaveSchedulePandLAsync(dtos);
+                var resultIds = await _ScheduleExcelUploadService.SaveSchedulePandLAsync(CompId, dtos);
 
                 return Ok(new
                 {
@@ -219,7 +74,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveScheduleTemplate(BalanceSheet)
         [HttpPost("SaveScheduleTemplate(BalnceSheet)")]
-        public async Task<IActionResult> SaveScheduleBalanceSheet([FromBody] List<ScheduleTemplateBalanceSheetDto> dtos)
+        public async Task<IActionResult> SaveScheduleBalanceSheet([FromQuery] int CompId, [FromBody] List<ScheduleTemplateBalanceSheetDto> dtos)
         {
             if (dtos == null || !dtos.Any())
             {
@@ -232,7 +87,7 @@ namespace TracePca.Controllers.FIN_Statement
 
             try
             {
-                var resultIds = await _ScheduleExcelUploadService.SaveScheduleBalanceSheetAsync(dtos);
+                var resultIds = await _ScheduleExcelUploadService.SaveScheduleBalanceSheetAsync(CompId, dtos);
 
                 return Ok(new
                 {
@@ -254,7 +109,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveOpeningBalance
         [HttpPost("SaveOpeningBalance")]
-        public async Task<IActionResult> SaveOpeningBalance([FromBody] List<OpeningBalanceDto> dtos)
+        public async Task<IActionResult> SaveOpeningBalance([FromQuery] int CompId, [FromBody] List<OpeningBalanceDto> dtos)
         {
             try
             {
@@ -268,7 +123,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var resultIds = await _ScheduleExcelUploadService.SaveOpeningBalanceAsync(dtos);
+                var resultIds = await _ScheduleExcelUploadService.SaveOpeningBalanceAsync(CompId, dtos);
 
                 return Ok(new
                 {
@@ -318,14 +173,13 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveClientTrailBalance
         [HttpPost("SaveClientTrailBalance")]
-        public async Task<IActionResult> UploadClientTrailBalance([FromBody] List<ClientTrailBalance> items)
+        public async Task<IActionResult> UploadClientTrailBalance([FromQuery] int CompId, [FromBody] List<ClientTrailBalance> items)
         {
             if (items == null || !items.Any())
                 return BadRequest("No data provided.");
-
             try
             {
-                var result = await _ScheduleExcelUploadService.ClientTrailBalanceAsync(items);
+                var result = await _ScheduleExcelUploadService.ClientTrailBalanceAsync(CompId, items);
                 return Ok(new
                 {
                     Success = true,
@@ -346,7 +200,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveJournalEntry
         [HttpPost("SaveJournalEntry")]
-        public async Task<IActionResult> SaveCompleteTrailBalance([FromBody] List<TrailBalanceCompositeModel> models)
+        public async Task<IActionResult> SaveCompleteTrailBalance([FromQuery] int CompId, [FromBody] List<TrailBalanceCompositeModel> models)
         {
             try
             {
@@ -359,9 +213,7 @@ namespace TracePca.Controllers.FIN_Statement
                         data = (object)null
                     });
                 }
-
-                var result = await _ScheduleExcelUploadService.SaveCompleteTrailBalanceAsync(models);
-
+                var result = await _ScheduleExcelUploadService.SaveCompleteTrailBalanceAsync(CompId, models);
                 return Ok(new
                 {
                     statusCode = 200,

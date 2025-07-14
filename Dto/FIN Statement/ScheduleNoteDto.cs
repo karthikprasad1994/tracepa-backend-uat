@@ -2,19 +2,6 @@
 {
     public class ScheduleNoteDto
     {
-        //GetCustomersName
-        public class CustDto
-        {
-            public int Cust_Id { get; set; }
-            public string? Cust_Name { get; set; }
-        }
-
-        //GetFinancialYear
-        public class FinancialYearDto
-        {
-            public int YearId { get; set; }
-            public string? Id { get; set; }
-        }
 
         //GetSubHeadingname(Notes For SubHeading)
         public class SubHeadingNoteDto

@@ -10,33 +10,6 @@
             public string ContentType { get; set; }
         }
 
-        //GetCustomersName
-        public class CustDto
-        {
-            public int Cust_Id { get; set; }
-            public string? Cust_Name { get; set; }
-        }
-
-        //GetFinancialYear
-        public class FinancialYearDto
-        {
-            public int Year_Id { get; set; }
-            public string? Id { get; set; }
-        }
-
-        //GetDuration
-        public class CustDurationDto
-        {
-            public int Cust_DurtnId { get; set; }
-        }
-
-        //GetBranchName
-        public class CustBranchDto
-        {
-            public int Branchid { get; set; }
-            public string? BranchName { get; set; }
-        }
-
         //SaveScheduleTemplate(P and L)
         public class ScheduleTemplatePandLDto
         {

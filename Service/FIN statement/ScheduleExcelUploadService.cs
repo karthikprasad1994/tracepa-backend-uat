@@ -41,73 +41,8 @@ namespace TracePca.Service.FIN_statement
             };
         }
 
-        //GetCustomersName
-        public async Task<IEnumerable<Dto.FIN_Statement.ScheduleExcelUploadDto.CustDto>> GetCustomerNameAsync(int CompId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-            var query = @"
-        SELECT 
-            Cust_Id,
-            Cust_Name 
-        FROM SAD_CUSTOMER_MASTER
-        WHERE cust_Compid = @CompID";
-
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<Dto.FIN_Statement.ScheduleExcelUploadDto.CustDto>(query, new { CompID = CompId });
-        }
-
-        //GetFinancialYear
-        public async Task<IEnumerable<Dto.FIN_Statement.ScheduleExcelUploadDto.FinancialYearDto>> GetFinancialYearAsync(int CompId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-            var query = @"
-        SELECT 
-            YMS_YEARID AS Year_Id,
-            YMS_ID As Id
-        FROM YEAR_MASTER 
-        WHERE YMS_FROMDATE < DATEADD(year, +1, GETDATE()) 
-          AND YMS_CompId = @CompID 
-        ORDER BY YMS_ID DESC";
-
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<Dto.FIN_Statement.ScheduleExcelUploadDto.FinancialYearDto>(query, new { CompID = CompId });
-        }
-
-        //GetDuration
-        public async Task<int?> GetCustomerDurationIdAsync(int compId, int custId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            var query = "SELECT Cust_DurtnId FROM SAD_CUSTOMER_MASTER WHERE CUST_CompID = @CompId AND CUST_ID = @CustId";
-
-            var parameters = new { CompId = compId, CustId = custId };
-            var result = await connection.QueryFirstOrDefaultAsync<int?>(query, parameters);
-
-            return result;
-        }
-
-        //GetBranchName
-        public async Task<IEnumerable<Dto.FIN_Statement.ScheduleExcelUploadDto.CustBranchDto>> GetBranchNameAsync(int CompId, int CustId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-            var query = @"
-        SELECT 
-            Mas_Id AS Branchid, 
-            Mas_Description AS BranchName 
-        FROM SAD_CUST_LOCATION 
-        WHERE Mas_CompID = @compId AND Mas_CustID = @custId";
-
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<Dto.FIN_Statement.ScheduleExcelUploadDto.CustBranchDto>(query, new { CompId, CustId });
-        }
-
         //SaveScheduleTemplate(P and L)
-        public async Task<List<int>> SaveSchedulePandLAsync(List<ScheduleTemplatePandLDto> dtos)
+        public async Task<List<int>> SaveSchedulePandLAsync(int CompId, List<ScheduleTemplatePandLDto> dtos)
         {
             var resultIds = new List<int>();
 
@@ -118,6 +53,10 @@ namespace TracePca.Service.FIN_statement
             try
             {
                 int iErrorLine = 1;
+                string HeadingName = "";
+                string subHeadingName = "";
+                string itemName = "";
+                string subItemName = "";
 
                 foreach (var dto in dtos)
                 {
@@ -140,25 +79,34 @@ namespace TracePca.Service.FIN_statement
                     {
                         throw new Exception($"Incorrect Account Head at Line No: {iErrorLine}");
                     }
-
                     iErrorLine++;
 
                     // === B. Start processing ===
                     int headingId = 0, subHeadingId = 0, itemId = 0, subItemId = 0, templateId = 0;
 
                     // === 1. Check if Heading exists ===
+
+                    if (dto.ASH_Name != "")
+                    {
+                        HeadingName = dto.ASH_Name.Trim();
+                        subHeadingName = "";
+                        itemName = "";
+                        subItemName = "";
+                    }
+
+
                     var checkHeadingSql = @"
-                SELECT ISNULL(ASH_ID, 0)
-                FROM ACC_ScheduleHeading
-                WHERE ASH_CompId = @CompId
-                  AND ASH_Name = @Name
-                  AND Ash_scheduletype = @ScheduleType
-                  AND Ash_Orgtype = @OrgType";
+           SELECT ISNULL(ASH_ID, 0)
+           FROM ACC_ScheduleHeading
+           WHERE ASH_CompId = @CompId
+             AND ASH_Name = @Name
+             AND Ash_scheduletype = @ScheduleType
+             AND Ash_Orgtype = @OrgType";
 
                     using (var checkCmd = new SqlCommand(checkHeadingSql, connection, transaction))
                     {
                         checkCmd.Parameters.AddWithValue("@CompId", dto.ASH_CompId);
-                        checkCmd.Parameters.AddWithValue("@Name", dto.ASH_Name);
+                        checkCmd.Parameters.AddWithValue("@Name", HeadingName);
                         checkCmd.Parameters.AddWithValue("@ScheduleType", dto.Ash_scheduletype);
                         checkCmd.Parameters.AddWithValue("@OrgType", dto.Ash_Orgtype);
 
@@ -166,7 +114,7 @@ namespace TracePca.Service.FIN_statement
                         headingId = Convert.ToInt32(result);
                     }
 
-                    if (headingId == 0)
+                    if (headingId == 0 && HeadingName != "")
                     {
                         using (var cmd = new SqlCommand("spACC_ScheduleHeading", connection, transaction))
                         {
@@ -182,7 +130,7 @@ namespace TracePca.Service.FIN_statement
                             cmd.Parameters.AddWithValue("@ASH_YEARId", dto.ASH_YEARId);
                             cmd.Parameters.AddWithValue("@Ash_scheduletype", dto.Ash_scheduletype);
                             cmd.Parameters.AddWithValue("@Ash_Orgtype", dto.Ash_Orgtype);
-                            cmd.Parameters.AddWithValue("@ASH_Notes", dto.ASH_Notes);
+                            cmd.Parameters.AddWithValue("@ASH_Notes", dto.AST_AccHeadId);
 
                             var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
                             var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
@@ -196,18 +144,26 @@ namespace TracePca.Service.FIN_statement
                     }
 
                     // === 2. Check SubHeading ===
+
+                    if (dto.ASSH_Name != "")
+                    {
+                        subHeadingName = dto.ASSH_Name.Trim();
+                        itemName = "";
+                        subItemName = "";
+                    }
+
                     var checkSubHeadingSql = @"
-                SELECT ISNULL(ASSH_ID, 0)
-                FROM ACC_ScheduleSubHeading
-                WHERE ASSH_CompId = @CompId
-                  AND ASSH_Name = @Name
-                  AND Assh_scheduletype = @ScheduleType
-                  AND Assh_Orgtype = @OrgType";
+           SELECT ISNULL(ASSH_ID, 0)
+           FROM ACC_ScheduleSubHeading
+           WHERE ASSH_CompId = @CompId
+             AND ASSH_Name = @Name
+             AND Assh_scheduletype = @ScheduleType
+             AND Assh_Orgtype = @OrgType";
 
                     using (var checkCmd = new SqlCommand(checkSubHeadingSql, connection, transaction))
                     {
                         checkCmd.Parameters.AddWithValue("@CompId", dto.ASSH_CompId);
-                        checkCmd.Parameters.AddWithValue("@Name", dto.ASSH_Name);
+                        checkCmd.Parameters.AddWithValue("@Name", subHeadingName);
                         checkCmd.Parameters.AddWithValue("@ScheduleType", dto.ASSH_scheduletype);
                         checkCmd.Parameters.AddWithValue("@OrgType", dto.ASSH_Orgtype);
 
@@ -215,7 +171,7 @@ namespace TracePca.Service.FIN_statement
                         subHeadingId = Convert.ToInt32(result);
                     }
 
-                    if (subHeadingId == 0)
+                    if (subHeadingId == 0 && subHeadingName != "")
                     {
                         using (var cmd = new SqlCommand("spACC_ScheduleSubHeading", connection, transaction))
                         {
@@ -246,18 +202,25 @@ namespace TracePca.Service.FIN_statement
                     }
 
                     // === 3. Check Item ===
+
+                    if (dto.ASI_Name != "")
+                    {
+                        itemName = dto.ASI_Name.Trim();
+                        subItemName = "";
+                    }
+
                     var checkItemSql = @"
-                SELECT ISNULL(ASI_ID, 0)
-                FROM ACC_ScheduleItems
-                WHERE ASI_CompId = @CompId
-                  AND ASI_Name = @Name
-                  AND Asi_scheduletype = @ScheduleType
-                  AND Asi_Orgtype = @OrgType";
+           SELECT ISNULL(ASI_ID, 0)
+           FROM ACC_ScheduleItems
+           WHERE ASI_CompId = @CompId
+             AND ASI_Name = @Name
+             AND Asi_scheduletype = @ScheduleType
+             AND Asi_Orgtype = @OrgType";
 
                     using (var checkCmd = new SqlCommand(checkItemSql, connection, transaction))
                     {
                         checkCmd.Parameters.AddWithValue("@CompId", dto.ASI_CompId);
-                        checkCmd.Parameters.AddWithValue("@Name", dto.ASI_Name);
+                        checkCmd.Parameters.AddWithValue("@Name", itemName);
                         checkCmd.Parameters.AddWithValue("@ScheduleType", dto.ASI_scheduletype);
                         checkCmd.Parameters.AddWithValue("@OrgType", dto.ASI_Orgtype);
 
@@ -265,7 +228,7 @@ namespace TracePca.Service.FIN_statement
                         itemId = Convert.ToInt32(result);
                     }
 
-                    if (itemId == 0)
+                    if (itemId == 0 && itemName != "")
                     {
                         using (var cmd = new SqlCommand("spACC_ScheduleItems", connection, transaction))
                         {
@@ -295,18 +258,24 @@ namespace TracePca.Service.FIN_statement
                     }
 
                     // === 4. Check SubItem ===
+
+                    if (dto.ASSI_Name != "")
+                    { 
+                        subItemName = dto.ASSI_Name.Trim();
+                    }
+
                     var checkSubItemSql = @"
-                SELECT ISNULL(ASSI_ID, 0)
-                FROM ACC_ScheduleSubItems
-                WHERE ASSI_CompId = @CompId
-                  AND ASSI_Name = @Name
-                  AND Assi_scheduletype = @ScheduleType
-                  AND Assi_Orgtype = @OrgType";
+           SELECT ISNULL(ASSI_ID, 0)
+           FROM ACC_ScheduleSubItems
+           WHERE ASSI_CompId = @CompId
+             AND ASSI_Name = @Name
+             AND Assi_scheduletype = @ScheduleType
+             AND Assi_Orgtype = @OrgType";
 
                     using (var checkCmd = new SqlCommand(checkSubItemSql, connection, transaction))
                     {
                         checkCmd.Parameters.AddWithValue("@CompId", dto.ASSI_CompId);
-                        checkCmd.Parameters.AddWithValue("@Name", dto.ASSI_Name);
+                        checkCmd.Parameters.AddWithValue("@Name", subItemName);
                         checkCmd.Parameters.AddWithValue("@ScheduleType", dto.ASSI_ScheduleType);
                         checkCmd.Parameters.AddWithValue("@OrgType", dto.ASSI_OrgType);
 
@@ -314,7 +283,7 @@ namespace TracePca.Service.FIN_statement
                         subItemId = Convert.ToInt32(result);
                     }
 
-                    if (subItemId == 0)
+                    if (subItemId == 0 && subItemName != "")
                     {
                         using (var cmd = new SqlCommand("spACC_ScheduleSubItems", connection, transaction))
                         {
@@ -347,16 +316,16 @@ namespace TracePca.Service.FIN_statement
 
                     // === 5. Check Template ===
                     var checkTemplateSql = @"
-                SELECT ISNULL(AST_ID, 0)
-                FROM ACC_ScheduleTemplates
-                WHERE 
-                    AST_CompId = @CompId AND 
-                    AST_HeadingID = @HeadingID AND 
-                    AST_SubHeadingID = @SubHeadingID AND 
-                    AST_ItemID = @ItemID AND 
-                    AST_SubItemID = @SubItemID AND 
-                    AST_Companytype = @CompanyType AND 
-                    AST_Schedule_type = @ScheduleType";
+           SELECT ISNULL(AST_ID, 0)
+           FROM ACC_ScheduleTemplates
+           WHERE 
+               AST_CompId = @CompId AND 
+               AST_HeadingID = @HeadingID AND 
+               AST_SubHeadingID = @SubHeadingID AND 
+               AST_ItemID = @ItemID AND 
+               AST_SubItemID = @SubItemID AND 
+               AST_Companytype = @CompanyType AND 
+               AST_Schedule_type = @ScheduleType";
 
                     using (var checkCmd = new SqlCommand(checkTemplateSql, connection, transaction))
                     {
@@ -420,7 +389,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //SaveScheduleTemplate(Balance Sheet)
-        public async Task<List<int>> SaveScheduleBalanceSheetAsync(List<ScheduleTemplateBalanceSheetDto> dtos)
+        public async Task<List<int>> SaveScheduleBalanceSheetAsync(int CompId, List<ScheduleTemplateBalanceSheetDto> dtos)
         {
             var resultIds = new List<int>();
 
@@ -431,6 +400,10 @@ namespace TracePca.Service.FIN_statement
             try
             {
                 int iErrorLine = 1;
+                string HeadingName = "";
+                string subHeadingName = "";
+                string itemName = "";
+                string subItemName = "";
 
                 foreach (var dto in dtos)
                 {
@@ -453,25 +426,34 @@ namespace TracePca.Service.FIN_statement
                     {
                         throw new Exception($"Incorrect Account Head at Line No: {iErrorLine}");
                     }
-
                     iErrorLine++;
 
                     // === B. Start processing ===
                     int headingId = 0, subHeadingId = 0, itemId = 0, subItemId = 0, templateId = 0;
 
                     // === 1. Check if Heading exists ===
+
+                    if (dto.ASH_Name != "")
+                    {
+                        HeadingName = dto.ASH_Name.Trim();
+                        subHeadingName = "";
+                        itemName = "";
+                        subItemName = "";
+                    }
+
+
                     var checkHeadingSql = @"
-                SELECT ISNULL(ASH_ID, 0)
-                FROM ACC_ScheduleHeading
-                WHERE ASH_CompId = @CompId
-                  AND ASH_Name = @Name
-                  AND Ash_scheduletype = @ScheduleType
-                  AND Ash_Orgtype = @OrgType";
+           SELECT ISNULL(ASH_ID, 0)
+           FROM ACC_ScheduleHeading
+           WHERE ASH_CompId = @CompId
+             AND ASH_Name = @Name
+             AND Ash_scheduletype = @ScheduleType
+             AND Ash_Orgtype = @OrgType";
 
                     using (var checkCmd = new SqlCommand(checkHeadingSql, connection, transaction))
                     {
                         checkCmd.Parameters.AddWithValue("@CompId", dto.ASH_CompId);
-                        checkCmd.Parameters.AddWithValue("@Name", dto.ASH_Name);
+                        checkCmd.Parameters.AddWithValue("@Name", HeadingName);
                         checkCmd.Parameters.AddWithValue("@ScheduleType", dto.Ash_scheduletype);
                         checkCmd.Parameters.AddWithValue("@OrgType", dto.Ash_Orgtype);
 
@@ -479,7 +461,7 @@ namespace TracePca.Service.FIN_statement
                         headingId = Convert.ToInt32(result);
                     }
 
-                    if (headingId == 0)
+                    if (headingId == 0 && HeadingName != "")
                     {
                         using (var cmd = new SqlCommand("spACC_ScheduleHeading", connection, transaction))
                         {
@@ -495,7 +477,7 @@ namespace TracePca.Service.FIN_statement
                             cmd.Parameters.AddWithValue("@ASH_YEARId", dto.ASH_YEARId);
                             cmd.Parameters.AddWithValue("@Ash_scheduletype", dto.Ash_scheduletype);
                             cmd.Parameters.AddWithValue("@Ash_Orgtype", dto.Ash_Orgtype);
-                            cmd.Parameters.AddWithValue("@ASH_Notes", dto.ASH_Notes);
+                            cmd.Parameters.AddWithValue("@ASH_Notes", dto.AST_AccHeadId);
 
                             var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
                             var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
@@ -509,18 +491,26 @@ namespace TracePca.Service.FIN_statement
                     }
 
                     // === 2. Check SubHeading ===
+
+                    if (dto.ASSH_Name != "")
+                    {
+                        subHeadingName = dto.ASSH_Name.Trim();
+                        itemName = "";
+                        subItemName = "";
+                    }
+
                     var checkSubHeadingSql = @"
-                SELECT ISNULL(ASSH_ID, 0)
-                FROM ACC_ScheduleSubHeading
-                WHERE ASSH_CompId = @CompId
-                  AND ASSH_Name = @Name
-                  AND Assh_scheduletype = @ScheduleType
-                  AND Assh_Orgtype = @OrgType";
+           SELECT ISNULL(ASSH_ID, 0)
+           FROM ACC_ScheduleSubHeading
+           WHERE ASSH_CompId = @CompId
+             AND ASSH_Name = @Name
+             AND Assh_scheduletype = @ScheduleType
+             AND Assh_Orgtype = @OrgType";
 
                     using (var checkCmd = new SqlCommand(checkSubHeadingSql, connection, transaction))
                     {
                         checkCmd.Parameters.AddWithValue("@CompId", dto.ASSH_CompId);
-                        checkCmd.Parameters.AddWithValue("@Name", dto.ASSH_Name);
+                        checkCmd.Parameters.AddWithValue("@Name", subHeadingName);
                         checkCmd.Parameters.AddWithValue("@ScheduleType", dto.ASSH_scheduletype);
                         checkCmd.Parameters.AddWithValue("@OrgType", dto.ASSH_Orgtype);
 
@@ -528,7 +518,7 @@ namespace TracePca.Service.FIN_statement
                         subHeadingId = Convert.ToInt32(result);
                     }
 
-                    if (subHeadingId == 0)
+                    if (subHeadingId == 0 && subHeadingName != "")
                     {
                         using (var cmd = new SqlCommand("spACC_ScheduleSubHeading", connection, transaction))
                         {
@@ -559,18 +549,25 @@ namespace TracePca.Service.FIN_statement
                     }
 
                     // === 3. Check Item ===
+
+                    if (dto.ASI_Name != "")
+                    {
+                        itemName = dto.ASI_Name.Trim();
+                        subItemName = "";
+                    }
+
                     var checkItemSql = @"
-                SELECT ISNULL(ASI_ID, 0)
-                FROM ACC_ScheduleItems
-                WHERE ASI_CompId = @CompId
-                  AND ASI_Name = @Name
-                  AND Asi_scheduletype = @ScheduleType
-                  AND Asi_Orgtype = @OrgType";
+           SELECT ISNULL(ASI_ID, 0)
+           FROM ACC_ScheduleItems
+           WHERE ASI_CompId = @CompId
+             AND ASI_Name = @Name
+             AND Asi_scheduletype = @ScheduleType
+             AND Asi_Orgtype = @OrgType";
 
                     using (var checkCmd = new SqlCommand(checkItemSql, connection, transaction))
                     {
                         checkCmd.Parameters.AddWithValue("@CompId", dto.ASI_CompId);
-                        checkCmd.Parameters.AddWithValue("@Name", dto.ASI_Name);
+                        checkCmd.Parameters.AddWithValue("@Name", itemName);
                         checkCmd.Parameters.AddWithValue("@ScheduleType", dto.ASI_scheduletype);
                         checkCmd.Parameters.AddWithValue("@OrgType", dto.ASI_Orgtype);
 
@@ -578,7 +575,7 @@ namespace TracePca.Service.FIN_statement
                         itemId = Convert.ToInt32(result);
                     }
 
-                    if (itemId == 0)
+                    if (itemId == 0 && itemName != "")
                     {
                         using (var cmd = new SqlCommand("spACC_ScheduleItems", connection, transaction))
                         {
@@ -608,18 +605,24 @@ namespace TracePca.Service.FIN_statement
                     }
 
                     // === 4. Check SubItem ===
+
+                    if (dto.ASSI_Name != "")
+                    {
+                        subItemName = dto.ASSI_Name.Trim();
+                    }
+
                     var checkSubItemSql = @"
-                SELECT ISNULL(ASSI_ID, 0)
-                FROM ACC_ScheduleSubItems
-                WHERE ASSI_CompId = @CompId
-                  AND ASSI_Name = @Name
-                  AND Assi_scheduletype = @ScheduleType
-                  AND Assi_Orgtype = @OrgType";
+           SELECT ISNULL(ASSI_ID, 0)
+           FROM ACC_ScheduleSubItems
+           WHERE ASSI_CompId = @CompId
+             AND ASSI_Name = @Name
+             AND Assi_scheduletype = @ScheduleType
+             AND Assi_Orgtype = @OrgType";
 
                     using (var checkCmd = new SqlCommand(checkSubItemSql, connection, transaction))
                     {
                         checkCmd.Parameters.AddWithValue("@CompId", dto.ASSI_CompId);
-                        checkCmd.Parameters.AddWithValue("@Name", dto.ASSI_Name);
+                        checkCmd.Parameters.AddWithValue("@Name", subItemName);
                         checkCmd.Parameters.AddWithValue("@ScheduleType", dto.ASSI_ScheduleType);
                         checkCmd.Parameters.AddWithValue("@OrgType", dto.ASSI_OrgType);
 
@@ -627,7 +630,7 @@ namespace TracePca.Service.FIN_statement
                         subItemId = Convert.ToInt32(result);
                     }
 
-                    if (subItemId == 0)
+                    if (subItemId == 0 && subItemName != "")
                     {
                         using (var cmd = new SqlCommand("spACC_ScheduleSubItems", connection, transaction))
                         {
@@ -660,16 +663,16 @@ namespace TracePca.Service.FIN_statement
 
                     // === 5. Check Template ===
                     var checkTemplateSql = @"
-                SELECT ISNULL(AST_ID, 0)
-                FROM ACC_ScheduleTemplates
-                WHERE 
-                    AST_CompId = @CompId AND 
-                    AST_HeadingID = @HeadingID AND 
-                    AST_SubHeadingID = @SubHeadingID AND 
-                    AST_ItemID = @ItemID AND 
-                    AST_SubItemID = @SubItemID AND 
-                    AST_Companytype = @CompanyType AND 
-                    AST_Schedule_type = @ScheduleType";
+           SELECT ISNULL(AST_ID, 0)
+           FROM ACC_ScheduleTemplates
+           WHERE 
+               AST_CompId = @CompId AND 
+               AST_HeadingID = @HeadingID AND 
+               AST_SubHeadingID = @SubHeadingID AND 
+               AST_ItemID = @ItemID AND 
+               AST_SubItemID = @SubItemID AND 
+               AST_Companytype = @CompanyType AND 
+               AST_Schedule_type = @ScheduleType";
 
                     using (var checkCmd = new SqlCommand(checkTemplateSql, connection, transaction))
                     {
@@ -733,7 +736,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //SaveOpeningBalance
-        public async Task<List<int>> SaveOpeningBalanceAsync(List<OpeningBalanceDto> dtos)
+        public async Task<List<int>> SaveOpeningBalanceAsync(int CompId, List<OpeningBalanceDto> dtos)
         {
             var resultIds = new List<int>();
 
@@ -987,7 +990,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //SaveClientTrailBalance
-        public async Task<List<int>> ClientTrailBalanceAsync(List<ClientTrailBalance> items)
+        public async Task<List<int>> ClientTrailBalanceAsync(int CompId, List<ClientTrailBalance> items)
         {
             var resultIds = new List<int>();
 
@@ -1051,7 +1054,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //SaveJournalEntry
-        public async Task<List<int>> SaveCompleteTrailBalanceAsync(List<TrailBalanceCompositeModel> models)
+        public async Task<List<int>> SaveCompleteTrailBalanceAsync(int CompId, List<TrailBalanceCompositeModel> models)
         {
             var resultIds = new List<int>();
 
@@ -1236,13 +1239,10 @@ namespace TracePca.Service.FIN_statement
                             CompId = t.AJTB_CompID,
                             QuarterId = t.AJTB_QuarterId
                         };
-
                         await connection.ExecuteAsync(sql, updateParams, transaction);
                     }
-
                     resultIds.Add(uploadId);
                 }
-
                 transaction.Commit();
                 return resultIds;
             }

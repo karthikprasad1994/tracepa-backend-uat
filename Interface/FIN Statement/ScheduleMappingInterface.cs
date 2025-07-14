@@ -6,17 +6,6 @@ namespace TracePca.Interface.FIN_Statement
 {
     public interface ScheduleMappingInterface
     {
-        //GetCustomersName
-        Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId);
-
-        //GetFinancialYear
-        Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CompId);
-
-        //GetDuration
-        Task<int?> GetCustomerDurationIdAsync(int CompId, int CustId);
-
-        //GetBranchName
-        Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId);
 
         //GetScheduleHeading
         Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int CompId, int CustId, int ScheduleTypeId);
@@ -36,12 +25,6 @@ namespace TracePca.Interface.FIN_Statement
         //GetTrialBalance(Grid)
         Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(
         int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId);
-
-        //SaveScheduleTemplate
-        Task<int[]> UploadTrialBalanceExcelAsync(int CompanyId, AccTrailBalanceUploadBatchDto dto);
-
-        //UploadExcelFile
-        //Task<ExcelUploadResultDto> UploadScheduleExcelAsync(IFormFile file, int clientId, int branchId, int yearId, int quarter, string accessCode, int accessCodeId, string username);
 
         //FreezeForPreviousDuration
         Task<int[]> FreezePreviousYearTrialBalanceAsync(FreezePreviousDurationRequestDto input);

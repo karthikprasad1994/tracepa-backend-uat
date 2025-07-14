@@ -18,41 +18,6 @@ namespace TracePca.Service.FIN_statement
             _configuration = configuration;
             _dbcontext = dbcontext;
         }
-        //GetCustomersName
-        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-            var query = @"
-        SELECT 
-            Cust_Id,
-            Cust_Name 
-        FROM SAD_CUSTOMER_MASTER
-        WHERE cust_Compid = @CompID";
-
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<CustDto>(query, new { CompID = CompId });
-        }
-
-        //GetFinancialYear
-        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CompId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-            var query = @"
-        SELECT 
-            YMS_YEARID as YearId,
-            YMS_ID as Id
-        FROM YEAR_MASTER 
-        WHERE YMS_FROMDATE < DATEADD(year, +1, GETDATE()) 
-          AND YMS_CompId = @CompID 
-        ORDER BY YMS_ID DESC";
-
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = CompId });
-        }
 
         //GetSubHeadingname(Notes For SubHeading)
         public async Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CustomerId, int SubHeadingId)

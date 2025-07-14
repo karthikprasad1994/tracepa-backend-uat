@@ -21,59 +21,6 @@ namespace TracePca.Service.FIN_statement
             _dbcontext = dbcontext;
         }
 
-        //GetCustomersName
-        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-            var query = @"
-        SELECT 
-            Cust_Id,
-            Cust_Name 
-        FROM SAD_CUSTOMER_MASTER
-        WHERE cust_Compid = @CompID";
-
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<CustDto>(query, new { CompID = CompId });
-        }
-
-        //GetFinancialYear
-        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CompId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-            var query = @"
-        SELECT 
-            YMS_YEARID,
-            YMS_ID 
-        FROM YEAR_MASTER 
-        WHERE YMS_FROMDATE < DATEADD(year, +1, GETDATE()) 
-          AND YMS_CompId = @CompID 
-        ORDER BY YMS_ID DESC";
-
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = CompId });
-        }
-
-        //GetBranchName
-        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-            var query = @"
-        SELECT 
-            Mas_Id AS Branchid, 
-            Mas_Description AS BranchName 
-        FROM SAD_CUST_LOCATION 
-        WHERE Mas_CompID = @compId AND Mas_CustID = @custId";
-
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<CustBranchDto>(query, new { CompId, CustId });
-        }
-
         //GetCompanyName
         public async Task<IEnumerable<CompanyDetailsDto>> GetCompanyNameAsync(int CompId)
         {

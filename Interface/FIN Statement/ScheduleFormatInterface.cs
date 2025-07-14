@@ -4,8 +4,6 @@ namespace TracePca.Interface.FIN_Statement
 {
     public interface ScheduleFormatInterface
     {
-        //GetCustomerName
-        Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId);
 
         //GetScheduleHeading
         Task<IEnumerable<ScheduleHeadingDto>> GetScheduleFormatHeadingAsync(
@@ -48,5 +46,9 @@ namespace TracePca.Interface.FIN_Statement
 
         //SaveOrUpdateScheduleHeadingAlias
         Task<int[]> SaveScheduleHeadingAliasAsync(ScheduleHeadingAliasDto dto);
+
+        //GetScheduleTemplateCount
+        Task<IEnumerable<ScheduleTemplateCountDto>> GetScheduleFormatItemsAsync(
+        int CustId, int CompId);
     }
 }

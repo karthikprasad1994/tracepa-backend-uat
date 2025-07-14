@@ -4,34 +4,6 @@ namespace TracePca.Dto.FIN_Statement
 {
     public class ScheduleMappingDto
     {
-        //GetCustomersName
-        public class CustDto
-        {
-            public int Cust_Id { get; set; }
-            public string? Cust_Name { get; set; }
-        }
-
-        //GetFinancialYear
-        public class FinancialYearDto
-        {
-            public int YMS_YEARID { get; set; }
-            public string? YMS_ID { get; set; }
-        }
-
-        //GetDuration
-        public class CustDurationDto
-        {
-            public int Durationid { get; set; }
-            public string? DurationName { get; set; }
-        }
-
-        //GetBranchName
-        public class CustBranchDto
-        {
-            public int Branchid { get; set; }
-            public string? BranchName { get; set; }
-        }
-
  
         //GetScheduleHeading
         public class ScheduleHeadingDto
@@ -99,63 +71,6 @@ namespace TracePca.Dto.FIN_Statement
             public decimal TrDebittrUploaded { get; set; }
             public decimal TrCredittrUploaded { get; set; }
         }
-
-        //SaveScheduleTemplate
-        public class AccTrailBalanceUploadBatchDto
-        {
-            // Master table fields (spAcc_TrailBalance_Upload)
-            public int ATBU_ID { get; set; }
-            public string? ATBU_CODE { get; set; }
-            public string? ATBU_Description { get; set; }
-            public int ATBU_CustId { get; set; }
-            public decimal ATBU_Opening_Debit_Amount { get; set; }
-            public decimal ATBU_Opening_Credit_Amount { get; set; }
-            public decimal ATBU_TR_Debit_Amount { get; set; }
-            public decimal ATBU_TR_Credit_Amount { get; set; }
-            public decimal ATBU_Closing_Debit_Amount { get; set; }
-            public decimal ATBU_Closing_Credit_Amount { get; set; }
-            public int ATBU_CRBY { get; set; }
-            public int ATBU_UPDATEDBY { get; set; }
-            public string? ATBU_IPAddress { get; set; }
-            public int ATBU_CompId { get; set; }
-            public int ATBU_YEARId { get; set; }
-            public int ATBU_Branchid { get; set; }
-            public int ATBU_QuarterId { get; set; }
-
-            // Detail table values (applied to all rows via dto instead of per row — can be adjusted if needed)
-            public int ATBUD_ID { get; set; }
-            public int ATBUD_Masid { get; set; }
-            public string? ATBUD_CODE { get; set; }
-            public string? ATBUD_Description { get; set; }
-            public int ATBUD_CustId { get; set; }
-            public string? ATBUD_SChedule_Type { get; set; }
-            public int ATBUD_Branchid { get; set; }
-            public int ATBUD_QuarterId { get; set; }
-            public int ATBUD_Company_Type { get; set; }
-            public int ATBUD_Headingid { get; set; }
-            public int ATBUD_Subheading { get; set; }
-            public int ATBUD_itemid { get; set; }
-            public int ATBUD_SubItemId { get; set; }
-            public int ATBUD_CRBY { get; set; }
-            public int ATBUD_UPDATEDBY { get; set; }
-            public string? ATBUD_IPAddress { get; set; }
-            public int ATBUD_CompId { get; set; }
-
-            // Row data list
-            public List<AccTrailBalanceUploadRowDto> Rows { get; set; } = new();
-            public class AccTrailBalanceUploadRowDto
-            {
-                public int ATBU_ID { get; set; }
-            }
-        }
-
-        //UploadExcelFile
-        //public class ExcelUploadResultDto
-        //{
-        //    public List<string> SheetNames { get; set; } = new List<string>();
-        //    public bool IsExistingData { get; set; }
-        //    public string Message { get; set; }
-        //}
 
         //FreezeForPreviousDuration
         public class FreezePreviousDurationRequestDto
@@ -329,6 +244,7 @@ namespace TracePca.Dto.FIN_Statement
 
             // UploadDetails properties (from TrailBalanceUploadDetailsDto)
             public int ATBUD_ID { get; set; }
+            public int ATBUD_Masid { get; set; }
             public string ATBUD_CODE { get; set; }
             public string ATBUD_Description { get; set; }
             public int ATBUD_CustId { get; set; }

@@ -16,23 +16,6 @@ namespace TracePca.Service.FIN_statement
             _configuration = configuration;
         }
 
-        //GetCustomerName
-        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-            var query = @"
-        SELECT 
-            Cust_Id,
-            Cust_Name 
-        FROM SAD_CUSTOMER_MASTER
-        WHERE cust_Compid = @CompID";
-
-            await connection.OpenAsync();
-
-            return await connection.QueryAsync<CustDto>(query, new { CompID = CompId });
-        }
-
         //GetScheduleHeading
         public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleFormatHeadingAsync(int CompId, int ScheduleId, int CustId, int AccHead)
         {
@@ -737,6 +720,24 @@ WHERE AST_CompId = @CompId
             }
         }
 
-        
+        //GetScheduleTemplateCount
+        public async Task<IEnumerable<ScheduleTemplateCountDto>> GetScheduleFormatItemsAsync(
+        int CustId, int CompId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+           
+          var query = @"
+         SELECT COUNT(*) AS TemplateCount
+         FROM ACC_ScheduleTemplates
+         WHERE AST_Companytype = @CustId AND AST_CompId = @CompId";
+;
+
+            await connection.OpenAsync();
+
+            var result = await connection.QueryAsync<ScheduleTemplateCountDto>(query, new{CustId, CompId});
+
+            return result;
+        }
     }
 }
