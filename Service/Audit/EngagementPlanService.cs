@@ -1,5 +1,6 @@
 ﻿using Dapper;
 using DocumentFormat.OpenXml.Drawing.Charts;
+using DocumentFormat.OpenXml.Office2010.Word;
 using DocumentFormat.OpenXml.Wordprocessing;
 using MailKit.Net.Smtp;
 using MailKit.Security;
@@ -453,7 +454,16 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<(int attachmentId, string relativeFilePath)> UploadAndSaveAttachmentAsync(FileAttachmentDTO dto)
+        public string GetTRACeConfigValue(string key)
+        {
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                var query = "SELECT SAD_Config_Value FROM [dbo].[Sad_Config_Settings] WHERE SAD_Config_Key = @Key";
+                return connection.QueryFirstOrDefault<string>(query, new { Key = key });
+            }
+        }
+
+        public async Task<(int attachmentId, string relativeFilePath)> UploadAndSaveAttachmentAsync(FileAttachmentDTO dto, string module)
         {
             try
             {
@@ -463,47 +473,52 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
 
+                // Generate attachment and document IDs
                 int attachId = dto.ATCH_ID == 0 ? await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID }) : dto.ATCH_ID;
                 int docId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID });
 
-                string originalFileName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
-                string safeFileName = originalFileName.Replace("&", " and");
-                safeFileName = safeFileName.Length > 95 ? safeFileName.Substring(0, 95) : safeFileName;
-
-                string fileExt = Path.GetExtension(dto.File.FileName)?.TrimStart('.').ToLower() ?? "unk";
+                // Prepare file metadata
+                string originalName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
+                string safeFileName = (originalName.Replace("&", " and")).Substring(0, Math.Min(95, originalName.Length));
+                string fileExt = Path.GetExtension(dto.File.FileName)?.ToLower() ?? ".unk";
                 long fileSize = dto.File.Length;
 
-                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
-                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+                // Determine file type
+                string[] imageExtensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv"};
+                string[] documentExtensions = {".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar"};
+                string fileType = imageExtensions.Contains(fileExt) ? "Images" : documentExtensions.Contains(fileExt) ? "Documents" : "Others";
 
-                if (!Directory.Exists(absoluteFolder))
-                    Directory.CreateDirectory(absoluteFolder);
+                // Build file path
+                string basePath = GetTRACeConfigValue("ImgPath"); // Or Directory.GetCurrentDirectory()
+                string folderChunk = (docId / 301).ToString();
+                string savePath = Path.Combine(basePath, module, fileType, folderChunk);
+                if (!Directory.Exists(savePath))
+                    Directory.CreateDirectory(savePath);
 
-                string uniqueFileName = $"{docId}.{fileExt}";
-                string fullFilePath = Path.Combine(absoluteFolder, uniqueFileName);
-
-                using (var stream = new FileStream(fullFilePath, FileMode.Create))
+                // Save the file
+                string uniqueFileName = $"{docId}{fileExt}";
+                string fullPath = Path.Combine(savePath, uniqueFileName);
+                using (var stream = new FileStream(fullPath, FileMode.Create))
                 {
                     await dto.File.CopyToAsync(stream);
                 }
 
-                var insertQuery = @"
-                INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
-                ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID)
-                VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
+                // Insert metadata into database
+                var insertQuery = @"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
+                ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID) VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
 
                 await connection.ExecuteAsync(insertQuery, new
                 {
                     AtchId = attachId,
                     DocId = docId,
                     FileName = safeFileName,
-                    FileExt = fileExt,
+                    FileExt = fileExt.Trim('.'),
                     CreatedBy = dto.ATCH_CREATEDBY,
                     Size = fileSize,
                     CompId = dto.ATCH_COMPID
                 });
 
-                return (attachId, fullFilePath.Replace("\\", "/"));
+                return (attachId, fullPath.Replace("\\", "/"));
             }
             catch (Exception ex)
             {
@@ -545,7 +560,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<(bool, string)> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId)
+        public async Task<(bool, string)> GetAttachmentDocDetailsByIdAsync(int compId, int attachId, int docId, string module)
         {
             try
             {
@@ -562,28 +577,46 @@ namespace TracePca.Service.Audit
                 if (string.IsNullOrWhiteSpace(result.ATCH_EXT))
                     return (false, "File extension is missing in attachment record.");
 
-                string fileName = $"{docId}.{result.ATCH_EXT}";
-                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
-                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
-                string sourceFilePath = Path.Combine(absoluteFolder, fileName);
+                string fileExt = string.IsNullOrWhiteSpace(result.ATCH_EXT) ? ".unk" : (result.ATCH_EXT.StartsWith(".") ? result.ATCH_EXT.ToLower() : "." + result.ATCH_EXT.ToLower());
 
-                if (!File.Exists(sourceFilePath))
+                // Determine file type
+                string[] imageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv" };
+                string[] documentExtensions = { ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar" };
+                string fileType = imageExtensions.Contains(fileExt) ? "Images" : documentExtensions.Contains(fileExt) ? "Documents" : "Others";
+
+                // Build source file path
+                string basePath = GetTRACeConfigValue("ImgPath"); // Or Directory.GetCurrentDirectory()
+                string folderChunk = (docId / 301).ToString();
+                string savedFilePath = Path.Combine(basePath, module, fileType, folderChunk, $"{docId}{fileExt}");
+
+                if (!File.Exists(savedFilePath))
                     return (false, "Attachment file not found on server.");
 
-                byte[] fileBytes = await File.ReadAllBytesAsync(sourceFilePath);
+                // Read file bytes
+                byte[] fileBytes = await File.ReadAllBytesAsync(savedFilePath);
 
-                string tempPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "temp");
-                if (!Directory.Exists(tempPath))
-                    Directory.CreateDirectory(tempPath);
+                // Build timestamped file name
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string sanitizedFileName = result.ATCH_FNAME.Replace("&", "and").Replace(" ", "_");
+                string fileName = $"{sanitizedFileName}_{timestamp}{fileExt}";
 
-                string tempFilePath = Path.Combine(tempPath, fileName);
+                // Prepare temp path
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                string tempFilePath = Path.Combine(tempFolder, fileName);
+
+                // Overwrite if already exists
                 if (File.Exists(tempFilePath))
                     File.Delete(tempFilePath);
 
+                // Write to temp location
                 await File.WriteAllBytesAsync(tempFilePath, fileBytes);
 
-                string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
-                string downloadUrl = $"{baseUrl}/temp/{fileName}";
+                // Generate public URL
+                var request = _httpContextAccessor.HttpContext.Request;
+                string baseUrl = $"{request.Scheme}://{request.Host}";
+                string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{fileName}";
 
                 return (true, downloadUrl);
             }
@@ -650,7 +683,7 @@ namespace TracePca.Service.Audit
                         File = formFile
                     };
 
-                    var (attachmentId, attachmentPath) = await UploadAndSaveAttachmentAsync(dtoFile);
+                    var (attachmentId, attachmentPath) = await UploadAndSaveAttachmentAsync(dtoFile, "StandardAudit");
 
                     int attachId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(LOE_AttachID, 0) FROM LOE_Template WHERE LOET_LOEID = @LOE_Id", new { LOE_Id = dto.LOEId }, transaction);
 
@@ -776,11 +809,10 @@ namespace TracePca.Service.Audit
                 }
                 fileName += extension;
 
-                var tempPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "temp");
-                if (!Directory.Exists(tempPath))
-                    Directory.CreateDirectory(tempPath);
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
 
-                var filePath = Path.Combine(tempPath, fileName);
+                var filePath = Path.Combine(tempFolder, fileName);
                 if (System.IO.File.Exists(filePath))
                 {
                     System.IO.File.Delete(filePath);
@@ -789,7 +821,7 @@ namespace TracePca.Service.Audit
                 await File.WriteAllBytesAsync(filePath, fileBytes);
 
                 string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
-                string downloadUrl = $"{baseUrl}/temp/{fileName}";
+                string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{fileName}";
 
                 return downloadUrl;
             }
@@ -847,7 +879,7 @@ namespace TracePca.Service.Audit
                                 {
                                     table.ColumnsDefinition(columns =>
                                     {
-                                        columns.RelativeColumn(1);
+                                        columns.RelativeColumn(0.5f);
                                         columns.RelativeColumn(2);
                                         columns.RelativeColumn(1);
                                     });
@@ -875,7 +907,7 @@ namespace TracePca.Service.Audit
                                     table.Cell().Element(CellStyle).Text("Total").FontSize(10).Bold();
                                     table.Cell().Element(CellStyle).AlignRight().Text(totalCharges.ToString("F2")).FontSize(10).Bold();
 
-                                    static IContainer CellStyle(IContainer container) => container.BorderBottom(0.5f).PaddingVertical(2);
+                                    static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
                                 });
                             }
 
@@ -999,14 +1031,19 @@ namespace TracePca.Service.Audit
                 string subject = $"Intimation mail To Review The LOE for Client - {reportDetails.Customer}";
 
                 string htmlBody = $@"
-                    <!DOCTYPE html><html><head><style>
-                        table, th, td {{ border: 1px solid black; border-collapse: collapse; }}
-                    </style></head><body>
+                    <!DOCTYPE html><html><head>
+                        <style>table, th, td {{ border: 1px solid black; border-collapse: collapse; }}</style>
+                        </head><body>
                         <p style='font-size:15px;font-family:Calibri,sans-serif;text-align:left;'>Dear Sir/Ma'am</p>
+                        <p style='font-size:15px;font-family:Calibri,sans-serif;'>Greetings from TRACe PA.&nbsp;&nbsp;</p>
                         <table style='width:100%;border:1px solid black;'>
                             <tr>
                                 <td style='padding:10px;text-align:left;'>
-                                    <strong>Client Name:</strong> {reportDetails.Customer}<br/>
+                                    <strong>Client Name:</strong> {reportDetails.Customer}<br/>                                  
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style='padding:10px;text-align:left;'>
                                     <strong>LOE No.:</strong> {reportDetails.EngagementPlanNo}
                                 </td>
                             </tr>

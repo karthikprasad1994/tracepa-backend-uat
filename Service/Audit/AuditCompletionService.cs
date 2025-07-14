@@ -3,12 +3,18 @@ using DocumentFormat.OpenXml.Office.CoverPageProps;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Wordprocessing;
+using iText.Layout.Element;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using OfficeOpenXml.Table.PivotTable;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using StackExchange.Redis;
 using System.Data;
+using System.Diagnostics;
+using System.IO.Compression;
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Security.Cryptography;
@@ -34,12 +40,14 @@ namespace TracePca.Service.Audit
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
         private readonly EngagementPlanInterface _engagementPlanInterface;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public AuditCompletionService(Trdmyus1Context dbcontext, IConfiguration configuration, EngagementPlanInterface engagementPlanInterface)
+        public AuditCompletionService(Trdmyus1Context dbcontext, IConfiguration configuration, EngagementPlanInterface engagementPlanInterface, IHttpContextAccessor httpContextAccessor)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
             _engagementPlanInterface = engagementPlanInterface;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<AuditDropDownListDataDTO> LoadAllAuditDDLDataAsync(int compId)
@@ -118,15 +126,18 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
 
-                var sql = @"SELECT SA.SA_ID As ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name FROM StandardAudit_Schedule SA
-                LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId";
-                if (custId > 0)
-                {
-                    sql += " AND SA.SA_CustID = @CustId ";
-                }
-                sql += @"AND (EXISTS (SELECT 1 FROM sad_userdetails WHERE usr_CompID = @CompId AND usr_ID = @UserId AND usr_Partner = 1 AND usr_DelFlag IN ('A','B','L'))
-                OR (',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR
-                    ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%')) ORDER BY SA.SA_ID DESC";
+                var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
+                    CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
+                    CASE WHEN ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isReviewer,
+                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor                
+                    FROM StandardAudit_Schedule SA LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
+                    WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId ";
+
+                if (custId > 0) { sql += " AND SA.SA_CustID = @CustId "; }
+
+                sql += @" AND (EXISTS (SELECT 1 FROM sad_userdetails WHERE usr_CompID = @CompId AND usr_ID = @UserId AND usr_Partner = 1 AND usr_DelFlag IN ('A','B','L'))
+                OR (',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' 
+                OR ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%')) ORDER BY SA.SA_ID DESC;";
 
                 var parameters = new
                 {
@@ -136,7 +147,7 @@ namespace TracePca.Service.Audit
                     UserId = userId
                 };
 
-                var auditNoList = await connection.QueryAsync<DropDownListData>(sql, parameters);
+                var auditNoList = await connection.QueryAsync<AuditDropDownListData>(sql, parameters);
                 return new AuditDropDownListDataDTO
                 {
                     ExistingAuditNoList = auditNoList.ToList()
@@ -343,12 +354,49 @@ namespace TracePca.Service.Audit
                     throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
                 }
 
-                string relativeFolder = System.IO.Path.Combine("Uploads", "Audit").ToString();
-                string absoluteFolder = System.IO.Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
-                string fullFilePath = System.IO.Path.Combine(absoluteFolder, "Audit_Completion.pdf");
-                await File.WriteAllBytesAsync(fullFilePath, fileBytes);
-
                 return (fileBytes, contentType, fileName);
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        public async Task<string> GenerateReportAndGetURLPathAsync(int compId, int auditId, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Audit_Completion_{timestamp}";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GeneratePdfAsync(compId, auditId);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                var filePath = Path.Combine(tempFolder, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+
+                string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
+                string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{fileName}";
+
+                return downloadUrl;
             }
             catch (Exception ex)
             {
@@ -787,6 +835,7 @@ namespace TracePca.Service.Audit
                             {
                                 column.Item().PaddingTop(10).Text("Additional Fees").FontSize(12).Bold().Underline();
                                 column.Item().PaddingBottom(10).Text($"Details of Engagement Estimate for the Letter of Engagement in {dtoEP.AuditType} to {dtoEP.Customer}").FontSize(10);
+                                
                                 column.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(columns =>
@@ -1170,11 +1219,8 @@ namespace TracePca.Service.Audit
                     from StandardAudit_Schedule Join SAD_CUSTOMER_MASTER On CUST_ID=SA_CustID Join Year_Master On YMS_YEARID = SA_YearID Join Sad_Userdetails On Usr_Id = @UserId Where SA_ID= @AuditId;",
                     new { CompId = compId, AuditId = auditId, UserId = userId });
 
-                string relativeFolder = System.IO.Path.Combine("Temp", result.UserName, "Download");
-                string downloadDirectoryPath = System.IO.Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
-
-                if (!Directory.Exists(downloadDirectoryPath))
-                    Directory.CreateDirectory(downloadDirectoryPath);
+                string downloadDirectoryPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString(), SanitizeName(result.AuditNo));
+                Directory.CreateDirectory(downloadDirectoryPath);
 
                 String OrgName = result.CustName;
                 String Cabinet = result.CustName + "_" + result.SubCabinet;
@@ -1225,22 +1271,34 @@ namespace TracePca.Service.Audit
                 folderNameField: null, attachIdField: "SAR_AttchId");
 
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, "", ipAddress,
-                @"SELECT DISTINCT ISNULL(DRL_Name, 'Audit') AS FolderName, ISNULL(CAST(ADRL_AttachID AS VARCHAR), '0') AS ADRL_AttachID FROM Audit_DRLLog LEFT JOIN Content_Management_Master ON ADRL_RequestedTypeID = CMM_ID And cmm_Category = 'DRL' WHERE ADRL_AuditNo = " + auditId,
+                @"SELECT DISTINCT ISNULL(CMM_DESC, 'Audit') AS FolderName, ISNULL(CAST(ADRL_AttachID AS VARCHAR), '0') AS ADRL_AttachID FROM Audit_DRLLog LEFT JOIN Content_Management_Master ON ADRL_RequestedTypeID = CMM_ID And cmm_Category = 'DRL' WHERE ADRL_AuditNo = " + auditId,
                 folderNameField: "FolderName", attachIdField: "ADRL_AttachID");
 
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, "PostAudit", ipAddress,
                 @"SELECT DISTINCT ISNULL(CAST(SAR_AttchId AS VARCHAR), '0') AS SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = " + compId + " And RTM_TemplateId = 4)",
                 folderNameField: null, attachIdField: "SAR_AttchId");
 
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "Audit", mainFolder, auditId, userId, cabinetId, subCabinetId, "", ipAddress,
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, "", ipAddress,
                 @"SELECT SSW_WorkpaperNo, ISNULL(CAST(SSW_AttachID AS VARCHAR), '0') AS SSW_AttachID FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID = " + auditId,
                 folderNameField: "SSW_WorkpaperNo", attachIdField: "SSW_AttachID");
 
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "Audit", mainFolder, auditId, userId, cabinetId, subCabinetId, "ConductAudit", ipAddress,
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, "ConductAudit", ipAddress,
                 @"SELECT DISTINCT ISNULL(CAST(SAC_AttachID AS VARCHAR), '0') AS SAC_AttachID FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = " + auditId,
                 folderNameField: null, attachIdField: "SAC_AttachID");
 
-                return (true, mainFolder);
+                string cleanedPath = downloadDirectoryPath.TrimEnd('\\');
+                string zipFilePath = cleanedPath + ".zip";
+
+                if (File.Exists(zipFilePath))
+                    File.Delete(zipFilePath);
+
+                ZipFile.CreateFromDirectory(cleanedPath, zipFilePath);
+
+                var request = _httpContextAccessor.HttpContext.Request;
+                string baseUrl = $"{request.Scheme}://{request.Host}";
+                string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{SanitizeName(result.AuditNo) + ".zip"}";
+
+                return (true, downloadUrl);
             }
             catch (Exception ex)
             {
@@ -1274,7 +1332,7 @@ namespace TracePca.Service.Audit
                 {
                     bool folderExists = true;
 
-                    string folderName = folderNameField == null ? defaultFolderName : row[folderNameField]?.ToString() ?? "Audit";
+                    string folderName = folderNameField == null ? defaultFolderName : row[folderNameField]?.ToString() ?? "StandardAudit";
                     string folderPath = System.IO.Path.Combine(downloadDirectoryPath, mainFolder, SanitizeName(folderName));
 
                     if (!Directory.Exists(folderPath))
@@ -1309,16 +1367,29 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public string GetTRACeConfigValue(string key)
+        {
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                var query = "SELECT SAD_Config_Value FROM [dbo].[Sad_Config_Settings] WHERE SAD_Config_Key = @Key";
+                return connection.QueryFirstOrDefault<string>(query, new { Key = key });
+            }
+        }
+
         public async Task HandleFileProcessingAsync(SqlConnection connection, int compId, int userId, int cabinetId, int subCabinetId, int folderId, string module, string folderPath, object attachId, bool shouldIndexFile)
         {
             try
             {
                 string isBlobData = (await connection.ExecuteScalarAsync<string>(@"SELECT Sad_Config_Value FROM Sad_Config_Settings WHERE Sad_Config_Key = 'FilesInDB' AND Sad_CompID = @CompId", new { CompId = compId }));
-                var attachments = await connection.QueryAsync(@"SELECT ATCH_DocId, ATCH_FNAME, ATCH_Ext FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompId AND ATCH_ID = @AttachId", new { CompId = compId, AttachId = attachId });
+
+                var attachments = new List<AttachmentDetailsDTO>();
+                var query = @"SELECT A.ATCH_ID, A.ATCH_DOCID, A.ATCH_FNAME, A.ATCH_EXT, A.ATCH_DESC, A.ATCH_CREATEDBY, U.Usr_FullName AS ATCH_CREATEDBYNAME, A.ATCH_CREATEDON, A.ATCH_SIZE FROM edt_attachments A 
+                LEFT JOIN Sad_Userdetails U ON A.ATCH_CREATEDBY = U.Usr_ID AND A.ATCH_COMPID = U.Usr_CompId WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID = @AttachId AND A.ATCH_Status <> 'D' ORDER BY A.ATCH_CREATEDON;";
+                attachments = (await connection.QueryAsync<AttachmentDetailsDTO>(query, new { CompId = compId, AttachId = attachId })).ToList();
 
                 foreach (var item in attachments)
                 {
-                    string fileName = $"{item.ATCH_FNAME}.{item.ATCH_Ext}";
+                    string fileName = $"{item.ATCH_FNAME}.{item.ATCH_EXT}";
                     string destFilePath = System.IO.Path.Combine(folderPath, fileName);
 
                     if (File.Exists(destFilePath))
@@ -1334,24 +1405,27 @@ namespace TracePca.Service.Audit
                     }
                     else
                     {
-                        string docId = (Convert.ToInt32(item.ATCH_DocId) / 301).ToString();
-                        string relativeFolder = Path.Combine("Uploads", module, docId);
-                        string sourcePath = System.IO.Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+                        string fileExt = string.IsNullOrWhiteSpace(item.ATCH_EXT) ? ".unk" : (item.ATCH_EXT.StartsWith(".") ? item.ATCH_EXT.ToLower() : "." + item.ATCH_EXT.ToLower());
 
-                        if (!Directory.Exists(sourcePath))
-                            Directory.CreateDirectory(sourcePath);
+                        // Determine file type
+                        string[] imageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv" };
+                        string[] documentExtensions = { ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar" };
+                        string fileType = imageExtensions.Contains(fileExt) ? "Images" : documentExtensions.Contains(fileExt) ? "Documents" : "Others";
 
-                        string sourceFile = System.IO.Path.Combine(sourcePath, $"{item.ATCH_DocId}.{item.ATCH_Ext}");
+                        // Build source file path
+                        string basePath = GetTRACeConfigValue("ImgPath"); // Or Directory.GetCurrentDirectory()
+                        string folderChunk = (item.ATCH_DOCID / 301).ToString();
+                        string savedFilePath = Path.Combine(basePath, module, fileType, folderChunk, $"{item.ATCH_DOCID}{fileExt}");
 
-                        if (File.Exists(sourceFile))
+                        if (File.Exists(savedFilePath))
                         {
                             try
                             {
-                                Decrypt(sourceFile, destFilePath);
+                                FileDecrypt(savedFilePath, destFilePath);
                             }
                             catch
                             {
-                                File.Copy(sourceFile, destFilePath, true);
+                                File.Copy(savedFilePath, destFilePath, true);
                             }
                         }
                     }
@@ -1364,7 +1438,6 @@ namespace TracePca.Service.Audit
             {
                 throw new Exception($"Failed to Handle File Processing details.", ex);
             }
-
         }
 
         public async void IndexingFileAsync(SqlConnection connection, int cabinetId, int folderId, int subCabinetId, int userId, int compId, string filePath, string isBlobData)
@@ -1380,8 +1453,8 @@ namespace TracePca.Service.Audit
 
                 await connection.ExecuteAsync(
                     @"INSERT INTO EDT_PAGE (PGE_BASENAME, PGE_CABINET, PGE_FOLDER, PGE_DOCUMENT_TYPE, PGE_TITLE, PGE_DATE, PGE_DETAILS_ID, PGE_CreatedBy, PGE_CreatedOn, PGE_OBJECT, PGE_PAGENO, PGE_EXT, PGE_KEYWORD, PGE_OCRText, 
-                PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, PGE_OrignalFileName, PGE_BatchID, PGE_OCRDelFlag, PGE_CompID, pge_Delflag, PGE_RFID) VALUES (
-                @BaseName, @CabinetId, @FolderId, 0, @Title, GETDATE(), @DetailsId, @CreatedBy, GETDATE(), @Object, @PageNo, @Ext, '', '', 0, 0, 'A', @SubCabinetId, 0, 'F', @BatchName, @OriginalFileName, 0, 0, @CompId, 'A', '')",
+                    PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, PGE_OrignalFileName, PGE_BatchID, PGE_OCRDelFlag, PGE_CompID, pge_Delflag, PGE_RFID) VALUES (
+                    @BaseName, @CabinetId, @FolderId, 0, @Title, GETDATE(), @DetailsId, @CreatedBy, GETDATE(), @Object, @PageNo, @Ext, '', '', 0, 0, 'A', @SubCabinetId, 0, 'F', @BatchName, @OriginalFileName, 0, 0, @CompId, 'A', '')",
                     new
                     {
                         BaseName = newBaseName,
@@ -1422,11 +1495,8 @@ namespace TracePca.Service.Audit
             try
             {
                 string baseImgPath = await connection.ExecuteScalarAsync<string>(@"SELECT SAD_Config_Value FROM sad_config_settings WHERE SAD_Config_Key = 'ImgPath' AND SAD_CompID = @CompId", new { CompId = compId });
-
-                string tempFolder = System.IO.Path.Combine(baseImgPath, "Temp", "UrlUpload", userId.ToString());
-
-                if (!Directory.Exists(tempFolder))
-                    Directory.CreateDirectory(tempFolder);
+                string tempFolder = System.IO.Path.Combine(baseImgPath, "Tempfolder", "UrlUpload", userId.ToString());
+                Directory.CreateDirectory(tempFolder);
 
                 string extension = System.IO.Path.GetExtension(filePath);
                 string tempDownloadedPath = System.IO.Path.Combine(tempFolder, $"{baseName}_ed{extension}");
@@ -1437,7 +1507,7 @@ namespace TracePca.Service.Audit
                     await client.DownloadFileTaskAsync(new Uri(filePath), tempDownloadedPath);
                 }
 
-                FileEn(tempDownloadedPath, encryptedFilePath);
+                FileEncrypt(tempDownloadedPath, encryptedFilePath);
                 return encryptedFilePath;
             }
             catch (Exception ex)
@@ -1467,7 +1537,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public void FileEn(string inputFilePath, string outputFilePath)
+        public void FileEncrypt(string inputFilePath, string outputFilePath)
         {
             string encryptionKey = "MAKV2SPBNI99212";
             byte[] salt = new byte[] { 0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D, 0x65, 0x64, 0x76, 0x65, 0x64, 0x65, 0x76 };
@@ -1493,7 +1563,7 @@ namespace TracePca.Service.Audit
             File.Delete(inputFilePath);
         }
 
-        public static void Decrypt(string inputFilePath, string outputFilePath)
+        public static void FileDecrypt(string inputFilePath, string outputFilePath)
         {
             string encryptionKey = "MAKV2SPBNI99212";
             byte[] salt = new byte[] { 0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D, 0x65, 0x64, 0x76, 0x65, 0x64, 0x65, 0x76 };

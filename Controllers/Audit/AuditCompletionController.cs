@@ -197,6 +197,21 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+
+        [HttpPost("GenerateReportAndGetURLPath")]
+        public async Task<IActionResult> GenerateReportAndGetURLPath(int compId, int auditId, string format = "pdf")
+        {
+            try
+            {
+                var url = await _auditCompletionInterface.GenerateReportAndGetURLPathAsync(compId, auditId, format);
+                return Ok(new { statusCode = 200, message = "Audit Completion report generated successfully. Download URL is available.", fileUrl = url });
+            }
+            catch
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to generate report." });
+            }
+        }
+
         [HttpGet("LoadAllAuditAttachmentsByAuditId")]
         public async Task<IActionResult> LoadAllAuditAttachmentsByAuditId(int compId, int auditId)
         {

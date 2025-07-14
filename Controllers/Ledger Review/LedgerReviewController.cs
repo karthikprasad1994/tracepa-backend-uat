@@ -26,6 +26,14 @@ namespace TracePca.Controllers.Ledger_Review
             var rules = await _LedgerReviewInterface.GetAllRulesAsync();
             return Ok(rules);
         }
+
+
+        [HttpGet("ValidateRules")]
+        public async Task<IActionResult> RunValidation()
+        {
+            var result = await _LedgerReviewInterface.ValidateAndSendTransactionsAsync();
+            return Ok(result);
+        }
     }
 }
 

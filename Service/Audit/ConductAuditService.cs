@@ -1,13 +1,22 @@
 ﻿using Dapper;
+using DocumentFormat.OpenXml.Bibliography;
+using DocumentFormat.OpenXml.InkML;
 using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Wordprocessing;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Microsoft.ReportingServices.ReportProcessing.ReportObjectModel;
+using Microsoft.VisualBasic;
+using MimeKit;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using TracePca.Data;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
-using QuestPDF.Fluent;
-using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
 using Colors = QuestPDF.Helpers.Colors;
@@ -104,7 +113,7 @@ namespace TracePca.Service.Audit
                 throw new ApplicationException("An error occurred while loading all DDL data", ex);
             }
         }
-        
+
         public async Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId)
         {
             try
@@ -112,15 +121,18 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
 
-                var sql = @"SELECT SA.SA_ID As ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name FROM StandardAudit_Schedule SA
-                LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId";
-                if (custId > 0)
-                {
-                    sql += " AND SA.SA_CustID = @CustId ";
-                }
-                sql += @"AND (EXISTS (SELECT 1 FROM sad_userdetails WHERE usr_CompID = @CompId AND usr_ID = @UserId AND usr_Partner = 1 AND usr_DelFlag IN ('A','B','L'))
-                OR (',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR
-                    ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%')) ORDER BY SA.SA_ID DESC";
+                var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
+                    CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
+                    CASE WHEN ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isReviewer,
+                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor                
+                    FROM StandardAudit_Schedule SA LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
+                    WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId ";
+
+                if (custId > 0) { sql += " AND SA.SA_CustID = @CustId "; }
+
+                sql += @" AND (EXISTS (SELECT 1 FROM sad_userdetails WHERE usr_CompID = @CompId AND usr_ID = @UserId AND usr_Partner = 1 AND usr_DelFlag IN ('A','B','L'))
+                OR (',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' 
+                OR ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%')) ORDER BY SA.SA_ID DESC;";
 
                 var parameters = new
                 {
@@ -130,7 +142,7 @@ namespace TracePca.Service.Audit
                     UserId = userId
                 };
 
-                var auditNoList = await connection.QueryAsync<DropDownListData>(sql, parameters);
+                var auditNoList = await connection.QueryAsync<AuditDropDownListData>(sql, parameters);
                 return new AuditDropDownListDataDTO
                 {
                     ExistingAuditNoList = auditNoList.ToList()
@@ -469,7 +481,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<(int attachmentId, string relativeFilePath)> UploadAndSaveCheckPointAttachmentAsync(FileAttachmentDTO dto, int auditId, int checkPointId)
+        public async Task<(int attachmentId, string relativeFilePath)> UploadAndSaveCheckPointAttachmentAsync(FileAttachmentDTO dto, int auditId, int checkPointId, string module)
         {
             try
             {
@@ -482,23 +494,28 @@ namespace TracePca.Service.Audit
                 int attachId = dto.ATCH_ID == 0 ? await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID }) : dto.ATCH_ID;
                 int docId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID });
 
-                string originalFileName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
-                string safeFileName = originalFileName.Replace("&", " and");
-                safeFileName = safeFileName.Length > 95 ? safeFileName.Substring(0, 95) : safeFileName;
-
-                string fileExt = Path.GetExtension(dto.File.FileName)?.TrimStart('.').ToLower() ?? "unk";
+                // Prepare file metadata
+                string originalName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
+                string safeFileName = (originalName.Replace("&", " and")).Substring(0, Math.Min(95, originalName.Length));
+                string fileExt = Path.GetExtension(dto.File.FileName)?.ToLower() ?? ".unk";
                 long fileSize = dto.File.Length;
 
-                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
-                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
+                // Determine file type
+                string[] imageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv" };
+                string[] documentExtensions = { ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar" };
+                string fileType = imageExtensions.Contains(fileExt) ? "Images" : documentExtensions.Contains(fileExt) ? "Documents" : "Others";
 
-                if (!Directory.Exists(absoluteFolder))
-                    Directory.CreateDirectory(absoluteFolder);
+                // Build file path
+                string basePath = GetTRACeConfigValue("ImgPath"); // Or Directory.GetCurrentDirectory()
+                string folderChunk = (docId / 301).ToString();
+                string savePath = Path.Combine(basePath, module, fileType, folderChunk);
+                if (!Directory.Exists(savePath))
+                    Directory.CreateDirectory(savePath);
 
-                string uniqueFileName = $"{docId}.{fileExt}";
-                string fullFilePath = Path.Combine(absoluteFolder, uniqueFileName);
-
-                using (var stream = new FileStream(fullFilePath, FileMode.Create))
+                // Save the file
+                string uniqueFileName = $"{docId}{fileExt}";
+                string fullPath = Path.Combine(savePath, uniqueFileName);
+                using (var stream = new FileStream(fullPath, FileMode.Create))
                 {
                     await dto.File.CopyToAsync(stream);
                 }
@@ -528,7 +545,7 @@ namespace TracePca.Service.Audit
                     SAC_CompID = dto.ATCH_COMPID
                 });
 
-                return (attachId, fullFilePath.Replace("\\", "/"));
+                return (attachId, fullPath.Replace("\\", "/"));
             }
             catch (Exception ex)
             {
@@ -597,11 +614,6 @@ namespace TracePca.Service.Audit
                     throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
                 }
 
-                string relativeFolder = Path.Combine("Uploads", "Audit").ToString();
-                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
-                string fullFilePath = Path.Combine(absoluteFolder, "Audit_Workpaper.pdf");
-                await File.WriteAllBytesAsync(fullFilePath, fileBytes);
-
                 return (fileBytes, contentType, fileName);
             }
             catch (Exception ex)
@@ -629,16 +641,20 @@ namespace TracePca.Service.Audit
                     throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
                 }
 
-                string relativeFolder = Path.Combine("Uploads", "Audit").ToString();
-                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
-                string fullFilePath = Path.Combine(absoluteFolder, "Conduct_Audit.pdf");
-                await File.WriteAllBytesAsync(fullFilePath, fileBytes);
-
                 return (fileBytes, contentType, fileName);
             }
             catch (Exception ex)
             {
                 throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+        
+        public string GetTRACeConfigValue(string key)
+        {
+            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                var query = "SELECT SAD_Config_Value FROM [dbo].[Sad_Config_Settings] WHERE SAD_Config_Key = @Key";
+                return connection.QueryFirstOrDefault<string>(query, new { Key = key });
             }
         }
 
@@ -648,7 +664,8 @@ namespace TracePca.Service.Audit
             {
                 byte[] fileBytes;
                 string contentType;
-                string fileName = "Conduct_Audit_Workpaper";
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Conduct_Audit_Workpaper_{ timestamp}";
 
                 if (format.ToLower() == "pdf")
                 {
@@ -661,11 +678,10 @@ namespace TracePca.Service.Audit
                     throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
                 }
 
-                var tempPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "temp");
-                if (!Directory.Exists(tempPath))
-                    Directory.CreateDirectory(tempPath);
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
 
-                var filePath = Path.Combine(tempPath, fileName);
+                var filePath = Path.Combine(tempFolder, fileName);
                 if (System.IO.File.Exists(filePath))
                 {
                     System.IO.File.Delete(filePath);
@@ -674,7 +690,7 @@ namespace TracePca.Service.Audit
                 await File.WriteAllBytesAsync(filePath, fileBytes);
 
                 string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
-                string downloadUrl = $"{baseUrl}/temp/{fileName}";
+                string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{fileName}";
 
                 return downloadUrl;
             }
@@ -690,7 +706,8 @@ namespace TracePca.Service.Audit
             {
                 byte[] fileBytes;
                 string contentType;
-                string fileName = "Conduct_Audit_CheckPoints";
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Conduct_Audit_CheckPoints_{timestamp}";
 
                 if (format.ToLower() == "pdf")
                 {
@@ -703,11 +720,10 @@ namespace TracePca.Service.Audit
                     throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
                 }
 
-                var tempPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "temp");
-                if (!Directory.Exists(tempPath))
-                    Directory.CreateDirectory(tempPath);
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
 
-                var filePath = Path.Combine(tempPath, fileName);
+                var filePath = Path.Combine(tempFolder, fileName);
                 if (System.IO.File.Exists(filePath))
                 {
                     System.IO.File.Delete(filePath);
@@ -716,7 +732,7 @@ namespace TracePca.Service.Audit
                 await File.WriteAllBytesAsync(filePath, fileBytes);
 
                 string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
-                string downloadUrl = $"{baseUrl}/temp/{fileName}";
+                string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{fileName}";
 
                 return downloadUrl;
             }
@@ -1005,5 +1021,198 @@ namespace TracePca.Service.Audit
                 throw new ApplicationException("An error occurred while loading customer user dropdown data.", ex);
             }
         }
+
+        public async Task<bool> UpdateConductAuditWorkPaperReviewerAsync(int compID, int auditId, int workpaperId, int userId, string reviewerComments)
+        {
+            const string query = @"UPDATE StandardAudit_ScheduleConduct_WorkPaper SET SSW_ReviewerComments = @SSW_ReviewerComments, SSW_ReviewedBy = @SSW_ReviewedBy, SSW_ReviewedOn = GETDATE()
+                WHERE SSW_SA_ID = @SSW_SA_ID AND SSW_CompID = @SSW_CompID AND SSW_ID = @SSW_ID;";
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var parameters = new
+                {
+                    SSW_CompID = compID,
+                    SSW_SA_ID = auditId,
+                    SSW_ID = workpaperId,
+                    SSW_ReviewedBy = userId,
+                    SSW_ReviewerComments = reviewerComments
+                };
+
+                int rows = await connection.ExecuteAsync(query, parameters);
+                return rows > 0;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("Error updating reviewer comments for audit workpaper.", ex);
+            }
+        }
+
+        public async Task<List<ConductAuditRemarksHistoryDisplayDTO>> GetConductAuditRemarksHistoryAsync(int compId, int auditId, int conductAuditCheckPointPKId, int checkPointId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var result = new List<ConductAuditRemarksHistoryDisplayDTO>();
+                var query = @"SELECT a.SCR_ID As SCR_ID,ISNULL(b.SCR_ID,0) As CSCR_ID,a.SCR_SA_ID,a.SCR_SAC_ID,a.SCR_CheckPointID,a.SCR_Date,a.SCR_Remarks As SCR_Remarks,
+                    c.USr_FullName As SCR_RemarksByName,e.Mas_Description As SCR_RemarksByRole,ISNULL(d.USr_FullName,'') + ' - ' + ISNULL(b.SCR_Remarks,'') As SCR_ClientRemarks
+                    FROM StandardAudit_ConductAudit_RemarksHistory a 
+                    Left Join sad_userdetails c on c.Usr_ID=a.SCR_RemarksBy 
+                    Left Join StandardAudit_ConductAudit_RemarksHistory b on a.SCR_ID=b.SCR_IsIssueRaised And b.SCR_RemarksType = 3 And b.SCR_IsIssueRaised > 1
+                    Left Join sad_userdetails d on d.Usr_ID=b.SCR_RemarksBy 
+                    Left Join SAD_GrpOrLvl_General_Master e on e.Mas_ID=c.Usr_Role 
+                    Where a.SCR_SA_ID = @AuditId And a.SCR_SAC_ID = @ConductAuditCheckPointPKId And a.SCR_CheckPointID = @CheckPointId And a.SCR_CompID = @CompId And a.SCR_IsIssueRaised <= 1
+                    Order by a.SCR_ID Desc";
+
+                result = (await connection.QueryAsync<ConductAuditRemarksHistoryDisplayDTO>(query, new { CompId = compId, AuditId = auditId, ConductAuditCheckPointPKId = conductAuditCheckPointPKId, CheckPointId = checkPointId })).ToList();
+                return result ?? new List<ConductAuditRemarksHistoryDisplayDTO>();
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting workpaper list by audit ID", ex);
+            }
+        }
+
+        public async Task<int> SaveConductAuditRemarksHistoryAsync(ConductAuditRemarksHistoryDTO dto)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            try
+            {
+                var newId = await connection.QuerySingleAsync<int>(@"
+                    DECLARE @SCR_ID INT;
+                    SELECT @SCR_ID = ISNULL(MAX(SCR_ID), 0) + 1 FROM StandardAudit_ConductAudit_RemarksHistory;
+
+                    INSERT INTO StandardAudit_ConductAudit_RemarksHistory(
+                        SCR_ID, SCR_SA_ID, SCR_SAC_ID, SCR_CheckPointID, SCR_RemarksType, SCR_Remarks, SCR_RemarksBy,
+                        SCR_Date, SCR_IPAddress, SCR_CompID, SCR_IsIssueRaised, SCR_EmailIds, SCR_DueDate, SCR_MailUniqueId, SCR_DBFlag
+                    ) VALUES (
+                        @SCR_ID, @SCR_SA_ID, @SCR_SAC_ID, @SCR_CheckPointID, @SCR_RemarksType, @SCR_Remarks, @SCR_RemarksBy,
+                        GETDATE(), @SCR_IPAddress, @SCR_CompID, @SCR_IsIssueRaised, @SCR_EmailIds, @SCR_DueDate, '', 'W'
+                    );
+
+                    SELECT @SCR_ID;", new
+                {
+                    dto.SCR_SA_ID,
+                    dto.SCR_SAC_ID,
+                    dto.SCR_CheckPointID,
+                    dto.SCR_RemarksType,
+                    dto.SCR_Remarks,
+                    dto.SCR_RemarksBy,
+                    dto.SCR_IPAddress,
+                    dto.SCR_CompID,
+                    dto.SCR_IsIssueRaised,
+                    dto.SCR_EmailIds,
+                    dto.SCR_DueDate
+                });
+
+                dto.SCR_ID = newId;
+
+                if (!string.IsNullOrWhiteSpace(dto.SCR_EmailIds))
+                {
+                    var result = await connection.QueryFirstOrDefaultAsync<(string AuditNo, string AuditType, string AuditorName, string Checkpoint)>(
+                        @"SELECT SA_AuditNo, CMM_Desc, usr_FullName, ACM_Checkpoint FROM StandardAudit_Schedule SA
+                          JOIN AuditType_Checklist_Master ON ACM_ID = @CheckPointID
+                          LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
+                          JOIN Sad_UserDetails ON usr_ID = @UserId WHERE SA_ID = @AuditId",
+                        new { CompId = dto.SCR_CompID, AuditId = dto.SCR_SA_ID, CheckPointID = dto.SCR_CheckPointID, UserId = dto.SCR_RemarksBy });
+
+                    var customerUserIds = dto.SCR_EmailIds.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(id => int.Parse(id.Trim())).ToList();
+                    var emailList = (await connection.QueryAsync<string>(@"SELECT usr_Email FROM Sad_UserDetails WHERE USR_ID IN @UserIds", new { UserIds = customerUserIds })).Where(email => !string.IsNullOrWhiteSpace(email)).Distinct().ToList();
+
+                    await SendAuditQueryMailAsync(dto.SCR_ID, result.AuditType, result.Checkpoint, dto.SCR_Remarks ?? "", emailList, result.AuditNo,
+                        string.IsNullOrWhiteSpace(dto.SCR_DueDate?.ToString()) ? "" : dto.SCR_DueDate?.ToString("dd-MMM-yyyy"), result.AuditorName);
+                }
+
+                return dto.SCR_ID;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while saving or updating the workpaper", ex);
+            }
+        }
+
+        private async Task<bool> SendAuditQueryMailAsync(int iPKID, string sAuditType, string sCheckPoint, string sComments, List<string> emailList, string auditNo, string dueDate, string auditorName)
+        {
+            try
+            {
+                string subject = $"Intimation mail Questions Raised by the Auditor - {auditNo.Split(" - ")[0]}#CA-{iPKID}";
+
+                string htmlBody = $@"
+                <!DOCTYPE html><html><head>
+                <style>table, th, td {{ border: 1px solid black; border-collapse: collapse; }}</style>
+                </head><body>
+                    <p style='font-size:15px;font-family:Calibri,sans-serif;text-align:left;'>Dear Sir/Ma'am</p>
+                    <p style='font-size:15px;font-family:Calibri,sans-serif;'>Greetings from TRACe PA.&nbsp;&nbsp;</p>
+                    <p style='font-size:15px;font-family:Calibri,sans-serif;'>This email serves as a notification to respond to the questions requested by the Auditor's office</p>
+                    <table style='width:100%;border:1px solid black;'>
+                        <tr>
+                            <td style='padding:10px;'><strong>Audit No.: </strong> {auditNo}</td>
+                        </tr>
+                        <tr>
+                            <td style='padding:10px;'><strong>Due Date: </strong> {dueDate}</td>
+                        </tr>
+                        <tr>
+                            <td style='padding:10px;'><strong>Audit Type: </strong> {sAuditType}</td>
+                        </tr>
+                        <tr>
+                            <td style='padding:10px;'>
+                                <strong>Checkpoint: </strong><br/>{sCheckPoint}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style='padding:10px;'><strong>Auditor Name: </strong> {auditorName}</td>
+                        </tr>
+                        <tr>
+                            <td style='padding:10px;'>
+                                <strong>Auditor Comments/Question:</strong><br/>{System.Net.WebUtility.HtmlEncode(sComments)}
+                            </td>
+                        </tr>
+                    </table>
+                    <p><strong>Click Here :</strong> 
+                        <a href='https://tracepacust-user.multimedia.interactivedns.com/' target='_blank'>
+                            TRACePA
+                        </a>
+                    </p>
+                    <p style='font-size:15px;font-family:Calibri,sans-serif;'>Please login to TRACe PA website using the link and credentials shared with you.</p>
+                    <p style='font-size:15px;font-family:Calibri,sans-serif;'>Home page of the application will show you the list of documents requested by the auditor. Upload all the requested documents using links provided.</p>
+                    <br/>
+                    <p style='font-size:16px;font-family:Calibri,sans-serif;'>Thanks,<br/>TRACe PA Team</p>
+                </body></html>";
+
+                var message = new MimeMessage();
+                message.From.Add(new MailboxAddress("TRACe PA Team", "trace@mmcspl.com"));
+                foreach (var bcc in emailList.Distinct())
+                {
+                    message.Bcc.Add(MailboxAddress.Parse(bcc));
+                }
+
+                message.Subject = subject;
+                var builder = new BodyBuilder { HtmlBody = htmlBody };
+                message.Body = builder.ToMessageBody();
+
+                var smtpServer = _configuration["EmailSettings:SmtpServer"];
+                var smtpPort = int.Parse(_configuration["EmailSettings:SmtpPort"]);
+                var smtpUser = _configuration["EmailSettings:SmtpUser"];
+                var smtpPassword = _configuration["EmailSettings:SmtpPassword"];
+                var fromEmail = _configuration["EmailSettings:FromEmail"];
+
+                using var client = new SmtpClient();
+                await client.ConnectAsync(smtpServer, smtpPort, SecureSocketOptions.StartTls);
+                await client.AuthenticateAsync(fromEmail, smtpPassword);//(smtpUser, smtpPassword);
+                await client.SendAsync(message);
+                await client.DisconnectAsync(true);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while sending the email.", ex);
+            }
+        }
+
     }
 }

@@ -1,4 +1,5 @@
-﻿using TracePca.Dto.LedgerReview;
+﻿using TracePca.Dto;
+using TracePca.Dto.LedgerReview;
 
 namespace TracePca.Interface.LedgerReview
 {
@@ -6,6 +7,7 @@ namespace TracePca.Interface.LedgerReview
     {
 
         Task<List<PcaobRuleDto>> GetAllRulesAsync();
+        Task<List<JEValidationResult>> ValidateAndSendTransactionsAsync();
 
     }
 }

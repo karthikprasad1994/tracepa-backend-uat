@@ -55,6 +55,9 @@ namespace TracePca.Interface.Audit
         Task<string> GetUserNames2Async(int accessCodeId, List<int> engagementPartnerIds);
         Task<string> GetUserNames3Async(int accessCodeId, List<int> engagementPartnerIds);
 
+        string GetFormattedDate(string accessCode, int accessCodeId);
+
+
 
 
     }

@@ -770,7 +770,15 @@ namespace TracePca.Controllers.Audit
                 container.PaddingVertical(6).PaddingHorizontal(6).Background(Colors.Grey.Lighten3).BorderBottom(1).BorderColor(Colors.Black);
         }
 
+        [HttpGet("get-formatted-date")]
+        public IActionResult GetFormattedDate([FromQuery] string accessCode, [FromQuery] int accessCodeId)
+        {
+            if (string.IsNullOrWhiteSpace(accessCode) || accessCodeId <= 0)
+                return BadRequest("Invalid access code or ID.");
 
+            var formattedDate = _DashboardAndScheduleInterface.GetFormattedDate(accessCode, accessCodeId);
+            return Ok(new { formattedDate });
+        }
 
     }
 

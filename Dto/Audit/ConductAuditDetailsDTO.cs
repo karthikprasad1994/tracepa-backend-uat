@@ -66,4 +66,38 @@ namespace TracePca.Dto.Audit
         public int? SSW_DRLAttachmentID { get; set; }
         public int? SSW_DRLAttachmentCount { get; set; }
     }
+
+    public class ConductAuditRemarksHistoryDisplayDTO
+    {
+        public int SCR_ID { get; set; }
+        public int? CSCR_ID { get; set; }
+        public int? SCR_SA_ID { get; set; }
+        public int? SCR_SAC_ID { get; set; }
+        public int? SCR_CheckPointID { get; set; }
+        public DateTime SCR_Date { get; set; } = DateTime.Now;
+        public string? SCR_Remarks { get; set; }
+        public string? SCR_RemarksByName { get; set; }
+        public string? SCR_RemarksByRole { get; set; }
+        public string? SCR_ClientRemarks { get; set; }
+    }
+
+    public class ConductAuditRemarksHistoryDTO
+    {
+        public int SCR_ID { get; set; }
+        public int? SCR_SA_ID { get; set; }
+        public int? SCR_SAC_ID { get; set; }
+        public int? SCR_CheckPointID { get; set; }
+        public int? SCR_RemarksType { get; set; }
+        public string? SCR_Remarks { get; set; }
+        public int? SCR_RemarksBy { get; set; }
+        public DateTime SCR_Date { get; set; } = DateTime.Now;
+        public string? SCR_IPAddress { get; set; }
+        public int? SCR_CompID { get; set; }
+        public int? SCR_IsIssueRaised { get; set; }
+        public string? SCR_EmailIds { get; set; }
+        public DateTime? SCR_DueDate { get; set; }
+        public string? SCR_MailUniqueId { get; set; }
+        public string? SCR_DBFlag { get; set; }
+        public string? SCR_ComplStatus { get; set; }
+    }
 }

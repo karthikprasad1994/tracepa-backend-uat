@@ -4,7 +4,7 @@
     {
         public DropDownListData CurrentYear { get; set; }
         public List<DropDownListData> CustomerList { get; set; }
-        public List<DropDownListData> ExistingAuditNoList { get; set; }
+        public List<AuditDropDownListData> ExistingAuditNoList { get; set; }
         public List<DropDownListData> ReportTypeList { get; set; }
         public List<DropDownListData> AuditTypeList { get; set; }
         public List<DropDownListData> FeeTypeList { get; set; }
@@ -25,6 +25,15 @@
     {
         public int ID { get; set; }
         public string Name { get; set; }
+    }
+
+    public class AuditDropDownListData
+    {
+        public int ID { get; set; }
+        public string Name { get; set; }
+        public int isPartner { get; set; }
+        public int isReviewer { get; set; }
+        public int isAuditor { get; set; }
     }
 
     public class LOEDropDownListData
