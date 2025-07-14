@@ -367,5 +367,33 @@ namespace TracePca.Controllers.Audit
                 return StatusCode(500, new { statusCode = 500, message = "Failed to update reviewer comments details.", error = ex.Message });
             }
         }
+
+        [HttpGet("GetConductAuditRemarksHistory")]
+        public async Task<IActionResult> GetConductAuditRemarksHistory(int compId, int auditId, int conductAuditCheckPointPKId, int checkPointId)
+        {
+            try
+            {
+                var result = await _conductAuditInterface.GetConductAuditRemarksHistoryAsync(compId, auditId, conductAuditCheckPointPKId, checkPointId);
+                return Ok(new { statusCode = 200, message = "Workpapers fetched successfully.", data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to fetch remarks history.", error = ex.Message });
+            }
+        }
+
+        [HttpPost("SaveConductAuditRemarksHistory")]
+        public async Task<IActionResult> SaveConductAuditRemarksHistoryAsync([FromBody] ConductAuditRemarksHistoryDTO dto)
+        {
+            try
+            {
+                var result = await _conductAuditInterface.SaveConductAuditRemarksHistoryAsync(dto);
+                return Ok(new { statusCode = 200, message = "Conduct Audit remarks history saved successfully.", data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to save Conduct remarks history.", error = ex.Message });
+            }
+        }
     }
 }

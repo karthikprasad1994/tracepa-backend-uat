@@ -1031,14 +1031,19 @@ namespace TracePca.Service.Audit
                 string subject = $"Intimation mail To Review The LOE for Client - {reportDetails.Customer}";
 
                 string htmlBody = $@"
-                    <!DOCTYPE html><html><head><style>
-                        table, th, td {{ border: 1px solid black; border-collapse: collapse; }}
-                    </style></head><body>
+                    <!DOCTYPE html><html><head>
+                        <style>table, th, td {{ border: 1px solid black; border-collapse: collapse; }}</style>
+                        </head><body>
                         <p style='font-size:15px;font-family:Calibri,sans-serif;text-align:left;'>Dear Sir/Ma'am</p>
+                        <p style='font-size:15px;font-family:Calibri,sans-serif;'>Greetings from TRACe PA.&nbsp;&nbsp;</p>
                         <table style='width:100%;border:1px solid black;'>
                             <tr>
                                 <td style='padding:10px;text-align:left;'>
-                                    <strong>Client Name:</strong> {reportDetails.Customer}<br/>
+                                    <strong>Client Name:</strong> {reportDetails.Customer}<br/>                                  
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style='padding:10px;text-align:left;'>
                                     <strong>LOE No.:</strong> {reportDetails.EngagementPlanNo}
                                 </td>
                             </tr>
