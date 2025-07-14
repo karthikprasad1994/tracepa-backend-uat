@@ -93,7 +93,7 @@ FROM StandardAudit_Schedule
 JOIN Year_Master ON SA_YearID = YMS_YearID
 JOIN Content_Management_Master ON CMM_ID = SA_AuditTypeID
 JOIN SAD_CUSTOMER_MASTER ON Cust_Id = SA_CustID
-WHERE SA_ID = @Id AND SA_CompID = @CompId AND SA_CrBy = @LoginUserID";
+WHERE SA_ID = @Id AND SA_CompID = @CompId";
 
                 parameters = new
                 {
