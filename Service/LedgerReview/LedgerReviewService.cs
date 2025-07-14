@@ -1,14 +1,21 @@
 ﻿using System.Collections.Concurrent;
+using System.Data;
+using System.Data.SqlClient;
+using System.Data.SqlClient;
 using System.Text;
 using System.Text.RegularExpressions;
+using Dapper;
 using HtmlAgilityPack;
-using iTextSharp.text.pdf;
-using iTextSharp.text.pdf.parser;
-using Microsoft.Playwright;
-using TracePca.Dto.LedgerReview;
-using TracePca.Interface.LedgerReview;
 using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Canvas.Parser;
+using iTextSharp.text.pdf;
+using iTextSharp.text.pdf.parser;
+using Microsoft.Data.SqlClient;
+using Microsoft.Playwright;
+using TracePca.Dto;
+using TracePca.Dto.LedgerReview;
+using TracePca.Interface.LedgerReview;
+//using static Org.BouncyCastle.Math.EC.ECCurve;
 using PdfTextExtractor = iText.Kernel.Pdf.Canvas.Parser.PdfTextExtractor;
 
 
@@ -18,27 +25,24 @@ namespace TracePca.Service.LedgerReview
     {
         private readonly IConfiguration _configuration;
         private readonly HttpClient _httpClient;
+        private readonly IDbConnection _db;
 
+        private readonly Dictionary<string, string[]> _ruleKeywordMap = new()
+    {
+        { "AS 1000", new[] { "general responsibility", "audit engagement" } },
+        { "AS 2101", new[] { "planning", "opening entry" } },
+        { "AS 1105", new[] { "evidence", "confirmation", "supporting document" } },
+        { "AS 2401", new[] { "fraud", "irregular", "suspicious" } }
+    };
 
         public LedgerReviewService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
 
             _configuration = configuration;
             _httpClient = new HttpClient();
+            _db = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
         }
-
-
-
-
-
-      
-
-   
-
-    
-
-   
         public async Task<List<PcaobRuleDto>> GetAllRulesAsync()
         {
             var result = new List<PcaobRuleDto>();
@@ -115,11 +119,60 @@ namespace TracePca.Service.LedgerReview
 
             return allParagraphs;
         }
-    }
 
+
+        public async Task<List<JEValidationResult>> ValidateAndSendTransactionsAsync()
+        {
+            var transactions = (await _db.QueryAsync<AccJETransaction>(@"
+        SELECT 
+            m.Acc_JE_TransactionNo,
+            d.AJTB_Operation,
+            d.AJTB_TranscNo
+        FROM acc_je_master m
+        LEFT JOIN Acc_JETransactions_Details d ON m.Acc_JE_TransactionNo = d.AJTB_TranscNo
+    ")).ToList();
+
+            var results = new List<JEValidationResult>();
+
+            foreach (var txn in transactions)
+            {
+                var matchedRules = new List<string>();
+                var messageBuilder = new StringBuilder();
+
+                var combinedText = $"{txn.AJTB_Operation}".ToLower();
+
+                foreach (var rule in _ruleKeywordMap)
+                {
+                    foreach (var keyword in rule.Value)
+                    {
+                        if (!string.IsNullOrWhiteSpace(keyword) && combinedText.Contains(keyword.ToLower()))
+                        {
+                            matchedRules.Add(rule.Key);
+                            messageBuilder.AppendLine($"Matched keyword '{keyword}' with rule {rule.Key}.");
+                            break;
+                        }
+                    }
+                }
+
+                results.Add(new JEValidationResult
+                {
+                    TransactionNo = txn.Acc_JE_TransactionNo,
+                    IsValid = matchedRules.Any(),
+                    MatchedRules = matchedRules,
+                    ValidationMessage = matchedRules.Any()
+                        ? messageBuilder.ToString().Trim()
+                        : "No matching PCAOB rule found for this transaction."
+                });
+            }
+
+            return results;
+        }
+    }
 }
 
-    
+
+
+
 
 
 

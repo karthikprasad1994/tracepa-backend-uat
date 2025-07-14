@@ -12,6 +12,7 @@ using TracePca.Data;
 using TracePca.Dto.Audit;
 using TracePca.Interface;
 using TracePca.Interface.Audit;
+using TracePca.Models.CustomerRegistration;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 namespace TracePca.Service.Audit
@@ -29,34 +30,34 @@ namespace TracePca.Service.Audit
 
 
         public async Task<List<DashboardAndScheduleDto>> GetDashboardAuditAsync(
-      int? id, int? customerId, int? compId, int? financialYearId, int? loginUserId)
+       int? id, int? customerId, int? compId, int? financialYearId, int? loginUserId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query;
-            object parameters;
-            string sSql = @"
-    SELECT Usr_ID 
-    FROM sad_userdetails 
-    WHERE usr_compID = @CompId 
-      AND USR_Partner = 1 
-      AND (usr_DelFlag = 'A' OR usr_DelFlag = 'B' OR usr_DelFlag = 'L') 
-      AND Usr_ID = @UserId";
+            // Step 1: Check if user is a Partner
+            var checkPartnerSql = @"
+        SELECT Usr_ID 
+        FROM sad_userdetails 
+        WHERE usr_compID = @CompId 
+          AND USR_Partner = 1 
+          AND (usr_DelFlag = 'A' OR usr_DelFlag = 'B' OR usr_DelFlag = 'L') 
+          AND Usr_ID = @UserId";
 
-            parameters = new
+            var partnerParams = new
             {
-                CompId = compId,   // <-- Make sure iCompId is defined with the company ID
-                UserId = loginUserId   // <-- Assuming this is the correct user ID to check
+                CompId = compId,
+                UserId = loginUserId
             };
 
-            // Execute the query and check if any records exist
-            var Partner = await connection.QueryFirstOrDefaultAsync<int?>(sSql, parameters);
-
-            // Convert result to a boolean flag
+            var Partner = await connection.QueryFirstOrDefaultAsync<int?>(checkPartnerSql, partnerParams);
             bool loginUserIsPartner = Partner.HasValue;
+
+            string query;
+            object parameters;
 
             if (id.HasValue)
             {
+                // Get full audit details by ID
                 query = @"
 SELECT 
     SA_ID,
@@ -92,12 +93,18 @@ FROM StandardAudit_Schedule
 JOIN Year_Master ON SA_YearID = YMS_YearID
 JOIN Content_Management_Master ON CMM_ID = SA_AuditTypeID
 JOIN SAD_CUSTOMER_MASTER ON Cust_Id = SA_CustID
-WHERE SA_ID = @Id AND SA_CompID = @CompId";
+WHERE SA_ID = @Id AND SA_CompID = @CompId AND SA_CrBy = @LoginUserID";
 
-                parameters = new { Id = id.Value, CompId = compId };
+                parameters = new
+                {
+                    Id = id.Value,
+                    CompId = compId,
+                    LoginUserID = loginUserId
+                };
             }
             else
             {
+                // Dashboard style list with optional filters
                 query = @$"
 WITH RankedAudit AS (
     SELECT DISTINCT 
@@ -115,7 +122,7 @@ WITH RankedAudit AS (
             WHEN b.SA_Status = 1 THEN 'Scheduled'
             WHEN b.SA_Status = 2 THEN 'Communication with Client'
             WHEN b.SA_Status = 3 THEN 'TBR'
-            WHEN b.SA_Status = 4 THEN 'Conduct Audit'
+            WHEN b.SA_Status = 4 THEN 'Conduct Audit' 
             WHEN b.SA_Status = 5 THEN 'Report'
             WHEN b.SA_Status = 10 THEN 'Completed'
             ELSE 'Audit Started' 
@@ -125,17 +132,16 @@ WITH RankedAudit AS (
             FROM Sad_UserDetails 
             WHERE usr_id IN (
                 SELECT value 
-                FROM STRING_SPLIT(
-                    (
-                        SELECT STUFF(
-                            LEFT(a.SA_PartnerID, LEN(a.SA_PartnerID) - PATINDEX('%[^,]%', REVERSE(a.SA_PartnerID)) + 1),
-                            1,
-                            PATINDEX('%[^,]%', a.SA_PartnerID) - 1,
-                            ''
-                        )
-                        FROM StandardAudit_Schedule a 
-                        WHERE SA_ID = b.SA_ID
-                    ), ',')
+                FROM STRING_SPLIT((
+                    SELECT STUFF(
+                        LEFT(a.SA_PartnerID, LEN(a.SA_PartnerID) - PATINDEX('%[^,]%', REVERSE(a.SA_PartnerID)) + 1),
+                        1,
+                        PATINDEX('%[^,]%', a.SA_PartnerID) - 1,
+                        ''
+                    )
+                    FROM StandardAudit_Schedule a 
+                    WHERE SA_ID = b.SA_ID
+                ), ',')
             )
         FOR XML PATH('')), 1, 1, ''), '-') 
     FROM SAD_CUST_LOE
@@ -145,9 +151,17 @@ WITH RankedAudit AS (
         AND Cust_Id = b.SA_CustID 
         AND b.SA_CompID = @CompId
     WHERE LOE_CompID = @CompId
-    {(financialYearId > 0 ? "AND b.SA_YearID = @financialYearId AND LOE_YearId = @financialYearId" : "")}
-    {(customerId > 0 ? "AND b.SA_CustID = @customerId AND LOE_CustomerId = @customerId" : "")}
-   )
+    {(financialYearId > 0 ? "AND b.SA_YearID = @FinancialYearID AND LOE_YearId = @FinancialYearID" : "")}
+    {(customerId > 0 ? "AND b.SA_CustID = @CustomerId AND LOE_CustomerId = @CustomerId" : "")}
+    {(loginUserIsPartner == false
+                ? @"AND (
+            CONCAT(',', b.SA_AdditionalSupportEmployeeID, ',') LIKE ('%,' + CAST(@LoginUserID AS VARCHAR) + ',%') 
+            OR CONCAT(',', b.SA_EngagementPartnerID, ',') LIKE ('%,' + CAST(@LoginUserID AS VARCHAR) + ',%') 
+            OR CONCAT(',', b.SA_ReviewPartnerID, ',') LIKE ('%,' + CAST(@LoginUserID AS VARCHAR) + ',%') 
+            OR CONCAT(',', b.SA_PartnerID, ',') LIKE ('%,' + CAST(@LoginUserID AS VARCHAR) + ',%')
+        )"
+                : "")}
+)
 SELECT 
     ROW_NUMBER() OVER (ORDER BY SrNo DESC) AS SrNo,
     AuditID,
@@ -176,6 +190,7 @@ ORDER BY SrNo";
             var result = await connection.QueryAsync<DashboardAndScheduleDto>(query, parameters);
             return result.ToList();
         }
+
 
         public async Task<List<UserDto>> GetUsersByRoleAsync(int compId, string role)
         {
@@ -1545,32 +1560,33 @@ ORDER BY SrNo";
         public async Task<string[]> SaveEmployeeDetailsAsync(EmployeeDto emp)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            using var connectionMMCS = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+            await connectionMMCS.OpenAsync();
 
-            // Step 1: Get auto-generated employee code
+            // Step 1: Get auto-generated employee code if missing
             if (string.IsNullOrWhiteSpace(emp.UsrCode))
             {
                 string empCode = await GetMaxEmployeeCodeAsync(
                     _configuration.GetConnectionString("DefaultConnection"),
                     emp.UsrCompID
                 );
-                emp.UsrCode = empCode; // Set the generated code to the DTO
+                emp.UsrCode = empCode;
             }
-
-
 
             var parameters = new DynamicParameters();
 
             parameters.Add("@Usr_ID", emp.UserID);
             parameters.Add("@Usr_Node", emp.UsrNode);
-            parameters.Add("@Usr_Code", emp.UsrCode); // <-- generated code passed here
+            parameters.Add("@Usr_Code", emp.UsrCode);
             parameters.Add("@Usr_FullName", emp.UsrFullName);
-            parameters.Add("@Usr_LoginName", emp.UsrLoginName);
+            parameters.Add("@Usr_LoginName", emp.UsrEmail);
             parameters.Add("@Usr_Password", emp.UsrPassword);
             parameters.Add("@Usr_Email", emp.UsrEmail);
             parameters.Add("@Usr_Category", emp.UsrSentMail);
             parameters.Add("@Usr_Suggetions", emp.UsrSuggetions);
             parameters.Add("@usr_partner", emp.UsrPartner);
-            parameters.Add("@Usr_LevelGrp", emp.UsrLevelGrp);
+            parameters.Add("@Usr_LevelGrp", emp.UsrRole);
             parameters.Add("@Usr_DutyStatus", 'A');
             parameters.Add("@Usr_PhoneNo", emp.UsrPhoneNo);
             parameters.Add("@Usr_MobileNo", emp.UsrMobileNo);
@@ -1608,7 +1624,29 @@ ORDER BY SrNo";
             parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
             parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
+            // Call the stored procedure
             await connection.ExecuteAsync("spEmployeeMaster", parameters, commandType: CommandType.StoredProcedure);
+
+            // Step 2: Update MMCS_CustomerRegistration.MCR_emails by appending emp.UsrEmail
+            string customerCode = connection.Database;
+
+            string existingEmails = await connectionMMCS.ExecuteScalarAsync<string>(
+                "SELECT MCR_emails FROM [dbo].[MMCS_CustomerRegistration] WHERE MCR_CustomerCode = @CustomerCode",
+                new { CustomerCode = customerCode }
+            );
+
+            // Append email only if not already present
+            if (!string.IsNullOrWhiteSpace(emp.UsrEmail) && (existingEmails == null || !existingEmails.Split(',').Contains(emp.UsrEmail)))
+            {
+                var updatedEmails = string.IsNullOrWhiteSpace(existingEmails)
+                    ? emp.UsrEmail
+                    : existingEmails + "," + emp.UsrEmail;
+
+                await connectionMMCS.ExecuteAsync(
+                    "UPDATE [dbo].[MMCS_CustomerRegistration] SET MCR_emails = @Emails WHERE MCR_CustomerCode = @CustomerCode",
+                    new { Emails = updatedEmails, CustomerCode = customerCode } // Replace 'trdm' if needed
+                );
+            }
 
             return new string[]
             {

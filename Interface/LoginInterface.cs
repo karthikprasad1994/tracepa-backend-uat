@@ -23,7 +23,8 @@ namespace TracePca.Interface
         Task<(bool Success, string Message)> CheckAndAddAccessCodeConnectionStringAsync(string accessCode);
 
         //  Task<string> GetLoginUserPermissionTraceAsync(UserPermissionRequestDto dto);
-        Task<List<OperationPermissionDto>> GetLoginUserPermissionTraceAsync(UserPermissionRequestDto dto);
-
+       // Task<List<OperationPermissionDto>> GetLoginUserPermissionTraceAsync(UserPermissionRequestDto dto);
+       // Task<string> GetLoginUserPermissionTraceAsync(int companyId, int userId, string moduleCode, int checkModuleId);
+        Task<List<FormPermissionDto>> GetUserPermissionsWithFormNameAsync(int companyId, int userId);
     }
 }

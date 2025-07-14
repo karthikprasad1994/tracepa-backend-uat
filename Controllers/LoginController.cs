@@ -97,7 +97,6 @@ namespace TracePca.Controllers
             {
                 // Extract the JWT token from Authorization header
                 var token = Request.Headers["Authorization"].ToString();
-
                 if (string.IsNullOrWhiteSpace(token))
                 {
                     return BadRequest(new { statuscode = 400, message = "Authorization token is missing in the header." });
@@ -173,15 +172,14 @@ namespace TracePca.Controllers
             };
         }
 
-
         [HttpGet("Loginpermissions")]
-        public async Task<IActionResult> GetUserPermissions([FromQuery] UserPermissionRequestDto dto)
+        public async Task<IActionResult> GetUserPermissions([FromQuery] int userId, [FromQuery] int companyId)
         {
             try
             {
-                var result = await _LoginInterface.GetLoginUserPermissionTraceAsync(dto); // now returns List<OperationPermissionDto>
+                var permissionsList = await _LoginInterface.GetUserPermissionsWithFormNameAsync(companyId, userId);
 
-                if (result == null || !result.Any())
+                if (permissionsList == null || !permissionsList.Any())
                 {
                     return NotFound(new
                     {
@@ -191,21 +189,28 @@ namespace TracePca.Controllers
                     });
                 }
 
+                var groupedPermissions = permissionsList
+                    .GroupBy(p => p.FormName)
+                    .Select(g => new
+                    {
+                        formName = g.Key,
+                        permission = string.Join(",", g.Select(x => x.Permission).Distinct())
+                    })
+                    .ToList();
+
                 return Ok(new
                 {
                     statusCode = 200,
                     message = "Permissions fetched successfully.",
-                    permissions = result
+                    permissions = groupedPermissions
                 });
             }
             catch (Exception ex)
             {
-                // Optional: log the exception
-
                 return StatusCode(500, new
                 {
                     statusCode = 500,
-                    message = "An error occurred while processing your request.",
+                    message = "An error occurred while fetching permissions.",
                     error = ex.Message
                 });
             }
