@@ -126,8 +126,12 @@ namespace TracePca.Service.LedgerReview
             var transactions = (await _db.QueryAsync<AccJETransaction>(@"
         SELECT 
             m.Acc_JE_TransactionNo,
+            d.AJTB_TranscNo,
             d.AJTB_Operation,
-            d.AJTB_TranscNo
+            d.AJTB_DescName,
+            d.AJTB_CreatedOn,
+            d.AJTB_Debit,
+            d.AJTB_Credit
         FROM acc_je_master m
         LEFT JOIN Acc_JETransactions_Details d ON m.Acc_JE_TransactionNo = d.AJTB_TranscNo
     ")).ToList();
@@ -139,24 +143,44 @@ namespace TracePca.Service.LedgerReview
                 var matchedRules = new List<string>();
                 var messageBuilder = new StringBuilder();
 
-                var combinedText = $"{txn.AJTB_Operation}".ToLower();
-
-                foreach (var rule in _ruleKeywordMap)
+                // ✅ Rule 1: AS 2401 - Fraud/Irregularities
+                if ((txn.AJTB_Debit ?? 0) > 1000000 || (txn.AJTB_Credit ?? 0) > 1000000)
                 {
-                    foreach (var keyword in rule.Value)
-                    {
-                        if (!string.IsNullOrWhiteSpace(keyword) && combinedText.Contains(keyword.ToLower()))
-                        {
-                            matchedRules.Add(rule.Key);
-                            messageBuilder.AppendLine($"Matched keyword '{keyword}' with rule {rule.Key}.");
-                            break;
-                        }
-                    }
+                    matchedRules.Add("AS 2401");
+                    messageBuilder.AppendLine("Matched AS 2401: High-value debit/credit may indicate fraud or irregularity.");
+                }
+
+                // ✅ Rule 2: AS 1105 - Audit Evidence (Entry with Description and Audit tag)
+                if (!string.IsNullOrWhiteSpace(txn.AJTB_DescName) && txn.AJTB_DescName.Contains("audit", StringComparison.OrdinalIgnoreCase))
+                {
+                    matchedRules.Add("AS 1105");
+                    messageBuilder.AppendLine("Matched AS 1105: Entry tagged for audit work – considered as audit evidence.");
+                }
+
+                // ✅ Rule 3: AS 2101 - Planning (Based on creation date or description pattern)
+                if (txn.AJTB_CreatedOn.HasValue && txn.AJTB_CreatedOn.Value.Day <= 5) // beginning of month
+                {
+                    matchedRules.Add("AS 2101");
+                    messageBuilder.AppendLine("Matched AS 2101: Entry made early in the period – indicates planning activity.");
+                }
+
+                // ✅ Rule 4: AS 1000 - Responsibility (Based on operation naming pattern)
+                if (!string.IsNullOrWhiteSpace(txn.AJTB_Operation) && txn.AJTB_Operation.Contains("assigned", StringComparison.OrdinalIgnoreCase))
+                {
+                    matchedRules.Add("AS 1000");
+                    messageBuilder.AppendLine("Matched AS 1000: Operation indicates responsibility assignment.");
+                }
+
+                // ✅ Rule 5: AS 1010 - Backdated Entry (Before 2020)
+                if (txn.AJTB_CreatedOn.HasValue && txn.AJTB_CreatedOn.Value.Year < 2020)
+                {
+                    matchedRules.Add("AS 1010");
+                    messageBuilder.AppendLine("Matched AS 1010: Entry is dated before 2020 – possibly backdated.");
                 }
 
                 results.Add(new JEValidationResult
                 {
-                    TransactionNo = txn.Acc_JE_TransactionNo,
+                    TransactionNo = txn.AJTB_TranscNo ?? txn.Acc_JE_TransactionNo,
                     IsValid = matchedRules.Any(),
                     MatchedRules = matchedRules,
                     ValidationMessage = matchedRules.Any()
@@ -167,6 +191,9 @@ namespace TracePca.Service.LedgerReview
 
             return results;
         }
+
+
+
     }
 }
 

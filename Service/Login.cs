@@ -1,16 +1,17 @@
-﻿using BCrypt.Net;
+﻿using System.Data;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
+using BCrypt.Net;
 using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Data;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
@@ -487,122 +488,121 @@ namespace TracePca.Service
             return await Task.FromResult(_otpService.VerifyOtpJwt(token, enteredOtp)); // ✅ Use await correctly
         }
 
-
         public async Task<LoginResponse> LoginUserAsync(string email, string password)
-
         {
             try
             {
-                // ✅ Step 1: Format email to match DB format
-                //string formattedEmail = email.Trim().ToLower() + ",";
+                using var regConnection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+                await regConnection.OpenAsync();
 
-                //// ✅ Step 2: Get customer code from central DB
-                //var customerCodeResult = await _customerRegistrationContext.MmcsCustomerRegistrations
-                //    .Where(c => c.MCR_emails.ToLower() == formattedEmail)
-                //    .Select(c => new { c.McrCustomerCode })
-                //    .FirstOrDefaultAsync();
-
-                //if (customerCodeResult == null)
-                //{
-                //    return new LoginResponse { StatusCode = 404, Message = "Email not found in customer registration." };
-                //}
-
-                //string customerCode = customerCodeResult.McrCustomerCode;
-
-
-                var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
-                await connection.OpenAsync();
-
-                // Step 1: Get single customer code matching email
+                // Step 1: Get customer code from MCR_emails
                 string customerCodeSql = @"
-       SELECT TOP 1 MCR_CustomerCode 
-       FROM mmcs_customerregistration 
-       CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
-       WHERE LTRIM(RTRIM(Emails.value)) = @Email
-   ";
+            SELECT TOP 1 MCR_CustomerCode 
+            FROM mmcs_customerregistration 
+            CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
+            WHERE LTRIM(RTRIM(Emails.value)) = @Email";
 
-                var customerCode = await connection.QuerySingleOrDefaultAsync<string>(customerCodeSql, new { Email = email });
-                // ✅ Step 3: Build connection string for customer DB
+                var customerCode = await regConnection.QuerySingleOrDefaultAsync<string>(customerCodeSql, new { Email = email });
+
+                if (string.IsNullOrEmpty(customerCode))
+                {
+                    return new LoginResponse { StatusCode = 404, Message = "Email not found in customer registration." };
+                }
+
+                // Step 2: Connect to the customer's DB
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
                 string customerDbConnection = string.Format(connectionStringTemplate, customerCode);
 
-                using (connection = new SqlConnection(customerDbConnection))
+                using var connection = new SqlConnection(customerDbConnection);
+                await connection.OpenAsync();
+
+                string plainEmail = email.Trim().ToLower();
+
+                // Step 3: Fetch user details
+                var user = await connection.QueryFirstOrDefaultAsync<LoginDto>(
+                    @"SELECT usr_Email AS UsrEmail, usr_Password AS UsrPassWord
+              FROM Sad_UserDetails
+              WHERE LOWER(usr_Email) = @email",
+                    new { email = plainEmail });
+
+                if (user == null)
                 {
-                    await connection.OpenAsync();
+                    return new LoginResponse { StatusCode = 404, Message = "Invalid email." };
+                }
 
-                    // ✅ Step 4: Check for user with email + password
-                    string plainEmail = email.Trim().ToLower(); // No comma added
+                bool isPasswordValid = false;
 
-                    var user = await connection.QueryFirstOrDefaultAsync<LoginDto>(
-    @"SELECT usr_Email AS UsrEmail, usr_Password AS UsrPassWord
-      FROM Sad_UserDetails
-      WHERE LOWER(usr_Email) = @email",
-    new
-    {
-        email = plainEmail
-    });
-
-                    if (user == null)
+                // Step 4: Try BCrypt verification
+                try
+                {
+                    isPasswordValid = BCrypt.Net.BCrypt.Verify(password, user.UsrPassWord);
+                }
+                catch
+                {
+                    // Not a BCrypt hash, try legacy AES decryption
+                    try
                     {
-                        return new LoginResponse { StatusCode = 404, Message = "Invalid email." };
-                    }
+                        string decryptedPassword = DecryptPassword(user.UsrPassWord);
+                        isPasswordValid = password == decryptedPassword;
 
-                    // ✅ Compare the entered plain password with the hashed password in DB
-                    //bool isPasswordValid = BCrypt.Net.BCrypt.Verify(password, user.UsrPassWord);
-                    bool isPasswordValid = true;
-                    if (password == user.UsrPassWord)
-                    {
-                        isPasswordValid = true;
-                    }
-                    else
-                    {
-                         isPasswordValid = false;
-                    }
-
-
-
-                        if (!isPasswordValid)
-                    {
-                        return new LoginResponse { StatusCode = 401, Message = "Invalid password." };
-                    }
-
-                    // ✅ Step 5: Get user ID
-                    var userId = await connection.QueryFirstOrDefaultAsync<int>(
-                        @"SELECT usr_Id
-                  FROM Sad_UserDetails 
-                  WHERE LOWER(usr_Email) = @email",
-                        new { email = plainEmail });
-
-                    // ✅ Step 6: Generate JWT
-                    string token = GenerateJwtTokens(user);
-                    string? ymsId = null;
-                    int? ymsYearId = null;
-
-                    using (var yearConnection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-                    {
-                        await yearConnection.OpenAsync();
-
-                        const string query = @"SELECT YMS_ID, YMS_YEARID FROM Year_Master WHERE YMS_Default = 1";
-
-                        var yearResult = await yearConnection.QueryFirstOrDefaultAsync<YearDto>(query);
-
-                        if (yearResult != null)
+                        if (isPasswordValid)
                         {
-                            ymsId = yearResult.YMS_ID;
-                            ymsYearId = yearResult.YMS_YEARID;
+                            // ✅ Migrate password to BCrypt
+                            string newHash = BCrypt.Net.BCrypt.HashPassword(password);
+
+                            // Update the user's password
+                            await connection.ExecuteAsync(
+                                "UPDATE Sad_UserDetails SET usr_Password = @newHash WHERE LOWER(usr_Email) = @email",
+                                new { newHash, email = plainEmail });
+
+                            Console.WriteLine("🔁 Legacy password migrated to BCrypt.");
                         }
                     }
-
-                    return new LoginResponse
+                    catch
                     {
-                        StatusCode = 200,
-                        Message = "Login successful",
-                        Token = token,
-                        UsrId = userId,
-                        YmsId = ymsId,
-                        YmsYearId = ymsYearId
-                    };
+                        // Decryption failed — bad format
+                        isPasswordValid = false;
+                    }
                 }
+
+                if (!isPasswordValid)
+                {
+                    return new LoginResponse { StatusCode = 401, Message = "Invalid password." };
+                }
+
+                // Step 5: Get user ID
+                var userId = await connection.QueryFirstOrDefaultAsync<int>(
+                    @"SELECT usr_Id FROM Sad_UserDetails WHERE LOWER(usr_Email) = @email",
+                    new { email = plainEmail });
+
+                // Step 6: Generate JWT
+                string token = GenerateJwtTokens(user);
+                string? ymsId = null;
+                int? ymsYearId = null;
+
+                using (var yearConnection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                {
+                    await yearConnection.OpenAsync();
+
+                    const string query = @"SELECT YMS_ID, YMS_YEARID FROM Year_Master WHERE YMS_Default = 1";
+                    var yearResult = await yearConnection.QueryFirstOrDefaultAsync<YearDto>(query);
+
+                    if (yearResult != null)
+                    {
+                        ymsId = yearResult.YMS_ID;
+                        ymsYearId = yearResult.YMS_YEARID;
+                    }
+                }
+
+                return new LoginResponse
+                {
+                    StatusCode = 200,
+                    Message = "Login successful",
+                    Token = token,
+                    UsrId = userId,
+                    YmsId = ymsId,
+                    YmsYearId = ymsYearId
+                };
             }
             catch (Exception ex)
             {
@@ -613,6 +613,157 @@ namespace TracePca.Service
                 };
             }
         }
+
+        private string DecryptPassword(string encryptedBase64)
+        {
+            string decryptionKey = "ML736@mmcs";
+            byte[] cipherBytes = Convert.FromBase64String(encryptedBase64);
+
+            byte[] salt = new byte[] { 0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D,
+                               0x65, 0x64, 0x76, 0x65, 0x64, 0x65,
+                               0x76 };
+
+            using var aes = Aes.Create();
+            var pdb = new Rfc2898DeriveBytes(decryptionKey, salt);
+            aes.Key = pdb.GetBytes(32);
+            aes.IV = pdb.GetBytes(16);
+
+            using var ms = new MemoryStream();
+            using var cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Write);
+            cs.Write(cipherBytes, 0, cipherBytes.Length);
+            cs.Close();
+
+            return Encoding.Unicode.GetString(ms.ToArray());
+        }
+
+
+
+
+        //     public async Task<LoginResponse> LoginUserAsync(string email, string password)
+
+        //     {
+        //         try
+        //         {
+        //             // ✅ Step 1: Format email to match DB format
+        //             //string formattedEmail = email.Trim().ToLower() + ",";
+
+        //             //// ✅ Step 2: Get customer code from central DB
+        //             //var customerCodeResult = await _customerRegistrationContext.MmcsCustomerRegistrations
+        //             //    .Where(c => c.MCR_emails.ToLower() == formattedEmail)
+        //             //    .Select(c => new { c.McrCustomerCode })
+        //             //    .FirstOrDefaultAsync();
+
+        //             //if (customerCodeResult == null)
+        //             //{
+        //             //    return new LoginResponse { StatusCode = 404, Message = "Email not found in customer registration." };
+        //             //}
+
+        //             //string customerCode = customerCodeResult.McrCustomerCode;
+
+
+        //             var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+        //             await connection.OpenAsync();
+
+        //             // Step 1: Get single customer code matching email
+        //             string customerCodeSql = @"
+        //    SELECT TOP 1 MCR_CustomerCode 
+        //    FROM mmcs_customerregistration 
+        //    CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
+        //    WHERE LTRIM(RTRIM(Emails.value)) = @Email
+        //";
+
+        //             var customerCode = await connection.QuerySingleOrDefaultAsync<string>(customerCodeSql, new { Email = email });
+        //             // ✅ Step 3: Build connection string for customer DB
+        //             string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+        //             string customerDbConnection = string.Format(connectionStringTemplate, customerCode);
+
+        //             using (connection = new SqlConnection(customerDbConnection))
+        //             {
+        //                 await connection.OpenAsync();
+
+        //                 // ✅ Step 4: Check for user with email + password
+        //                 string plainEmail = email.Trim().ToLower(); // No comma added
+
+        //                 var user = await connection.QueryFirstOrDefaultAsync<LoginDto>(
+        // @"SELECT usr_Email AS UsrEmail, usr_Password AS UsrPassWord
+        //   FROM Sad_UserDetails
+        //   WHERE LOWER(usr_Email) = @email",
+        // new
+        // {
+        //     email = plainEmail
+        // });
+
+        //                 if (user == null)
+        //                 {
+        //                     return new LoginResponse { StatusCode = 404, Message = "Invalid email." };
+        //                 }
+
+        //                 // ✅ Compare the entered plain password with the hashed password in DB
+        //                 //bool isPasswordValid = BCrypt.Net.BCrypt.Verify(password, user.UsrPassWord);
+        //                 bool isPasswordValid = true;
+        //                 if (password == user.UsrPassWord)
+        //                 {
+        //                     isPasswordValid = true;
+        //                 }
+        //                 else
+        //                 {
+        //                      isPasswordValid = false;
+        //                 }
+
+
+
+        //                     if (!isPasswordValid)
+        //                 {
+        //                     return new LoginResponse { StatusCode = 401, Message = "Invalid password." };
+        //                 }
+
+        //                 // ✅ Step 5: Get user ID
+        //                 var userId = await connection.QueryFirstOrDefaultAsync<int>(
+        //                     @"SELECT usr_Id
+        //               FROM Sad_UserDetails 
+        //               WHERE LOWER(usr_Email) = @email",
+        //                     new { email = plainEmail });
+
+        //                 // ✅ Step 6: Generate JWT
+        //                 string token = GenerateJwtTokens(user);
+        //                 string? ymsId = null;
+        //                 int? ymsYearId = null;
+
+        //                 using (var yearConnection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //                 {
+        //                     await yearConnection.OpenAsync();
+
+        //                     const string query = @"SELECT YMS_ID, YMS_YEARID FROM Year_Master WHERE YMS_Default = 1";
+
+        //                     var yearResult = await yearConnection.QueryFirstOrDefaultAsync<YearDto>(query);
+
+        //                     if (yearResult != null)
+        //                     {
+        //                         ymsId = yearResult.YMS_ID;
+        //                         ymsYearId = yearResult.YMS_YEARID;
+        //                     }
+        //                 }
+
+        //                 return new LoginResponse
+        //                 {
+        //                     StatusCode = 200,
+        //                     Message = "Login successful",
+        //                     Token = token,
+        //                     UsrId = userId,
+        //                     YmsId = ymsId,
+        //                     YmsYearId = ymsYearId
+        //                 };
+        //             }
+        //         }
+        //         catch (Exception ex)
+        //         {
+        //             return new LoginResponse
+        //             {
+        //                 StatusCode = 500,
+        //                 Message = $"An error occurred: {ex.Message}"
+        //             };
+        //         }
+        //     }
 
         public SqlConnection GetConnection(string customerCode)
         {

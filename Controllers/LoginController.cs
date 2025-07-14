@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using TracePca.Interface;
-using TracePca.Models.CustomerRegistration;
-using TracePca.Models;
-using TracePca.Dto;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using TracePca.Data.CustomerRegistration;
+using TracePca.Dto;
+using TracePca.Interface;
+using TracePca.Models;
+using TracePca.Models.CustomerRegistration;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -217,7 +218,7 @@ namespace TracePca.Controllers
         }
 
 
-
+        [AllowAnonymous]
         [HttpPost]
         [Route("UsersLogin")]
         public async Task<IActionResult> LoginUser([FromBody] LoginDto user)
