@@ -51,20 +51,61 @@ namespace TracePca.Service.Audit
         }
 
 
-        public async Task<DropDownDataDto> LoadAuditNoDataAsync(int CustID, int compId)
+     public async Task<DropDownDataDto> LoadAuditNoDataAsync(int custId, int compId, int financialYearId, int loginUserId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
 
-            var AuditNoDt = connection.QueryAsync<AuditSummaryDto>(@"
-            Select SA_ID,SA_AuditNo + ' - ' + CMM_Desc As SA_AuditNo From StandardAudit_Schedule 
-            Left Join Content_Management_Master on CMM_ID=SA_AuditTypeID Where SA_CompID = @CompId And SA_CustID=@CustID
-            ORDER BY SA_ID ASC", new { CompId = compId , CustID = CustID });
-             
-            await Task.WhenAll(AuditNoDt);
+            var query = @"
+        SELECT SA_ID, SA_AuditNo + ' - ' + CMM_Desc AS SA_AuditNo
+        FROM StandardAudit_Schedule
+        LEFT JOIN Content_Management_Master ON CMM_ID = SA_AuditTypeID
+        WHERE SA_CompID = @compId";
+
+            if (financialYearId > 0)
+                query += " AND SA_YearID = @financialYearId";
+
+            if (custId > 0)
+                query += " AND SA_CustID = @custId";
+            var checkPartnerSql = @"
+        SELECT Usr_ID 
+        FROM sad_userdetails 
+        WHERE usr_compID = @CompId 
+          AND USR_Partner = 1 
+          AND (usr_DelFlag = 'A' OR usr_DelFlag = 'B' OR usr_DelFlag = 'L') 
+          AND Usr_ID = @UserId";
+
+            var partnerParams = new
+            {
+                CompId = compId,
+                UserId = loginUserId
+            };
+
+            var Partner = await connection.QueryFirstOrDefaultAsync<int?>(checkPartnerSql, partnerParams);
+            bool loginUserIsPartner = Partner.HasValue;
+            if (!loginUserIsPartner)
+            {
+                query += @"
+            AND (
+                CONCAT(',', SA_AdditionalSupportEmployeeID, ',') LIKE '%,' + CAST(@loginUserId AS VARCHAR) + ',%' OR
+                CONCAT(',', SA_EngagementPartnerID, ',') LIKE '%,' + CAST(@loginUserId AS VARCHAR) + ',%' OR
+                CONCAT(',', SA_ReviewPartnerID, ',') LIKE '%,' + CAST(@loginUserId AS VARCHAR) + ',%' OR
+                CONCAT(',', SA_PartnerID, ',') LIKE '%,' + CAST(@loginUserId AS VARCHAR) + ',%'
+            )";
+            }
+
+            query += " ORDER BY SA_ID DESC";
+
+            var auditNos = await connection.QueryAsync<AuditSummaryDto>(query, new
+            {
+                compId,
+                financialYearId,
+                custId,
+                loginUserId
+            });
+
             return new DropDownDataDto
             {
-                AuditNoDetails = AuditNoDt.Result.ToList()
+                AuditNoDetails = auditNos.ToList()
             };
         }
 

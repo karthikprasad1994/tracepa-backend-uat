@@ -2589,7 +2589,7 @@ VALUES (
                 {
                     AtchId = newAttachId,
                     DocId = docId,
-                    FileName = safeFileName,
+                    FileName = fileBaseName,
                     FileExt = fileExt,
                     Description = dto.Remark,
                     Size = file.Length,
@@ -6177,63 +6177,84 @@ WHERE SA_ID = @AuditId";
         public async Task<string> GetHttpsDocumentPathModulewiseAsync(GetDocumentPathRequestDto dto)
         {
             if (dto.AttachDocId == 0) return string.Empty;
+
+            string fileDownloadUrl = string.Empty;
+
             using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await conn.OpenAsync();
-            string sql = $"SELECT ATCH_DocId, ATCH_FNAME, atch_ext, atch_ole FROM EDT_ATTACHMENTS WHERE ATCH_CompID={dto.CompanyId} AND ATCH_ID = {dto.AttachId} AND ATCH_DOCID = {dto.AttachDocId}";
-            var reader = await conn.ExecuteReaderAsync(sql);
 
-            if (reader.HasRows)
+            string sql = @"
+        SELECT ATCH_DocId, ATCH_FNAME, atch_ext, atch_ole 
+        FROM EDT_ATTACHMENTS 
+        WHERE ATCH_CompID = @CompanyId AND ATCH_ID = @AttachId AND ATCH_DOCID = @AttachDocId";
+
+            using var reader = await conn.ExecuteReaderAsync(sql, new
             {
-                while (await reader.ReadAsync())
+                dto.CompanyId,
+                dto.AttachId,
+                dto.AttachDocId
+            });
+
+            if (!reader.HasRows) return string.Empty;
+
+            while (await reader.ReadAsync())
+            {
+                string fileName = reader["ATCH_FNAME"].ToString();
+                string ext = reader["atch_ext"].ToString();
+                int docId = Convert.ToInt32(reader["ATCH_DocId"]);
+
+                string accessCodeDir = GetConfigValue("ImgPath");
+                string downloadDir = Path.Combine(accessCodeDir, "Tempfolder", dto.UserId, "Download");
+                Directory.CreateDirectory(downloadDir);
+
+                string downloadFilePath = Path.Combine(downloadDir, $"{fileName}.{ext}");
+                if (File.Exists(downloadFilePath))
+                    File.Delete(downloadFilePath);
+
+                // Get FilesInDB setting
+                string filesInDb = conn.ExecuteScalar<string>(
+                    @"SELECT Sad_Config_Value FROM Sad_Config_Settings 
+              WHERE Sad_Config_Key = 'FilesInDB' AND Sad_CompID = @CompanyId",
+                    new { dto.CompanyId })?.ToUpper();
+
+                if (filesInDb == "TRUE")
                 {
-                    string fileName = reader["ATCH_FNAME"].ToString();
-                    string ext = reader["atch_ext"].ToString();
-                    int docId = Convert.ToInt32(reader["ATCH_DocId"]);
+                    byte[] buffer = (byte[])reader["atch_ole"];
+                    await File.WriteAllBytesAsync(downloadFilePath, buffer);
+                }
+                else
+                {
+                    string folder = (docId / 301).ToString();
+                    string encryptedDir = CheckOrCreateFileIsImageOrDocumentDirectory(accessCodeDir, dto.Module, folder, downloadFilePath);
+                    string encryptedFilePath = Path.Combine(encryptedDir, $"{docId}.{ext}");
 
-                    string downloadDir = Path.Combine(_env.WebRootPath, "Tempfolder", dto.UserId, "Download");
-                    Directory.CreateDirectory(downloadDir);
-                    string downloadFilePath = Path.Combine(downloadDir, $"{fileName}.{ext}");
-
-                    if (File.Exists(downloadFilePath))
-                        File.Delete(downloadFilePath);
-
-                    string filesInDb = conn.ExecuteScalar($"SELECT Sad_Config_Value FROM Sad_Config_Settings WHERE Sad_Config_Key='FilesInDB' AND Sad_CompID={dto.CompanyId}").ToString();
-                    var AccessCodeDirectory = GetConfigValue("ImgPath");
-                    if (filesInDb.ToUpper() == "TRUE")
+                    if (File.Exists(encryptedFilePath))
                     {
-                        byte[] buffer = (byte[])reader["atch_ole"];
-                        await File.WriteAllBytesAsync(downloadFilePath, buffer);
-                    }
-                    else
-                    {
-                        string folder = (docId / 301).ToString();
-                        string encryptedPath = CheckOrCreateFileIsImageOrDocumentDirectory(AccessCodeDirectory, dto.Module, folder, downloadFilePath);
-                        string encryptedFile = Path.Combine(encryptedPath, $"{docId}.{ext}");
-
-                        if (File.Exists(encryptedFile))
+                        try
                         {
-                            try
-                            {
-                                Decrypt(encryptedFile, downloadFilePath);
-                            }
-                            catch
-                            {
-                                File.Copy(encryptedFile, downloadFilePath, true);
-                            }
+                            Decrypt(encryptedFilePath, downloadFilePath);
+                        }
+                        catch
+                        {
+                            File.Copy(encryptedFilePath, downloadFilePath, true);
                         }
                     }
+                }
 
-                    if (File.Exists(downloadFilePath))
-                    {
-                        string httpRoot = conn.ExecuteScalar($"SELECT Sad_Config_Value FROM Sad_Config_Settings WHERE Sad_Config_Key='DisplayPath' AND Sad_CompID={dto.CompanyId}").ToString();
-                        return $"{httpRoot.TrimEnd('/')}/Tempfolder/{dto.UserId}/Download/{fileName}.{ext}";
-                    }
+                if (File.Exists(downloadFilePath))
+                {
+                    string displayPath = conn.ExecuteScalar<string>(
+                        @"SELECT Sad_Config_Value FROM Sad_Config_Settings 
+                  WHERE Sad_Config_Key = 'DisplayPath' AND Sad_CompID = @CompanyId",
+                        new { dto.CompanyId });
+
+                    fileDownloadUrl = $"{displayPath.TrimEnd('/')}/Tempfolder/{dto.UserId}/Download/{fileName}.{ext}";
                 }
             }
 
-            reader.Close();
-            return string.Empty;
+            return fileDownloadUrl;
         }
+
 
         public string CheckOrCreateFileIsImageOrDocumentDirectory(string accessCodeDirectory, string module, string folder, string filePath)
         {

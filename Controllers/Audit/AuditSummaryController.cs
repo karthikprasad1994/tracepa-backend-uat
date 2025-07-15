@@ -41,9 +41,9 @@ namespace TracePca.Controllers.Audit
 
 
         [HttpGet("LoadAudiNoDetails")]
-        public async Task<IActionResult> LoadAudiNoDetails(int iCustID,int compId)
+        public async Task<IActionResult> LoadAudiNoDetails(int iCustID,int compId,int Yearid, int userid)
         {
-            var dropdownData = await _AuditSummaryInterface.LoadAuditNoDataAsync(iCustID, compId);
+            var dropdownData = await _AuditSummaryInterface.LoadAuditNoDataAsync(iCustID, compId, Yearid, userid);
 
             return Ok(new
             {
