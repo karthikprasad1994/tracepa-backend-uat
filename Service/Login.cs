@@ -15,6 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
+using TracePca.Dto.Audit;
 using TracePca.Interface;
 using TracePca.Models;
 using TracePca.Models.CustomerRegistration;
@@ -94,10 +95,16 @@ namespace TracePca.Service
 
                 // Step 1: Check if customer already exists
                 var existingCustomer = await connection.QueryFirstOrDefaultAsync<int>(
-                    @"SELECT COUNT(1) 
-              FROM MMCS_CustomerRegistration 
-              WHERE MCR_CustomerEmail = @Email OR MCR_CustomerTelephoneNo = @Phone",
-                    new { Email = registerModel.McrCustomerEmail, Phone = registerModel.McrCustomerTelephoneNo });
+       @"SELECT COUNT(1) 
+      FROM MMCS_CustomerRegistration 
+      WHERE ',' + MCR_emails + ',' LIKE @EmailPattern 
+         OR MCR_CustomerTelephoneNo = @Phone",
+       new
+       {
+           EmailPattern = "%," + registerModel.McrCustomerEmail + ",%",
+           Phone = registerModel.McrCustomerTelephoneNo
+       });
+
 
                 if (existingCustomer > 0)
                 {
@@ -200,7 +207,7 @@ namespace TracePca.Service
                 }
 
                 string newUserCode = $"EMP{nextUserCodeNumber:D3}";
-                string hashedPassword = BCrypt.Net.BCrypt.HashPassword("sa");
+                string hashedPassword = EncryptPassword("sa");
 
                 var adminUser = new Models.UserModels.SadUserDetail
                 {
@@ -537,7 +544,9 @@ namespace TracePca.Service
                 // Step 4: Try BCrypt verification
                 try
                 {
-                    isPasswordValid = BCrypt.Net.BCrypt.Verify(password, user.UsrPassWord);
+                   isPasswordValid = DecryptPassword(user.UsrPassWord) == password;
+
+
                 }
                 catch
                 {
@@ -616,6 +625,9 @@ namespace TracePca.Service
             }
         }
 
+
+
+
         private string DecryptPassword(string encryptedBase64)
         {
             string decryptionKey = "ML736@mmcs";
@@ -636,6 +648,27 @@ namespace TracePca.Service
             cs.Close();
 
             return Encoding.Unicode.GetString(ms.ToArray());
+        }
+        private string EncryptPassword(string plainText)
+        {
+            string encryptionKey = "ML736@mmcs";
+            byte[] salt = new byte[] { 0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D,
+                               0x65, 0x64, 0x76, 0x65, 0x64, 0x65,
+                               0x76 };
+
+            byte[] plainBytes = Encoding.Unicode.GetBytes(plainText);
+
+            using var aes = Aes.Create();
+            var pdb = new Rfc2898DeriveBytes(encryptionKey, salt);
+            aes.Key = pdb.GetBytes(32);
+            aes.IV = pdb.GetBytes(16);
+
+            using var ms = new MemoryStream();
+            using var cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write);
+            cs.Write(plainBytes, 0, plainBytes.Length);
+            cs.Close();
+
+            return Convert.ToBase64String(ms.ToArray());
         }
 
 
