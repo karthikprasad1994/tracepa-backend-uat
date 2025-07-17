@@ -8,6 +8,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using BCrypt.Net;
 using Dapper;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -183,8 +184,26 @@ namespace TracePca.Service
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
                 string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
 
-                string scriptsFolderPath = Path.Combine(_env.ContentRootPath, "SqlScripts", "Cleaned_Sign-up.sql");
-                await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptsFolderPath);
+                string scriptFilePath = Path.Combine(@"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SQL_Scripts", "Tables.txt");
+
+                // Ensure the folder and file exist
+                if (!Directory.Exists(Path.GetDirectoryName(scriptFilePath)))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(scriptFilePath));
+                }
+
+                if (!File.Exists(scriptFilePath))
+                {
+                    string defaultSql = "-- Initial SQL script\n-- Example: CREATE TABLE TestTable (Id INT PRIMARY KEY);";
+                    File.WriteAllText(scriptFilePath, defaultSql);
+                }
+
+                // Execute the script
+                await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePath);
+
+
+                //   string scriptsFolderPath = Path.Combine(_env.ContentRootPath, "SqlScripts", "Cleaned_Sign-up.sql");
+                //   await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptsFolderPath);
 
                 // Step 6: Insert Admin User in new DB (EF Core)
                 var optionsBuilder = new DbContextOptionsBuilder<DynamicDbContext>();

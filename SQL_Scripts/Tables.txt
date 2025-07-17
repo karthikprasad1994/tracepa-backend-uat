@@ -1,44 +1,4 @@
 
-/****** Object:  Database [T255]    Script Date: 20-03-2025 15:55:20 ******/
-
-
-IF (1 = FULLTEXTSERVICEPROPERTY('IsFullTextInstalled'))
-begin
-EXEC [T255].[dbo].[sp_fulltext_database] @action = 'enable'
-end
-GO
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-USE [T255]
 GO
 /****** Object:  Table [dbo].[Acc_Account_policies]    Script Date: 20-03-2025 15:55:20 ******/
 SET ANSI_NULLS ON
@@ -21964,4 +21924,5 @@ as
      End    
 GO
 
+GO
 
