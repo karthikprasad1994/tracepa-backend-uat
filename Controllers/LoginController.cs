@@ -171,6 +171,9 @@ namespace TracePca.Controllers
                 404 => NotFound(result),
                 _ => StatusCode(500, result)
             };
+        
+        
+        
         }
 
         [HttpGet("Loginpermissions")]
