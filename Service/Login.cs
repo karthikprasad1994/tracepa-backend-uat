@@ -880,7 +880,7 @@ namespace TracePca.Service
         {
             try
             {
-                string mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+                var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
 
                 using (var connection = new SqlConnection(mmcsConnection))
                 {

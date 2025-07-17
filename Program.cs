@@ -42,6 +42,7 @@ ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
+        options.JsonSerializerOptions.Converters.Add(new FlexibleDateTimeConverter());
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
