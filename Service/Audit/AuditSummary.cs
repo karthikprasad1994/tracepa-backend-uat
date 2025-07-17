@@ -272,23 +272,71 @@ namespace TracePca.Service.Audit
         }
 
 
+        //public async Task<IEnumerable<WorkspaceSummaryDto>> GetWorkspaceSummaryAsync(int compId, int auditNo)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+        //    string query = @"
+        //    Select ISNULL(cm.cmm_ID, a.SSW_ID) As PKID,IsNull(cm.cmm_Desc,'NA') As WorkpaperChecklist,SSW_WorkpaperNo As WorkpaperNo,
+        //    SSW_WorkpaperRef As WorkpaperRef,SSW_Observation As Observation,SSW_Conclusion As Conclusion,SSW_ReviewerComments As ReviewerComments, 
+        //    Case When a.SSW_TypeOfTest=1 then 'Inquiry' When a.SSW_TypeOfTest=2 then 'Observation' When a.SSW_TypeOfTest=3 then 'Examination' When 
+        //    a.SSW_TypeOfTest=4 then 'Inspection' When a.SSW_TypeOfTest=5 then 'Substantive Testing' End TypeOfTest, Case When a.SSW_Status=1 
+        //    then 'Open' When a.SSW_Status=2 then 'WIP' When a.SSW_Status=3 then 'Closed' End Status,SSW_AttachID As AttachID,
+        //    IsNull(b.usr_FullName,'-') As CreatedBy,ISNULL(Convert(Varchar(10),SSW_CrOn,103),'-') As CreatedOn, IsNull(c.usr_FullName,'-') As ReviewedBy,
+        //    ISNULL(Convert(Varchar(10),SSW_ReviewedOn,103),'-') As ReviewedOn From Content_Management_Master cm 
+        //    Full Outer Join StandardAudit_ScheduleConduct_WorkPaper a On cm.cmm_ID = a.SSW_WPCheckListID And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId 
+        //    Left Join sad_userdetails b on b.Usr_ID=a.SSW_CrBy Left Join sad_userdetails c on c.Usr_ID=a.SSW_ReviewedBy 
+        //    Where (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') Or a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId Order by 
+        //    CASE WHEN cm.cmm_Desc IS NULL THEN 1 ELSE 0 END, cm.cmm_ID ASC";
+
+
+        //    var result = await connection.QueryAsync<WorkspaceSummaryDto>(query, new
+        //    {
+        //        CompId = compId,
+        //        AuditNo = auditNo
+        //    });
+
+        //    return result;
+        //}
+
+
+
         public async Task<IEnumerable<WorkspaceSummaryDto>> GetWorkspaceSummaryAsync(int compId, int auditNo)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
-            Select ISNULL(cm.cmm_ID, a.SSW_ID) As PKID,IsNull(cm.cmm_Desc,'NA') As WorkpaperChecklist,SSW_WorkpaperNo As WorkpaperNo,
-            SSW_WorkpaperRef As WorkpaperRef,SSW_Observation As Observation,SSW_Conclusion As Conclusion,SSW_ReviewerComments As ReviewerComments, 
-            Case When a.SSW_TypeOfTest=1 then 'Inquiry' When a.SSW_TypeOfTest=2 then 'Observation' When a.SSW_TypeOfTest=3 then 'Examination' When 
-            a.SSW_TypeOfTest=4 then 'Inspection' When a.SSW_TypeOfTest=5 then 'Substantive Testing' End TypeOfTest, Case When a.SSW_Status=1 
-            then 'Open' When a.SSW_Status=2 then 'WIP' When a.SSW_Status=3 then 'Closed' End Status,SSW_AttachID As AttachID,
-            IsNull(b.usr_FullName,'-') As CreatedBy,ISNULL(Convert(Varchar(10),SSW_CrOn,103),'-') As CreatedOn, IsNull(c.usr_FullName,'-') As ReviewedBy,
-            ISNULL(Convert(Varchar(10),SSW_ReviewedOn,103),'-') As ReviewedOn From Content_Management_Master cm 
-            Full Outer Join StandardAudit_ScheduleConduct_WorkPaper a On cm.cmm_ID = a.SSW_WPCheckListID And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId 
-            Left Join sad_userdetails b on b.Usr_ID=a.SSW_CrBy Left Join sad_userdetails c on c.Usr_ID=a.SSW_ReviewedBy 
-            Where (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') Or a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId Order by 
-            CASE WHEN cm.cmm_Desc IS NULL THEN 1 ELSE 0 END, cm.cmm_ID ASC";
+            //string query = @"
+            //Select ISNULL(cm.cmm_ID, a.SSW_ID) As PKID,IsNull(cm.cmm_Desc,'NA') As WorkpaperChecklist,SSW_WorkpaperNo As WorkpaperNo,
+            //SSW_WorkpaperRef As WorkpaperRef,SSW_Observation As Observation,SSW_Conclusion As Conclusion,SSW_ReviewerComments As ReviewerComments, 
+            //Case When a.SSW_TypeOfTest=1 then 'Inquiry' When a.SSW_TypeOfTest=2 then 'Observation' When a.SSW_TypeOfTest=3 then 'Examination' When 
+            //a.SSW_TypeOfTest=4 then 'Inspection' When a.SSW_TypeOfTest=5 then 'Substantive Testing' End TypeOfTest, Case When a.SSW_Status=1 
+            //then 'Open' When a.SSW_Status=2 then 'WIP' When a.SSW_Status=3 then 'Closed' End Status,SSW_AttachID As AttachID,
+            //IsNull(b.usr_FullName,'-') As CreatedBy,ISNULL(Convert(Varchar(10),SSW_CrOn,103),'-') As CreatedOn, IsNull(c.usr_FullName,'-') As ReviewedBy,
+            //ISNULL(Convert(Varchar(10),SSW_ReviewedOn,103),'-') As ReviewedOn From Content_Management_Master cm 
+            //Full Outer Join StandardAudit_ScheduleConduct_WorkPaper a On cm.cmm_ID = a.SSW_WPCheckListID And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId 
+            //Left Join sad_userdetails b on b.Usr_ID=a.SSW_CrBy Left Join sad_userdetails c on c.Usr_ID=a.SSW_ReviewedBy 
+            //Where (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') Or a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId Order by 
+            //CASE WHEN cm.cmm_Desc IS NULL THEN 1 ELSE 0 END, cm.cmm_ID ASC";
 
+
+            //Changed by steffi on 15-07-2025, Type of test data stroing multiple value.
+            string query = @"SELECT A.PKID,A.WorkpaperChecklist,A.WorkpaperNo,A.WorkpaperRef,A.Observation,A.Conclusion,A.ReviewerComments,
+                     STUFF((SELECT ', ' + cmm_Desc FROM Content_Management_Master
+                     WHERE CHARINDEX(',' + CAST(cmm_ID AS VARCHAR) + ',', ',' + REPLACE(A.TypeOfTest, ' ', '') + ',') > 0
+                     FOR XML PATH('')), 1, 2, '') AS TypeOfTest,
+                     A.Status,A.AttachID,A.CreatedBy,A.CreatedOn,A.ReviewedBy,A.ReviewedOn
+                     FROM (SELECT ISNULL(cm.cmm_ID, a.SSW_ID) As PKID,IsNull(cm.cmm_Desc,'NA') As WorkpaperChecklist,
+                     SSW_WorkpaperNo As WorkpaperNo,SSW_WorkpaperRef As WorkpaperRef,SSW_Observation As Observation,SSW_Conclusion As Conclusion,
+                     SSW_ReviewerComments As ReviewerComments,SSW_TypeOfTest as TypeOfTest,
+                     CASE WHEN a.SSW_Status=1 THEN 'Open' WHEN a.SSW_Status=2 THEN 'WIP' WHEN a.SSW_Status=3 THEN 'Closed' END Status,
+                     SSW_AttachID As AttachID,IsNull(b.usr_FullName,'-') As CreatedBy,ISNULL(Convert(Varchar(10),SSW_CrOn,103),'-') As CreatedOn, 
+                     IsNull(c.usr_FullName,'-') As ReviewedBy,ISNULL(Convert(Varchar(10),SSW_ReviewedOn,103),'-') As ReviewedOn,
+                     cm.cmm_Desc,cm.cmm_ID FROM Content_Management_Master cm 
+                     FULL OUTER JOIN StandardAudit_ScheduleConduct_WorkPaper a ON cm.cmm_ID = a.SSW_WPCheckListID And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId 
+                     LEFT JOIN sad_userdetails b on b.Usr_ID=a.SSW_CrBy 
+                     LEFT JOIN sad_userdetails c on c.Usr_ID=a.SSW_ReviewedBy 
+                     WHERE (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') OR a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId) A
+                     ORDER BY CASE WHEN A.cmm_Desc IS NULL THEN 1 ELSE 0 END, A.cmm_ID ASC";
 
             var result = await connection.QueryAsync<WorkspaceSummaryDto>(query, new
             {
@@ -299,7 +347,8 @@ namespace TracePca.Service.Audit
             return result;
         }
 
-         
+
+
         public async Task<IEnumerable<CMADto>> GetCAMDetailsAsync(int compId, int auditNo)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));

@@ -218,7 +218,7 @@ namespace TracePca.Controllers
         }
 
 
-        [AllowAnonymous]
+        
         [HttpPost]
         [Route("UsersLogin")]
         public async Task<IActionResult> LoginUser([FromBody] LoginDto user)
