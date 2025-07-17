@@ -19,8 +19,17 @@ namespace TracePca.Interface.FIN_Statement
         Task<IEnumerable<ItemDto>> GetItemAsync(
         int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId);
 
-        //GetDateFormat
-        Task<string> GetDateFormatSelectionAsync(int CompanyId, string ConfigKey);
+        ////GetSummaryReportForPandL(Income)
+        //Task<IEnumerable<SummaryPnLRowIncome>> GetSummaryPnLIncomeAsync(int CompId, SummaryPnLIncome p);
+
+        ////GetSummaryReportForPandL(Expenses)
+        //Task<IEnumerable<SummaryPnLRowExpenses>> GetSummaryPnLExpensesAsync(int CompId, SummaryPnLExpenses dto);
+
+        //GetSummaryReportForPandL(Income and Expenses)
+        Task<IEnumerable<SummaryReportPnLRow>> GetReportSummaryPnLAsync(int CompId, SummaryReportPnL p);
+
+        //GetSummaryReportForBalanceSheet(Income and Expenses)
+        Task<IEnumerable<SummaryReportBalanceSheetRow>> GetReportSummaryBalanceSheetAsync(int CompId, SummaryReportBalanceSheet p);
     }
 }
                          

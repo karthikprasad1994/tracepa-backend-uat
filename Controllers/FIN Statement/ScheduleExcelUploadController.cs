@@ -107,6 +107,41 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
+        //SaveScheduleTemplate
+        [HttpPost("SaveScheduleTemplate")]
+        public async Task<IActionResult> SaveScheduleTemplate([FromQuery] int CompId, [FromBody] List<ScheduleTemplateDto> dtos)
+        {
+            if (dtos == null || !dtos.Any())
+            {
+                return BadRequest(new
+                {
+                    StatusCode = 400,
+                    Message = "No schedule data provided."
+                });
+            }
+
+            try
+            {
+                var resultIds = await _ScheduleExcelUploadService.SaveScheduleTemplateAsync(CompId, dtos);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "Schedule data saved successfully.",
+                    Data = resultIds
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving schedule data.",
+                    Error = ex.Message
+                });
+            }
+        }
+
         //SaveOpeningBalance
         [HttpPost("SaveOpeningBalance")]
         public async Task<IActionResult> SaveOpeningBalance([FromQuery] int CompId, [FromBody] List<OpeningBalanceDto> dtos)
