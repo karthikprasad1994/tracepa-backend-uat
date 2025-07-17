@@ -77,6 +77,7 @@ builder.Services.AddScoped<ScheduleReportInterface, ScheduleReportService>();
 builder.Services.AddScoped<ScheduleExcelUploadInterface, ScheduleExcelUploadService>();
 builder.Services.AddScoped<ScheduleMastersInterface, ScheduleMastersService>();
 
+
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
 builder.Services.AddScoped<SubCabinetsInterface, SubCabinetsService>();
 builder.Services.AddScoped<FoldersInterface, FoldersService>();

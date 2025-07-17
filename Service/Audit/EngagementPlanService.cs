@@ -89,12 +89,12 @@ namespace TracePca.Service.Audit
                 IEnumerable<LOEDropDownListData> loeList;
                 if (custId > 0)
                 {
-                    loeList = await connection.QueryAsync<LOEDropDownListData>(@"SELECT LOE_ID AS ID, LOE_Name AS Name, LOE_ServiceTypeId As AuditTypeId FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId AND LOE_CompID = @CompId AND LOE_CustomerId = @CustId",
+                    loeList = await connection.QueryAsync<LOEDropDownListData>(@"SELECT LOE_ID AS ID, LOE_Name AS Name, LOE_ServiceTypeId As AuditTypeId FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId AND LOE_CompID = @CompId AND LOE_CustomerId = @CustId  order by loe_id",
                         new { CompId = compId, YearId = yearId, CustId = custId });
                 }
                 else
                 {
-                    loeList = await connection.QueryAsync<LOEDropDownListData>(@"SELECT LOE_ID AS ID, LOE_Name AS Name, LOE_ServiceTypeId As AuditTypeId FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId AND LOE_CompID = @CompId",
+                    loeList = await connection.QueryAsync<LOEDropDownListData>(@"SELECT LOE_ID AS ID, LOE_Name AS Name, LOE_ServiceTypeId As AuditTypeId FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId AND LOE_CompID = @CompId  order by loe_id",
                         new { CompId = compId, YearId = yearId });
                 }
 
