@@ -492,6 +492,8 @@ namespace TracePca.Service
         {
             try
             {
+                email = email?.Trim().ToLower();
+                password = password?.Trim();
                 using var regConnection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
                 await regConnection.OpenAsync();
 
