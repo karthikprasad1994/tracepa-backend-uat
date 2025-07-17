@@ -120,7 +120,6 @@ namespace TracePca.Service.LedgerReview
             return allParagraphs;
         }
 
-
         public async Task<List<JEValidationResult>> ValidateAndSendTransactionsAsync()
         {
             var transactions = (await _db.QueryAsync<AccJETransaction>(@"
@@ -133,7 +132,8 @@ namespace TracePca.Service.LedgerReview
             d.AJTB_Debit,
             d.AJTB_Credit
         FROM acc_je_master m
-        LEFT JOIN Acc_JETransactions_Details d ON m.Acc_JE_TransactionNo = d.AJTB_TranscNo
+        LEFT JOIN Acc_JETransactions_Details d 
+        ON m.Acc_JE_TransactionNo = d.AJTB_TranscNo
     ")).ToList();
 
             var results = new List<JEValidationResult>();
@@ -143,39 +143,38 @@ namespace TracePca.Service.LedgerReview
                 var matchedRules = new List<string>();
                 var messageBuilder = new StringBuilder();
 
-                // ✅ Rule 1: AS 2401 - Fraud/Irregularities
-                if ((txn.AJTB_Debit ?? 0) > 1000000 || (txn.AJTB_Credit ?? 0) > 1000000)
+                decimal debit = txn.AJTB_Debit ?? 0;
+                decimal credit = txn.AJTB_Credit ?? 0;
+                string operation = txn.AJTB_Operation?.ToLower() ?? "";
+                string desc = txn.AJTB_DescName?.ToLower() ?? "";
+                DateTime? createdOn = txn.AJTB_CreatedOn;
+
+                // ✅ AS 2401: Fraud — high unbalanced entries
+                if ((debit > 100000 || credit > 100000) && Math.Abs(debit - credit) > 100)
                 {
                     matchedRules.Add("AS 2401");
-                    messageBuilder.AppendLine("Matched AS 2401: High-value debit/credit may indicate fraud or irregularity.");
+                    messageBuilder.AppendLine("Matched AS 2401: High-value and unbalanced transaction.");
                 }
 
-                // ✅ Rule 2: AS 1105 - Audit Evidence (Entry with Description and Audit tag)
-                if (!string.IsNullOrWhiteSpace(txn.AJTB_DescName) && txn.AJTB_DescName.Contains("audit", StringComparison.OrdinalIgnoreCase))
+                // ✅ AS 1105: Audit Evidence — small amounts but long description
+                if (debit < 1000 && credit < 1000 && desc.Length > 30)
                 {
                     matchedRules.Add("AS 1105");
-                    messageBuilder.AppendLine("Matched AS 1105: Entry tagged for audit work – considered as audit evidence.");
+                    messageBuilder.AppendLine("Matched AS 1105: Small amount with detailed description.");
                 }
 
-                // ✅ Rule 3: AS 2101 - Planning (Based on creation date or description pattern)
-                if (txn.AJTB_CreatedOn.HasValue && txn.AJTB_CreatedOn.Value.Day <= 5) // beginning of month
+                // ✅ AS 2101: Planning — entry in April
+                if (createdOn.HasValue && createdOn.Value.Month == 4)
                 {
                     matchedRules.Add("AS 2101");
-                    messageBuilder.AppendLine("Matched AS 2101: Entry made early in the period – indicates planning activity.");
+                    messageBuilder.AppendLine("Matched AS 2101: Entry dated in April (planning phase).");
                 }
 
-                // ✅ Rule 4: AS 1000 - Responsibility (Based on operation naming pattern)
-                if (!string.IsNullOrWhiteSpace(txn.AJTB_Operation) && txn.AJTB_Operation.Contains("assigned", StringComparison.OrdinalIgnoreCase))
+                // ✅ AS 1000: Responsibility — ops include assignment-like words and amount > threshold
+                if ((operation.Contains("assign") || operation.Contains("authorize")) && (debit + credit > 10000))
                 {
                     matchedRules.Add("AS 1000");
-                    messageBuilder.AppendLine("Matched AS 1000: Operation indicates responsibility assignment.");
-                }
-
-                // ✅ Rule 5: AS 1010 - Backdated Entry (Before 2020)
-                if (txn.AJTB_CreatedOn.HasValue && txn.AJTB_CreatedOn.Value.Year < 2020)
-                {
-                    matchedRules.Add("AS 1010");
-                    messageBuilder.AppendLine("Matched AS 1010: Entry is dated before 2020 – possibly backdated.");
+                    messageBuilder.AppendLine("Matched AS 1000: Operation implies assigned responsibility.");
                 }
 
                 results.Add(new JEValidationResult
@@ -191,6 +190,81 @@ namespace TracePca.Service.LedgerReview
 
             return results;
         }
+
+
+
+        //    public async Task<List<JEValidationResult>> ValidateAndSendTransactionsAsync()
+        //    {
+        //        var transactions = (await _db.QueryAsync<AccJETransaction>(@"
+        //    SELECT 
+        //        m.Acc_JE_TransactionNo,
+        //        d.AJTB_TranscNo,
+        //        d.AJTB_Operation,
+        //        d.AJTB_DescName,
+        //        d.AJTB_CreatedOn,
+        //        d.AJTB_Debit,
+        //        d.AJTB_Credit
+        //    FROM acc_je_master m
+        //    LEFT JOIN Acc_JETransactions_Details d 
+        //    ON m.Acc_JE_TransactionNo = d.AJTB_TranscNo
+        //")).ToList();
+
+        //        var results = new List<JEValidationResult>();
+
+        //        foreach (var txn in transactions)
+        //        {
+        //            var matchedRules = new List<string>();
+        //            var messageBuilder = new StringBuilder();
+
+        //            decimal debit = txn.AJTB_Debit ?? 0;
+        //            decimal credit = txn.AJTB_Credit ?? 0;
+        //            string operation = txn.AJTB_Operation?.ToLower() ?? "";
+        //            string desc = txn.AJTB_DescName?.ToLower() ?? "";
+        //            DateTime? createdOn = txn.AJTB_CreatedOn;
+
+        //            // ✅ AS 2401: Fraud - High debit/credit or suspicious operation
+        //            if (debit > 100000 || credit > 100000 ||
+        //                (debit != credit && (operation.Contains("override") || operation.Contains("manual"))))
+        //            {
+        //                matchedRules.Add("AS 2401");
+        //                messageBuilder.AppendLine("Matched AS 2401: High amount or unbalanced transaction suggests possible fraud.");
+        //            }
+
+        //            // ✅ AS 1105: Audit Evidence - Small amount and long desc
+        //            if ((debit < 500 && credit < 500) && desc.Length > 25)
+        //            {
+        //                matchedRules.Add("AS 1105");
+        //                messageBuilder.AppendLine("Matched AS 1105: Small transaction with detailed description implies supporting evidence.");
+        //            }
+
+        //            // ✅ AS 2101: Planning - Start of year
+        //            if (createdOn.HasValue && createdOn.Value.Month == 4)
+        //            {
+        //                matchedRules.Add("AS 2101");
+        //                messageBuilder.AppendLine("Matched AS 2101: Entry created in April — likely audit planning.");
+        //            }
+
+        //            // ✅ AS 1000: Responsibility - Description implies assignment
+        //            if (desc.Contains("assigned") || operation.Contains("oversight") || operation.Contains("responsibility"))
+        //            {
+        //                matchedRules.Add("AS 1000");
+        //                messageBuilder.AppendLine("Matched AS 1000: Operation/description suggests auditor responsibility.");
+        //            }
+
+        //            results.Add(new JEValidationResult
+        //            {
+        //                TransactionNo = txn.AJTB_TranscNo ?? txn.Acc_JE_TransactionNo,
+        //                IsValid = matchedRules.Any(),
+        //                MatchedRules = matchedRules,
+        //                ValidationMessage = matchedRules.Any()
+        //                    ? messageBuilder.ToString().Trim()
+        //                    : "No matching PCAOB rule found for this transaction."
+        //            });
+        //        }
+
+        //        return results;
+        //    }
+
 
 
 

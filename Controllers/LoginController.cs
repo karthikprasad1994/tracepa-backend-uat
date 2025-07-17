@@ -171,6 +171,9 @@ namespace TracePca.Controllers
                 404 => NotFound(result),
                 _ => StatusCode(500, result)
             };
+        
+        
+        
         }
 
         [HttpGet("Loginpermissions")]
@@ -218,7 +221,7 @@ namespace TracePca.Controllers
         }
 
 
-        [AllowAnonymous]
+        
         [HttpPost]
         [Route("UsersLogin")]
         public async Task<IActionResult> LoginUser([FromBody] LoginDto user)

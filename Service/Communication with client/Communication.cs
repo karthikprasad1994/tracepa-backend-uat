@@ -47,6 +47,8 @@ using WorkpaperDto = TracePca.Dto.Audit.WorkpaperDto;
 
 using QuestColors = QuestPDF.Helpers.Colors;
 using TracePca.Models;
+using DocumentFormat.OpenXml.Office2010.Word;
+using Microsoft.Playwright;
 
 
 //using QuestPDF.Fluent;
@@ -2550,15 +2552,14 @@ ORDER BY Atch_DocID desc";
             var basePath = EnsureDirectoryExists(GetConfigValue("ImgPath"), dto.UserId.ToString(), "Upload");
 
             // Step 2: Save the uploaded file to disk
-            var fullFilePath = Path.Combine(basePath, safeFileName);
-
+            var fullFilePath = Path.Combine(basePath, $"{fileBaseName}.{fileExt}");
             using (var stream = new FileStream(fullFilePath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
             }
 
             // Step 3: Generate document ID
-            var docId = await GenerateNextDocIdAsync(dto.CustomerId, dto.AuditId);
+            var documentId = await GenerateNextDocIdAsync(dto.CustomerId, dto.AuditId);
 
             // Step 4: Determine attachment ID
             int newAttachId = attachId;
@@ -2588,7 +2589,7 @@ VALUES (
                 await connection.ExecuteAsync(insertQuery, new
                 {
                     AtchId = newAttachId,
-                    DocId = docId,
+                    DocId = documentId,
                     FileName = fileBaseName,
                     FileExt = fileExt,
                     Description = dto.Remark,
@@ -2602,9 +2603,22 @@ VALUES (
                     Status = dto.Status
                 });
 
-                return fullFilePath;
+                // Encrypt the file and move it to the final directory
+                string finalDirectory = GetOrCreateTargetDirectory(GetConfigValue("ImgPath"), "SamplingCU", documentId / 301, fullFilePath);
+                string finalFilePath = Path.Combine(finalDirectory, $"{documentId}.{fileExt}");
+
+                if (File.Exists(finalFilePath))
+                    File.Delete(finalFilePath);
+
+                EncryptFile(fullFilePath, finalFilePath);
+
+                if (File.Exists(fullFilePath))
+                    File.Delete(fullFilePath);
+
+                return finalFilePath;
             }
         }
+
 
         //        private async Task<string> SaveAuditDocumentAsync(AddFileDto dto, int attachId, IFormFile file, int requestedId, int reportid)
         //        {
