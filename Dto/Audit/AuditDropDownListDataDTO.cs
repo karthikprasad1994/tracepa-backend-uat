@@ -11,6 +11,7 @@
         public List<LOEDropDownListData> ExistingEngagementPlanNames { get; set; }
         public List<DropDownListData> AuditWorkpaperList { get; set; }
         public List<DropDownListData> AuditCompletionCheckPointList { get; set; }
+        public List<DropDownListData> AuditClosureCheckPointList { get; set; }
         public List<DropDownListData> SignedByList { get; set; }
         public List<DropDownListData> CustomerUserList { get; set; }
         public List<DropDownListData> WorkpaperCheckList { get; set; }

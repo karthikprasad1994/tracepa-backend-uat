@@ -68,6 +68,9 @@ namespace TracePca.Service.Audit
                 var auditCompletionCheckPointList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master
                 WHERE CMM_Category = 'ASF' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
 
+                var auditClosureCheckPointList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master
+                WHERE CMM_Category = 'ACP' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
+
                 var signedByList = connection.QueryAsync<DropDownListData>(@"SELECT Usr_ID AS ID, USr_FullName AS Name from sad_userdetails 
                 WHERE usr_compID = @CompId And USR_Partner = 1 And(usr_DelFlag = 'A' or usr_DelFlag = 'B' or usr_DelFlag = 'L') order by USr_FullName ASC", parameters);
 
@@ -78,6 +81,7 @@ namespace TracePca.Service.Audit
                     CurrentYear = await currentYear,
                     CustomerList = customerList.Result.ToList(),
                     AuditCompletionCheckPointList = auditCompletionCheckPointList.Result.ToList(),
+                    AuditClosureCheckPointList = auditClosureCheckPointList.Result.ToList(),
                     SignedByList = signedByList.Result.ToList()
                 };
             }
@@ -200,6 +204,30 @@ namespace TracePca.Service.Audit
             catch (Exception ex)
             {
                 throw new ApplicationException("An error occurred while getting the audit completion subpoints by ID", ex);
+            }
+        }
+
+        public async Task<List<AuditCompletionSubPointDetailsDTO>> GetAuditClosureSubPointDetailsAsync(int compId, int auditId, int checkPointId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var query = @"SELECT ISNULL(SAC_ID, 0) AS SAC_ID, ASM_ID AS SAC_SubPointId, ASM_CheckpointID AS SAC_CheckPointId, CMM.cmm_Desc AS SAC_CheckPointName, 
+                ASM_SubPoint AS SAC_SubPointName, SAC_Remarks AS SAC_Remarks, ISNULL(SAC_WorkPaperId, 0) AS SAC_WorkPaperId, WP.SSW_WorkpaperRef AS SAC_WorkPaperName, ISNULL(SAC_AttachmentId, 0) AS SAC_AttachmentId 
+                FROM AuditCompletion_SubPoint_Master ASM
+                LEFT JOIN StandardAudit_Audit_Completion SAC ON SAC.SAC_CheckPointId = ASM.ASM_CheckpointID AND SAC.SAC_SubPointId = ASM.ASM_ID AND SAC.SAC_AuditID = @AuditID
+                LEFT JOIN Content_Management_Master CMM ON CMM.cmm_ID = ASM.ASM_CheckpointID AND CMM.CMM_Category = 'ACP' AND CMM.CMM_CompID = @CompId 
+                LEFT JOIN StandardAudit_ScheduleConduct_WorkPaper WP ON WP.SSW_ID = SAC.SAC_WorkPaperId AND WP.SSW_CompID = @CompId
+                WHERE ASM.ASM_CheckpointID = @CheckPointId And ASM.ASM_CompId = @CompId";
+
+                var subPointDetails = await connection.QueryAsync<AuditCompletionSubPointDetailsDTO>(query, new { CompId = compId, AuditID = auditId, CheckPointId = checkPointId });
+                return subPointDetails.ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting the audit closure subpoints by ID", ex);
             }
         }
 
