@@ -31,6 +31,8 @@ using TracePca.Data;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
+using TracePca.Models;
+using TracePca.Models.UserModels;
 using Xceed.Document.NET;
 using Xceed.Words.NET;
 //using static Org.BouncyCastle.Math.EC.ECCurve;
@@ -38,15 +40,13 @@ using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
 using Document = QuestPDF.Fluent.Document;
 using Paragraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
+using QuestColors = QuestPDF.Helpers.Colors;
 using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
 using RunProperties = DocumentFormat.OpenXml.Wordprocessing.RunProperties;
 // Aliases to avoid conflicts
 using WordDoc = DocumentFormat.OpenXml.Wordprocessing.Document;
 using WordprocessingDocument = DocumentFormat.OpenXml.Packaging.WordprocessingDocument;
 using WorkpaperDto = TracePca.Dto.Audit.WorkpaperDto;
-
-using QuestColors = QuestPDF.Helpers.Colors;
-using TracePca.Models;
 
 
 //using QuestPDF.Fluent;
@@ -68,18 +68,23 @@ namespace TracePca.Service.Communication_with_client
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IWebHostEnvironment _env;
+        private readonly DbConnectionProvider _dbConnectionProvider;
 
 
 
-        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env)
+        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider)
         {
 
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
             _env = env;
+            _dbConnectionProvider = dbConnectionProvider;
+
         }
 
+     
 
+      
 
         public async Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey)
         {
@@ -201,7 +206,7 @@ JOIN SAD_CUSTOMER_MASTER CM ON SA.SA_CustID = CM.Cust_ID
 WHERE SA.SA_ID = @AuditId AND SA.SA_CustID = @CustomerId;
 ";
 
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            var connectionString = _configuration.GetConnectionString("NewDatabaseTemplate");
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
@@ -309,7 +314,8 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<Dto.Audit.CustomerDto>> GetCustomerLoeAsync(int companyId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+           // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = _dbConnectionProvider.GetConnection();
 
             string query = @"SELECT LOE_ID as CustomerID, LOE_Name as CustomerName
                      FROM SAD_CUST_LOE
@@ -330,6 +336,9 @@ WHERE LOET_CustomerId = @CustomerId
 
             using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
 
+
+
+
             var parameters = new { CompId = companyId };
             return await connection.QueryAsync<ReportData>(query, parameters);
         }
@@ -339,6 +348,8 @@ WHERE LOET_CustomerId = @CustomerId
         public async Task<IEnumerable<AuditTypeDto>> GetAuditTypesAsync(int companyId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+           
+
 
             string query = @"
         SELECT cmm_ID AS CmmId, 
@@ -355,6 +366,8 @@ WHERE LOET_CustomerId = @CustomerId
         public async Task<CustomerAuditDropdownDto> GetCustomerAuditDropdownAsync(int companyId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+           
+
             await connection.OpenAsync();
 
             // Run both queries
@@ -382,7 +395,9 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<Dto.Audit.CustomerDto>> LoadActiveCustomersAsync(int companyId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+          //  using var connection = _dbConnectionProvider.GetConnection();
+
             await connection.OpenAsync();
 
             var query = @"
@@ -973,7 +988,7 @@ WHERE LOET_CustomerId = @CustomerId
             return fullName ?? string.Empty;
         }
 
-        public async Task<int> GetRequestedIdAsync(int exportType)
+        public async Task<int> GetRequestedIdAsync(int exportType, string customerCode)
         {
             var query = @"
         SELECT ISNULL(cmm_ID, 0)
@@ -985,9 +1000,12 @@ WHERE LOET_CustomerId = @CustomerId
                 ? "Beginning of the Audit"
                 : "Nearing completion of the Audit";
 
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+           var connectionString = _configuration.GetConnectionString(customerCode);
             using var connection = new SqlConnection(connectionString);
+           
             await connection.OpenAsync();
+
+            
 
             var result = await connection.QueryFirstOrDefaultAsync<int>(query, new { Desc = cmmDesc });
             return result;
