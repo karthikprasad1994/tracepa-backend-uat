@@ -151,6 +151,27 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpPost("SaveOrUpdateAuditCompletionSubPointData")]
+        public async Task<IActionResult> SaveOrUpdateAuditCompletionSubPointData([FromBody] AuditCompletionSingleDTO dto)
+        {
+            try
+            {
+                var result = await _auditCompletionInterface.SaveOrUpdateAuditCompletionSubPointDataAsync(dto);
+                if (result > 0)
+                {
+                    return Ok(new { statusCode = 200, message = "Audit completion subpoint data updated successfully.", Data = result });                       
+                }
+                else
+                {
+                    return Ok(new { statusCode = 200, message = "Audit completion subpoint data inserted successfully.", Data = result });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "An error occurred while saving or updating audit completion subpoint data.", error = ex.Message });
+            }
+        }
+
         [HttpPost("SaveOrUpdateAuditCompletionData")]
         public async Task<IActionResult> SaveOrUpdateAuditCompletionData([FromBody] AuditCompletionDTO dto)
         {
@@ -158,16 +179,9 @@ namespace TracePca.Controllers.Audit
             {
                 var result = await _auditCompletionInterface.SaveOrUpdateAuditCompletionDataAsync(dto);
                 if (result > 0)
-                {
-                    if (dto.SAC_AuditID > 0)
-                        return Ok(new { statusCode = 200, message = "Audit completion data updated successfully.", Data = result });
-                    else
-                        return Ok(new { statusCode = 200, message = "Audit completion data inserted successfully.", Data = result });
-                }
+                    return Ok(new { statusCode = 200, message = "Audit completion data updated successfully.", Data = result });
                 else
-                {
-                    return StatusCode(500, new { statusCode = 500, message = "No audit completion data was saved." });
-                }
+                    return Ok(new { statusCode = 200, message = "Audit completion data inserted successfully.", Data = result });
             }
             catch (Exception ex)
             {
