@@ -203,52 +203,52 @@ WHERE AST_CompId = @CompId
                 if (SelectedValue == 1)
                 {
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_HeadingID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId",
-                        new { Id = MainId, Type = ScheduleType, iCustId = CustId, iCompId = CompId }, transaction);
+                        new { Id = MainId, Type = ScheduleType, CustId = CustId, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleHeading WHERE ASH_ID = @Id AND Ash_Orgtype = @CustId AND Ash_scheduletype = @Type AND ASH_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubHeading WHERE ASSH_HeadingID = @Id AND Assh_Orgtype = @CustId AND Assh_scheduletype = @Type AND ASSH_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleItems WHERE ASI_HeadingID = @Id AND Asi_Orgtype = @CustId AND Asi_scheduletype = @Type AND ASI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubItems WHERE ASSI_HeadingID = @Id AND AsSi_Orgtype = @CustId AND AsSi_scheduletype = @Type AND ASSI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
                 }
                 else if (SelectedValue == 2)
                 {
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_SubHeadingID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId",
-                        new { Id = MainId, Type = ScheduleType, iCustId = CustId, iCompId = CompId }, transaction);
+                        new { Id = MainId, Type = ScheduleType, CustId = CustId, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubHeading WHERE ASSH_ID = @Id AND Assh_Orgtype = @CustId AND Assh_scheduletype = @Type AND ASSH_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleItems WHERE ASI_SubHeadingID = @Id AND Asi_Orgtype = @CustId AND Asi_scheduletype = @Type AND ASI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubItems WHERE ASSI_SubHeadingID = @Id AND AsSi_Orgtype = @CustId AND AsSi_scheduletype = @Type AND ASSI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
                 }
                 else if (SelectedValue == 3)
                 {
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_ItemID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId",
-                        new { Id = MainId, Type = ScheduleType, iCustId = CustId, iCompId = CompId }, transaction);
+                        new { Id = MainId, Type = ScheduleType, CustId = CustId, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleItems WHERE ASI_ID = @Id AND Asi_Orgtype = @CustId AND Asi_scheduletype = @Type AND ASI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubItems WHERE ASSI_ItemsID = @Id AND AsSi_Orgtype = @CustId AND AsSi_scheduletype = @Type AND ASSI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
                 }
                 else if (SelectedValue == 4)
                 {
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_SubItemID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId",
-                        new { Id = MainId, Type = ScheduleType, iCustId = CustId, iCompId = CompId }, transaction);
+                        new { Id = MainId, Type = ScheduleType, CustId = CustId, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubItems WHERE ASSI_ID = @Id AND AsSi_Orgtype = @CustId AND AsSi_scheduletype = @Type AND ASSI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
                 }
 
                 await transaction.CommitAsync();

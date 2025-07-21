@@ -25,11 +25,14 @@ namespace TracePca.Interface.FIN_Statement
         ////GetSummaryReportForPandL(Expenses)
         //Task<IEnumerable<SummaryPnLRowExpenses>> GetSummaryPnLExpensesAsync(int CompId, SummaryPnLExpenses dto);
 
-        //GetSummaryReportForPandL(Income and Expenses)
+        //GetSummaryReportForPandL
         Task<IEnumerable<SummaryReportPnLRow>> GetReportSummaryPnLAsync(int CompId, SummaryReportPnL p);
 
-        //GetSummaryReportForBalanceSheet(Income and Expenses)
+        //GetSummaryReportForBalanceSheet
         Task<IEnumerable<SummaryReportBalanceSheetRow>> GetReportSummaryBalanceSheetAsync(int CompId, SummaryReportBalanceSheet p);
+
+        //GetDetailedReportPandL
+        Task<IEnumerable<DetailedReportRow>> GetDetailedReportAsync(DetailedReportParams p);
     }
 }
                          

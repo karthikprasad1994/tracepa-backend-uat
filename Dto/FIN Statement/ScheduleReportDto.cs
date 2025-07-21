@@ -77,7 +77,7 @@ namespace TracePca.Dto.FIN_Statement
         //    public string Notes { get; set; }
         //}
 
-        //GetSummaryReportForPandL(Income and Expenses)
+        //GetSummaryReportForPandL
         public class SummaryReportPnL
         {
             public int YearID { get; set; }
@@ -94,7 +94,7 @@ namespace TracePca.Dto.FIN_Statement
             public string Notes { get; set; }
         }
 
-        //GetSummaryReportForBalanceSheet(Income and Expenses)
+        //GetSummaryReportForBalanceSheet
         public class SummaryReportBalanceSheet
         {
             public int YearID { get; set; }
@@ -110,5 +110,19 @@ namespace TracePca.Dto.FIN_Statement
             public string PrevYearTotal { get; set; }
             public string Notes { get; set; }
         }
+
+        //GetDetaledReportPandL
+        public class DetailedReportParams
+        {
+            public int CustID { get; set; }
+            public int ScheduleTypeID { get; set; }
+            public int InAmt { get; set; }
+        }
+        public class DetailedReportRow
+        {
+            public string Status { get; set; }  
+            public string Name { get; set; }   
+        }
+
     }
 }

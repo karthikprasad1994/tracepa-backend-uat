@@ -256,8 +256,8 @@ namespace TracePca.Controllers.FIN_Statement
         //}
 
 
-        //GetSummaryReportForPandL(Income and Expenses)
-        [HttpGet("GetSummaryPnL(Income and Expenses)")]
+        //GetSummaryReportForPandL
+        [HttpGet("GetSummaryPnL")]
         public async Task<IActionResult> GetSummaryReportPnL([FromQuery] int CompId, [FromQuery] SummaryReportPnL dto)
         {
             try
@@ -303,8 +303,8 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GetSummaryReportForBalanceSheet(Income and Expenses)
-        [HttpGet("GetSummaryBalanceSheet(Income and Expenses)")]
+        //GetSummaryReportForBalanceSheet
+        [HttpGet("GetSummaryBalanceSheet")]
         public async Task<IActionResult> GetSummaryReportBalanceSheet([FromQuery] int CompId, [FromQuery] SummaryReportBalanceSheet dto)
         {
             try
@@ -345,6 +345,42 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     statusCode = 500,
                     message = "An error occurred while retrieving Summary P&L data.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //GetDetailedreportPandL
+        [HttpGet("GetDetailedReport")]
+        public async Task<IActionResult> GetDetailedReport([FromQuery] DetailedReportParams p)
+        {
+            try
+            {
+                var result = await _ScheduleReportService.GetDetailedReportAsync(p);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No data found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Data fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the data.",
                     error = ex.Message
                 });
             }

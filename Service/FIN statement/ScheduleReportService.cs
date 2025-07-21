@@ -396,21 +396,20 @@ namespace TracePca.Service.FIN_statement
             int ScheduleTypeID = 3;
             int RoundOff = 1;
 
-
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection4"));
             await connection.OpenAsync();
 
             decimal totalIncome = 0, totalPrevIncome = 0;
             decimal totalExpense = 0, totalPrevExpense = 0;
 
-            // 🟩 INCOME HEADINGS
-            var incomeHeadingSql = @"
-SELECT AST_HeadingID AS HeadingID, ASH_Name AS Name
-FROM ACC_ScheduleTemplates
-LEFT JOIN ACC_ScheduleHeading a ON a.ash_id = AST_HeadingID
-WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND a.ASH_Notes = 1
-GROUP BY AST_HeadingID, ASH_Name
-ORDER BY AST_HeadingID";
+             //🟩 INCOME HEADINGS
+                        var incomeHeadingSql = @"
+            SELECT AST_HeadingID AS HeadingID, ASH_Name AS Name
+            FROM ACC_ScheduleTemplates
+            LEFT JOIN ACC_ScheduleHeading a ON a.ash_id = AST_HeadingID
+            WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND a.ASH_Notes = 1
+            GROUP BY AST_HeadingID, ASH_Name
+            ORDER BY AST_HeadingID";
 
             var incomeHeadings = await connection.QueryAsync<(int HeadingID, string Name)>(incomeHeadingSql, new { ScheduleTypeID, CustID = p.CustID });
 
@@ -503,18 +502,22 @@ ORDER BY ud.ATBUD_Subheading";
                     decimal subNet = (subBalance?.CrTotal ?? 0) - (subBalance?.DbTotal ?? 0);
                     decimal subPrevNet = (subBalance?.PrevCrTotal ?? 0) - (subBalance?.PrevDbTotal ?? 0);
 
-                    totalIncome += subNet;
-                    totalPrevIncome += subPrevNet;
-
-                    results.Add(new SummaryReportPnLRow
+                    if (subNet != 0 && subPrevNet != 0)
                     {
-                        SrNo = (results.Count + 1).ToString(),
-                        Name = sub.Name,
-                        HeaderSLNo = subNet == 0 ? "-" : subNet.ToString($"N{RoundOff}"),
-                        PrevYearTotal = subPrevNet == 0 ? "-" : subPrevNet.ToString($"N{RoundOff}"),
-                        Notes = sub.Notes != 0 ? sub.Notes.ToString() : ""
-                    });
+                        totalIncome += subNet;
+                        totalPrevIncome += subPrevNet;
+
+                        results.Add(new SummaryReportPnLRow
+                        {
+                            SrNo = (results.Count + 1).ToString(),
+                            Name = sub.Name,
+                            HeaderSLNo = subNet.ToString($"N{RoundOff}"),
+                            PrevYearTotal = subPrevNet.ToString($"N{RoundOff}"),
+                            Notes = sub.Notes != 0 ? sub.Notes.ToString() : ""
+                        });
+                    }
                 }
+
                 results.Add(new SummaryReportPnLRow
                 {
                     SrNo = (results.Count + 1).ToString(),
@@ -565,10 +568,32 @@ ORDER BY ud.ATBUD_Headingid";
                     HeadingID = heading.HeadingID,
                     CompID = CompId
                 });
-
+                
                 decimal net = 0;
                 decimal prevNet = 0;
+                if (net != 0 || prevNet != 0)
+                {
+                    results.Add(new SummaryReportPnLRow
+                    {
+                        SrNo = (results.Count + 1).ToString(),
+                        Name = heading.Name,
+                        HeaderSLNo = net == 0 ? "-" : net.ToString($"N{RoundOff}"),
+                        PrevYearTotal = prevNet == 0 ? "-" : prevNet.ToString($"N{RoundOff}")
+                    });
+                }
+                else
+                {
+                    decimal fallback = totalIncome - totalExpense;
+                    decimal fallbackPrev = totalPrevIncome - totalPrevExpense;
 
+                    results.Add(new SummaryReportPnLRow
+                    {
+                        SrNo = (results.Count + 1).ToString(),
+                        Name = heading.Name,
+                        HeaderSLNo = fallback == 0 ? "-" : fallback.ToString($"N{RoundOff}"),
+                        PrevYearTotal = fallbackPrev == 0 ? "-" : fallbackPrev.ToString($"N{RoundOff}")
+                    });
+                }
                 results.Add(new SummaryReportPnLRow
                 {
                     SrNo = (results.Count + 1).ToString(),
@@ -577,6 +602,7 @@ ORDER BY ud.ATBUD_Headingid";
                     PrevYearTotal = prevNet == 0 ? "-" : prevNet.ToString($"N{RoundOff}")
                 });
 
+                // 🟥 EXPENSE SUBHEADINGS
                 var subSql = @"
 SELECT AST_SubHeadingID AS SubHeadingID, ASsH_Name AS SubHeadingName, ASSH_Notes AS Notes
 FROM ACC_ScheduleTemplates
@@ -622,17 +648,20 @@ ORDER BY ud.ATBUD_Subheading";
                     decimal subNet = (subBalance?.DbTotal ?? 0) - (subBalance?.CrTotal ?? 0);
                     decimal subPrevNet = (subBalance?.PrevDbTotal ?? 0) - (subBalance?.PrevCrTotal ?? 0);
 
-                    totalExpense += subNet;
-                    totalPrevExpense += subPrevNet;
-
-                    results.Add(new SummaryReportPnLRow
+                    if (subNet != 0 && subPrevNet != 0)
                     {
-                        SrNo = (results.Count + 1).ToString(),
-                        Name = sub.Name,
-                        HeaderSLNo = subNet == 0 ? "-" : subNet.ToString($"N{RoundOff}"),
-                        PrevYearTotal = subPrevNet == 0 ? "-" : subPrevNet.ToString($"N{RoundOff}"),
-                        Notes = sub.Notes != 0 ? sub.Notes.ToString() : ""
-                    });
+                        totalExpense += subNet;
+                        totalPrevExpense += subPrevNet;
+
+                        results.Add(new SummaryReportPnLRow
+                        {
+                            SrNo = (results.Count + 1).ToString(),
+                            Name = sub.Name,
+                            HeaderSLNo = subNet.ToString($"N{RoundOff}"),
+                            PrevYearTotal = subPrevNet.ToString($"N{RoundOff}"),
+                            Notes = sub.Notes != 0 ? sub.Notes.ToString() : ""
+                        });
+                    }
                 }
                 results.Add(new SummaryReportPnLRow
                 {
@@ -641,7 +670,8 @@ ORDER BY ud.ATBUD_Subheading";
                     HeaderSLNo = totalExpense == 0 ? "-" : totalExpense.ToString($"N{RoundOff}"),
                     PrevYearTotal = totalPrevExpense == 0 ? "-" : totalPrevExpense.ToString($"N{RoundOff}")
                 });
-            }
+
+            } 
             return results;
         }
 
@@ -901,6 +931,113 @@ ORDER BY ud.ATBUD_Subheading";
             return results;
         }
 
+        //GetDetailedReportPandL
+        public async Task<IEnumerable<DetailedReportRow>> GetDetailedReportAsync(DetailedReportParams p)
+        {
+            var results = new List<DetailedReportRow>();
+            int inAmt = p.InAmt == 0 ? 1 : p.InAmt;
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection4"));
+            await connection.OpenAsync();
+
+            // 🟩 INCOME HEADINGS
+            var incomeSql = @"
+            SELECT AST_HeadingID, ASH_Name
+            FROM ACC_ScheduleTemplates
+            LEFT JOIN ACC_ScheduleHeading ON ASH_ID = AST_HeadingID
+            WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND ASH_Notes = 1
+            GROUP BY AST_HeadingID, ASH_Name
+            ORDER BY AST_HeadingID";
+
+            var incomeHeadings = await connection.QueryAsync<(int HeadingId, string HeadingName)>(incomeSql, new
+            {
+                ScheduleTypeID = p.ScheduleTypeID,
+                CustID = p.CustID
+            });
+
+            foreach (var heading in incomeHeadings)
+            {
+                results.Add(new DetailedReportRow
+                {
+                    Status = "Heading",
+                    Name = heading.HeadingName
+                });
+
+                var subSql = @"
+                SELECT AST_SubHeadingID, ASSH_Name
+                FROM ACC_ScheduleTemplates
+                LEFT JOIN ACC_ScheduleSubHeading ON ASSH_ID = AST_SubHeadingID
+                WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID
+                      AND AST_HeadingID = @HeadingId AND AST_AccHeadId = 1
+                GROUP BY AST_SubHeadingID, ASSH_Name";
+
+                var subHeadings = await connection.QueryAsync<(int SubHeadingId, string SubHeadingName)>(
+                    subSql, new
+                    {
+                        ScheduleTypeID = p.ScheduleTypeID,
+                        CustID = p.CustID,
+                        HeadingId = heading.HeadingId
+                    });
+
+                foreach (var sub in subHeadings)
+                {
+                    results.Add(new DetailedReportRow
+                    {
+                        Status = "SubHeading",
+                        Name = sub.SubHeadingName
+                    });
+                }
+            }
+
+            // 🟥 EXPENSE HEADINGS
+            var expenseSql = @"
+            SELECT AST_HeadingID, ASH_Name
+            FROM ACC_ScheduleTemplates
+            LEFT JOIN ACC_ScheduleHeading ON ASH_ID = AST_HeadingID
+            WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND ASH_Notes = 2
+            GROUP BY AST_HeadingID, ASH_Name
+            ORDER BY AST_HeadingID";
+
+            var expenseHeadings = await connection.QueryAsync<(int HeadingId, string HeadingName)>(expenseSql, new
+            {
+                ScheduleTypeID = p.ScheduleTypeID,
+                CustID = p.CustID
+            });
+
+            foreach (var heading in expenseHeadings)
+            {
+                results.Add(new DetailedReportRow
+                {
+                    Status = "Heading",
+                    Name = heading.HeadingName
+                });
+
+                var subSql = @"
+                SELECT AST_SubHeadingID, ASSH_Name
+                FROM ACC_ScheduleTemplates
+                LEFT JOIN ACC_ScheduleSubHeading ON ASSH_ID = AST_SubHeadingID
+                WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID
+                      AND AST_HeadingID = @HeadingId AND AST_AccHeadId = 2
+                GROUP BY AST_SubHeadingID, ASSH_Name";
+
+                var subHeadings = await connection.QueryAsync<(int SubHeadingId, string SubHeadingName)>(
+                    subSql, new
+                    {
+                        ScheduleTypeID = p.ScheduleTypeID,
+                        CustID = p.CustID,
+                        HeadingId = heading.HeadingId
+                    });
+                foreach (var sub in subHeadings)
+                {
+                    results.Add(new DetailedReportRow
+                    {
+                        Status = "SubHeading",
+                        Name = sub.SubHeadingName
+                    });
+                }
+            }
+            return results;
+        }
     }
 }
 
