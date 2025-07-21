@@ -35,11 +35,94 @@ namespace TracePca.Dto.FIN_Statement
             public string ItemsName { get; set; }
         }
 
-        //GetDateFormat
-        public class DateFormatSelectionRequestDto
+        ////GetSummaryReportForPandL(Income)
+        //public class SummaryPnLIncome
+        //{      
+        //    public int ACID { get; set; }        
+        //    public int YearID { get; set; }      
+        //    public int CustID { get; set; }      
+        //    public int ScheduleTypeID { get; set; }  
+        //    public int ChkPt { get; set; }    
+        //    public int InAmt { get; set; }       
+        //    public int RoundOff { get; set; }        
+        //}
+        //public class SummaryPnLRowIncome
+        //{
+        //    public string SrNo { get; set; }
+        //    public string HeadingName { get; set; }
+        //    public string SubHeadingName { get; set; }
+        //    public string HeaderSLNo { get; set; }
+        //    public string PrevYearTotal { get; set; }
+        //    public string Notes { get; set; }
+        //}
+
+        ////GetSummaryReportForPandL(Expenses)
+        //public class SummaryPnLExpenses
+        //{
+        //    public int ACID { get; set; }
+        //    public int YearID { get; set; }
+        //    public int CustID { get; set; }
+        //    public int ScheduleTypeID { get; set; }
+        //    public int ChkPt { get; set; }
+        //    public int InAmt { get; set; }
+        //    public int RoundOff { get; set; }
+        //}
+        //public class SummaryPnLRowExpenses
+        //{
+        //    public string SrNo { get; set; }
+        //    public string HeadingName { get; set; }
+        //    public string SubHeadingName { get; set; }
+        //    public string HeaderSLNo { get; set; }
+        //    public string PrevYearTotal { get; set; }
+        //    public string Notes { get; set; }
+        //}
+
+        //GetSummaryReportForPandL
+        public class SummaryReportPnL
         {
-            public int CompanyId { get; set; }
-            public string ConfigKey { get; set; }
+            public int YearID { get; set; }
+            public int CustID { get; set; }
+            public int BranchId { get; set; }
+           
         }
+        public class SummaryReportPnLRow
+        {
+            public string SrNo { get; set; }
+            public string Name { get; set; }
+            public string HeaderSLNo { get; set; }
+            public string PrevYearTotal { get; set; }
+            public string Notes { get; set; }
+        }
+
+        //GetSummaryReportForBalanceSheet
+        public class SummaryReportBalanceSheet
+        {
+            public int YearID { get; set; }
+            public int CustID { get; set; }
+            public int BranchId { get; set; }
+
+        }
+        public class SummaryReportBalanceSheetRow
+        {
+            public string SrNo { get; set; }
+            public string Name { get; set; }
+            public string HeaderSLNo { get; set; }
+            public string PrevYearTotal { get; set; }
+            public string Notes { get; set; }
+        }
+
+        //GetDetaledReportPandL
+        public class DetailedReportParams
+        {
+            public int CustID { get; set; }
+            public int ScheduleTypeID { get; set; }
+            public int InAmt { get; set; }
+        }
+        public class DetailedReportRow
+        {
+            public string Status { get; set; }  
+            public string Name { get; set; }   
+        }
+
     }
 }

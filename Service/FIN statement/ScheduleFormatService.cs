@@ -4,6 +4,7 @@ using System.Data;
 using System.Text;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
+using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
 using static TracePca.Dto.FIN_Statement.ScheduleFormatDto;
 
 namespace TracePca.Service.FIN_statement
@@ -202,52 +203,52 @@ WHERE AST_CompId = @CompId
                 if (SelectedValue == 1)
                 {
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_HeadingID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId",
-                        new { Id = MainId, Type = ScheduleType, iCustId = CustId, iCompId = CompId }, transaction);
+                        new { Id = MainId, Type = ScheduleType, CustId = CustId, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleHeading WHERE ASH_ID = @Id AND Ash_Orgtype = @CustId AND Ash_scheduletype = @Type AND ASH_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubHeading WHERE ASSH_HeadingID = @Id AND Assh_Orgtype = @CustId AND Assh_scheduletype = @Type AND ASSH_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleItems WHERE ASI_HeadingID = @Id AND Asi_Orgtype = @CustId AND Asi_scheduletype = @Type AND ASI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubItems WHERE ASSI_HeadingID = @Id AND AsSi_Orgtype = @CustId AND AsSi_scheduletype = @Type AND ASSI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
                 }
                 else if (SelectedValue == 2)
                 {
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_SubHeadingID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId",
-                        new { Id = MainId, Type = ScheduleType, iCustId = CustId, iCompId = CompId }, transaction);
+                        new { Id = MainId, Type = ScheduleType, CustId = CustId, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubHeading WHERE ASSH_ID = @Id AND Assh_Orgtype = @CustId AND Assh_scheduletype = @Type AND ASSH_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleItems WHERE ASI_SubHeadingID = @Id AND Asi_Orgtype = @CustId AND Asi_scheduletype = @Type AND ASI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubItems WHERE ASSI_SubHeadingID = @Id AND AsSi_Orgtype = @CustId AND AsSi_scheduletype = @Type AND ASSI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
                 }
                 else if (SelectedValue == 3)
                 {
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_ItemID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId",
-                        new { Id = MainId, Type = ScheduleType, iCustId = CustId, iCompId = CompId }, transaction);
+                        new { Id = MainId, Type = ScheduleType, CustId = CustId, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleItems WHERE ASI_ID = @Id AND Asi_Orgtype = @CustId AND Asi_scheduletype = @Type AND ASI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubItems WHERE ASSI_ItemsID = @Id AND AsSi_Orgtype = @CustId AND AsSi_scheduletype = @Type AND ASSI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
                 }
                 else if (SelectedValue == 4)
                 {
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleTemplates WHERE AST_SubItemID = @Id AND AST_Schedule_Type = @Type AND AST_Companytype = @CustId AND AST_CompId = @CompId",
-                        new { Id = MainId, Type = ScheduleType, iCustId = CustId, iCompId = CompId }, transaction);
+                        new { Id = MainId, Type = ScheduleType, CustId = CustId, CompId = CompId }, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM ACC_ScheduleSubItems WHERE ASSI_ID = @Id AND AsSi_Orgtype = @CustId AND AsSi_scheduletype = @Type AND ASSI_CompId = @CompId",
-                        new { Id = MainId, iCustId = CustId, Type = ScheduleType, iCompId = CompId }, transaction);
+                        new { Id = MainId, CustId = CustId, Type = ScheduleType, CompId = CompId }, transaction);
                 }
 
                 await transaction.CommitAsync();
@@ -320,7 +321,7 @@ WHERE AST_CompId = @CompId
                     templateCommand.Parameters.AddWithValue("@AST_STATUS", dto.AST_STATUS ?? string.Empty);
                     templateCommand.Parameters.AddWithValue("@AST_UPDATEDBY", dto.AST_UPDATEDBY);
                     templateCommand.Parameters.AddWithValue("@AST_IPAddress", dto.AST_IPAddress ?? string.Empty);
-                    templateCommand.Parameters.AddWithValue("@AST_CompId", CompId);
+                    templateCommand.Parameters.AddWithValue("@AST_CompId", dto.ASH_CompId);
                     templateCommand.Parameters.AddWithValue("@AST_YEARId", dto.AST_YEARId);
                     templateCommand.Parameters.AddWithValue("@AST_Schedule_type", dto.AST_Schedule_type);
                     templateCommand.Parameters.AddWithValue("@AST_Companytype", dto.AST_Companytype);
@@ -738,6 +739,359 @@ WHERE AST_CompId = @CompId
             var result = await connection.QueryAsync<ScheduleTemplateCountDto>(query, new{CustId, CompId});
 
             return result;
+        }
+
+        //SaveScheduleTemplate
+        public async Task<List<int>> SaveScheduleTemplateAsync(int CompId, List<ScheduleTemplate> dtos)
+        {
+            var resultIds = new List<int>();
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                int iErrorLine = 1;
+                string HeadingName = "";
+                string subHeadingName = "";
+                string itemName = "";
+                string subItemName = "";
+
+                foreach (var dto in dtos)
+                {
+                    // === A. Map Account Head Name to ID ===
+                    string accHeadName = (dto.AST_AccountHeadName ?? string.Empty).Trim().ToUpper();
+
+                    if (accHeadName == "INCOME")
+                    {
+                        dto.AST_AccHeadId = 1;
+                        dto.AST_Schedule_type = 3;
+                    }
+                    else if (accHeadName == "EXPENSES")
+                    {
+                        dto.AST_AccHeadId = 2;
+                        dto.AST_Schedule_type = 3;
+                    }
+                    else if (accHeadName == "ASSETS")
+                    {
+                        dto.AST_AccHeadId = 1;
+                        dto.AST_Schedule_type = 4;
+                    }
+                    else if (accHeadName == "CAPITAL AND LIABILITIES")
+                    {
+                        dto.AST_AccHeadId = 2;
+                        dto.AST_Schedule_type = 4;
+                    }
+                    else if (string.IsNullOrWhiteSpace(accHeadName) || accHeadName == "&NBSP;")
+                    {
+                        dto.AST_AccHeadId = 0;
+                    }
+                    else
+                    {
+                        throw new Exception($"Incorrect Account Head at Line No: {iErrorLine}");
+                    }
+                    iErrorLine++;
+
+                    // === B. Start processing ===
+                    int headingId = 0, subHeadingId = 0, itemId = 0, subItemId = 0, templateId = 0;
+
+                    // === 1. Check if Heading exists ===
+
+                    if (dto.ASH_Name != "")
+                    {
+                        HeadingName = dto.ASH_Name.Trim();
+                        subHeadingName = "";
+                        itemName = "";
+                        subItemName = "";
+                    }
+
+
+                    var checkHeadingSql = @"
+           SELECT ISNULL(ASH_ID, 0)
+           FROM ACC_ScheduleHeading
+           WHERE ASH_CompId = @CompId
+             AND ASH_Name = @Name
+             AND Ash_scheduletype = @ScheduleType
+             AND Ash_Orgtype = @OrgType";
+
+                    using (var checkCmd = new SqlCommand(checkHeadingSql, connection, transaction))
+                    {
+                        checkCmd.Parameters.AddWithValue("@CompId", dto.ASH_CompId);
+                        checkCmd.Parameters.AddWithValue("@Name", HeadingName);
+                        checkCmd.Parameters.AddWithValue("@ScheduleType", dto.AST_Schedule_type);
+                        checkCmd.Parameters.AddWithValue("@OrgType", dto.Ash_Orgtype);
+
+                        var result = await checkCmd.ExecuteScalarAsync();
+                        headingId = Convert.ToInt32(result);
+                    }
+
+                    if (headingId == 0 && HeadingName != "")
+                    {
+                        using (var cmd = new SqlCommand("spACC_ScheduleHeading", connection, transaction))
+                        {
+                            cmd.CommandType = CommandType.StoredProcedure;
+                            cmd.Parameters.AddWithValue("@ASH_ID", dto.ASH_ID);
+                            cmd.Parameters.AddWithValue("@ASH_Name", dto.ASH_Name ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASH_DELFLG", dto.ASH_DELFLG ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASH_CRBY", dto.ASH_CRBY);
+                            cmd.Parameters.AddWithValue("@ASH_STATUS", dto.ASH_STATUS ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASH_UPDATEDBY", dto.ASH_UPDATEDBY);
+                            cmd.Parameters.AddWithValue("@ASH_IPAddress", dto.ASH_IPAddress ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASH_CompId", dto.ASH_CompId);
+                            cmd.Parameters.AddWithValue("@ASH_YEARId", dto.ASH_YEARId);
+                            cmd.Parameters.AddWithValue("@Ash_scheduletype", dto.AST_Schedule_type);
+                            cmd.Parameters.AddWithValue("@Ash_Orgtype", dto.Ash_Orgtype);
+                            cmd.Parameters.AddWithValue("@ASH_Notes", dto.AST_AccHeadId);
+
+                            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            cmd.Parameters.Add(updateOrSaveParam);
+                            cmd.Parameters.Add(operParam);
+
+                            await cmd.ExecuteNonQueryAsync();
+
+                            headingId = (int)(operParam.Value ?? 0);
+                        }
+                    }
+
+                    // === 2. Check SubHeading ===
+
+                    if (dto.ASSH_Name != "")
+                    {
+                        subHeadingName = dto.ASSH_Name.Trim();
+                        itemName = "";
+                        subItemName = "";
+                    }
+
+                    var checkSubHeadingSql = @"
+           SELECT ISNULL(ASSH_ID, 0)
+           FROM ACC_ScheduleSubHeading
+           WHERE ASSH_CompId = @CompId
+             AND ASSH_Name = @Name
+             AND Assh_scheduletype = @ScheduleType
+             AND Assh_Orgtype = @OrgType";
+
+                    using (var checkCmd = new SqlCommand(checkSubHeadingSql, connection, transaction))
+                    {
+                        checkCmd.Parameters.AddWithValue("@CompId", dto.ASSH_CompId);
+                        checkCmd.Parameters.AddWithValue("@Name", subHeadingName);
+                        checkCmd.Parameters.AddWithValue("@ScheduleType", dto.AST_Schedule_type);
+                        checkCmd.Parameters.AddWithValue("@OrgType", dto.ASSH_Orgtype);
+
+                        var result = await checkCmd.ExecuteScalarAsync();
+                        subHeadingId = Convert.ToInt32(result);
+                    }
+
+                    if (subHeadingId == 0 && subHeadingName != "")
+                    {
+                        using (var cmd = new SqlCommand("spACC_ScheduleSubHeading", connection, transaction))
+                        {
+                            cmd.CommandType = CommandType.StoredProcedure;
+                            cmd.Parameters.AddWithValue("@ASSH_ID", dto.ASSH_ID);
+                            cmd.Parameters.AddWithValue("@ASSH_Name", dto.ASSH_Name ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASSH_HeadingID", headingId);
+                            cmd.Parameters.AddWithValue("@ASSH_DELFLG", dto.ASSH_DELFLG ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASSH_CRBY", dto.ASSH_CRBY);
+                            cmd.Parameters.AddWithValue("@ASSH_STATUS", dto.ASSH_STATUS ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASSH_UPDATEDBY", dto.ASSH_UPDATEDBY);
+                            cmd.Parameters.AddWithValue("@ASSH_IPAddress", dto.ASSH_IPAddress ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASSH_CompId", dto.ASSH_CompId);
+                            cmd.Parameters.AddWithValue("@ASSH_YEARId", dto.ASSH_YEARId);
+                            cmd.Parameters.AddWithValue("@ASSH_Notes", dto.ASSH_Notes);
+                            cmd.Parameters.AddWithValue("@ASSH_scheduletype", dto.AST_Schedule_type);
+                            cmd.Parameters.AddWithValue("@ASSH_Orgtype", dto.ASSH_Orgtype);
+
+                            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            cmd.Parameters.Add(updateOrSaveParam);
+                            cmd.Parameters.Add(operParam);
+
+                            await cmd.ExecuteNonQueryAsync();
+
+                            subHeadingId = (int)(operParam.Value ?? 0);
+                        }
+                    }
+
+                    // === 3. Check Item ===
+
+                    if (dto.ASI_Name != "")
+                    {
+                        itemName = dto.ASI_Name.Trim();
+                        subItemName = "";
+                    }
+
+                    var checkItemSql = @"
+           SELECT ISNULL(ASI_ID, 0)
+           FROM ACC_ScheduleItems
+           WHERE ASI_CompId = @CompId
+             AND ASI_Name = @Name
+             AND Asi_scheduletype = @ScheduleType
+             AND Asi_Orgtype = @OrgType";
+
+                    using (var checkCmd = new SqlCommand(checkItemSql, connection, transaction))
+                    {
+                        checkCmd.Parameters.AddWithValue("@CompId", dto.ASI_CompId);
+                        checkCmd.Parameters.AddWithValue("@Name", itemName);
+                        checkCmd.Parameters.AddWithValue("@ScheduleType", dto.AST_Schedule_type);
+                        checkCmd.Parameters.AddWithValue("@OrgType", dto.ASI_Orgtype);
+
+                        var result = await checkCmd.ExecuteScalarAsync();
+                        itemId = Convert.ToInt32(result);
+                    }
+
+                    if (itemId == 0 && itemName != "")
+                    {
+                        using (var cmd = new SqlCommand("spACC_ScheduleItems", connection, transaction))
+                        {
+                            cmd.CommandType = CommandType.StoredProcedure;
+                            cmd.Parameters.AddWithValue("@ASI_ID", dto.ASI_ID);
+                            cmd.Parameters.AddWithValue("@ASI_Name", dto.ASI_Name ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASI_HeadingID", headingId);
+                            cmd.Parameters.AddWithValue("@ASI_SubHeadingID", subHeadingId);
+                            cmd.Parameters.AddWithValue("@ASI_DELFLG", dto.ASI_DELFLG ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASI_CRBY", dto.ASI_CRBY);
+                            cmd.Parameters.AddWithValue("@ASI_STATUS", dto.ASI_STATUS ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASI_IPAddress", dto.ASI_IPAddress ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASI_CompId", dto.ASI_CompId);
+                            cmd.Parameters.AddWithValue("@ASI_YEARId", dto.ASI_YEARId);
+                            cmd.Parameters.AddWithValue("@ASI_scheduletype", dto.AST_Schedule_type);
+                            cmd.Parameters.AddWithValue("@ASI_Orgtype", dto.ASI_Orgtype);
+
+                            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            cmd.Parameters.Add(updateOrSaveParam);
+                            cmd.Parameters.Add(operParam);
+
+                            await cmd.ExecuteNonQueryAsync();
+
+                            itemId = (int)(operParam.Value ?? 0);
+                        }
+                    }
+
+                    // === 4. Check SubItem ===
+
+                    if (dto.ASSI_Name != "")
+                    {
+                        subItemName = dto.ASSI_Name.Trim();
+                    }
+                    var checkSubItemSql = @"
+           SELECT ISNULL(ASSI_ID, 0)
+           FROM ACC_ScheduleSubItems
+           WHERE ASSI_CompId = @CompId
+             AND ASSI_Name = @Name
+             AND Assi_scheduletype = @ScheduleType
+             AND Assi_Orgtype = @OrgType";
+
+                    using (var checkCmd = new SqlCommand(checkSubItemSql, connection, transaction))
+                    {
+                        checkCmd.Parameters.AddWithValue("@CompId", dto.ASSI_CompId);
+                        checkCmd.Parameters.AddWithValue("@Name", subItemName);
+                        checkCmd.Parameters.AddWithValue("@ScheduleType", dto.AST_Schedule_type);
+                        checkCmd.Parameters.AddWithValue("@OrgType", dto.ASSI_OrgType);
+
+                        var result = await checkCmd.ExecuteScalarAsync();
+                        subItemId = Convert.ToInt32(result);
+                    }
+                    if (subItemId == 0 && subItemName != "")
+                    {
+                        using (var cmd = new SqlCommand("spACC_ScheduleSubItems", connection, transaction))
+                        {
+                            cmd.CommandType = CommandType.StoredProcedure;
+                            cmd.Parameters.AddWithValue("@ASSI_ID", dto.ASSI_ID);
+                            cmd.Parameters.AddWithValue("@ASSI_Name", dto.ASSI_Name ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASSI_HeadingID", headingId);
+                            cmd.Parameters.AddWithValue("@ASSI_subHeadingID", subHeadingId);
+                            cmd.Parameters.AddWithValue("@ASSI_ItemsID", itemId);
+                            cmd.Parameters.AddWithValue("@ASSI_DELFLG", dto.ASSI_DELFLG ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASSI_CRBY", dto.ASSI_CRBY);
+                            cmd.Parameters.AddWithValue("@ASSI_STATUS", dto.ASSI_STATUS ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASSI_UPDATEDBY", dto.ASSI_UPDATEDBY);
+                            cmd.Parameters.AddWithValue("@ASSI_IPAddress", dto.ASSI_IPAddress ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@ASSI_CompId", dto.ASSI_CompId);
+                            cmd.Parameters.AddWithValue("@ASSI_YEARId", dto.ASSI_YEARId);
+                            cmd.Parameters.AddWithValue("@ASSI_scheduletype", dto.AST_Schedule_type);
+                            cmd.Parameters.AddWithValue("@ASSI_Orgtype", dto.ASSI_OrgType);
+
+                            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            cmd.Parameters.Add(updateOrSaveParam);
+                            cmd.Parameters.Add(operParam);
+
+                            await cmd.ExecuteNonQueryAsync();
+
+                            subItemId = (int)(operParam.Value ?? 0);
+                        }
+                    }
+                    // === 5. Check Template ===
+                    var checkTemplateSql = @"
+           SELECT ISNULL(AST_ID, 0)
+           FROM ACC_ScheduleTemplates
+           WHERE 
+               AST_CompId = @CompId AND 
+               AST_HeadingID = @HeadingID AND 
+               AST_SubHeadingID = @SubHeadingID AND 
+               AST_ItemID = @ItemID AND 
+               AST_SubItemID = @SubItemID AND 
+               AST_Companytype = @CompanyType AND 
+               AST_Schedule_type = @ScheduleType";
+
+                    using (var checkCmd = new SqlCommand(checkTemplateSql, connection, transaction))
+                    {
+                        checkCmd.Parameters.AddWithValue("@CompId", dto.AST_CompId);
+                        checkCmd.Parameters.AddWithValue("@HeadingID", headingId);
+                        checkCmd.Parameters.AddWithValue("@SubHeadingID", subHeadingId);
+                        checkCmd.Parameters.AddWithValue("@ItemID", itemId);
+                        checkCmd.Parameters.AddWithValue("@SubItemID", subItemId);
+                        checkCmd.Parameters.AddWithValue("@CompanyType", dto.AST_Companytype);
+                        checkCmd.Parameters.AddWithValue("@ScheduleType", dto.AST_Schedule_type);
+
+                        var result = await checkCmd.ExecuteScalarAsync();
+                        templateId = Convert.ToInt32(result);
+                    }
+                    if (templateId == 0)
+                    {
+                        using (var cmd = new SqlCommand("spACC_ScheduleTemplates", connection, transaction))
+                        {
+                            cmd.CommandType = CommandType.StoredProcedure;
+                            cmd.Parameters.AddWithValue("@AST_ID", dto.AST_ID);
+                            cmd.Parameters.AddWithValue("@AST_Name", dto.AST_Name ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@AST_HeadingID", headingId);
+                            cmd.Parameters.AddWithValue("@AST_subHeadingID", subHeadingId);
+                            cmd.Parameters.AddWithValue("@AST_ItemID", itemId);
+                            cmd.Parameters.AddWithValue("@AST_subItemID", subItemId);
+                            cmd.Parameters.AddWithValue("@AST_AccHeadId", dto.AST_AccHeadId);
+                            cmd.Parameters.AddWithValue("@AST_DELFLG", dto.AST_DELFLG ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@AST_CRBY", dto.AST_CRBY);
+                            cmd.Parameters.AddWithValue("@AST_STATUS", dto.AST_STATUS ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@AST_UPDATEDBY", dto.AST_UPDATEDBY);
+                            cmd.Parameters.AddWithValue("@AST_IPAddress", dto.AST_IPAddress ?? string.Empty);
+                            cmd.Parameters.AddWithValue("@AST_CompId", dto.AST_CompId);
+                            cmd.Parameters.AddWithValue("@AST_YEARId", dto.AST_YEARId);
+                            cmd.Parameters.AddWithValue("@AST_Schedule_type", dto.AST_Schedule_type);
+                            cmd.Parameters.AddWithValue("@AST_Companytype", dto.AST_Companytype);
+                            cmd.Parameters.AddWithValue("@AST_Company_limit", dto.AST_Company_limit);
+
+                            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            cmd.Parameters.Add(updateOrSaveParam);
+                            cmd.Parameters.Add(operParam);
+
+                            await cmd.ExecuteNonQueryAsync();
+
+                            templateId = (int)(operParam.Value ?? 0);
+                        }
+                    }
+                    resultIds.Add(templateId);
+                }
+                transaction.Commit();
+                return resultIds;
+            }
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+                throw new Exception("Error while saving Schedule data: " + ex.Message, ex);
+            }
         }
     }
 }

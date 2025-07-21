@@ -1,4 +1,5 @@
-﻿using static TracePca.Dto.FIN_Statement.ScheduleFormatDto;
+﻿using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
+using static TracePca.Dto.FIN_Statement.ScheduleFormatDto;
 
 namespace TracePca.Interface.FIN_Statement
 {
@@ -50,5 +51,8 @@ namespace TracePca.Interface.FIN_Statement
         //GetScheduleTemplateCount
         Task<IEnumerable<ScheduleTemplateCountDto>> GetScheduleFormatItemsAsync(
         int CustId, int CompId);
+
+        //SaveScheduleTemplate(P and L)
+        Task<List<int>> SaveScheduleTemplateAsync(int CompId, List<ScheduleTemplate> dtos);
     }
 }

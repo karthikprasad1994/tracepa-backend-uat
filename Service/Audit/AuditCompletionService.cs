@@ -5,6 +5,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Wordprocessing;
 using iText.Layout.Element;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Data.SqlClient;
 using OfficeOpenXml.Table.PivotTable;
 using QuestPDF.Fluent;
@@ -68,6 +69,9 @@ namespace TracePca.Service.Audit
                 var auditCompletionCheckPointList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master
                 WHERE CMM_Category = 'ASF' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
 
+                var auditClosureCheckPointList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master
+                WHERE CMM_Category = 'ACP' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
+
                 var signedByList = connection.QueryAsync<DropDownListData>(@"SELECT Usr_ID AS ID, USr_FullName AS Name from sad_userdetails 
                 WHERE usr_compID = @CompId And USR_Partner = 1 And(usr_DelFlag = 'A' or usr_DelFlag = 'B' or usr_DelFlag = 'L') order by USr_FullName ASC", parameters);
 
@@ -78,6 +82,7 @@ namespace TracePca.Service.Audit
                     CurrentYear = await currentYear,
                     CustomerList = customerList.Result.ToList(),
                     AuditCompletionCheckPointList = auditCompletionCheckPointList.Result.ToList(),
+                    AuditClosureCheckPointList = auditClosureCheckPointList.Result.ToList(),
                     SignedByList = signedByList.Result.ToList()
                 };
             }
@@ -203,6 +208,30 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<List<AuditCompletionSubPointDetailsDTO>> GetAuditClosureSubPointDetailsAsync(int compId, int auditId, int checkPointId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var query = @"SELECT ISNULL(SAC_ID, 0) AS SAC_ID, ASM_ID AS SAC_SubPointId, ASM_CheckpointID AS SAC_CheckPointId, CMM.cmm_Desc AS SAC_CheckPointName, 
+                ASM_SubPoint AS SAC_SubPointName, SAC_Remarks AS SAC_Remarks, ISNULL(SAC_WorkPaperId, 0) AS SAC_WorkPaperId, WP.SSW_WorkpaperRef AS SAC_WorkPaperName, ISNULL(SAC_AttachmentId, 0) AS SAC_AttachmentId 
+                FROM AuditCompletion_SubPoint_Master ASM
+                LEFT JOIN StandardAudit_Audit_Completion SAC ON SAC.SAC_CheckPointId = ASM.ASM_CheckpointID AND SAC.SAC_SubPointId = ASM.ASM_ID AND SAC.SAC_AuditID = @AuditID
+                LEFT JOIN Content_Management_Master CMM ON CMM.cmm_ID = ASM.ASM_CheckpointID AND CMM.CMM_Category = 'ACP' AND CMM.CMM_CompID = @CompId 
+                LEFT JOIN StandardAudit_ScheduleConduct_WorkPaper WP ON WP.SSW_ID = SAC.SAC_WorkPaperId AND WP.SSW_CompID = @CompId
+                WHERE ASM.ASM_CheckpointID = @CheckPointId And ASM.ASM_CompId = @CompId";
+
+                var subPointDetails = await connection.QueryAsync<AuditCompletionSubPointDetailsDTO>(query, new { CompId = compId, AuditID = auditId, CheckPointId = checkPointId });
+                return subPointDetails.ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting the audit closure subpoints by ID", ex);
+            }
+        }
+
         public async Task<AuditCompletionDTO> GetAuditCompletionDetailsByIdAsync(int compId, int auditId)
         {
             try
@@ -256,9 +285,8 @@ namespace TracePca.Service.Audit
                     {
                         anyExisting = true;
                         await connection.ExecuteAsync(
-                            @"UPDATE StandardAudit_Audit_Completion SET SAC_Remarks = @SAC_Remarks, SAC_WorkPaperId = @SAC_WorkPaperId, SAC_AttachmentId = @SAC_AttachmentId 
-                                WHERE SAC_AuditID = @SAC_AuditID AND SAC_CheckPointId = @SAC_CheckPointId AND SAC_SubPointId = @SAC_SubPointId And SAC_UpdatedBy = @SAC_UpdatedBy 
-                                And SAC_UpdatedOn = GetDate() AND SAC_CompID = @SAC_CompID;",
+                             @"UPDATE StandardAudit_Audit_Completion SET SAC_Remarks = @SAC_Remarks, SAC_WorkPaperId = @SAC_WorkPaperId, SAC_AttachmentId = @SAC_AttachmentId, SAC_UpdatedBy = @SAC_UpdatedBy, SAC_UpdatedOn = GetDate()
+                                WHERE SAC_AuditID = @SAC_AuditID AND SAC_CheckPointId = @SAC_CheckPointId AND SAC_SubPointId = @SAC_SubPointId And SAC_CompID = @SAC_CompID;",
                             new
                             {
                                 SAC_AuditID = dto.SAC_AuditID,
@@ -276,11 +304,13 @@ namespace TracePca.Service.Audit
                         sub.SAC_ID = await connection.ExecuteScalarAsync<int>(
                             @"DECLARE @NewSubId INT; SELECT @NewSubId = ISNULL(MAX(SAC_ID), 0) + 1 FROM StandardAudit_Audit_Completion;
                               INSERT INTO StandardAudit_Audit_Completion 
-                              (SAC_ID, SAC_AuditID, SAC_CheckPointId, SAC_SubPointId, SAC_Remarks, SAC_WorkPaperId, SAC_AttachmentId, SAC_CreatedBy, SAC_CreatedOn, SAC_IPAddress, SAC_CompID)
-                              VALUES (@NewSubId, @SAC_AuditID, @SAC_CheckPointId, @SAC_SubPointId, @SAC_Remarks, @SAC_WorkPaperId, @SAC_AttachmentId, @SAC_CreatedBy, GetDate(), @SAC_IPAddress, @SAC_CompID);
+                              (SAC_ID, SAC_CustID, SAC_YearID, SAC_AuditID, SAC_CheckPointId, SAC_SubPointId, SAC_Remarks, SAC_WorkPaperId, SAC_AttachmentId, SAC_CreatedBy, SAC_CreatedOn, SAC_IPAddress, SAC_CompID)
+                              VALUES (@NewSubId, @SAC_CustID, @SAC_YearID, @SAC_AuditID, @SAC_CheckPointId, @SAC_SubPointId, @SAC_Remarks, @SAC_WorkPaperId, @SAC_AttachmentId, @SAC_CreatedBy, GetDate(), @SAC_IPAddress, @SAC_CompID);
                               SELECT @NewSubId;",
                             new
                             {
+                                SAC_CustID = dto.SAC_CustID,
+                                SAC_YearID = dto.SAC_YearID,
                                 SAC_AuditID = dto.SAC_AuditID,
                                 sub.SAC_CheckPointId,
                                 sub.SAC_SubPointId,
@@ -312,6 +342,76 @@ namespace TracePca.Service.Audit
             {
                 await transaction.RollbackAsync();
                 throw new ApplicationException("An error occurred while saving or updating the audit completion data.", ex);
+            }
+        }
+
+        public async Task<int> SaveOrUpdateAuditCompletionSubPointDataAsync(AuditCompletionSingleDTO dto)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+            try
+            {
+                bool anyExisting = false;
+                var existing = await connection.ExecuteScalarAsync<int>(@"SELECT COUNT(*) FROM StandardAudit_Audit_Completion 
+                        WHERE SAC_AuditID = @SAC_AuditID AND SAC_CheckPointId = @SAC_CheckPointId AND SAC_SubPointId = @SAC_SubPointId AND SAC_CompID = @SAC_CompID;",
+                        new
+                        {
+                            SAC_AuditID = dto.SAC_AuditID,
+                            SAC_CheckPointId = dto.AuditCompletionSubPointDetails.SAC_CheckPointId,
+                            SAC_SubPointId = dto.AuditCompletionSubPointDetails.SAC_SubPointId,
+                            SAC_CompID = dto.SAC_CompID
+                        }, transaction);
+
+                if (existing > 0)
+                {
+                    anyExisting = true;
+                    await connection.ExecuteAsync(
+                        @"UPDATE StandardAudit_Audit_Completion SET SAC_Remarks = @SAC_Remarks, SAC_WorkPaperId = @SAC_WorkPaperId, SAC_AttachmentId = @SAC_AttachmentId, SAC_UpdatedBy = @SAC_UpdatedBy, SAC_UpdatedOn = GetDate()
+                                WHERE SAC_AuditID = @SAC_AuditID AND SAC_CheckPointId = @SAC_CheckPointId AND SAC_SubPointId = @SAC_SubPointId And SAC_CompID = @SAC_CompID;",
+                        new
+                        {
+                            SAC_AuditID = dto.SAC_AuditID,
+                            SAC_CheckPointId = dto.AuditCompletionSubPointDetails.SAC_CheckPointId,
+                            SAC_SubPointId= dto.AuditCompletionSubPointDetails.SAC_SubPointId,
+                            SAC_Remarks = dto.AuditCompletionSubPointDetails.SAC_Remarks,
+                            SAC_WorkPaperId = dto.AuditCompletionSubPointDetails.SAC_WorkPaperId,
+                            SAC_UpdatedBy = dto.SAC_UpdatedBy,
+                            SAC_AttachmentId = dto.AuditCompletionSubPointDetails.SAC_AttachmentId,
+                            SAC_CompID = dto.SAC_CompID
+                        }, transaction);
+                }
+                else
+                {
+                    dto.AuditCompletionSubPointDetails.SAC_ID = await connection.ExecuteScalarAsync<int>(
+                        @"DECLARE @NewSubId INT; SELECT @NewSubId = ISNULL(MAX(SAC_ID), 0) + 1 FROM StandardAudit_Audit_Completion;
+                              INSERT INTO StandardAudit_Audit_Completion 
+                              (SAC_ID, SAC_CustID, SAC_YearID, SAC_AuditID, SAC_CheckPointId, SAC_SubPointId, SAC_Remarks, SAC_WorkPaperId, SAC_AttachmentId, SAC_CreatedBy, SAC_CreatedOn, SAC_IPAddress, SAC_CompID)
+                              VALUES (@NewSubId, @SAC_CustID, @SAC_YearID, @SAC_AuditID, @SAC_CheckPointId, @SAC_SubPointId, @SAC_Remarks, @SAC_WorkPaperId, @SAC_AttachmentId, @SAC_CreatedBy, GetDate(), @SAC_IPAddress, @SAC_CompID);
+                              SELECT @NewSubId;",
+                        new
+                        {
+                            SAC_CustID = dto.SAC_CustID,
+                            SAC_YearID = dto.SAC_YearID,
+                            SAC_AuditID = dto.SAC_AuditID,
+                            SAC_CheckPointId = dto.AuditCompletionSubPointDetails.SAC_CheckPointId,
+                            SAC_SubPointId = dto.AuditCompletionSubPointDetails.SAC_SubPointId,
+                            SAC_Remarks = dto.AuditCompletionSubPointDetails.SAC_Remarks,
+                            SAC_WorkPaperId = dto.AuditCompletionSubPointDetails.SAC_WorkPaperId,
+                            SAC_AttachmentId = dto.AuditCompletionSubPointDetails.SAC_AttachmentId,
+                            SAC_CreatedBy = dto.SAC_CreatedBy,
+                            SAC_IPAddress = dto.SAC_IPAddress,
+                            SAC_CompID = dto.SAC_CompID
+                        }, transaction);
+                }
+
+                await transaction.CommitAsync();
+                return anyExisting ? 1 : 0;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                throw new ApplicationException("An error occurred while saving or updating the audit completion subpoint data.", ex);
             }
         }
 
