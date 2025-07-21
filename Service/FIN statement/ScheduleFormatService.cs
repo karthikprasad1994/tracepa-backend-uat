@@ -321,7 +321,7 @@ WHERE AST_CompId = @CompId
                     templateCommand.Parameters.AddWithValue("@AST_STATUS", dto.AST_STATUS ?? string.Empty);
                     templateCommand.Parameters.AddWithValue("@AST_UPDATEDBY", dto.AST_UPDATEDBY);
                     templateCommand.Parameters.AddWithValue("@AST_IPAddress", dto.AST_IPAddress ?? string.Empty);
-                    templateCommand.Parameters.AddWithValue("@AST_CompId", CompId);
+                    templateCommand.Parameters.AddWithValue("@AST_CompId", dto.ASH_CompId);
                     templateCommand.Parameters.AddWithValue("@AST_YEARId", dto.AST_YEARId);
                     templateCommand.Parameters.AddWithValue("@AST_Schedule_type", dto.AST_Schedule_type);
                     templateCommand.Parameters.AddWithValue("@AST_Companytype", dto.AST_Companytype);

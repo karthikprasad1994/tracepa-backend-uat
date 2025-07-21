@@ -132,6 +132,25 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpGet("GetAuditClosureSubPointDetails")]
+        public async Task<IActionResult> GetAuditClosureSubPointDetails(int compId, int auditId, int checkPointId)
+        {
+            try
+            {
+                var dropdownData = await _auditCompletionInterface.GetAuditClosureSubPointDetailsAsync(compId, auditId, checkPointId);
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Subpoint details for selected checkpoint fetched successfully.",
+                    data = dropdownData
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to fetch subpoint details.", error = ex.Message });
+            }
+        }
+
         [HttpPost("SaveOrUpdateAuditCompletionData")]
         public async Task<IActionResult> SaveOrUpdateAuditCompletionData([FromBody] AuditCompletionDTO dto)
         {
