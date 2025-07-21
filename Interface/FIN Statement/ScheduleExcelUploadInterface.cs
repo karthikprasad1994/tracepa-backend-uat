@@ -16,6 +16,9 @@ namespace TracePca.Interface.FIN_Statement
         //SaveScheduleTemplate(Balance Sheet)
         Task<List<int>> SaveScheduleBalanceSheetAsync(int CompId, List<ScheduleTemplateBalanceSheetDto> dtos);
 
+        //SaveScheduleTemplate
+        Task<List<int>> SaveScheduleTemplateAsync(int CompId, List<ScheduleTemplateDto> dtos);
+
         //SaveOpeningBalance
         Task<List<int>> SaveOpeningBalanceAsync(int CompId, List<OpeningBalanceDto> dtos);
 

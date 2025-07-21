@@ -161,7 +161,7 @@ namespace TracePca.Service
                 var rowsInserted = await connection.ExecuteAsync(insertSql, new
                 {
                     McrId = maxMcrId,
-                    McrMpId = 2,
+                    McrMpId = 1,
                     McrCustomerName = registerModel.McrCustomerName,
                     McrCustomerEmail = registerModel.McrCustomerEmail,
                     McrCustomerTelephoneNo = registerModel.McrCustomerTelephoneNo,
@@ -947,7 +947,7 @@ namespace TracePca.Service
         {
             try
             {
-                string mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+                var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
 
                 using (var connection = new SqlConnection(mmcsConnection))
                 {

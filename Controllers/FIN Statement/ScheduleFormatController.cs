@@ -2,7 +2,6 @@
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleFormatDto;
-using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -547,6 +546,40 @@ namespace TracePca.Controllers.FIN_Statement
                     statusCode = 500,
                     message = "An error occurred while retrieving the template count.",
                     error = ex.Message
+                });
+            }
+        }
+
+        //SaveScheduleTemplate
+        [HttpPost("SaveScheduleTemplate")]
+        public async Task<IActionResult> SaveScheduleTemplate([FromQuery] int CompId, [FromBody] List<ScheduleTemplate> dtos)
+        {
+            if (dtos == null || !dtos.Any())
+            {
+                return BadRequest(new
+                {
+                    StatusCode = 400,
+                    Message = "No schedule data provided."
+                });
+            }
+            try
+            {
+                var resultIds = await _ScheduleFormatService.SaveScheduleTemplateAsync(CompId, dtos);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "Schedule data saved successfully.",
+                    Data = resultIds
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving schedule data.",
+                    Error = ex.Message
                 });
             }
         }

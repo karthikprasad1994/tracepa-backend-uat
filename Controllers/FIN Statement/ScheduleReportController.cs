@@ -161,39 +161,227 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GetDateFormat
-        [HttpGet("GetDateFormatSelection")]
-        public async Task<IActionResult> GetDateFormatSelection([FromQuery] int CompanyId, [FromQuery] string ConfigKey)
-        {
-            if (string.IsNullOrEmpty(ConfigKey) || CompanyId <= 0)
-            {
-                return BadRequest(new
-                {
-                    Status = 400,
-                    Message = "Invalid parameters: companyId and configKey are required.",
-                    Data = (object)null
-                });
-            }
+        ////GetSummaryReportForPandL(Income)
+        //[HttpGet("GetSummaryPnL(Income)")]
+        //public async Task<IActionResult> GetSummaryPnLIncome([FromQuery] int CompId, [FromQuery] SummaryPnLIncome p)
+        //{
+        //    try
+        //    {
+        //        // Minimal validation
+        //        if (p.YearID <= 0 || p.CustID <= 0 || p.ScheduleTypeID <= 0)
+        //        {
+        //            return BadRequest(new
+        //            {
+        //                statusCode = 400,
+        //                message = "YearID, CustID, and ScheduleTypeID are required and must be greater than zero.",
+        //                data = (object)null
+        //            });
+        //        }
 
+        //        var result = await _ScheduleReportService.GetSummaryPnLIncomeAsync(CompId, p);
+
+        //        if (result == null || !result.Any())
+        //        {
+        //            return NotFound(new
+        //            {
+        //                statusCode = 404,
+        //                message = "No summary P&L data found.",
+        //                data = (object)null
+        //            });
+        //        }
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Summary P&L data fetched successfully.",
+        //            data = result
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = "An error occurred while retrieving Summary P&L data.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+        ////GetSummaryReportForPandL(Expenses)
+        //[HttpGet("GetSummaryPnL(Expenses)")]
+        //public async Task<IActionResult> GetSummaryPnLExpenses([FromQuery] int CompId, [FromQuery] SummaryPnLExpenses dto)
+        //{
+        //    try
+        //    {
+        //        // Minimal validation
+        //        if (dto.YearID <= 0 || dto.CustID <= 0 || dto.ScheduleTypeID <= 0)
+        //        {
+        //            return BadRequest(new
+        //            {
+        //                statusCode = 400,
+        //                message = "YearID, CustID, and ScheduleTypeID are required and must be greater than zero.",
+        //                data = (object)null
+        //            });
+        //        }
+
+        //        var result = await _ScheduleReportService.GetSummaryPnLExpensesAsync(CompId, dto);
+
+        //        if (result == null || !result.Any())
+        //        {
+        //            return NotFound(new
+        //            {
+        //                statusCode = 404,
+        //                message = "No summary P&L data found.",
+        //                data = (object)null
+        //            });
+        //        }
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Summary P&L data fetched successfully.",
+        //            data = result
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = "An error occurred while retrieving Summary P&L data.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+
+        //GetSummaryReportForPandL
+        [HttpGet("GetSummaryPnL")]
+        public async Task<IActionResult> GetSummaryReportPnL([FromQuery] int CompId, [FromQuery] SummaryReportPnL dto)
+        {
             try
             {
-                var result = await _ScheduleReportService.GetDateFormatSelectionAsync(CompanyId, ConfigKey);
+                // Minimal validation
+                if (dto.YearID <= 0 || dto.CustID <= 0)
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "YearID, CustID, and ScheduleTypeID are required and must be greater than zero.",
+                        data = (object)null
+                    });
+                }
+
+                var result = await _ScheduleReportService.GetReportSummaryPnLAsync(CompId, dto);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No summary P&L data found.",
+                        data = (object)null
+                    });
+                }
 
                 return Ok(new
                 {
-                    Status = 200,
-                    Message = "Date format selection retrieved successfully.",
-                    Data = result
+                    statusCode = 200,
+                    message = "Summary P&L data fetched successfully.",
+                    data = result
                 });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new
                 {
-                    Status = 500,
-                    Message = "An error occurred while retrieving date format selection.",
-                    Error = ex.Message,
-                    InnerException = ex.InnerException?.Message
+                    statusCode = 500,
+                    message = "An error occurred while retrieving Summary P&L data.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //GetSummaryReportForBalanceSheet
+        [HttpGet("GetSummaryBalanceSheet")]
+        public async Task<IActionResult> GetSummaryReportBalanceSheet([FromQuery] int CompId, [FromQuery] SummaryReportBalanceSheet dto)
+        {
+            try
+            {
+                // Minimal validation
+                if (dto.YearID <= 0 || dto.CustID <= 0)
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "YearID, CustID, and ScheduleTypeID are required and must be greater than zero.",
+                        data = (object)null
+                    });
+                }
+
+                var result = await _ScheduleReportService.GetReportSummaryBalanceSheetAsync(CompId, dto);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No summary P&L data found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Summary P&L data fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving Summary P&L data.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //GetDetailedreportPandL
+        [HttpGet("GetDetailedReport")]
+        public async Task<IActionResult> GetDetailedReport([FromQuery] DetailedReportParams p)
+        {
+            try
+            {
+                var result = await _ScheduleReportService.GetDetailedReportAsync(p);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No data found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Data fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the data.",
+                    error = ex.Message
                 });
             }
         }

@@ -234,5 +234,174 @@
             public int TemplateCount { get; set; }
         }
 
+        //SaveScheduleTemplate(P and L)
+        public class ScheduleTemplatePandLDto
+        {
+            // === Schedule Heading ===
+            public int ASH_ID { get; set; }
+            public string ASH_Name { get; set; }
+            public string ASH_DELFLG { get; set; }
+            public int ASH_CRBY { get; set; }
+            public string ASH_STATUS { get; set; }
+            public int ASH_UPDATEDBY { get; set; }
+            public string ASH_IPAddress { get; set; }
+            public int ASH_CompId { get; set; }
+            public int ASH_YEARId { get; set; }
+            public int Ash_scheduletype { get; set; }
+            public int Ash_Orgtype { get; set; }
+            public int ASH_Notes { get; set; }
+
+            // === Schedule SubHeading ===
+            public int ASSH_ID { get; set; }
+            public string ASSH_Name { get; set; }
+            public int ASSH_HeadingID { get; set; }
+            public string ASSH_DELFLG { get; set; }
+            public int ASSH_CRBY { get; set; }
+            public string ASSH_STATUS { get; set; }
+            public int ASSH_UPDATEDBY { get; set; }
+            public string ASSH_IPAddress { get; set; }
+            public int ASSH_CompId { get; set; }
+            public int ASSH_YEARId { get; set; }
+            public int ASSH_Notes { get; set; }
+            public int ASSH_scheduletype { get; set; }
+            public int ASSH_Orgtype { get; set; }
+
+            // === Schedule Item ===
+            public int ASI_ID { get; set; }
+            public string? ASI_Name { get; set; }
+            public int ASI_HeadingID { get; set; }
+            public int ASI_SubHeadingID { get; set; }
+            public string? ASI_DELFLG { get; set; }
+            public int ASI_CRBY { get; set; }
+            public string? ASI_STATUS { get; set; }
+            public string? ASI_IPAddress { get; set; }
+            public int ASI_CompId { get; set; }
+            public int ASI_YEARId { get; set; }
+            public int ASI_scheduletype { get; set; }
+            public int ASI_Orgtype { get; set; }
+
+            // === Schedule SubItem ===
+            public int ASSI_ID { get; set; }
+            public string? ASSI_Name { get; set; }
+            public int ASSI_HeadingID { get; set; }
+            public int ASSI_SubHeadingID { get; set; }
+            public int ASSI_ItemsID { get; set; }
+            public string? ASSI_DELFLG { get; set; }
+            public int ASSI_CRBY { get; set; }
+            public string? ASSI_STATUS { get; set; }
+            public int ASSI_UPDATEDBY { get; set; }
+            public string? ASSI_IPAddress { get; set; }
+            public int ASSI_CompId { get; set; }
+            public int ASSI_YEARId { get; set; }
+            public int ASSI_ScheduleType { get; set; }
+            public int ASSI_OrgType { get; set; }
+
+            // === Schedule Template ===
+            public int AST_ID { get; set; }
+            public string? AST_Name { get; set; }
+            public int AST_HeadingID { get; set; }
+            public int AST_SubHeadingID { get; set; }
+            public int AST_ItemID { get; set; }
+            public int AST_SubItemID { get; set; }
+            public int AST_AccHeadId { get; set; }
+            public string? AST_DELFLG { get; set; }
+            public int AST_CRBY { get; set; }
+            public string? AST_STATUS { get; set; }
+            public int AST_UPDATEDBY { get; set; }
+            public string? AST_IPAddress { get; set; }
+            public int AST_CompId { get; set; }
+            public int AST_YEARId { get; set; }
+            public int AST_Schedule_type { get; set; }
+            public int AST_Companytype { get; set; }
+            public int AST_Company_limit { get; set; }
+
+            // === Extra / Derived Property ===
+            public string AST_AccountHeadName { get; set; }
+        }
+
+        //SaveScheduleTemplate
+        public class ScheduleTemplate
+        {
+            // === Schedule Heading ===
+            public int ASH_ID { get; set; }
+            public string ASH_Name { get; set; }
+            public string ASH_DELFLG { get; set; }
+            public int ASH_CRBY { get; set; }
+            public string ASH_STATUS { get; set; }
+            public int ASH_UPDATEDBY { get; set; }
+            public string ASH_IPAddress { get; set; }
+            public int ASH_CompId { get; set; }
+            public int ASH_YEARId { get; set; }
+            public int Ash_scheduletype { get; set; }
+            public int Ash_Orgtype { get; set; }
+            public int ASH_Notes { get; set; }
+
+            // === Schedule SubHeading ===
+            public int ASSH_ID { get; set; }
+            public string ASSH_Name { get; set; }
+            public int ASSH_HeadingID { get; set; }
+            public string ASSH_DELFLG { get; set; }
+            public int ASSH_CRBY { get; set; }
+            public string ASSH_STATUS { get; set; }
+            public int ASSH_UPDATEDBY { get; set; }
+            public string ASSH_IPAddress { get; set; }
+            public int ASSH_CompId { get; set; }
+            public int ASSH_YEARId { get; set; }
+            public int ASSH_Notes { get; set; }
+            public int ASSH_scheduletype { get; set; }
+            public int ASSH_Orgtype { get; set; }
+
+            // === Schedule Item ===
+            public int ASI_ID { get; set; }
+            public string? ASI_Name { get; set; }
+            public int ASI_HeadingID { get; set; }
+            public int ASI_SubHeadingID { get; set; }
+            public string? ASI_DELFLG { get; set; }
+            public int ASI_CRBY { get; set; }
+            public string? ASI_STATUS { get; set; }
+            public string? ASI_IPAddress { get; set; }
+            public int ASI_CompId { get; set; }
+            public int ASI_YEARId { get; set; }
+            public int ASI_scheduletype { get; set; }
+            public int ASI_Orgtype { get; set; }
+
+            // === Schedule SubItem ===
+            public int ASSI_ID { get; set; }
+            public string? ASSI_Name { get; set; }
+            public int ASSI_HeadingID { get; set; }
+            public int ASSI_SubHeadingID { get; set; }
+            public int ASSI_ItemsID { get; set; }
+            public string? ASSI_DELFLG { get; set; }
+            public int ASSI_CRBY { get; set; }
+            public string? ASSI_STATUS { get; set; }
+            public int ASSI_UPDATEDBY { get; set; }
+            public string? ASSI_IPAddress { get; set; }
+            public int ASSI_CompId { get; set; }
+            public int ASSI_YEARId { get; set; }
+            public int ASSI_ScheduleType { get; set; }
+            public int ASSI_OrgType { get; set; }
+
+            // === Schedule Template ===
+            public int AST_ID { get; set; }
+            public string? AST_Name { get; set; }
+            public int AST_HeadingID { get; set; }
+            public int AST_SubHeadingID { get; set; }
+            public int AST_ItemID { get; set; }
+            public int AST_SubItemID { get; set; }
+            public int AST_AccHeadId { get; set; }
+            public string? AST_DELFLG { get; set; }
+            public int AST_CRBY { get; set; }
+            public string? AST_STATUS { get; set; }
+            public int AST_UPDATEDBY { get; set; }
+            public string? AST_IPAddress { get; set; }
+            public int AST_CompId { get; set; }
+            public int AST_YEARId { get; set; }
+            public int AST_Schedule_type { get; set; }
+            public int AST_Companytype { get; set; }
+            public int AST_Company_limit { get; set; }
+
+            // === Extra / Derived Property ===
+            public string AST_AccountHeadName { get; set; }
+        }
     }
 }
