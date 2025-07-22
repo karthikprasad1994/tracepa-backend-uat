@@ -16,7 +16,7 @@ namespace TracePca.Interface
       //  Task<(string Token, string Otp)> GenerateAndSendOtpJwtAsync(string email);
         Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email);
 
-        Task<LoginResponse> AuthenticateUserAsync(string email, string password);
+      //  Task<LoginResponse> AuthenticateUserAsync(string email, string password);
        // Task<LoginResponse> LoginUser(string email, string password);
         Task<LoginResponse> LoginUserAsync(string email, string password);
         SqlConnection GetConnection(string customerCode);

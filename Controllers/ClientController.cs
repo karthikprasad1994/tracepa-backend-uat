@@ -143,7 +143,8 @@ namespace TracePca.Controllers
 
 
 
-       // [AllowAnonymous]
+        // [AllowAnonymous]
+        
         [HttpGet("ActiveCustomers")]
         public async Task<IActionResult> GetActiveCustomers([FromQuery] int companyId)
         {
@@ -543,7 +544,7 @@ namespace TracePca.Controllers
         //}
 
 
-        [HttpGet("GetDRLDescription")]
+         [HttpGet("GetDRLDescription")]
             public async Task<IActionResult> GetDRLDescription(int companyId, int drlId)
             {
                 try
