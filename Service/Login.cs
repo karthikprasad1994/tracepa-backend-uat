@@ -547,7 +547,7 @@ namespace TracePca.Service
                 if (string.IsNullOrEmpty(customerCode))
                 {
                     return new LoginResponse { StatusCode = 404, Message = "Email not found in customer registration." };
-                }
+                   }
 
                 // Step 2: Connect to the customer's DB
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");

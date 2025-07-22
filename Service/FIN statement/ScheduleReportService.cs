@@ -396,7 +396,7 @@ namespace TracePca.Service.FIN_statement
             int ScheduleTypeID = 3;
             int RoundOff = 1;
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection4"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
 
             decimal totalIncome = 0, totalPrevIncome = 0;
