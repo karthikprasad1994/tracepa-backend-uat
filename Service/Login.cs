@@ -1,5 +1,7 @@
 ﻿using System.Data;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
+using System.Net.Sockets;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -368,138 +370,138 @@ namespace TracePca.Service
 
 
 
-        public async Task<LoginResponse> AuthenticateUserAsync(string email, string password)
-        {
-            try
-            {
-                // ✅ Step 1: Find Customer Code from Registration Database
-                var customer = await _customerRegistrationContext.MmcsCustomerRegistrations
+        //public async Task<LoginResponse> AuthenticateUserAsync(string email, string password)
+        //{
+        //    try
+        //    {
+        //        // ✅ Step 1: Find Customer Code from Registration Database
+        //        var customer = await _customerRegistrationContext.MmcsCustomerRegistrations
 
-                    .Where(c => c.McrCustomerEmail == email)
-                    .Select(c => new { c.McrCustomerCode })
-                    .FirstOrDefaultAsync();
+        //            .Where(c => c.McrCustomerEmail == email)
+        //            .Select(c => new { c.McrCustomerCode })
+        //            .FirstOrDefaultAsync();
 
-                if (customer == null)
-                {
-                    return new LoginResponse { StatusCode = 404, Message = "Email not found" };
-                }
+        //        if (customer == null)
+        //        {
+        //            return new LoginResponse { StatusCode = 404, Message = "Email not found" };
+        //        }
 
-                // ✅ Step 2: Get Connection String for Customer Database
-                string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
-                string newDbConnectionString = string.Format(connectionStringTemplate, customer.McrCustomerCode);
+        //        // ✅ Step 2: Get Connection String for Customer Database
+        //        string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+        //        string newDbConnectionString = string.Format(connectionStringTemplate, customer.McrCustomerCode);
 
-                // ✅ Step 3: Use DynamicDbContext with new Connection String
-                var optionsBuilder = new DbContextOptionsBuilder<DynamicDbContext>();
-                optionsBuilder.UseSqlServer(newDbConnectionString);
+        //        // ✅ Step 3: Use DynamicDbContext with new Connection String
+        //        var optionsBuilder = new DbContextOptionsBuilder<DynamicDbContext>();
+        //        optionsBuilder.UseSqlServer(newDbConnectionString);
 
-                using (var newDbContext = new DynamicDbContext(optionsBuilder.Options))
-                {
-                    // ✅ Step 4: Fetch user from the correct database
-                    var userDto = await newDbContext.SadUserDetails
-                        .AsNoTracking()
-                        .Where(u => u.UsrEmail == email)
-                        .Select(u => new LoginDto
-                        {
-                            UsrEmail = u.UsrEmail,
-                            UsrPassWord = u.UsrPassWord
-                        })
-                        .SingleOrDefaultAsync();
+        //        using (var newDbContext = new DynamicDbContext(optionsBuilder.Options))
+        //        {
+        //            // ✅ Step 4: Fetch user from the correct database
+        //            var userDto = await newDbContext.SadUserDetails
+        //                .AsNoTracking()
+        //                .Where(u => u.UsrEmail == email)
+        //                .Select(u => new LoginDto
+        //                {
+        //                    UsrEmail = u.UsrEmail,
+        //                    UsrPassWord = u.UsrPassWord
+        //                })
+        //                .SingleOrDefaultAsync();
 
-                    if (userDto == null)
-                    {
-                        return new LoginResponse { StatusCode = 404, Message = "Invalid Email" };
-                    }
+        //            if (userDto == null)
+        //            {
+        //                return new LoginResponse { StatusCode = 404, Message = "Invalid Email" };
+        //            }
 
-                    // ✅ Debugging: Log stored hashed password
-                    Console.WriteLine($"[DEBUG] Stored Hashed Password: {userDto.UsrPassWord}");
+        //            // ✅ Debugging: Log stored hashed password
+        //            Console.WriteLine($"[DEBUG] Stored Hashed Password: {userDto.UsrPassWord}");
 
-                    // ✅ Step 5: Verify Password
-                    bool isPasswordValid = BCrypt.Net.BCrypt.Verify(password, userDto.UsrPassWord);
+        //            // ✅ Step 5: Verify Password
+        //            bool isPasswordValid = BCrypt.Net.BCrypt.Verify(password, userDto.UsrPassWord);
 
-                    if (!isPasswordValid)
-                    {
-                        return new LoginResponse { StatusCode = 401, Message = "Invalid Password" };
-                    }
+        //            if (!isPasswordValid)
+        //            {
+        //                return new LoginResponse { StatusCode = 401, Message = "Invalid Password" };
+        //            }
 
-                    // ✅ Step 6: Fetch User ID
-                    var userId = await newDbContext.SadUserDetails
-                        .AsNoTracking()
-                        .Where(a => a.UsrEmail == email)
-                        .Select(a => a.UsrId)
-                        .FirstOrDefaultAsync();
+        //            // ✅ Step 6: Fetch User ID
+        //            var userId = await newDbContext.SadUserDetails
+        //                .AsNoTracking()
+        //                .Where(a => a.UsrEmail == email)
+        //                .Select(a => a.UsrId)
+        //                .FirstOrDefaultAsync();
 
                 
 
-                    // ✅ Step 7: Generate JWT Token
-                    string token = GenerateJwtToken(userDto);
+        //            // ✅ Step 7: Generate JWT Token
+        //            //string token = GenerateJwtToken(userDto);
                    
 
 
 
-                    return new LoginResponse
-                    {
-                        StatusCode = 200,
-                        Message = "Login successful",
-                        Token = token,
-                        UsrId = userId,
-                        CustomerCode = customer.McrCustomerCode
+        //            return new LoginResponse
+        //            {
+        //                StatusCode = 200,
+        //                Message = "Login successful",
+        //                Token = token,
+        //                UsrId = userId,
+        //                CustomerCode = customer.McrCustomerCode
 
 
-                    };
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERROR] Exception in AuthenticateUserAsync: {ex.Message}");
-                return new LoginResponse
-                {
-                    StatusCode = 500,
-                    Message = $"An error occurred: {ex.Message}"
-                };
-            }
-        }
+        //            };
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine($"[ERROR] Exception in AuthenticateUserAsync: {ex.Message}");
+        //        return new LoginResponse
+        //        {
+        //            StatusCode = 500,
+        //            Message = $"An error occurred: {ex.Message}"
+        //        };
+        //    }
+        //}
 
 
-        public string GenerateJwtToken(LoginDto userDto)
-        {
-            try
-            {
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var secretKey = _configuration["JwtSettings:Secret"];
-                var issuer = _configuration["JwtSettings:Issuer"];
-                var audience = _configuration["JwtSettings:Audience"];
-                var expiryInHoursString = _configuration["JwtSettings:ExpiryInHours"];
+        //public string GenerateJwtToken(LoginDto userDto)
+        //{
+        //    try
+        //    {
+        //        var tokenHandler = new JwtSecurityTokenHandler();
+        //        var secretKey = _configuration["JwtSettings:Secret"];
+        //        var issuer = _configuration["JwtSettings:Issuer"];
+        //        var audience = _configuration["JwtSettings:Audience"];
+        //        var expiryInHoursString = _configuration["JwtSettings:ExpiryInHours"];
 
-                if (string.IsNullOrEmpty(secretKey) || string.IsNullOrEmpty(issuer) ||
-                    string.IsNullOrEmpty(audience) || string.IsNullOrEmpty(expiryInHoursString))
-                {
-                    throw new Exception("JWT configuration values are missing.");
-                }
+        //        if (string.IsNullOrEmpty(secretKey) || string.IsNullOrEmpty(issuer) ||
+        //            string.IsNullOrEmpty(audience) || string.IsNullOrEmpty(expiryInHoursString))
+        //        {
+        //            throw new Exception("JWT configuration values are missing.");
+        //        }
 
-                int expiryInHours = int.Parse(expiryInHoursString);
-                var key = Encoding.UTF8.GetBytes(secretKey);
+        //        int expiryInHours = int.Parse(expiryInHoursString);
+        //        var key = Encoding.UTF8.GetBytes(secretKey);
 
-                var tokenDescriptor = new SecurityTokenDescriptor
-                {
-                    Subject = new ClaimsIdentity(new[]
-                    {
-                //new Claim(ClaimTypes.NameIdentifier, userDto.UsrId.ToString()),
-                new Claim(ClaimTypes.Email, userDto.UsrEmail)
-            }),
-                    Expires = DateTime.UtcNow.AddHours(expiryInHours),
-                    Issuer = issuer,
-                    Audience = audience,
-                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-                };
+        //        var tokenDescriptor = new SecurityTokenDescriptor
+        //        {
+        //            Subject = new ClaimsIdentity(new[]
+        //            {
+        //        //new Claim(ClaimTypes.NameIdentifier, userDto.UsrId.ToString()),
+        //        new Claim(ClaimTypes.Email, userDto.UsrEmail)
+        //    }),
+        //            Expires = DateTime.UtcNow.AddHours(expiryInHours),
+        //            Issuer = issuer,
+        //            Audience = audience,
+        //            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+        //        };
 
-                var token = tokenHandler.CreateToken(tokenDescriptor);
-                return tokenHandler.WriteToken(token);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Error generating JWT token: {ex.Message}");
-            }
-        }
+        //        var token = tokenHandler.CreateToken(tokenDescriptor);
+        //        return tokenHandler.WriteToken(token);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        throw new Exception($"Error generating JWT token: {ex.Message}");
+        //    }
+        //}
 
         public async Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email)
         {
@@ -516,6 +518,12 @@ namespace TracePca.Service
         public async Task<bool> VerifyOtpJwtAsync(string token, string enteredOtp)
         {
             return await Task.FromResult(_otpService.VerifyOtpJwt(token, enteredOtp)); // ✅ Use await correctly
+        }
+
+        public string GetLocalIp()
+        {
+            var host = Dns.GetHostEntry(Dns.GetHostName());
+            return host.AddressList.FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork)?.ToString() ?? "Unavailable";
         }
 
         public async Task<LoginResponse> LoginUserAsync(string email, string password)
@@ -582,7 +590,7 @@ namespace TracePca.Service
                         if (isPasswordValid)
                         {
                             // ✅ Migrate password to BCrypt
-                            string newHash = BCrypt.Net.BCrypt.HashPassword(password);
+                          //  string newHash = BCrypt.Net.BCrypt.HashPassword(password);
 
                           //  Update the user's password
                             //await connection.ExecuteAsync(
@@ -610,7 +618,7 @@ namespace TracePca.Service
                     new { email = plainEmail });
 
                 // Step 6: Generate JWT
-                string token = GenerateJwtTokens(user);
+                string token = GenerateJwtToken(email, customerCode);
                 string? ymsId = null;
                 int? ymsYearId = null;
 
@@ -628,10 +636,14 @@ namespace TracePca.Service
                     }
                 }
 
+
+
+
+
                 var httpContext = _httpContextAccessor.HttpContext;
                 string clientIp = httpContext?.Request?.Headers["X-Forwarded-For"].FirstOrDefault()
                     ?? httpContext?.Connection?.RemoteIpAddress?.ToString();
-
+                string systemIp = GetLocalIp();
 
 
 
@@ -644,7 +656,8 @@ namespace TracePca.Service
                     YmsId = ymsId,
                     YmsYearId = ymsYearId,
                     CustomerCode = customerCode,
-                    ClientIpAddress = clientIp
+                    ClientIpAddress = clientIp,
+
                 };
             }
             catch (Exception ex)
@@ -832,15 +845,15 @@ namespace TracePca.Service
         //         }
         //     }
 
-        public SqlConnection GetConnection(string customerCode)
+        public SqlConnection GetConnection(string CustomerCode)
         {
             var template = _configuration.GetConnectionString("NewDatabaseTemplate");
-            var finalConnection = string.Format(template, customerCode);
+            var finalConnection = string.Format(template, CustomerCode);
             return new SqlConnection(finalConnection);
         }
 
 
-        public string GenerateJwtTokens(LoginDto userDto)
+        public string GenerateJwtToken(string userDto, string CustomerCode)
         {
             try
             {
@@ -863,8 +876,9 @@ namespace TracePca.Service
                 {
                     Subject = new ClaimsIdentity(new[]
                     {
-                //new Claim(ClaimTypes.NameIdentifier, userDto.UsrId.ToString()),
-                new Claim(ClaimTypes.Email, userDto.UsrEmail)
+                // new Claim(ClaimTypes.NameIdentifier, userDto.UsrId.ToString()),
+                new Claim(ClaimTypes.Email, userDto),
+                new Claim("CustomerCode", CustomerCode ?? string.Empty) // 👈 Add CustomerCode as a custom claim
             }),
                     Expires = DateTime.UtcNow.AddHours(expiryInHours),
                     Issuer = issuer,
@@ -880,6 +894,8 @@ namespace TracePca.Service
                 throw new Exception($"Error generating JWT token: {ex.Message}");
             }
         }
+
+
 
         public async Task<List<FormPermissionDto>> GetUserPermissionsWithFormNameAsync(int companyId, int userId)
         {
