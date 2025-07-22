@@ -9,10 +9,12 @@ namespace TracePca.Controllers.Audit
     public class AuditCompletionController : ControllerBase
     {
         private readonly AuditCompletionInterface _auditCompletionInterface;
+        private readonly EngagementPlanInterface _engagementInterface;
 
-        public AuditCompletionController(AuditCompletionInterface auditCompletionInterface)
+        public AuditCompletionController(AuditCompletionInterface auditCompletionInterface, EngagementPlanInterface engagementInterface)
         {
             _auditCompletionInterface = auditCompletionInterface;
+            _engagementInterface = engagementInterface;
         }
 
         [HttpGet("LoadAllAuditDDLData")]
@@ -211,6 +213,90 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpGet("LoadAllAttachmentsById")]
+        public async Task<IActionResult> LoadAllAttachmentsByIdAsync(int compId, int attachId)
+        {
+            try
+            {
+                var result = await _engagementInterface.LoadAllAttachmentsByIdAsync(compId, attachId);
+                return Ok(new { success = true, message = result.Count > 0 ? "Attachments loaded successfully." : "No attachments found.", data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "An error occurred while loading attachments.", error = ex.Message });
+            }
+        }
+
+        [HttpPost("UploadAndSaveAttachment")]
+        public async Task<IActionResult> UploadAndSaveAttachment([FromForm] FileAttachmentDTO dto)
+        {
+            try
+            {
+                var (attachmentId, relativeFilePath) = await _engagementInterface.UploadAndSaveAttachmentAsync(dto, "StandardAudit");
+                if (attachmentId > 0)
+                {
+                    return Ok(new { success = true, message = "File uploaded and saved successfully.", data = attachmentId });
+                }
+                else
+                {
+                    return StatusCode(500, new { success = false, message = "File upload failed. No attachment record was saved." });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while uploading the file: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("RemoveAttachmentDoc")]
+        public async Task<IActionResult> RemoveAttachmentDoc(int compId, int attachId, int docId, int userId)
+        {
+            try
+            {
+                await _engagementInterface.RemoveAttachmentDocAsync(compId, attachId, docId, userId);
+                return Ok(new { success = true, message = "Attachment marked as deleted successfully.", data = docId });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while marking the attachment as deleted: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("UpdateAttachmentDocDescription")]
+        public async Task<IActionResult> UpdateAttachmentDocDescription(int compId, int attachId, int docId, int userId, string description)
+        {
+            try
+            {
+                await _engagementInterface.UpdateAttachmentDocDescriptionAsync(compId, attachId, docId, userId, description);
+                return Ok(new { success = true, message = "Attachment description updated successfully.", data = docId });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while updating the attachment description: {ex.Message}" });
+            }
+        }
+
+        [HttpGet("DownloadAttachment")]
+        public async Task<IActionResult> DownloadAttachment(int compId, int attachId, int docId)
+        {
+            try
+            {
+                var (isFileExists, messageOrfileUrl) = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId, "StandardAudit");
+                if (isFileExists)
+                {
+                    return Ok(new { statusCode = 200, success = true, fileUrl = messageOrfileUrl });
+                }
+                else
+                {
+                    return Ok(new { statusCode = 200, success = false, message = messageOrfileUrl });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while downloading the file: {ex.Message}" });
+            }
+        }
+
         [HttpPost("GenerateAndDownloadReport")]
         public async Task<IActionResult> GenerateAndDownloadReport(int compId, int auditId, string format = "pdf")
         {
@@ -229,7 +315,6 @@ namespace TracePca.Controllers.Audit
                 });
             }
         }
-
 
         [HttpPost("GenerateReportAndGetURLPath")]
         public async Task<IActionResult> GenerateReportAndGetURLPath(int compId, int auditId, string format = "pdf")

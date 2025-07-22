@@ -321,8 +321,12 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<Dto.Audit.CustomerDto>> GetCustomerLoeAsync(int companyId)
         {
+<<<<<<< HEAD
+            using var connection = new SqlConnection(_configuration.GetConnectionString("NewDatabaseTemplate"));
+=======
            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             using var connection = _dbConnectionProvider.GetConnection();
+>>>>>>> 373ac9c1607cd01fc5fd925a6e70d7c739a47960
 
             string query = @"SELECT LOE_ID as CustomerID, LOE_Name as CustomerName
                      FROM SAD_CUST_LOE

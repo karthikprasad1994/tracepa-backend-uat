@@ -5,7 +5,18 @@
     <Controller_SelectedScaffolderID>ApiControllerWithActionsScaffolder</Controller_SelectedScaffolderID>
     <Controller_SelectedScaffolderCategoryPath>root/Common/Api</Controller_SelectedScaffolderCategoryPath>
     <WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
+<<<<<<< HEAD
+
+    <NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
+
+    <NameOfLastUsedPublishProfile>E:\Harsha\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile6.pubxml</NameOfLastUsedPublishProfile>
+ 
+    <NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
+
+    <NameOfLastUsedPublishProfile>E:\Harsha\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile6.pubxml</NameOfLastUsedPublishProfile>
+=======
     <NameOfLastUsedPublishProfile>C:\Users\Crcuial\Desktop\Trace-B\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
+>>>>>>> 373ac9c1607cd01fc5fd925a6e70d7c739a47960
   </PropertyGroup>
 	<PropertyGroup>
 		<ActiveDebugProfile>https</ActiveDebugProfile>
