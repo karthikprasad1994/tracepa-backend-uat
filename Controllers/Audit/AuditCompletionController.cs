@@ -213,6 +213,26 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpGet("GetSignedByUDINInAuditAsync")]
+        public async Task<IActionResult> GetSignedByUDINInAudit(int compId, int auditId)
+        {
+            try
+            {
+                var data = await _auditCompletionInterface.GetSignedByUDINInAuditAsync(compId, auditId);
+
+                if (data == null || (data.SA_SignedBy == 0 && string.IsNullOrWhiteSpace(data.SA_UDIN)))
+                {
+                    return Ok(new { statusCode = 200, message = "No Data." });
+                }
+
+                return Ok(new { statusCode = 200, message = "Audit completion SignedByUDIN details fetched successfully.", data = data });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to fetch audit completion SignedByUDIN details.", error = ex.Message });
+            }
+        }
+
         [HttpGet("LoadAllAttachmentsById")]
         public async Task<IActionResult> LoadAllAttachmentsByIdAsync(int compId, int attachId)
         {
