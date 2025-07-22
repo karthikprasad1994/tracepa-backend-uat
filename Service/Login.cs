@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using BCrypt.Net;
 using Dapper;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -169,7 +170,7 @@ namespace TracePca.Service
                     MCR_Emails = registerModel.McrCustomerEmail + ","
 
                 });
-
+                await CheckAndAddAccessCodeConnectionStringAsync(newCustomerCode);
                 if (rowsInserted == 0)
                 {
                     return new ObjectResult(new { statuscode = 500, message = "Failed to insert customer." }) { StatusCode = 500 };
@@ -184,7 +185,7 @@ namespace TracePca.Service
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
                 string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
 
-                string scriptFilePath = Path.Combine(@"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SQL_Scripts", "Tables.txt");
+               string scriptFilePath = Path.Combine(@"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SQL_Scripts", "Tables.txt");
 
                 // Ensure the folder and file exist
                 if (!Directory.Exists(Path.GetDirectoryName(scriptFilePath)))
@@ -251,7 +252,8 @@ namespace TracePca.Service
                 return new OkObjectResult(new
                 {
                     statuscode = 201,
-                    message = "Customer registered successfully."
+                    message = "Customer registered successfully.",
+                    code = newCustomerCode
                 });
             }
             catch (Exception ex)
@@ -430,8 +432,8 @@ namespace TracePca.Service
 
                     // ✅ Step 7: Generate JWT Token
                     string token = GenerateJwtToken(userDto);
-                    int? ymsId = null;
                    
+
 
 
                     return new LoginResponse
@@ -440,7 +442,9 @@ namespace TracePca.Service
                         Message = "Login successful",
                         Token = token,
                         UsrId = userId,
-                       
+                        CustomerCode = customer.McrCustomerCode
+
+
                     };
                 }
             }
@@ -535,7 +539,7 @@ namespace TracePca.Service
                 if (string.IsNullOrEmpty(customerCode))
                 {
                     return new LoginResponse { StatusCode = 404, Message = "Email not found in customer registration." };
-                }
+                   }
 
                 // Step 2: Connect to the customer's DB
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
@@ -580,12 +584,12 @@ namespace TracePca.Service
                             // ✅ Migrate password to BCrypt
                             string newHash = BCrypt.Net.BCrypt.HashPassword(password);
 
-                            // Update the user's password
-                            await connection.ExecuteAsync(
-                                "UPDATE Sad_UserDetails SET usr_Password = @newHash WHERE LOWER(usr_Email) = @email",
-                                new { newHash, email = plainEmail });
+                          //  Update the user's password
+                            //await connection.ExecuteAsync(
+                            //    "UPDATE Sad_UserDetails SET usr_Password = @newHash WHERE LOWER(usr_Email) = @email",
+                            //    new { newHash, email = plainEmail });
 
-                            Console.WriteLine("🔁 Legacy password migrated to BCrypt.");
+                            //Console.WriteLine("🔁 Legacy password migrated to BCrypt.");
                         }
                     }
                     catch
@@ -624,6 +628,13 @@ namespace TracePca.Service
                     }
                 }
 
+                var httpContext = _httpContextAccessor.HttpContext;
+                string clientIp = httpContext?.Request?.Headers["X-Forwarded-For"].FirstOrDefault()
+                    ?? httpContext?.Connection?.RemoteIpAddress?.ToString();
+
+
+
+
                 return new LoginResponse
                 {
                     StatusCode = 200,
@@ -631,7 +642,9 @@ namespace TracePca.Service
                     Token = token,
                     UsrId = userId,
                     YmsId = ymsId,
-                    YmsYearId = ymsYearId
+                    YmsYearId = ymsYearId,
+                    CustomerCode = customerCode,
+                    ClientIpAddress = clientIp
                 };
             }
             catch (Exception ex)
