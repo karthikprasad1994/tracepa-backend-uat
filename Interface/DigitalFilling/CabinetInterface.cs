@@ -30,5 +30,7 @@ namespace TracePca.Interface.DigitalFilling
 
 		Task<int> UpdateDocumentTypeAsync(int iDocTypeID, string DocumentName, string DocumentNote, [FromBody] DocumentTypeDto dto);
 
+		Task<IEnumerable<SearchDto>> SearchDocumentsAsync(string sValue);
+
 	}
 }
