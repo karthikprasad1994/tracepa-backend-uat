@@ -14,7 +14,7 @@ namespace TracePca.Controllers.Audit
     [ApiController]
     public class AuditSummaryController : ControllerBase
     {
-        
+
         private AuditSummaryInterface _AuditSummaryInterface;
         public AuditSummaryController(AuditSummaryInterface AuditSummaryInterface)
         {
@@ -41,7 +41,7 @@ namespace TracePca.Controllers.Audit
 
 
         [HttpGet("LoadAudiNoDetails")]
-        public async Task<IActionResult> LoadAudiNoDetails(int iCustID,int compId,int Yearid, int userid)
+        public async Task<IActionResult> LoadAudiNoDetails(int iCustID, int compId, int Yearid, int userid)
         {
             var dropdownData = await _AuditSummaryInterface.LoadAuditNoDataAsync(iCustID, compId, Yearid, userid);
 
@@ -104,7 +104,7 @@ namespace TracePca.Controllers.Audit
 
 
         [HttpGet("GetDocumentRequestSummary")]
-        public async Task<IActionResult> GetDocumentRequestSummary([FromQuery] int compId, [FromQuery] int customerId, [FromQuery] int auditNo,   [FromQuery] int yearId)
+        public async Task<IActionResult> GetDocumentRequestSummary([FromQuery] int compId, [FromQuery] int customerId, [FromQuery] int auditNo, [FromQuery] int yearId)
         {
             try
             {
@@ -398,7 +398,7 @@ namespace TracePca.Controllers.Audit
             try
             {
                 // Call service method to update asset details
-                await _AuditSummaryInterface.UpdateStandardAuditASCAMdetailsAsync(sacm_pkid,sacm_sa_id, updateDto);
+                await _AuditSummaryInterface.UpdateStandardAuditASCAMdetailsAsync(sacm_pkid, sacm_sa_id, updateDto);
 
                 // Return success response
                 return Ok(new { message = "Standard Audit ASCAM details updated successfully." });
@@ -413,7 +413,7 @@ namespace TracePca.Controllers.Audit
             }
         }
 
-         
+
 
         [HttpPost("UploadCMAAttachments")]
         public async Task<IActionResult> UploadCMAAttachments([FromForm] CMADtoAttachment dto)
@@ -485,63 +485,6 @@ namespace TracePca.Controllers.Audit
 
 
 
-<<<<<<< HEAD
-		//[HttpPost("GetCAMAttachmentDetails")]
-		//public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID, [FromBody] CAMAttachmentDetailsDto dto)
-		//{
-		//	try
-		//	{
-		//		var camDetails = await _AuditSummaryInterface.GetCAMAttachmentDetailsAsync(AttachID, dto);
-
-		//		if (camDetails != null && camDetails.Any())
-		//		{
-		//			return Ok(new
-		//			{
-		//				statusCode = 200,
-		//				message = "Critical Audit Matter Attachment details fetched successfully.",
-		//				data = new
-		//				{
-		//					camDetails = camDetails
-		//				}
-		//			});
-		//		}
-		//		else
-		//		{
-		//			return NotFound(new
-		//			{
-		//				statusCode = 404,
-		//				message = "No Critical Audit Matter Attachment details found for the selected filters.",
-		//				data = new
-		//				{
-		//					camDetails = new List<object>()
-		//				}
-		//			});
-		//		}
-		//	}
-		//	catch (Exception ex)
-		//	{
-		//		return StatusCode(500, new
-		//		{
-		//			statusCode = 500,
-		//			message = $"Internal server error: {ex.Message}",
-		//			data = new
-		//			{
-		//				camDetails = new List<object>()
-		//			}
-		//		});
-		//	}
-		//}
-
-
-
-		[HttpGet("GetCAMAttachmentDetails")]
-		public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID)
-		{
-			try
-			{
-				var camDetails = await _AuditSummaryInterface.GetCAMAttachmentDetailsAsync(AttachID);
-=======
->>>>>>> 243edc43391c4b6ebb2ae75cfed0880fa0e20a8f
 
         //[HttpPost("GetCAMAttachmentDetails")]
         //public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID, [FromBody] CAMAttachmentDetailsDto dto)

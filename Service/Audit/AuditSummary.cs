@@ -51,7 +51,7 @@ namespace TracePca.Service.Audit
         }
 
 
-     public async Task<DropDownDataDto> LoadAuditNoDataAsync(int custId, int compId, int financialYearId, int loginUserId)
+        public async Task<DropDownDataDto> LoadAuditNoDataAsync(int custId, int compId, int financialYearId, int loginUserId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -141,7 +141,7 @@ namespace TracePca.Service.Audit
             return new DropDownDataDto
             {
                 CustomerDetails = CustomersDt.Result.ToList()
-              
+
                 //FeeTypes = FeesType.Result.ToList(),
                 //Loenames = loeListTask.Result.ToList()
             };
@@ -158,7 +158,7 @@ namespace TracePca.Service.Audit
                 Join SAD_CUSTOMER_MASTER on Cust_Id=b.SA_CustID Join Content_Management_Master on CMM_ID=b.SA_AuditTypeID 
             Where b.SA_CompID=@CompId And b.SA_CustID=@CustomerId And b.SA_ID=@AuditNo
             Order by b.SA_ID Desc";
-     
+
 
             var result = await connection.QueryAsync<AuditDetailsDto>(query, new
             {
@@ -169,7 +169,7 @@ namespace TracePca.Service.Audit
 
             return result;
         }
-         
+
         public async Task<IEnumerable<DocumentRequestSummaryDto>> GetDocumentRequestSummaryAsync(int compId, int customerId, int auditNo, int yearId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -244,8 +244,8 @@ namespace TracePca.Service.Audit
             return result;
         }
 
-         
-        public async Task<IEnumerable<AuditProgramSummaryDto>> GetAuditProgramSummaryAsync(int compId,  int auditNo)
+
+        public async Task<IEnumerable<AuditProgramSummaryDto>> GetAuditProgramSummaryAsync(int compId, int auditNo)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -318,23 +318,6 @@ namespace TracePca.Service.Audit
             //Where (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') Or a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId Order by 
             //CASE WHEN cm.cmm_Desc IS NULL THEN 1 ELSE 0 END, cm.cmm_ID ASC";
 
-            string query = @"SELECT A.PKID,A.WorkpaperChecklist,A.WorkpaperNo,A.WorkpaperRef,A.Observation,A.Conclusion,A.ReviewerComments,
-                            STUFF((SELECT ', ' + cmm_Desc FROM Content_Management_Master
-                            WHERE CHARINDEX(',' + CAST(cmm_ID AS VARCHAR) + ',', ',' + REPLACE(A.TypeOfTest, ' ', '') + ',') > 0
-                            FOR XML PATH('')), 1, 2, '') AS TypeOfTest,
-                            A.Status,A.AttachID,A.CreatedBy,A.CreatedOn,A.ReviewedBy,A.ReviewedOn
-                            FROM (SELECT ISNULL(cm.cmm_ID, a.SSW_ID) As PKID,IsNull(cm.cmm_Desc,'NA') As WorkpaperChecklist,
-                            SSW_WorkpaperNo As WorkpaperNo,SSW_WorkpaperRef As WorkpaperRef,SSW_Observation As Observation,SSW_Conclusion As Conclusion,
-                            SSW_ReviewerComments As ReviewerComments,SSW_TypeOfTest as TypeOfTest,
-                            CASE WHEN a.SSW_Status=1 THEN 'Open' WHEN a.SSW_Status=2 THEN 'WIP' WHEN a.SSW_Status=3 THEN 'Closed' END Status,
-                            SSW_AttachID As AttachID,IsNull(b.usr_FullName,'-') As CreatedBy,ISNULL(Convert(Varchar(10),SSW_CrOn,103),'-') As CreatedOn, 
-                            IsNull(c.usr_FullName,'-') As ReviewedBy,ISNULL(Convert(Varchar(10),SSW_ReviewedOn,103),'-') As ReviewedOn,
-                            cm.cmm_Desc,cm.cmm_ID FROM Content_Management_Master cm 
-                            FULL OUTER JOIN StandardAudit_ScheduleConduct_WorkPaper a ON cm.cmm_ID = a.SSW_WPCheckListID And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId 
-                            LEFT JOIN sad_userdetails b on b.Usr_ID=a.SSW_CrBy 
-                            LEFT JOIN sad_userdetails c on c.Usr_ID=a.SSW_ReviewedBy 
-                            WHERE (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') OR a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId) A
-                            ORDER BY CASE WHEN A.cmm_Desc IS NULL THEN 1 ELSE 0 END, A.cmm_ID ASC";
 
             //Changed by steffi on 15-07-2025, Type of test data stroing multiple value.
             string query = @"SELECT A.PKID,A.WorkpaperChecklist,A.WorkpaperNo,A.WorkpaperRef,A.Observation,A.Conclusion,A.ReviewerComments,
@@ -492,11 +475,11 @@ namespace TracePca.Service.Audit
         }
 
 
-        private async Task<int> SaveAttachmentsModulewise(CMADtoAttachment dto,  int CompId, string AccessCodeDirectory, string sModule, string sFilePath, int iUserId, int iAttachID)
+        private async Task<int> SaveAttachmentsModulewise(CMADtoAttachment dto, int CompId, string AccessCodeDirectory, string sModule, string sFilePath, int iUserId, int iAttachID)
         {
 
-            string sFileExtension = "";  
-            string sFileName = "";  int iDocID= 0;
+            string sFileExtension = "";
+            string sFileName = ""; int iDocID = 0;
             int iPosSlash = sFilePath.LastIndexOf('\\');
             int iPosDot = sFilePath.LastIndexOf('.');
 
@@ -518,8 +501,8 @@ namespace TracePca.Service.Audit
 
             if (iDocID == 0)
             {
-               int icheck = await CheckDocumentIdAsync(CompId, iAttachID);
-                if(icheck > 0)
+                int icheck = await CheckDocumentIdAsync(CompId, iAttachID);
+                if (icheck > 0)
                 {
                     iAttachID = await GenerateNextAttachmentIdAsync(CompId);
                     iDocID = await GetDocumentIdAsync(CompId);
@@ -557,7 +540,7 @@ namespace TracePca.Service.Audit
 
             string sFileType = "";
 
-            if(aImageExtensions.Contains(sFileExtension) == true)
+            if (aImageExtensions.Contains(sFileExtension) == true)
             {
                 sFileType = "Images";
             }
@@ -573,7 +556,7 @@ namespace TracePca.Service.Audit
             if (!Directory.Exists(sAccessCodeModulePath))
                 Directory.CreateDirectory(sAccessCodeModulePath);
 
-            string sFinalDirectory = Path.Combine(sAccessCodeModulePath, sFileType, Convert.ToInt32(iDocID/301).ToString());
+            string sFinalDirectory = Path.Combine(sAccessCodeModulePath, sFileType, Convert.ToInt32(iDocID / 301).ToString());
             if (!Directory.Exists(sFinalDirectory))
                 Directory.CreateDirectory(sFinalDirectory);
 
@@ -613,7 +596,7 @@ namespace TracePca.Service.Audit
             return iAttachID;
         }
 
-        private async Task UpdateStandardAuditASCAMAttachmentdetails(int compId, int CAMPkID,int attachId )
+        private async Task UpdateStandardAuditASCAMAttachmentdetails(int compId, int CAMPkID, int attachId)
         {
             using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
@@ -634,7 +617,7 @@ namespace TracePca.Service.Audit
 
                 string AccessCodeDirectory = await GetAccessCodeDirectory(dto.CompId);
 
-                string UserLoginName = await GetUserName(dto.CompId,dto.UserId);
+                string UserLoginName = await GetUserName(dto.CompId, dto.UserId);
 
                 //1. Generate Filepath
                 String sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
@@ -658,7 +641,7 @@ namespace TracePca.Service.Audit
 
 
                 UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
-                 
+
                 return "Successs";
             }
             catch (Exception ex)
@@ -676,25 +659,6 @@ namespace TracePca.Service.Audit
             using var transaction = connection.BeginTransaction();
             string query = "";
 
-<<<<<<< HEAD
-		public async Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID)
-		{
-			using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-			await connection.OpenAsync();
-			using var transaction = connection.BeginTransaction();
-			string query = "";
- 
-			query = @"Select Atch_DocID,ATCH_FNAME,ATCH_EXT,ATCH_Desc,Usr_FullName as ATCH_CreatedBy,Convert(Varchar(10),ATCH_CREATEDON,103) as 
-                    ATCH_CREATEDON,ATCH_SIZE,ATCH_ReportType,CASE WHEN Atch_Vstatus = 'AS' THEN 'Not Shared' WHEN Atch_Vstatus = 'A' THEN 'Shared' 
-                    WHEN Atch_Vstatus = 'C' THEN 'Received' END AS Atch_Vstatus From edt_attachments A join Sad_Userdetails B on A.ATCH_CreatedBy = B.Usr_ID 
-                    Where ATCH_CompID=1 And ATCH_ID = @atch_DocID AND ATCH_Status <> 'D' and Atch_Vstatus in ('A','AS','C') Order by ATCH_CREATEDON ";
-
-
-			var result = await connection.QueryAsync<CAMAttachmentDetailsDto>(query, new
-			{
-				atch_DocID = AttachID
-			}, transaction);
-=======
             query = @"Select Atch_DocID,ATCH_FNAME,ATCH_EXT,ATCH_Desc,Usr_FullName as ATCH_CreatedBy,Convert(Varchar(10),ATCH_CREATEDON,103) as 
                 ATCH_CREATEDON,ATCH_SIZE,ATCH_ReportType,CASE WHEN Atch_Vstatus = 'AS' THEN 'Not Shared' WHEN Atch_Vstatus = 'A' THEN 'Shared' 
                 WHEN Atch_Vstatus = 'C' THEN 'Received' END AS Atch_Vstatus From edt_attachments A join Sad_Userdetails B on A.ATCH_CreatedBy = B.Usr_ID 
@@ -715,59 +679,11 @@ namespace TracePca.Service.Audit
         //	using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         //	await connection.OpenAsync();
         //	using var transaction = connection.BeginTransaction();
->>>>>>> 243edc43391c4b6ebb2ae75cfed0880fa0e20a8f
 
         //	string query = "";
 
 
-<<<<<<< HEAD
-		//public async Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID, CAMAttachmentDetailsDto dto)
-		//{
-		//	using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-		//	await connection.OpenAsync();
-		//	using var transaction = connection.BeginTransaction();
-
-		//	string query = "";
-
-
-		//	//var AttachID = await connection.ExecuteScalarAsync<int>(@"Select SACAM_AttachID from StandardAudit_AuditSummary_CAMDetails where SACAM_PKID=@SACAM_PKID", new { SACAM_PKID = auditNo }, transaction);
-
-		//    query = @"Select Atch_DocID,ATCH_FNAME,ATCH_EXT,ATCH_Desc,Usr_FullName as ATCH_CreatedBy,Convert(Varchar(10),ATCH_CREATEDON,103) as 
-		//                  ATCH_CREATEDON,ATCH_SIZE,ATCH_ReportType,CASE WHEN Atch_Vstatus = 'AS' THEN 'Not Shared' WHEN Atch_Vstatus = 'A' THEN 'Shared' 
-		//                  WHEN Atch_Vstatus = 'C' THEN 'Received' END AS Atch_Vstatus From edt_attachments A join Sad_Userdetails B on A.ATCH_CreatedBy = B.Usr_ID 
-		//                  Where ATCH_CompID=1 And ATCH_ID = @atch_DocID AND ATCH_Status <> 'D' and Atch_Vstatus in ('A','AS','C') Order by ATCH_CREATEDON ";
-
-
-		//	var result = await connection.QueryAsync<CAMAttachmentDetailsDto>(query, new
-		//	{
-		//		ATCH_FNAME = dto.ATCH_FNAME,
-		//		ATCH_EXT = dto.ATCH_EXT,
-		//		ATCH_Desc = dto.ATCH_Desc,
-		//		ATCH_CREATEDBY = dto.ATCH_CREATEDBY,
-		//		ATCH_CREATEDON = dto.ATCH_CREATEDON,
-		//		atch_DocID = AttachID
-		//	}, transaction);
-
-		//	return result;
-		//}
-
-
-		//private async Task<int> SaveAttachmentsModulewise(int iCompID,string sAccessCodeDirectory, string sModule, string sFilePath, int iUserId, int iAttachID)
-		//{
-		//    using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-		//    {
-		//        await connection.OpenAsync();
-		//        //  return await connection.ExecuteScalarAsync<int>(
-		//        //      @"SELECT ISNULL(MAX( ATCH_DOCID), 0) + 1 FROM Edt_Attachments 
-		//        //WHERE ATCH_COMPID = @CustomerId AND ATCH_AuditID = @AuditId",
-		//        //      new { customerId, auditId });
-		//        string sFileExtension = "";
-		//        string sFileName = "";
-		//        int iPosSlash = sFilePath.LastIndexOf('\\') + 1;
-		//        int iPosDot = sFilePath.LastIndexOf('.') + 1;
-=======
         //	//var AttachID = await connection.ExecuteScalarAsync<int>(@"Select SACAM_AttachID from StandardAudit_AuditSummary_CAMDetails where SACAM_PKID=@SACAM_PKID", new { SACAM_PKID = auditNo }, transaction);
->>>>>>> 243edc43391c4b6ebb2ae75cfed0880fa0e20a8f
 
         //    query = @"Select Atch_DocID,ATCH_FNAME,ATCH_EXT,ATCH_Desc,Usr_FullName as ATCH_CreatedBy,Convert(Varchar(10),ATCH_CREATEDON,103) as 
         //                  ATCH_CREATEDON,ATCH_SIZE,ATCH_ReportType,CASE WHEN Atch_Vstatus = 'AS' THEN 'Not Shared' WHEN Atch_Vstatus = 'A' THEN 'Shared' 
