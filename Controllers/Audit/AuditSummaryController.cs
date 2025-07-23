@@ -41,9 +41,9 @@ namespace TracePca.Controllers.Audit
 
 
         [HttpGet("LoadAudiNoDetails")]
-        public async Task<IActionResult> LoadAudiNoDetails(int iCustID,int compId)
+        public async Task<IActionResult> LoadAudiNoDetails(int iCustID,int compId,int Yearid, int userid)
         {
-            var dropdownData = await _AuditSummaryInterface.LoadAuditNoDataAsync(iCustID, compId);
+            var dropdownData = await _AuditSummaryInterface.LoadAuditNoDataAsync(iCustID, compId, Yearid, userid);
 
             return Ok(new
             {
@@ -437,9 +437,55 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpGet("GetCAMAttachmentDetails")]
+        public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID)
+        {
+            try
+            {
+                var camDetails = await _AuditSummaryInterface.GetCAMAttachmentDetailsAsync(AttachID);
+
+                if (camDetails != null && camDetails.Any())
+                {
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "Critical Audit Matter Attachment details fetched successfully.",
+                        data = new
+                        {
+                            camDetails = camDetails
+                        }
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No Critical Audit Matter Attachment details found for the selected filters.",
+                        data = new
+                        {
+                            camDetails = new List<object>()
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = $"Internal server error: {ex.Message}",
+                    data = new
+                    {
+                        camDetails = new List<object>()
+                    }
+                });
+            }
+        }
 
 
 
+<<<<<<< HEAD
 		//[HttpPost("GetCAMAttachmentDetails")]
 		//public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID, [FromBody] CAMAttachmentDetailsDto dto)
 		//{
@@ -494,44 +540,53 @@ namespace TracePca.Controllers.Audit
 			try
 			{
 				var camDetails = await _AuditSummaryInterface.GetCAMAttachmentDetailsAsync(AttachID);
+=======
+>>>>>>> 243edc43391c4b6ebb2ae75cfed0880fa0e20a8f
 
-				if (camDetails != null && camDetails.Any())
-				{
-					return Ok(new
-					{
-						statusCode = 200,
-						message = "Critical Audit Matter Attachment details fetched successfully.",
-						data = new
-						{
-							camDetails = camDetails
-						}
-					});
-				}
-				else
-				{
-					return NotFound(new
-					{
-						statusCode = 404,
-						message = "No Critical Audit Matter Attachment details found for the selected filters.",
-						data = new
-						{
-							camDetails = new List<object>()
-						}
-					});
-				}
-			}
-			catch (Exception ex)
-			{
-				return StatusCode(500, new
-				{
-					statusCode = 500,
-					message = $"Internal server error: {ex.Message}",
-					data = new
-					{
-						camDetails = new List<object>()
-					}
-				});
-			}
-		}
-	}
+        //[HttpPost("GetCAMAttachmentDetails")]
+        //public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID, [FromBody] CAMAttachmentDetailsDto dto)
+        //{
+        //	try
+        //	{
+        //		var camDetails = await _AuditSummaryInterface.GetCAMAttachmentDetailsAsync(AttachID, dto);
+
+        //		if (camDetails != null && camDetails.Any())
+        //		{
+        //			return Ok(new
+        //			{
+        //				statusCode = 200,
+        //				message = "Critical Audit Matter Attachment details fetched successfully.",
+        //				data = new
+        //				{
+        //					camDetails = camDetails
+        //				}
+        //			});
+        //		}
+        //		else
+        //		{
+        //			return NotFound(new
+        //			{
+        //				statusCode = 404,
+        //				message = "No Critical Audit Matter Attachment details found for the selected filters.",
+        //				data = new
+        //				{
+        //					camDetails = new List<object>()
+        //				}
+        //			});
+        //		}
+        //	}
+        //	catch (Exception ex)
+        //	{
+        //		return StatusCode(500, new
+        //		{
+        //			statusCode = 500,
+        //			message = $"Internal server error: {ex.Message}",
+        //			data = new
+        //			{
+        //				camDetails = new List<object>()
+        //			}
+        //		});
+        //	}
+        //}
+    }
 }

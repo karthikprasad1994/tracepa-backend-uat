@@ -65,8 +65,63 @@ namespace TracePca.Dto.Audit
     {
         public int SA_ID { get; set; }
         public int SA_SignedBy { get; set; }
-        public string SA_UDIN { get; set; }
+        public string? SA_UDIN { get; set; }
         public DateTime SA_UDINdate { get; set; }
         public int SA_CompID { get; set; }
+    }
+
+    public class AuditReportCustInfoAuditeeDetailDTO
+    {
+        public int SlNo { get; set; }
+        public string Particulars { get; set; }
+        public string Details { get; set; }
+    }
+
+    public class ConductAuditWorkPaperDTO
+    {
+        public string WorkpaperNo { get; set; }
+        public string WorkpaperRef { get; set; }
+        public string Notes { get; set; }
+        public string Deviations { get; set; }
+        public string CriticalAuditMatter { get; set; }
+        public string Conclusion { get; set; }        
+        public string TypeOfTest { get; set; }
+        public string Status { get; set; }
+        public string AttachNames { get; set; }
+        public string CreatedBy { get; set; }
+        public string CreatedOn { get; set; }
+        public string ReviewedBy { get; set; }
+        public string ReviewedOn { get; set; }
+    }
+
+    public class ConductAuditReportDetailDTO
+    {
+        public int SlNo { get; set; }
+        public string Heading { get; set; }
+        public string CheckPoints { get; set; }
+        public string Comments { get; set; }
+        public string Annexures { get; set; }
+    }
+
+    public class ConductAuditObservationDTO
+    {
+        public string SrNo { get; set; }
+        public string CheckPoint { get; set; }
+        public string Observations { get; set; }
+    }
+
+    public class CommunicationWithClientTemplateReportDetailsDTO
+    {
+        public string? LTD_Heading { get; set; }
+        public string? LTD_Decription { get; set; }
+    }
+
+    public class StandardAuditAllAttachmentsDTO
+    {
+        public List<AttachmentDetailsDTO> BeginningAuditAttachments { get; set; } = new();
+        public List<AttachmentDetailsDTO> DuringAuditAttachments { get; set; } = new();
+        public List<AttachmentDetailsDTO> NearingEndAuditAttachments { get; set; } = new();
+        public List<AttachmentDetailsDTO> WorkpaperAttachments { get; set; } = new();
+        public List<AttachmentDetailsDTO> ConductAuditAttachments { get; set; } = new();
     }
 }

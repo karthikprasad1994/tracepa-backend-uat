@@ -8,6 +8,16 @@
 
         public int UsrId { get; set; }
 
+        public string? MCR_emails { get; set; }
+
+        public string? YmsId { get; set; }           // should be int? ✅
+        public int? YmsYearId { get; set; }
+
+        public string ClientIpAddress { get; set; }
+
+        public string CustomerCode { get; set; }
+
+        public string? SystemIpAddress { get; set; }
 
     }
 }

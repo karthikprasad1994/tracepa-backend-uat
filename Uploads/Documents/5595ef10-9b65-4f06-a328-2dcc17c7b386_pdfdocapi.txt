@@ -1,0 +1,365 @@
+ public async Task<byte[]> GeneratePdfAsync(EngagementPlanDetailsDTO data)
+ {
+     return await Task.Run(() =>
+     {
+         using var ms = new MemoryStream();
+         var document = new Document(PageSize.A4, 40, 40, 40, 40);
+         PdfWriter.GetInstance(document, ms);
+         document.Open();
+
+         var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 16);
+         var subHeaderFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12);
+         var bodyFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
+
+         // Header
+         document.Add(new Paragraph("ENGAGEMENT LETTER", headerFont)
+         {
+             Alignment = Element.ALIGN_CENTER
+         });
+         document.Add(new Paragraph($"Reference: {data.LOE_Name}", bodyFont));
+         document.Add(new Paragraph($"Service Type: {data.LOE_NatureOfService}", bodyFont));
+         document.Add(Chunk.NEWLINE);
+
+         // Scope of Work
+         if (!string.IsNullOrEmpty(data.LOET_ScopeOfWork))
+         {
+             document.Add(new Paragraph("Scope of Work", subHeaderFont));
+             document.Add(new Paragraph(data.LOET_ScopeOfWork, bodyFont));
+             document.Add(Chunk.NEWLINE);
+         }
+
+         // Template Sections
+         foreach (var section in data.EngagementTemplateDetails)
+         {
+             if (!string.IsNullOrEmpty(section.LTD_Heading))
+                 document.Add(new Paragraph(section.LTD_Heading, subHeaderFont));
+
+             if (!string.IsNullOrEmpty(section.LTD_Decription))
+                 document.Add(new Paragraph(section.LTD_Decription, bodyFont));
+
+             document.Add(Chunk.NEWLINE);
+         }
+
+         // Fees
+         document.Add(new Paragraph("ENGAGEMENT FEES", subHeaderFont));
+         document.Add(new Paragraph($"Total Fees: ₹{data.LOE_Total}", bodyFont));
+
+         foreach (var fee in data.EngagementAdditionalFees)
+         {
+             document.Add(new Paragraph($"Additional Fee - {fee.LAF_OtherExpensesName}: ₹{fee.LAF_Charges}", bodyFont));
+         }
+
+         // Footer
+         document.Add(Chunk.NEWLINE);
+         document.Add(new Paragraph("Sincerely,", bodyFont));
+         document.Add(new Paragraph("M.S. Madhava Rao", bodyFont));
+         document.Add(new Paragraph("Chartered Accountant", bodyFont));
+
+         document.Close();
+         return ms.ToArray();
+     });
+ }
+
+ public async Task<byte[]> GenerateWordAsync(EngagementPlanDetailsDTO data)
+ {
+     return await Task.Run(() =>
+     {
+         using var ms = new MemoryStream();
+         using var doc = DocX.Create(ms);
+
+         doc.InsertParagraph("ENGAGEMENT LETTER")
+             .FontSize(16)
+             .Bold()
+             .Alignment = Alignment.center;
+
+         doc.InsertParagraph($"Reference: {data.LOE_Name}").FontSize(12);
+         doc.InsertParagraph($"Service Type: {data.LOE_NatureOfService}").FontSize(12);
+
+         if (!string.IsNullOrEmpty(data.LOET_ScopeOfWork))
+         {
+             doc.InsertParagraph("Scope of Work")
+                 .Bold()
+                 .FontSize(12)
+                 .SpacingBefore(10);
+             doc.InsertParagraph(data.LOET_ScopeOfWork);
+         }
+
+         foreach (var section in data.EngagementTemplateDetails)
+         {
+             if (!string.IsNullOrEmpty(section.LTD_Heading))
+                 doc.InsertParagraph(section.LTD_Heading)
+                     .Bold()
+                     .UnderlineStyle(UnderlineStyle.singleLine);
+
+             if (!string.IsNullOrEmpty(section.LTD_Decription))
+                 doc.InsertParagraph(section.LTD_Decription);
+         }
+
+         doc.InsertParagraph("ENGAGEMENT FEES")
+             .Bold()
+             .FontSize(12)
+             .SpacingBefore(10);
+         doc.InsertParagraph($"Total Fees: ₹{data.LOE_Total}");
+
+         foreach (var fee in data.EngagementAdditionalFees)
+         {
+             doc.InsertParagraph($"Additional Fee - {fee.LAF_OtherExpensesName}: ₹{fee.LAF_Charges}");
+         }
+
+         doc.InsertParagraph("Sincerely,");
+         doc.InsertParagraph("M.S. Madhava Rao").Bold();
+         doc.InsertParagraph("Chartered Accountant");
+
+         doc.Save();
+         return ms.ToArray();
+     });
+ }
+
+
+
+{
+  "statusCode": 200,
+  "message": "Engagement Plan details fetched successfully.",
+  
+
+}
+
+
+
+
+
+{
+  "statusCode": 200,
+  "message": "Engagement Plan details fetched successfully.",
+  "data": {
+    "loE_Id": 12,
+    "loE_YearId": 23,
+    "loE_CustomerId": 5,
+    "loE_ServiceTypeId": 72,
+    "loE_FunctionId": 72,
+    "loE_NatureOfService": "PCAOB Audit",
+    "loE_Total": 0,
+    "loE_Name": "CUST0004/LOE/2023/00003",
+    "loE_Frequency": 18,
+    "loE_CrOn": "2024-09-19T11:30:35.67",
+    "loE_CrBy": 4,
+    "loE_IPAddress": "10.139.0.2",
+    "loE_CompID": 1,
+    "loeT_Id": 7,
+    "loeT_ScopeOfWork": "PCAOB Audit",
+    "loeT_Frequency": "Yearly",
+    "loeT_ProfessionalFees": 0,
+    "loE_AttachID": 0,
+    "engagementTemplateDetails": [
+      {
+        "ltD_ID": 164,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 51,
+        "ltD_Heading": "Objectives and Limitations of Services",
+        "ltD_Decription": "",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.617",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 166,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 53,
+        "ltD_Heading": "Audit Procedures",
+        "ltD_Decription": "Our audit of the financial statements will include tests of documentary evidence supporting the transactions recorded in the accounts, including tests of the physical existence of inventories and direct confirmations of certain assets and liabilities by correspondence with selected customers, creditors, and financial institutions.\r\nThe audit will include examining, on a test basis, evidence supporting the amounts and disclosures in the financial statements: therefore, our audit will involve judgment about the number of transactions to be examined and the areas to be tested. An audit also includes evaluating the appropriateness of accounting policies used and the reasonableness of significant accounting estimates made by management as well as evaluating the overall presentation of the financial statements. In connection with our audit of the financial statements, we will obtain an understanding of internal control sufficient to plan the audit and determine the nature, timing, and extent of audit procedures to be performed: however, an audit of the financial statements is not designed to provide assurance on internal control or to identify internal control deficiencies.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.63",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 165,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 52,
+        "ltD_Heading": "Audit Services",
+        "ltD_Decription": "We will perform an audit of the Company financial statements as of and for the year ended June 30, 2022, and the related statements of operations, comprehensive income, stockholders’ equity, cash flows, and schedules supporting those financial statements for the year then ended .June 30, 2022. Based on our audit, we will issue a written report on the Company financial statements, all of which are to be included in the annual report (Form 10-K) proposed to be filed by the under the Securities Exchange Act of 1934.\r\nThe objective of an audit of the financial statements is the expression of an opinion of the financial statements. Accordingly, the object of our audit is the expression of an opinion about whether the Company’s financial statements are fairly presented, in all material respects, in conformity with generally accepted accounting principles in the United States.\r\nWe have the responsibility to conduct and will conduct the audit of the financial statements in accordance with the standards of the Public Company Accounting Oversight Board (United States) (“PCAOB”), with the objective of expressing an opinion as to whether the presentation of the financial statements conforms with U.S. generally accepted accounting principles (“GAAP”).\r\nIn conducting the audit, we will perform tests of the accounting records and such other procedures, as we consider necessary in the circumstances, to provide a reasonable basis for our opinion on the financial statements. We also will assess the accounting principles used and significant estimates made by management, and evaluate the overall financial statement presentation.\r\nOur audit of the financial statements is planned and performed to obtain reasonable assurance about whether the financial statements are free of material misstatement, whether caused by error or fraud. There is a risk that material errors, fraud (including fraud that may be an illegal act), and other illegal acts may exist and not be detected by an audit of financial statements performed in accordance with the standards of the PCAOB. Also, an audit is not designed to detect errors or fraud that is immaterial to the financial statements.\r\nSubject to the remainder of this paragraph, we will issue a written report upon completion of our audit of the Company financial statements addressed to the board of directors of Pineapple Express Cannabis Company. Our report will be in a form that is in accordance with the published rules and regulations of the SEC and the standards of the PCAOB. We cannot provide assurance that an unqualified opinion will be expressed. Circumstances may arise in which it is necessary for us to modify our report or withdraw from the engagement. If, during the performance of our audit, circumstances arise which make it necessary to modify our report or withdraw from the engagement, we will communicate to Audit Committee [or equivalent body established by and amongst the board of directors] our reasons for modification or withdrawal. Similarly, if during performance of our review procedures we become aware of matters that make it necessary to modify our report or withdraw from the engagement, we will discuss such matters with\r\n \r\nmanagement and, if appropriate, communicate such matters to the Audit Committee [or equivalent body established by and amongst the board of directors].\r\nWhile our report may be sent to electronically for your convenience, only the hard copy report is to be relied upon as our work product.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.623",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 168,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 55,
+        "ltD_Heading": "Registration Statements and Other Offering Documents",
+        "ltD_Decription": "Should the Company wish to include or incorporate by reference these financial statements and our audit report thereon into a future filing under the Securities Act of 1933, as amended, or an exempt offering, prior to our consenting to include or incorporate by reference our report on such financial statements, we would consider our consent to the inclusion of our report and the terms thereof at that time. We will be required to perform procedures as required by the standards of the PCAOB, including, but not limited to, reading other information incorporated by reference in the registration statement or other offering document and performing subsequent event procedures. Our reading of the other information included or incorporated by reference in the offering document will consider whether such information, or the manner of its presentation, is materially inconsistent with information, or the manner of its presentation, appearing in the financial statements. However, we will not perform procedures to corroborate such other information (including forward-looking statements). The specific terms of our future services with respect to future filings or other offering documents will be determined at the time the services are to be performed.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.643",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 170,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 57,
+        "ltD_Heading": "Our Responsibility to Communicate with Management",
+        "ltD_Decription": "We will report to management the following matters prior to the issuance of our audit report on the financial statements and our review report on management’s exemption report:\r\n•\tAll material weaknesses and significant deficiencies in internal control over financial reporting identified during the audit.\r\n•\tAccumulated misstatements regarding the supplemental information to provide management with an opportunity to correct them.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.657",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 172,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 59,
+        "ltD_Heading": "Notice of independence standards",
+        "ltD_Decription": "A registered public accounting firm and its associated persons must be independent of the firm`s audit client throughout the audit and professional engagement period.\r\n\r\nUnder Rule 3520, a registered public accounting firm or associated person`s independence obligation with respect to an audit client that is an issuer encompasses not only an obligation to satisfy the independence criteria set out in the rules and standards of the PCAOB, but also an obligation to satisfy all other independence criteria applicable to the engagement, including the independence criteria set out in the rules and regulations of the Commission under the federal securities laws. To meet such standards, we cannot prepare, edit, compile or help prepare the audit report, except for the opinion letter. These are management’s responsibility.\r\n\r\nRule 3520 applies only to those associated persons of a registered public accounting firm required to be independent of the firm`s audit client by standards, rules or regulations of the Commission or other applicable independence criteria.\r\n\r\nWe contend that based upon the above standards, we are independent of the Company.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.67",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 174,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 61,
+        "ltD_Heading": "Independence",
+        "ltD_Decription": "Professional and certain regulatory standards require us to be independent, in both fact and appearance, with respect to the Company in the performance of our services. Any discussions that the Company representatives have with professional personnel of our Firm regarding employment could pose a threat to our independence. Moreover, SEC rules could cause us not to be independent of the Company if, within a restricted period, the Company were to hire, in a financial reporting oversight role, one of the engagement team members currently or previously assigned to the Company’s audit. This may include not only current employees of our Firm, but also former employees, employees of other member firms of M. S. Madhava Rao, and employees of other firms who work under our direction. Therefore, you agree to inform us prior to any such discussions so that we can implement appropriate safeguards to maintain our independence.\r\n\r\nSEC independence rules also require the Company’s audit committee to pre-approve all permissible non-attest services (including tax services) and all audit, review, or attest services that we or other independent auditors provide to the Company or its subsidiaries, including those located outside of the United States of America. We agree not to perform any services without audit committee pre-approval, and you agree to implement appropriate policies and procedures to ensure that the audit committee pre-approves any services that we or other independent auditor are asked to perform.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.69",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 167,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 54,
+        "ltD_Heading": "Internal Control over Financial Reporting",
+        "ltD_Decription": "In planning and performing our audit of the financial statements, we will consider the Company’s, internal control over financial reporting in order to determine the nature, timing, and extent of our audit procedures for the purpose of expressing an opinion on the financial statements and not to provide assurance on internal control over financial reporting. The scope on this engagement does not include an Integrated Audit.\r\nThe objective of our audit of the financial statements is not to report on the Company’s internal control over financial reporting, and we are not obligated to search for material weaknesses or significant deficiencies as part of our audit of the financial statements. A material weakness in internal control over financial reporting is a deficiency, or combination of deficiencies, in internal control, such that there is a reasonable possibility that a material misstatement of the financial statements will not be prevented or detected on a timely basis. A significant deficiency is a deficiency, or combination of deficiencies, in internal control over financial reporting that is less severe than a material weakness, yet important enough to merit attention by those responsible for oversight of the company’s financial reporting.\r\nCorporation agrees that all records, documentation, and information we request in connection with our audit will be made available to us, that all material information relevant to its statements will be disclosed to us, and that we will have full cooperation of the Company personnel. At the conclusion of the engagement, management agrees to supply us with a representation letter. The written representations, specific inquiries of management, and the results of our audit procedures comprise the evidential matter we will rely upon in providing the reasonable assurance of financial statements.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.637",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 171,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 58,
+        "ltD_Heading": "Management Responsibilities",
+        "ltD_Decription": "The management of the Company is responsible for the fair presentation, in accordance with U.S. generally accepted accounting principles, of the financial statements, including disclosures and supplemental information accompanying the financial statements, and all representations contained therein. Management also is responsible for identifying and ensuring that the Company complies with laws and regulations applicable to its activities, and for informing us of any known material violations of such laws and regulations. Management also is responsible for preventing and detecting fraud, including the design and implementation of programs and controls to prevent and detect fraud, for adopting sound accounting policies, and for establishing and maintaining effective internal controls and procedures for financial reporting to maintain the reliability of the financial statements and to provide reasonable assurance against the possibility of misstatements that are material to the financial statements. Management is also responsible for informing us, of which it has knowledge, of all deficiencies in the design or operation of such controls. The audit of the financial statements does not relieve management or those charged with governance of their responsibilities.\r\nManagement of the Company also agrees that all records, documentation, and information we request in connection with our audit will be made available to us, that all material information will be disclosed to us, and that we will have the full cooperation of the Company personnel. As required by the standards of the PCAOB, we will make specific inquiries of management about the representations embodied in the financial statements and the effectiveness of internal control over financial reporting and obtain a representation letter from management about these matters. The responses to our inquiries, the written representations, and the results of audit tests, among other things, comprise the evidential matter we will rely upon in forming an opinion on the financial statements.\r\nManagement also acknowledges that it will not include our auditors’ report on the supplemental information in any document that contains the supplemental information that indicates that we have reported on such supplemental information. Management also acknowledges that it will not present the supplemental information with the audited financial statements, to make the audited financial statements readily available to the intended users of the supplemental information. Management is responsible for adjusting the financial statements to correct material misstatements and for affirming to us in the representation letter that the effects of any uncorrected misstatements aggregated by us during the current engagement and pertaining to the latest period presented are immaterial, both individually and in the aggregate, to the financial statements being reported upon, taken as a whole.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.663",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 169,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 56,
+        "ltD_Heading": "Our Responsibility to Communicate with the Audit Committee/Board of Directors",
+        "ltD_Decription": "While the objective of our audit of the financial statements is not to report on the Company internal control, and we are not obligated to search for material weaknesses or significant deficiencies in internal control over financial reporting as part of our audit of the financial statements, we will communicate material weaknesses or significant deficiencies in internal control over financial reporting to the audit committee/board of directors to the extent they come to our attention.\r\nWe will report to the audit committee/board of directors the following matters prior to the issuance of our audit report:\r\n•\tAn overview of our overall audit strategy, timing of the audit and the significant risks identified during our risk assessment procedures.\r\n•\tManagement’s initial selection of, or changes in, significant accounting policies or the application of such policies in the current period: and the effect on financial statements or disclosures of significant accounting policies in controversial areas or areas for which there is a lack of authoritative guidance or consensus, or diversity in practice.\r\n•\tAll critical accounting policies and practices to be used, including the reasons certain policies and practices are considered critical: and how current and anticipated future events might affect the determination of whether certain policies and practices are considered critical.\r\n•\tA description of the process management used to develop critical accounting estimates, management’s significant assumptions used in critical accounting estimates that have a high degree of subjectivity, and any significant changes management made to the process used to develop critical accounting estimates or management’s significant assumptions, including a description of management’s reasons for the changes and the effects of the changes on the financial statements.\r\n•\tSignificant transactions that are outside of the normal course of business for the Company or that otherwise appear to be unusual due to their timing, size, or nature: and the policies and practices used to account for significant unusual transactions, and our understanding of the business rationale for significant unusual transactions.\r\n•\tOur evaluation of the quality of the Company financial reporting.\r\n•\tAll material weaknesses and significant deficiencies in internal control over financial reporting identified during the audit. If a material weakness or significant deficiency exists because of the oversight of the Company external financial reporting and internal control over financial reporting by the board of directors, we report such deficiency in writing to the board of directors.\r\n•\tCorrected misstatements arising from the audit and the implications that such corrected misstatements might have on the Company financial reporting process. In this context, corrected misstatements are proposed corrections of the financial statements that were recorded by management and, in our judgment, may not have been detected except through the auditing procedures performed.\r\n•\tUncorrected misstatements aggregated during the current engagement and pertaining to the latest period presented that were determined by management to be immaterial, both individually and in aggregate.\r\n•\tCorrected and uncorrected misstatements regarding the supplemental information identified during performance of audit procedures on the supplemental information and in the audit of the financial statements.\r\n•\tAll relationships between M.S. Madhava Rao and its related entities and its related entities or persons in financial reporting oversight roles at the Company that may reasonably be thought to bear on independence.\r\n•\tOther matters required to be communicated by the standards of the PCAOB or that are deemed by us to be significant to the oversight of the Company financial reporting process.\r\nWe will also read minutes, if any, of relevant committee meetings for consistency with our understanding of the communications made to the audit committee/board of directors and determine that the board of directors has received copies of all material written communications between ourselves and management. We will also determine that the board of directors has been informed of (i) the initial selection of, or the reasons for any change in, significant accounting policies or their application during the period under audit, (ii) the methods used by management to account for significant unusual transactions, (iii) the effect of significant accounting policies in controversial or emerging areas for which there is a lack of authoritative guidance or consensus, and (iv) our communication to management of all deficiencies in internal control over financial reporting, identified during the audit and not previously communicated in writing by us or others, including internal auditors or others within the Company.\r\nTo the extent that they come to our attention, we will inform the appropriate level of management about an",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.65",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 173,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 60,
+        "ltD_Heading": "Review of interim financials",
+        "ltD_Decription": "In conjunction with the annual audit, we will also perform reviews of the Company`s unaudited quarterly financial information for each of the three quarters in the years ending January 31, 2025. For these, we will perform reviews of that information before the Form 10-Q is filed. The objective of a review is to provide a basis for communicating whether there are any material modifications that should be made to the interim financial information for it to conform to GAAP.\r\n\r\nThese reviews will be conducted in accordance with the standards of the PCAOB. A review of interim financial information consists principally of performing analytical procedures and making inquiries of persons responsible for financial and accounting matters. It includes obtaining sufficient knowledge of the Company`s business and its internal control as it relates to the preparation of both annual and interim financial information to identify the types of potential material misstatements in the interim financial information and consider the likelihood of their occurrence, and to select the inquiries and analytical procedures that will provide a basis for communicating whether there are material modifications that should be made to the interim financial information for it to conform with GAAP. A review is substantially less in scope than an audit conducted in accordance PCAOB standards, the objective of which is the expression of an opinion regarding the financial statements taken as a whole. Accordingly, we will not express opinions on the interim financial information.\r\n\r\nManagement is responsible for the Company`s interim financial information and for establishing and maintaining effective internal control over financial reporting. It is also responsible for identifying and ensuring that the Company complies with the laws and regulations applicable to its activities: making all financial records and related information available to us: adjusting the interim financial information to correct material misstatements: and affirming that the effects of any uncorrected misstatements pertaining to the periods under review are immaterial, both individually and in the aggregate, to the interim financial information taken as a whole.\r\n\r\nWe will communicate to the audit committee and management any matters that come to our attention as a result of the reviews that we believe may require material modifications to the quarterly financial information to make it conform with GAAP. We will also communicate any significant deficiencies or material weaknesses that come to our attention. If, for any reason, we are unable to complete our reviews or are unable to obtain or have not obtained limited assurance on the interim financial information, we may decline to issue reports as a result of our engagements, and we will notify the audit committee and management. At the conclusion of our reviews, you agree to provide certain representations from management about the financial statements and related matters.\r\n\r\nWe are required to read any document, including the annual report to shareholders and filings with the SEC, that contains or incorporates by reference our audit or interim review reports, or contains any reference to us. We will read the annual report for the purpose of determining whether other information in the annual report (including the manner of its presentation) is materially inconsistent with information in the financial statements or management`s assessment of the effectiveness of the Company`s internal control over financial reporting. We assume no obligation to perform procedures to corroborate such other information as part of our audit.\r\n\r\nRegarding electronic filings, management agrees that, before filing any document in electronic format with the SEC with which we are associated, we will be advised of the proposed filing on a timely basis. We will provide the Company a signed copy of our report and consent. These manually signed documents will serve to authorize the use of our name prior to the Company`s electronic transmission. Management will provide us with a complete copy of the accepted document.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.677",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 175,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 62,
+        "ltD_Heading": "Dispute Resolution",
+        "ltD_Decription": "Any dispute or claim arising out of, or relating to, this Engagement Letter or the services provided hereunder, or any other audit or attest services provided by, or on behalf of, M.S. Madhava Rao or any of its subcontractors or agents to the Company or at its request, shall be submitted first to non-binding mediation (unless either party elects to forego mediation by initiating a written request for arbitration) and if mediation is not successful within 90 days after the issuance by one of the parties of a request for mediation then to binding arbitration in accordance with the Rules for Professional Accounting and the Related Services Disputes of the American Arbitration Association before resorting to litigation. The costs of any mediation proceeding shall be shared equally by all parties. Any issue concerning the extent to which any dispute is subject to arbitration, or any dispute concerning the applicability, interpretation, or enforceability of these dispute resolution procedures, including any contention that all or part of these procedures is invalid or unenforceable, shall be governed by and resolved by the arbitrators. By operation of this provision, the parties agree to forego litigation over such disputes in any court of competent jurisdiction. Mediation, if selected, may take place at a location to be designated by the parties and shall take place in Bangalore, India. Damages that are inconsistent with any applicable agreement between the parties or that are not measured by the prevailing party’s actual damages shall be unavailable in arbitration or any other forum. For the sake of clarity, the preceding sentence is not intended to prohibit any claim for punitive damages. In no event, even if any other portion of these provisions is held to be invalid or unenforceable, shall the arbitration panel have power to make an award or impose a remedy that could not be made or imposed by a court deciding the matter in the same jurisdiction. Either party may seek to enforce any written agreement reached by the parties during mediation, or to confirm and enforce any final award entered in arbitration, in any court of competent jurisdiction. Notwithstanding the agreement to such procedures, either party may seek equitable relief to enforce its rights in any court of competent jurisdiction.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.697",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 176,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 63,
+        "ltD_Heading": "Other Matters",
+        "ltD_Decription": "All disputes with regard to, arising out of, or relating to services provided pursuant to this Engagement Letter (whether based in contract, tort, statute, regulation, or otherwise and whether pending in court or in an arbitral forum) shall be governed by, and construed in accordance with, the substantive and procedural laws of the State of Karnataka, India including without limitation, its statutes of limitations, without regard to the conflict of laws provisions of Karnataka or any other state or jurisdiction.\r\nThis letter shall serve as the Company authorization for the use of e-mail and other electronic methods to transmit and receive information, including confidential information, between M.S. Madhava Rao and the Company and between\r\nM.S. Madhava Rao and outside specialists or other entities engaged by either M.S. Madhava Rao or Pineapple Express Cannabis Company. The Company acknowledges that e-mail travels over the public Internet, which is not a secure means of communication and, thus, confidentiality of the transmitted information could be compromised through no fault of M.S. Madhava Rao. M.S. Madhava Rao will employ commercially reasonable efforts and take appropriate precautions to protect the privacy and confidentiality of transmitted information.\r\nFurther, for purposes of the services described in this letter only, the Company hereby grants to M.S. Madhava Rao a limited, revocable, non-exclusive, non-transferable, paid up and royalty-free license, without right of sublicense, to use all logos, trademarks and service marks of the Company solely for presentations or reports to the Company or for internal M.S. Madhava Rao presentations and intranet sites.\r\nM.S. Madhava Rao is comprised of both chartered accountants/certified public accountants and certain principals who are not licensed as chartered accountants/certified public accountants. Such principals may participate in the engagements to provide the services described in this letter.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.7",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 177,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 64,
+        "ltD_Heading": "Access to Audit Documentation by Regulators and Others",
+        "ltD_Decription": "The audit documentation for this engagement is the property of M.S. Madhava Rao. In the event M.S. Madhava Rao is requested pursuant to subpoena or other legal process to produce its documents and/or testimony relating to this engagement for the Company in judicial or administrative proceedings to which M.S. Madhava Rao is not a party, the Company shall reimburse M.S. Madhava Rao at standard billing rates for its professional time and expenses, including reasonable attorney’s fees, incurred in responding to such requests.\r\nWe may also be requested to make certain audit documentation available to the PCAOB and state and federal regulators pursuant to authority provided by law or regulation. If so requested, access to such audit documentation will be provided. Furthermore, the PCAOB and state and federal regulators may obtain copies of selected audit documentation. The PCAOB and state and federal regulators may intend, or decide, to distribute the copies or information contained therein to others, including the SEC and other government agencies. We agree to communicate to you on a timely basis any requests by the PCAOB for access to the audit documentation as part of its inspection process and when it desires direct contact with members of the board of directors.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.707",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 178,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 65,
+        "ltD_Heading": "Fees for Services and Additional Reports",
+        "ltD_Decription": "Our fees for this engagement will be based on a negotiated fee as set forth in Appendix I, plus travel and other out-of- pocket costs such as report production, word processing, postage, etc. Additional expenses are not to exceed $500. Our standard hourly rates vary according to the degree of responsibility involved and the experience level of the personnel assigned to your audit.\r\n\r\nOur fee and completion of our work is based on anticipated cooperation from the Company personnel: timely responses to our inquiries: timely communication of all significant accounting and financial matters: and the assumption that unexpected circumstances will not be encountered during the engagement. If significant additional time is necessary, we will keep the Company management informed of any problems we encounter and our fees will be adjusted accordingly. Our invoices for these fees will be rendered each month as work progresses and are payable on presentation.\r\n\r\nM.S. Madhava Rao is the engagement partner and is responsible for supervising the engagement and signing the report or authorizing another individual to sign it. We expect to begin our audit [10K] after we received the retainer fee for this audit.\r\n\r\nIf we elect to terminate our services for nonpayment, or for any other reason provided for in this letter, our engagement will be deemed to have been completed upon written notification of termination, even if we have not completed our report. You will be obligated to compensate us for all time expended, and to reimburse us for all of our out-of-pocket costs, through the date of termination.\r\n\r\nYou retain the right to terminate our services at any time with prior notification and sufficient cause, but agree to compensate us for the amount of this agreement and for all out of pocket cost through date of termination.",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.713",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      },
+      {
+        "ltD_ID": 179,
+        "ltD_LOE_ID": 12,
+        "ltD_ReportTypeID": 9,
+        "ltD_HeadingID": 66,
+        "ltD_Heading": "Prior to commencing our services, we require that you provide us with a retainer in the amount of $6,250. Balance will be due upon presentation of draft audit report.",
+        "ltD_Decription": "Prior to commencing our services, we require that you provide us with a retainer in the amount of $6,250. Balance will be due upon presentation of draft audit report.\r\nIn addition, fees for any special audit-related projects, such as research and/or consultation on special business or financial issues, will be billed separately from the audit fees for professional services set forth in Appendix I and may be subject to written arrangements supplemental to those in this letter.\r\nOur engagement herein is for the provision of annual audit services for the financial statements and for the periods described in Appendix I, and it is understood that such services are provided as a single annual engagement. Pursuant to our arrangement as reflected in this letter, we will provide the services set forth in Appendix I as a single engagement for each of the Company subsequent fiscal years until either the board of directors or we terminate this agreement, or mutually agree to the modification of its terms. The fees for each subsequent year will be annually subject to negotiation and approval by the management of the Company.\r\nWe shall be pleased to discuss this letter with you at any time. For your convenience in confirming these arrangements, we enclose a copy of this letter. Please sign and return it to us to indicate your acknowledgement of, and agreement with, the arrangements for our audit of the financial statements including our respective responsibilities.\r\nVery truly yours,",
+        "ltD_FormName": "LOE",
+        "ltD_CrBy": 4,
+        "ltD_CrOn": "2024-09-19T11:31:22.72",
+        "ltD_IPAddress": "10.139.0.2",
+        "ltD_CompID": 1
+      }
+    ],
+    "engagementAdditionalFees": []
+  }
+}

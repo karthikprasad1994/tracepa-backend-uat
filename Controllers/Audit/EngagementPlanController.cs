@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR.Protocol;
+using System;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
 
@@ -21,12 +23,7 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var dropdownData = await _engagementInterface.LoadAllDDLDataAsync(compId);
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "All dropdown data fetched successfully.",
-                    data = dropdownData
-                });
+                return Ok(new { statusCode = 200, message = "All dropdown data fetched successfully.", data = dropdownData });
             }
             catch (Exception ex)
             {
@@ -40,12 +37,7 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var dropdownData = await _engagementInterface.LoadEngagementPlanDDLAsync(compId, yearId, custId);
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Engagement Plan dropdown data fetched successfully.",
-                    data = dropdownData
-                });
+                return Ok(new { statusCode = 200, message = "Engagement Plan dropdown data fetched successfully.", data = dropdownData });
             }
             catch (Exception ex)
             {
@@ -62,12 +54,7 @@ namespace TracePca.Controllers.Audit
                 if (result == null || !result.Any())
                     return NotFound(new { statusCode = 404, message = "No report type details found." });
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Report type details fetched successfully.",
-                    data = result
-                });
+                return Ok(new { statusCode = 200, message = "Report type details fetched successfully.", data = result });
             }
             catch (Exception ex)
             {
@@ -84,12 +71,7 @@ namespace TracePca.Controllers.Audit
                 if (result == null)
                     return NotFound(new { statusCode = 404, message = "No Engagement Plan details found." });
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Engagement Plan details fetched successfully.",
-                    data = result
-                });
+                return Ok(new { statusCode = 200, message = "Engagement Plan details fetched successfully.", data = result });
             }
             catch (Exception ex)
             {
@@ -106,12 +88,7 @@ namespace TracePca.Controllers.Audit
                 if (result == null)
                     return NotFound(new { statusCode = 404, message = "No Engagement Plan details found." });
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Engagement Plan details fetched successfully.",
-                    data = result
-                });
+                return Ok(new { statusCode = 200, message = "Engagement Plan details fetched successfully.", data = result });
             }
             catch (Exception ex)
             {
@@ -124,10 +101,11 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
+                bool isUpdate = dto.LOE_Id > 0;
                 var result = await _engagementInterface.SaveOrUpdateEngagementPlanDataAsync(dto);
                 if (result > 0)
                 {
-                    if (dto.LOE_Id > 0)
+                    if (isUpdate)
                         return Ok(new { statusCode = 200, message = "Engagement Plan data updated successfully.", Data = result });
                     else
                         return Ok(new { statusCode = 200, message = "Engagement Plan data inserted successfully.", Data = result });
@@ -179,10 +157,10 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var result = await _engagementInterface.UploadAndSaveAttachmentAsync(dto);
-                if (result > 0)
+                var (attachmentId, relativeFilePath) = await _engagementInterface.UploadAndSaveAttachmentAsync(dto, "StandardAudit");
+                if (attachmentId > 0)
                 {
-                    return Ok(new { success = true, message = "File uploaded and saved successfully.", data = result });
+                    return Ok(new { success = true, message = "File uploaded and saved successfully.", data = attachmentId });
                 }
                 else
                 {
@@ -228,37 +206,123 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var result = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId);
-                if (result == null)
+                var (isFileExists, messageOrfileUrl) = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId, "StandardAudit");
+                if (isFileExists)
                 {
-                    return NotFound(new { success = false, message = "Attachment not found." });
+                    return Ok(new { statusCode = 200, success = true, fileUrl = messageOrfileUrl });
                 }
-
-                string fileExt = result.ATCH_EXT;
-                if (string.IsNullOrEmpty(fileExt))
+                else
                 {
-                    return NotFound(new { success = false, message = "File extension not found." });
+                    return Ok(new { statusCode = 200, success = false, message = messageOrfileUrl });
                 }
-
-                string relativeFolder = Path.Combine("Uploads", "Audit", (docId / 301).ToString());
-                string absoluteFolder = Path.Combine(Directory.GetCurrentDirectory(), relativeFolder);
-
-                string fileName = $"{docId}.{fileExt}";
-                string filePath = Path.Combine(absoluteFolder, fileName);
-
-                if (!System.IO.File.Exists(filePath))
-                {
-                    return NotFound(new { success = false, message = "File not found." });
-                }
-
-                var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-                return File(fileBytes, "application/octet-stream", fileName);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { success = false, message = $"An error occurred while downloading the file: {ex.Message}" });
             }
         }
+
+        [HttpGet("LoadUsersByCustomerIdDDL")]
+        public async Task<IActionResult> LoadUsersByCustomerIdDDL(int custId)
+        {
+            try
+            {
+                var dropdownData = await _engagementInterface.LoadUsersByCustomerIdDDLAsync(custId);
+                return Ok(new { statusCode = 200, message = "Customer user dropdown data fetched successfully.", data = dropdownData });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load Customer user dropdown data.", error = ex.Message });
+            }
+        }
+
+        [HttpPost("GenerateAndDownloadReport")]
+        public async Task<IActionResult> GenerateAndDownloadReport(int compId, int epPKid, string format = "pdf")
+        {
+            try
+            {
+                var (fileBytes, contentType, fileName) = await _engagementInterface.GenerateAndDownloadReportAsync(compId, epPKid, format);
+                return File(fileBytes, contentType, fileName);
+            }
+            catch
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to generate report." });
+            }
+        }
+
+        [HttpPost("GenerateReportAndGetURLPath")]
+        public async Task<IActionResult> GenerateReportAndGetURLPath(int compId, int epPKid, string format = "pdf")
+        {
+            try
+            {
+                var url = await _engagementInterface.GenerateReportAndGetURLPathAsync(compId, epPKid, format);
+                return Ok(new { statusCode = 200, message = "Engagement Plan report generated successfully. Download URL is available.", fileUrl = url });
+            }
+            catch
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to generate report." });
+            }
+        }
+
+        [HttpPost("SendEmailAndSaveEngagementPlanExportData")]
+        public async Task<IActionResult> SendEmailAndSaveEngagementPlanExportData([FromBody] EngagementPlanReportExportDetailsDTO dto)
+        {
+            try
+            {
+                var result = await _engagementInterface.SendEmailAndSaveEngagementPlanExportDataAsync(dto);
+                if (result)
+                    return Ok(new { success = true, message = "Engagement Plan exported successfully." });
+                else
+                    return BadRequest(new { success = false, message = "Engagement Plan exported failed." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "An error occurred while sending Engagement Plan exported data.", error = ex.Message });
+            }
+        }
+
+        [HttpGet("GetLOEProgress")]
+        public async Task<IActionResult> GetLOEProgress(int compId, int yearId, int custId = 0)
+        {
+            try
+            {
+                var progressData = await _engagementInterface.GetLOEProgressAsync(compId, yearId, custId);
+                return Ok(new { statusCode = 200, message = "LOE progress data fetched successfully.", data = progressData });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load LOE progress data.", error = ex.Message });
+            }
+        }
+
+        [HttpGet("GetAuditProgress")]
+        public async Task<IActionResult> GetAuditProgress(int compId, int yearId, int custId = 0)
+        {
+            try
+            {
+                var progressData = await _engagementInterface.GetAuditProgressAsync(compId, yearId, custId);
+                return Ok(new { statusCode = 200, message = "Audit progress data fetched successfully.", data = progressData });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load Audit progress data.", error = ex.Message });
+            }
+        }
+
+        [HttpGet("GetAuditPassedDueDates")]
+        public async Task<IActionResult> GetAuditPassedDueDates(int compId, int yearId, int custId = 0)
+        {
+            try
+            {
+                var progressData = await _engagementInterface.GetAuditPassedDueDatesAsync(compId, yearId, custId);
+                return Ok(new { statusCode = 200, message = "Audit Passed due dates data fetched successfully.", data = progressData });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load Audit Passed due dates data.", error = ex.Message });
+            }
+        }
     }
 }
+
 

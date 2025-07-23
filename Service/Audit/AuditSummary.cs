@@ -51,20 +51,61 @@ namespace TracePca.Service.Audit
         }
 
 
-        public async Task<DropDownDataDto> LoadAuditNoDataAsync(int CustID, int compId)
+     public async Task<DropDownDataDto> LoadAuditNoDataAsync(int custId, int compId, int financialYearId, int loginUserId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
 
-            var AuditNoDt = connection.QueryAsync<AuditSummaryDto>(@"
-            Select SA_ID,SA_AuditNo + ' - ' + CMM_Desc As SA_AuditNo From StandardAudit_Schedule 
-            Left Join Content_Management_Master on CMM_ID=SA_AuditTypeID Where SA_CompID = @CompId And SA_CustID=@CustID
-            ORDER BY SA_ID ASC", new { CompId = compId , CustID = CustID });
-             
-            await Task.WhenAll(AuditNoDt);
+            var query = @"
+        SELECT SA_ID, SA_AuditNo + ' - ' + CMM_Desc AS SA_AuditNo
+        FROM StandardAudit_Schedule
+        LEFT JOIN Content_Management_Master ON CMM_ID = SA_AuditTypeID
+        WHERE SA_CompID = @compId";
+
+            if (financialYearId > 0)
+                query += " AND SA_YearID = @financialYearId";
+
+            if (custId > 0)
+                query += " AND SA_CustID = @custId";
+            var checkPartnerSql = @"
+        SELECT Usr_ID 
+        FROM sad_userdetails 
+        WHERE usr_compID = @CompId 
+          AND USR_Partner = 1 
+          AND (usr_DelFlag = 'A' OR usr_DelFlag = 'B' OR usr_DelFlag = 'L') 
+          AND Usr_ID = @UserId";
+
+            var partnerParams = new
+            {
+                CompId = compId,
+                UserId = loginUserId
+            };
+
+            var Partner = await connection.QueryFirstOrDefaultAsync<int?>(checkPartnerSql, partnerParams);
+            bool loginUserIsPartner = Partner.HasValue;
+            if (!loginUserIsPartner)
+            {
+                query += @"
+            AND (
+                CONCAT(',', SA_AdditionalSupportEmployeeID, ',') LIKE '%,' + CAST(@loginUserId AS VARCHAR) + ',%' OR
+                CONCAT(',', SA_EngagementPartnerID, ',') LIKE '%,' + CAST(@loginUserId AS VARCHAR) + ',%' OR
+                CONCAT(',', SA_ReviewPartnerID, ',') LIKE '%,' + CAST(@loginUserId AS VARCHAR) + ',%' OR
+                CONCAT(',', SA_PartnerID, ',') LIKE '%,' + CAST(@loginUserId AS VARCHAR) + ',%'
+            )";
+            }
+
+            query += " ORDER BY SA_ID DESC";
+
+            var auditNos = await connection.QueryAsync<AuditSummaryDto>(query, new
+            {
+                compId,
+                financialYearId,
+                custId,
+                loginUserId
+            });
+
             return new DropDownDataDto
             {
-                AuditNoDetails = AuditNoDt.Result.ToList()
+                AuditNoDetails = auditNos.ToList()
             };
         }
 
@@ -231,6 +272,35 @@ namespace TracePca.Service.Audit
         }
 
 
+        //public async Task<IEnumerable<WorkspaceSummaryDto>> GetWorkspaceSummaryAsync(int compId, int auditNo)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+        //    string query = @"
+        //    Select ISNULL(cm.cmm_ID, a.SSW_ID) As PKID,IsNull(cm.cmm_Desc,'NA') As WorkpaperChecklist,SSW_WorkpaperNo As WorkpaperNo,
+        //    SSW_WorkpaperRef As WorkpaperRef,SSW_Observation As Observation,SSW_Conclusion As Conclusion,SSW_ReviewerComments As ReviewerComments, 
+        //    Case When a.SSW_TypeOfTest=1 then 'Inquiry' When a.SSW_TypeOfTest=2 then 'Observation' When a.SSW_TypeOfTest=3 then 'Examination' When 
+        //    a.SSW_TypeOfTest=4 then 'Inspection' When a.SSW_TypeOfTest=5 then 'Substantive Testing' End TypeOfTest, Case When a.SSW_Status=1 
+        //    then 'Open' When a.SSW_Status=2 then 'WIP' When a.SSW_Status=3 then 'Closed' End Status,SSW_AttachID As AttachID,
+        //    IsNull(b.usr_FullName,'-') As CreatedBy,ISNULL(Convert(Varchar(10),SSW_CrOn,103),'-') As CreatedOn, IsNull(c.usr_FullName,'-') As ReviewedBy,
+        //    ISNULL(Convert(Varchar(10),SSW_ReviewedOn,103),'-') As ReviewedOn From Content_Management_Master cm 
+        //    Full Outer Join StandardAudit_ScheduleConduct_WorkPaper a On cm.cmm_ID = a.SSW_WPCheckListID And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId 
+        //    Left Join sad_userdetails b on b.Usr_ID=a.SSW_CrBy Left Join sad_userdetails c on c.Usr_ID=a.SSW_ReviewedBy 
+        //    Where (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') Or a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId Order by 
+        //    CASE WHEN cm.cmm_Desc IS NULL THEN 1 ELSE 0 END, cm.cmm_ID ASC";
+
+
+        //    var result = await connection.QueryAsync<WorkspaceSummaryDto>(query, new
+        //    {
+        //        CompId = compId,
+        //        AuditNo = auditNo
+        //    });
+
+        //    return result;
+        //}
+
+
+
         public async Task<IEnumerable<WorkspaceSummaryDto>> GetWorkspaceSummaryAsync(int compId, int auditNo)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -266,6 +336,25 @@ namespace TracePca.Service.Audit
                             WHERE (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') OR a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId) A
                             ORDER BY CASE WHEN A.cmm_Desc IS NULL THEN 1 ELSE 0 END, A.cmm_ID ASC";
 
+            //Changed by steffi on 15-07-2025, Type of test data stroing multiple value.
+            string query = @"SELECT A.PKID,A.WorkpaperChecklist,A.WorkpaperNo,A.WorkpaperRef,A.Observation,A.Conclusion,A.ReviewerComments,
+                     STUFF((SELECT ', ' + cmm_Desc FROM Content_Management_Master
+                     WHERE CHARINDEX(',' + CAST(cmm_ID AS VARCHAR) + ',', ',' + REPLACE(A.TypeOfTest, ' ', '') + ',') > 0
+                     FOR XML PATH('')), 1, 2, '') AS TypeOfTest,
+                     A.Status,A.AttachID,A.CreatedBy,A.CreatedOn,A.ReviewedBy,A.ReviewedOn
+                     FROM (SELECT ISNULL(cm.cmm_ID, a.SSW_ID) As PKID,IsNull(cm.cmm_Desc,'NA') As WorkpaperChecklist,
+                     SSW_WorkpaperNo As WorkpaperNo,SSW_WorkpaperRef As WorkpaperRef,SSW_Observation As Observation,SSW_Conclusion As Conclusion,
+                     SSW_ReviewerComments As ReviewerComments,SSW_TypeOfTest as TypeOfTest,
+                     CASE WHEN a.SSW_Status=1 THEN 'Open' WHEN a.SSW_Status=2 THEN 'WIP' WHEN a.SSW_Status=3 THEN 'Closed' END Status,
+                     SSW_AttachID As AttachID,IsNull(b.usr_FullName,'-') As CreatedBy,ISNULL(Convert(Varchar(10),SSW_CrOn,103),'-') As CreatedOn, 
+                     IsNull(c.usr_FullName,'-') As ReviewedBy,ISNULL(Convert(Varchar(10),SSW_ReviewedOn,103),'-') As ReviewedOn,
+                     cm.cmm_Desc,cm.cmm_ID FROM Content_Management_Master cm 
+                     FULL OUTER JOIN StandardAudit_ScheduleConduct_WorkPaper a ON cm.cmm_ID = a.SSW_WPCheckListID And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId 
+                     LEFT JOIN sad_userdetails b on b.Usr_ID=a.SSW_CrBy 
+                     LEFT JOIN sad_userdetails c on c.Usr_ID=a.SSW_ReviewedBy 
+                     WHERE (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') OR a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId) A
+                     ORDER BY CASE WHEN A.cmm_Desc IS NULL THEN 1 ELSE 0 END, A.cmm_ID ASC";
+
             var result = await connection.QueryAsync<WorkspaceSummaryDto>(query, new
             {
                 CompId = compId,
@@ -275,7 +364,8 @@ namespace TracePca.Service.Audit
             return result;
         }
 
-         
+
+
         public async Task<IEnumerable<CMADto>> GetCAMDetailsAsync(int compId, int auditNo)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -319,7 +409,6 @@ namespace TracePca.Service.Audit
 
             return rowsAffected > 0;
         }
- 
 
 
         public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
@@ -580,7 +669,14 @@ namespace TracePca.Service.Audit
         }
 
 
+        public async Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+            string query = "";
 
+<<<<<<< HEAD
 		public async Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID)
 		{
 			using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -598,11 +694,33 @@ namespace TracePca.Service.Audit
 			{
 				atch_DocID = AttachID
 			}, transaction);
+=======
+            query = @"Select Atch_DocID,ATCH_FNAME,ATCH_EXT,ATCH_Desc,Usr_FullName as ATCH_CreatedBy,Convert(Varchar(10),ATCH_CREATEDON,103) as 
+                ATCH_CREATEDON,ATCH_SIZE,ATCH_ReportType,CASE WHEN Atch_Vstatus = 'AS' THEN 'Not Shared' WHEN Atch_Vstatus = 'A' THEN 'Shared' 
+                WHEN Atch_Vstatus = 'C' THEN 'Received' END AS Atch_Vstatus From edt_attachments A join Sad_Userdetails B on A.ATCH_CreatedBy = B.Usr_ID 
+                Where ATCH_CompID=1 And ATCH_ID = @atch_DocID AND ATCH_Status <> 'D' and Atch_Vstatus in ('A','AS','C') Order by ATCH_CREATEDON ";
 
-			return result;
-		}
+
+            var result = await connection.QueryAsync<CAMAttachmentDetailsDto>(query, new
+            {
+                atch_DocID = AttachID
+            }, transaction);
+
+            return result;
+        }
 
 
+        //public async Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID, CAMAttachmentDetailsDto dto)
+        //{
+        //	using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //	await connection.OpenAsync();
+        //	using var transaction = connection.BeginTransaction();
+>>>>>>> 243edc43391c4b6ebb2ae75cfed0880fa0e20a8f
+
+        //	string query = "";
+
+
+<<<<<<< HEAD
 		//public async Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID, CAMAttachmentDetailsDto dto)
 		//{
 		//	using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -647,230 +765,342 @@ namespace TracePca.Service.Audit
 		//        string sFileName = "";
 		//        int iPosSlash = sFilePath.LastIndexOf('\\') + 1;
 		//        int iPosDot = sFilePath.LastIndexOf('.') + 1;
+=======
+        //	//var AttachID = await connection.ExecuteScalarAsync<int>(@"Select SACAM_AttachID from StandardAudit_AuditSummary_CAMDetails where SACAM_PKID=@SACAM_PKID", new { SACAM_PKID = auditNo }, transaction);
+>>>>>>> 243edc43391c4b6ebb2ae75cfed0880fa0e20a8f
 
-		//        if (iPosDot != 0)
-		//        {
-		//            sFileName = sFilePath.Substring(iPosSlash, iPosDot - iPosSlash - 1);
-		//            sFileExtension = sFilePath.Substring(iPosDot);
-		//        }
-		//        else
-		//        {
-		//            sFileName = sFilePath.Substring(iPosSlash);
-		//            sFileExtension = "unk";
-		//        }
-		//        sFileName = sFileName.Replace("&", " and").Substring(0, Math.Min(sFileName.Length, 95));
+        //    query = @"Select Atch_DocID,ATCH_FNAME,ATCH_EXT,ATCH_Desc,Usr_FullName as ATCH_CreatedBy,Convert(Varchar(10),ATCH_CREATEDON,103) as 
+        //                  ATCH_CREATEDON,ATCH_SIZE,ATCH_ReportType,CASE WHEN Atch_Vstatus = 'AS' THEN 'Not Shared' WHEN Atch_Vstatus = 'A' THEN 'Shared' 
+        //                  WHEN Atch_Vstatus = 'C' THEN 'Received' END AS Atch_Vstatus From edt_attachments A join Sad_Userdetails B on A.ATCH_CreatedBy = B.Usr_ID 
+        //                  Where ATCH_CompID=1 And ATCH_ID = @atch_DocID AND ATCH_Status <> 'D' and Atch_Vstatus in ('A','AS','C') Order by ATCH_CREATEDON ";
 
 
-		//        iAttachID = iAttachID == 0 ?
-		//            iAttachID = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID") : iAttachID;
-		//        int iDocID = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID");
+        //	var result = await connection.QueryAsync<CAMAttachmentDetailsDto>(query, new
+        //	{
+        //		ATCH_FNAME = dto.ATCH_FNAME,
+        //		ATCH_EXT = dto.ATCH_EXT,
+        //		ATCH_Desc = dto.ATCH_Desc,
+        //		ATCH_CREATEDBY = dto.ATCH_CREATEDBY,
+        //		ATCH_CREATEDON = dto.ATCH_CREATEDON,
+        //		atch_DocID = AttachID
+        //	}, transaction);
 
-		//        if (iDocID == 0)
-		//        {
-		//           int docID = await connection.ExecuteScalarAsync<int>(@"SELECT ATCH_DOCID FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID AND ATCH_ID=@iAttachID  ");
-
-		//            if (docID > 0)
-		//            {
-		//                iAttachID = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID");
-		//                iDocID = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID");
-		//            }
-		//        }
-
-		//        string sSql = "";
-		//        long fileSize = new FileInfo(sFilePath).Length;
-		//        await connection.ExecuteAsync(
-		//            @"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, ATCH_VERSION, ATCH_FLAG, 
-		//        ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, ATCH_Status, ATCH_CompID,Atch_Vstatus)
-		//        VALUES (
-		//        @iAttachID, @iDocID, @AuditId, @sFileName,
-		//        @sFileExtension, @iUserId, @UserId, 1,0, @fileSize,0,0,GetDate(),'X',@iCompID,'A')",
-		//            new
-		//            {
-		//                RemarkId = remarkId,
-		//                CustomerId = dto.CustomerId,
-		//                AuditId = dto.AuditId,
-		//                RequestedId = requestedId,
-		//                Remark = dto.Remark,
-		//                UserId = dto.UserId,
-		//                //Type = dto.Type,
-		//                AttachId = attachId
-		//            });
+        //	return result;
+        //}
 
 
-		//        string sFileExtension1 = Path.GetExtension(sFilePath).ToLower();
-		//        string[] aImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv" };
-		//        string[] aDocumentExtensions = { ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar" };
+        //private async Task<int> SaveAttachmentsModulewise(int iCompID,string sAccessCodeDirectory, string sModule, string sFilePath, int iUserId, int iAttachID)
+        //{
+        //    using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //    {
+        //        await connection.OpenAsync();
+        //        //  return await connection.ExecuteScalarAsync<int>(
+        //        //      @"SELECT ISNULL(MAX( ATCH_DOCID), 0) + 1 FROM Edt_Attachments 
+        //        //WHERE ATCH_COMPID = @CustomerId AND ATCH_AuditID = @AuditId",
+        //        //      new { customerId, auditId });
+        //        string sFileExtension = "";
+        //        string sFileName = "";
+        //        int iPosSlash = sFilePath.LastIndexOf('\\') + 1;
+        //        int iPosDot = sFilePath.LastIndexOf('.') + 1;
 
-		//        string sFileType = aImageExtensions.Contains(sFileExtension) ? "Images" :
-		//                         (aDocumentExtensions.Contains(sFileExtension) ? "Documents" : "Others");
-
-		//        string sAccessCodeModulePath = Path.Combine(sAccessCodeDirectory, sModule);
-		//        if (!Directory.Exists(sAccessCodeModulePath)) Directory.CreateDirectory(sAccessCodeModulePath);
-
-		//        int iFolder = (Convert.ToInt32(iDocID) / 301);
-		//        string sFinalDirectory = Path.Combine(sAccessCodeModulePath, sFileType, iFolder.ToString());
-		//        if (!Directory.Exists(sFinalDirectory)) Directory.CreateDirectory(sFinalDirectory);
-		//        string sFinalFilePath = $"{sFinalDirectory}\\{iDocID}.{sFileExtension}";
-
-		//        if (File.Exists(sFinalFilePath)) File.Delete(sFinalFilePath);
-		//        // File.Copy(sFilePath, sFinalFilePath);
-
-
-
-		//        string EncryptionKey = "MAKV2SPBNI99212";
-		//        using (Aes encryptor = Aes.Create())
-		//        {
-		//            var pdb = new Rfc2898DeriveBytes(EncryptionKey, new byte[] { 0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D,
-		//                                                            0x65, 0x64, 0x76, 0x65, 0x64, 0x65,
-		//                                                            0x76 });
-		//            encryptor.Key = pdb.GetBytes(32);
-		//            encryptor.IV = pdb.GetBytes(16);
-		//            using (FileStream fs = new FileStream(sFinalFilePath, FileMode.Create))
-		//            {
-		//                using (CryptoStream cs = new CryptoStream(fs, encryptor.CreateEncryptor(), CryptoStreamMode.Write))
-		//                {
-		//                    using (FileStream fsInput = new FileStream(sFilePath, FileMode.Open))
-		//                    {
-		//                        int data;
-		//                        while ((data = fsInput.ReadByte()) != -1)
-		//                        {
-		//                            cs.WriteByte((byte)data);
-		//                        }
-		//                    }
-		//                }
-		//            }
-		//        }
+        //        if (iPosDot != 0)
+        //        {
+        //            sFileName = sFilePath.Substring(iPosSlash, iPosDot - iPosSlash - 1);
+        //            sFileExtension = sFilePath.Substring(iPosDot);
+        //        }
+        //        else
+        //        {
+        //            sFileName = sFilePath.Substring(iPosSlash);
+        //            sFileExtension = "unk";
+        //        }
+        //        sFileName = sFileName.Replace("&", " and").Substring(0, Math.Min(sFileName.Length, 95));
 
 
-		//        if (File.Exists(sFilePath)) File.Delete(sFilePath);
-		//        return iAttachID;
-		//    }
-		//}
+        //        iAttachID = iAttachID == 0 ?
+        //            iAttachID = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID") : iAttachID;
+        //        int iDocID = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID");
+
+        //        if (iDocID == 0)
+        //        {
+        //           int docID = await connection.ExecuteScalarAsync<int>(@"SELECT ATCH_DOCID FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID AND ATCH_ID=@iAttachID  ");
+
+        //            if (docID > 0)
+        //            {
+        //                iAttachID = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID");
+        //                iDocID = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID=@iCompID");
+        //            }
+        //        }
+
+        //        string sSql = "";
+        //        long fileSize = new FileInfo(sFilePath).Length;
+        //        await connection.ExecuteAsync(
+        //            @"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, ATCH_VERSION, ATCH_FLAG, 
+        //        ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, ATCH_Status, ATCH_CompID,Atch_Vstatus)
+        //        VALUES (
+        //        @iAttachID, @iDocID, @AuditId, @sFileName,
+        //        @sFileExtension, @iUserId, @UserId, 1,0, @fileSize,0,0,GetDate(),'X',@iCompID,'A')",
+        //            new
+        //            {
+        //                RemarkId = remarkId,
+        //                CustomerId = dto.CustomerId,
+        //                AuditId = dto.AuditId,
+        //                RequestedId = requestedId,
+        //                Remark = dto.Remark,
+        //                UserId = dto.UserId,
+        //                //Type = dto.Type,
+        //                AttachId = attachId
+        //            });
 
 
-		//public async Task<string> CAMAttachmentAsync( string sAccessCodeDirectory, string sFolderName, int attachId, IFormFile file, CMADtoAttachment dto)
-		//{
+        //        string sFileExtension1 = Path.GetExtension(sFilePath).ToLower();
+        //        string[] aImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv" };
+        //        string[] aDocumentExtensions = { ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar" };
 
-		//    if (!Directory.Exists(sAccessCodeDirectory))
-		//    {
-		//        Directory.CreateDirectory(sAccessCodeDirectory);
-		//    }
+        //        string sFileType = aImageExtensions.Contains(sFileExtension) ? "Images" :
+        //                         (aDocumentExtensions.Contains(sFileExtension) ? "Documents" : "Others");
 
-		//    var sFoldersToCreate = new List<string> { "Tempfolder", sFolderName, "Upload" };
-		//    foreach (var sFolder in sFoldersToCreate)
-		//    {
-		//        if (!string.IsNullOrEmpty(sFolder))
-		//        {
-		//            sAccessCodeDirectory = Path.Combine(sAccessCodeDirectory.TrimEnd('\\'), sFolder);
-		//            if (!Directory.Exists(sAccessCodeDirectory))
-		//            {
-		//                Directory.CreateDirectory(sAccessCodeDirectory);
-		//            }
-		//        }
-		//    }
+        //        string sAccessCodeModulePath = Path.Combine(sAccessCodeDirectory, sModule);
+        //        if (!Directory.Exists(sAccessCodeModulePath)) Directory.CreateDirectory(sAccessCodeModulePath);
+
+        //        int iFolder = (Convert.ToInt32(iDocID) / 301);
+        //        string sFinalDirectory = Path.Combine(sAccessCodeModulePath, sFileType, iFolder.ToString());
+        //        if (!Directory.Exists(sFinalDirectory)) Directory.CreateDirectory(sFinalDirectory);
+        //        string sFinalFilePath = $"{sFinalDirectory}\\{iDocID}.{sFileExtension}";
+
+        //        if (File.Exists(sFinalFilePath)) File.Delete(sFinalFilePath);
+        //        // File.Copy(sFilePath, sFinalFilePath);
 
 
 
-		//    if (file == null || file.Length == 0)
-		//        throw new ArgumentException("Invalid file.");
-
-		//    var sSelectedFileName = Path.GetFileName(file.FileName);
-		//    var fileExt = Path.GetExtension(sSelectedFileName)?.TrimStart('.');
-		//    var sFullFilePath = Path.Combine(sAccessCodeDirectory, sSelectedFileName);
-
-		//    using (var stream = new FileStream(sFullFilePath, FileMode.Create))
-		//    {
-		//        await file.CopyToAsync(stream);
-		//    }
-
-
-		//    int iAttachID = SaveAttachmentsModulewise();
-
-
-		//}
-
-		//private async Task<int> GenerateNextDocIdAsync(int customerId, int auditId)
-		//{
-		//    using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-		//    {
-		//        await connection.OpenAsync();
-		//        return await connection.ExecuteScalarAsync<int>(
-		//            @"SELECT ISNULL(MAX( ATCH_DOCID), 0) + 1 FROM Edt_Attachments 
-		//WHERE ATCH_COMPID = @CustomerId AND ATCH_AuditID = @AuditId",
-		//            new { customerId, auditId });
-		//    }
-		//}
+        //        string EncryptionKey = "MAKV2SPBNI99212";
+        //        using (Aes encryptor = Aes.Create())
+        //        {
+        //            var pdb = new Rfc2898DeriveBytes(EncryptionKey, new byte[] { 0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D,
+        //                                                            0x65, 0x64, 0x76, 0x65, 0x64, 0x65,
+        //                                                            0x76 });
+        //            encryptor.Key = pdb.GetBytes(32);
+        //            encryptor.IV = pdb.GetBytes(16);
+        //            using (FileStream fs = new FileStream(sFinalFilePath, FileMode.Create))
+        //            {
+        //                using (CryptoStream cs = new CryptoStream(fs, encryptor.CreateEncryptor(), CryptoStreamMode.Write))
+        //                {
+        //                    using (FileStream fsInput = new FileStream(sFilePath, FileMode.Open))
+        //                    {
+        //                        int data;
+        //                        while ((data = fsInput.ReadByte()) != -1)
+        //                        {
+        //                            cs.WriteByte((byte)data);
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //        }
 
 
+        //        if (File.Exists(sFilePath)) File.Delete(sFilePath);
+        //        return iAttachID;
+        //    }
+        //}
 
-		//public async Task<bool> SaveAllLoeDataAsync(AddEngagementDto dto)
-		//{
-		//    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-		//    await connection.OpenAsync();
-		//    using var transaction = connection.BeginTransaction();
 
-		//    try
-		//    {
-		//        // 1. Insert into SAD_CUST_LOE
-		//        dto.LoeId = await connection.ExecuteScalarAsync<int>(
-		//            @"DECLARE @NewId INT = (SELECT ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE);
-		//      INSERT INTO SAD_CUST_LOE (
-		//          LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId, LOE_NatureOfService,
-		//          LOE_LocationIds, LOE_TimeSchedule, LOE_ReportDueDate,
-		//          LOE_ProfessionalFees, LOE_OtherFees, LOE_ServiceTax, LOE_RembFilingFee,
-		//          LOE_CrBy, LOE_CrOn, LOE_Total, LOE_Name, LOE_Frequency,
-		//          LOE_FunctionId, LOE_SubFunctionId, LOE_STATUS, LOE_Delflag, LOE_IPAddress, LOE_CompID
-		//      )
-		//      VALUES (
-		//          @NewId, @LoeYearId, @LoeCustomerId, @LoeServiceTypeId, @LoeNatureOfService,
-		//          '0', @LoeTimeSchedule, @LoeReportDueDate,
-		//          '0', '0', '0', '0',
-		//          1, GETDATE(), @LoeTotal, @LoeName, @LoeFrequency,
-		//          0, '1', 'A', 'A', @LoeIpaddress, @LoeCompId);
-		//      SELECT @NewId;", dto, transaction);
+        //public async Task<string> CAMAttachmentAsync( string sAccessCodeDirectory, string sFolderName, int attachId, IFormFile file, CMADtoAttachment dto)
+        //{
 
-		//        // 2. Insert into LOE_Template
-		//        dto.LOET_Id = await connection.ExecuteScalarAsync<int>(
-		//            @"DECLARE @TemplateId INT = (SELECT ISNULL(MAX(LOET_Id), 0) + 1 FROM LOE_Template);
-		//      INSERT INTO LOE_Template (
-		//          LOET_Id, LOET_LOEID , LOET_CustomerId, LOET_FunctionId, LOET_ScopeOfWork,
-		//          LOET_Frequency, LOET_ProfessionalFees, LOET_Delflag, LOET_STATUS,
-		//          LOET_CrOn, LOET_CrBy, LOET_IPAddress, LOET_CompID, LOE_AttachID
-		//      )
-		//      VALUES (
-		//          @TemplateId, @LoeId, @LoeCustomerId, 0, @LoeNatureOfService,
-		//          @LoeFrequency, '0', 'A', 'A', GETDATE(), 1,
-		//          @LoeIpaddress, @LoeCompId, @LoeAttachId);
-		//      SELECT @TemplateId;", dto, transaction);
+        //    if (!Directory.Exists(sAccessCodeDirectory))
+        //    {
+        //        Directory.CreateDirectory(sAccessCodeDirectory);
+        //    }
 
-		//        // 3. Insert into LOE_AdditionalFees
-		//        dto.FeeName = await connection.QueryFirstOrDefaultAsync<string>(
-		//            @"SELECT cmm_Desc FROM Content_Management_Master WHERE cmm_Category = 'OE' AND CMM_CompID = @LoeCompId",
-		//            new { dto.LoeCompId }, transaction);
+        //    var sFoldersToCreate = new List<string> { "Tempfolder", sFolderName, "Upload" };
+        //    foreach (var sFolder in sFoldersToCreate)
+        //    {
+        //        if (!string.IsNullOrEmpty(sFolder))
+        //        {
+        //            sAccessCodeDirectory = Path.Combine(sAccessCodeDirectory.TrimEnd('\\'), sFolder);
+        //            if (!Directory.Exists(sAccessCodeDirectory))
+        //            {
+        //                Directory.CreateDirectory(sAccessCodeDirectory);
+        //            }
+        //        }
+        //    }
 
-		//        dto.ExpensesId = await connection.QueryFirstOrDefaultAsync<int>(
-		//            @"SELECT cmm_ID FROM Content_Management_Master WHERE cmm_Category = 'OE' AND CMM_CompID = @LoeCompId",
-		//            new { dto.LoeCompId }, transaction);
 
-		//        dto.FeesId = await connection.ExecuteScalarAsync<int>(
-		//            @"DECLARE @NewFeesId INT = (SELECT ISNULL(MAX(LAF_ID), 0) + 1 FROM LOE_AdditionalFees);
-		//      INSERT INTO LOE_AdditionalFees (
-		//          LAF_ID, LAF_LOEID, LAF_OtherExpensesID, LAF_Charges, LAF_OtherExpensesName,
-		//          LAF_Delflag, LAF_STATUS, LAF_CrBy, LAF_CrOn, LAF_IPAddress, LAF_CompID
-		//      )
-		//      VALUES (
-		//          @NewFeesId, @LoeId, @ExpensesId, @LoeTotal, @FeeName, 'A', 'C', 1,
-		//          GETDATE(), @LoeIpaddress, @LoeCompId);
-		//      SELECT @NewFeesId;", dto, transaction);
 
-		//        await transaction.CommitAsync();
-		//        return true;
-		//    }
-		//    catch
-		//    {
-		//        await transaction.RollbackAsync();
-		//        throw;
-		//    }
-		//}
-	}
+
+        //public async Task<bool> SaveAllLoeDataAsync(AddEngagementDto dto)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    await connection.OpenAsync();
+        //    using var transaction = connection.BeginTransaction();
+
+        //    try
+        //    {
+        //        // 1. Insert into SAD_CUST_LOE
+        //        dto.LoeId = await connection.ExecuteScalarAsync<int>(
+        //            @"DECLARE @NewId INT = (SELECT ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE);
+        //      INSERT INTO SAD_CUST_LOE (
+        //          LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId, LOE_NatureOfService,
+        //          LOE_LocationIds, LOE_TimeSchedule, LOE_ReportDueDate,
+        //          LOE_ProfessionalFees, LOE_OtherFees, LOE_ServiceTax, LOE_RembFilingFee,
+        //          LOE_CrBy, LOE_CrOn, LOE_Total, LOE_Name, LOE_Frequency,
+        //          LOE_FunctionId, LOE_SubFunctionId, LOE_STATUS, LOE_Delflag, LOE_IPAddress, LOE_CompID
+        //      )
+        //      VALUES (
+        //          @NewId, @LoeYearId, @LoeCustomerId, @LoeServiceTypeId, @LoeNatureOfService,
+        //          '0', @LoeTimeSchedule, @LoeReportDueDate,
+        //          '0', '0', '0', '0',
+        //          1, GETDATE(), @LoeTotal, @LoeName, @LoeFrequency,
+        //          0, '1', 'A', 'A', @LoeIpaddress, @LoeCompId);
+        //      SELECT @NewId;", dto, transaction);
+
+        //        // 2. Insert into LOE_Template
+        //        dto.LOET_Id = await connection.ExecuteScalarAsync<int>(
+        //            @"DECLARE @TemplateId INT = (SELECT ISNULL(MAX(LOET_Id), 0) + 1 FROM LOE_Template);
+        //      INSERT INTO LOE_Template (
+        //          LOET_Id, LOET_LOEID , LOET_CustomerId, LOET_FunctionId, LOET_ScopeOfWork,
+        //          LOET_Frequency, LOET_ProfessionalFees, LOET_Delflag, LOET_STATUS,
+        //          LOET_CrOn, LOET_CrBy, LOET_IPAddress, LOET_CompID, LOE_AttachID
+        //      )
+        //      VALUES (
+        //          @TemplateId, @LoeId, @LoeCustomerId, 0, @LoeNatureOfService,
+        //          @LoeFrequency, '0', 'A', 'A', GETDATE(), 1,
+        //          @LoeIpaddress, @LoeCompId, @LoeAttachId);
+        //      SELECT @TemplateId;", dto, transaction);
+
+        //        // 3. Insert into LOE_AdditionalFees
+        //        dto.FeeName = await connection.QueryFirstOrDefaultAsync<string>(
+        //            @"SELECT cmm_Desc FROM Content_Management_Master WHERE cmm_Category = 'OE' AND CMM_CompID = @LoeCompId",
+        //            new { dto.LoeCompId }, transaction);
+
+        //        dto.ExpensesId = await connection.QueryFirstOrDefaultAsync<int>(
+        //            @"SELECT cmm_ID FROM Content_Management_Master WHERE cmm_Category = 'OE' AND CMM_CompID = @LoeCompId",
+        //            new { dto.LoeCompId }, transaction);
+
+        //        dto.FeesId = await connection.ExecuteScalarAsync<int>(
+        //            @"DECLARE @NewFeesId INT = (SELECT ISNULL(MAX(LAF_ID), 0) + 1 FROM LOE_AdditionalFees);
+        //      INSERT INTO LOE_AdditionalFees (
+        //          LAF_ID, LAF_LOEID, LAF_OtherExpensesID, LAF_Charges, LAF_OtherExpensesName,
+        //          LAF_Delflag, LAF_STATUS, LAF_CrBy, LAF_CrOn, LAF_IPAddress, LAF_CompID
+        //      )
+        //      VALUES (
+        //          @NewFeesId, @LoeId, @ExpensesId, @LoeTotal, @FeeName, 'A', 'C', 1,
+        //          GETDATE(), @LoeIpaddress, @LoeCompId);
+        //      SELECT @NewFeesId;", dto, transaction);
+
+        //        await transaction.CommitAsync();
+        //        return true;
+        //    }
+        //    catch
+        //    {
+        //        await transaction.RollbackAsync();
+        //        throw;
+        //    }
+        //}
+
+
+
+    }
+
+    //    if (file == null || file.Length == 0)
+    //        throw new ArgumentException("Invalid file.");
+
+    //    var sSelectedFileName = Path.GetFileName(file.FileName);
+    //    var fileExt = Path.GetExtension(sSelectedFileName)?.TrimStart('.');
+    //    var sFullFilePath = Path.Combine(sAccessCodeDirectory, sSelectedFileName);
+
+    //    using (var stream = new FileStream(sFullFilePath, FileMode.Create))
+    //    {
+    //        await file.CopyToAsync(stream);
+    //    }
+
+
+    //    int iAttachID = SaveAttachmentsModulewise();
+
+
+    //}
+
+    //private async Task<int> GenerateNextDocIdAsync(int customerId, int auditId)
+    //{
+    //    using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+    //    {
+    //        await connection.OpenAsync();
+    //        return await connection.ExecuteScalarAsync<int>(
+    //            @"SELECT ISNULL(MAX( ATCH_DOCID), 0) + 1 FROM Edt_Attachments 
+    //WHERE ATCH_COMPID = @CustomerId AND ATCH_AuditID = @AuditId",
+    //            new { customerId, auditId });
+    //    }
+    //}
+
+
+
+    //public async Task<bool> SaveAllLoeDataAsync(AddEngagementDto dto)
+    //{
+    //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+    //    await connection.OpenAsync();
+    //    using var transaction = connection.BeginTransaction();
+
+    //    try
+    //    {
+    //        // 1. Insert into SAD_CUST_LOE
+    //        dto.LoeId = await connection.ExecuteScalarAsync<int>(
+    //            @"DECLARE @NewId INT = (SELECT ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE);
+    //      INSERT INTO SAD_CUST_LOE (
+    //          LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId, LOE_NatureOfService,
+    //          LOE_LocationIds, LOE_TimeSchedule, LOE_ReportDueDate,
+    //          LOE_ProfessionalFees, LOE_OtherFees, LOE_ServiceTax, LOE_RembFilingFee,
+    //          LOE_CrBy, LOE_CrOn, LOE_Total, LOE_Name, LOE_Frequency,
+    //          LOE_FunctionId, LOE_SubFunctionId, LOE_STATUS, LOE_Delflag, LOE_IPAddress, LOE_CompID
+    //      )
+    //      VALUES (
+    //          @NewId, @LoeYearId, @LoeCustomerId, @LoeServiceTypeId, @LoeNatureOfService,
+    //          '0', @LoeTimeSchedule, @LoeReportDueDate,
+    //          '0', '0', '0', '0',
+    //          1, GETDATE(), @LoeTotal, @LoeName, @LoeFrequency,
+    //          0, '1', 'A', 'A', @LoeIpaddress, @LoeCompId);
+    //      SELECT @NewId;", dto, transaction);
+
+    //        // 2. Insert into LOE_Template
+    //        dto.LOET_Id = await connection.ExecuteScalarAsync<int>(
+    //            @"DECLARE @TemplateId INT = (SELECT ISNULL(MAX(LOET_Id), 0) + 1 FROM LOE_Template);
+    //      INSERT INTO LOE_Template (
+    //          LOET_Id, LOET_LOEID , LOET_CustomerId, LOET_FunctionId, LOET_ScopeOfWork,
+    //          LOET_Frequency, LOET_ProfessionalFees, LOET_Delflag, LOET_STATUS,
+    //          LOET_CrOn, LOET_CrBy, LOET_IPAddress, LOET_CompID, LOE_AttachID
+    //      )
+    //      VALUES (
+    //          @TemplateId, @LoeId, @LoeCustomerId, 0, @LoeNatureOfService,
+    //          @LoeFrequency, '0', 'A', 'A', GETDATE(), 1,
+    //          @LoeIpaddress, @LoeCompId, @LoeAttachId);
+    //      SELECT @TemplateId;", dto, transaction);
+
+    //        // 3. Insert into LOE_AdditionalFees
+    //        dto.FeeName = await connection.QueryFirstOrDefaultAsync<string>(
+    //            @"SELECT cmm_Desc FROM Content_Management_Master WHERE cmm_Category = 'OE' AND CMM_CompID = @LoeCompId",
+    //            new { dto.LoeCompId }, transaction);
+
+    //        dto.ExpensesId = await connection.QueryFirstOrDefaultAsync<int>(
+    //            @"SELECT cmm_ID FROM Content_Management_Master WHERE cmm_Category = 'OE' AND CMM_CompID = @LoeCompId",
+    //            new { dto.LoeCompId }, transaction);
+
+    //        dto.FeesId = await connection.ExecuteScalarAsync<int>(
+    //            @"DECLARE @NewFeesId INT = (SELECT ISNULL(MAX(LAF_ID), 0) + 1 FROM LOE_AdditionalFees);
+    //      INSERT INTO LOE_AdditionalFees (
+    //          LAF_ID, LAF_LOEID, LAF_OtherExpensesID, LAF_Charges, LAF_OtherExpensesName,
+    //          LAF_Delflag, LAF_STATUS, LAF_CrBy, LAF_CrOn, LAF_IPAddress, LAF_CompID
+    //      )
+    //      VALUES (
+    //          @NewFeesId, @LoeId, @ExpensesId, @LoeTotal, @FeeName, 'A', 'C', 1,
+    //          GETDATE(), @LoeIpaddress, @LoeCompId);
+    //      SELECT @NewFeesId;", dto, transaction);
+
+    //        await transaction.CommitAsync();
+    //        return true;
+    //    }
+    //    catch
+    //    {
+    //        await transaction.RollbackAsync();
+    //        throw;
+    //    }
+    //}
 }
+

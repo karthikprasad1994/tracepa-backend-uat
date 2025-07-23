@@ -21,7 +21,7 @@ namespace TracePca.Dto.Audit
         public int? LOE_ApprovedON { get; set; }
         [JsonIgnore]
         public string? LOE_Delflag { get; set; } = "A";
-        [JsonIgnore]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? LOE_Status { get; set; } = "C";
         public string LOE_IPAddress { get; set; }
         public int LOE_CompID { get; set; }
@@ -105,5 +105,81 @@ namespace TracePca.Dto.Audit
                 return $"{(ATCH_SIZE / 1024.0):0.00} KB";
             }
         }
+    }
+
+    public class AttachmentDownloadInfoDTO
+    {
+        public string TempFilePath { get; set; }
+        public string OriginalFileName { get; set; }
+    }
+
+    public class EngagementPlanReportDetailsDTO
+    {
+        public string? Subject { get; set; }
+        public string? Year { get; set; }
+        public string? Customer { get; set; }
+        public string? CurrencyType { get; set; }
+        public string? AuditType { get; set; }
+        public string? ReportType { get; set; }
+        public string? Frequency { get; set; }
+        public string? ProfessionalFees { get; set; }
+        public string? EngagementPlanNo { get; set; }
+        public string? AnnexureToLetterOfEngagement { get; set; }
+        public string? CompanyName { get; set; }
+        public DateTime? CurrentDate { get; set; }
+        public List<EngagementPlanTemplateReportDetailsDTO> EngagementTemplateDetails { get; set; } = new List<EngagementPlanTemplateReportDetailsDTO>();
+        public List<EngagementPlanAdditionalFeesReportDTO> EngagementAdditionalFees { get; set; } = new List<EngagementPlanAdditionalFeesReportDTO>();
+    }
+
+    public class EngagementPlanTemplateReportDetailsDTO
+    {
+        public string? LTD_Heading { get; set; }
+        public string? LTD_Decription { get; set; }
+    }
+
+    public class EngagementPlanAdditionalFeesReportDTO
+    {
+        public string? LAF_OtherExpensesName { get; set; }
+        public string? LAF_Charges { get; set; }
+    }
+
+    public class EngagementPlanReportExportDetailsDTO
+    {
+        public int LOEId { get; set; }
+        public int YearId { get; set; }
+        public int CustomerId { get; set; }
+        public List<int> CustomerUserIds { get; set; }
+        public string? Comments { get; set; }
+        public int UserId { get; set; }
+        public int AttachmentId { get; set; }
+        public string? IPAddress { get; set; }
+        public int CompId { get; set; }
+    }
+
+    public class LOEStatusSummary
+    {
+        public int TotalLOEs { get; set; }
+        public int ApprovedLOEs { get; set; }
+        public int PendingLOEs { get; set; }
+    }
+
+    public class AuditStatusSummary
+    {
+        public int TotalAudits { get; set; }
+        public int Scheduled { get; set; }
+        public int CommunicationWithClient { get; set; }
+        public int TBR { get; set; }
+        public int ConductAudit { get; set; }
+        public int Report { get; set; }
+        public int Completed { get; set; }
+        public int AuditStarted { get; set; }
+        public int InProgress { get; set; }
+    }
+
+    public class PassedDueDatesSummary
+    {
+        public int OverdueAudits { get; set; }
+        public DateTime? LastDue { get; set; }
+        public Boolean? HighRisk { get; set; } = false;
     }
 }
