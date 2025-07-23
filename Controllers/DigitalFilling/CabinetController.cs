@@ -217,5 +217,29 @@ namespace TracePca.Controllers.DigitalFilling
 				return StatusCode(500, new { statusCode = 500, message = "No data is updated." });
 			}
 		}
+
+		[HttpGet("SearchDocuments")]
+		public async Task<IActionResult> SearchDocuments(string sValue)
+		{
+			var dropdownData = await _CabinetInterface.SearchDocumentsAsync(sValue);
+
+			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Search loaded successfully.",
+					data = dropdownData  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+		}
 	}
 }

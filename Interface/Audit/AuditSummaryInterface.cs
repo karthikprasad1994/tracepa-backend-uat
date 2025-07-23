@@ -29,6 +29,8 @@ namespace TracePca.Interface.Audit
 
         Task<string> UploadCMAAttachmentsAsync(CMADtoAttachment dto);
 
-		Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID, CAMAttachmentDetailsDto dto);
+		//Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID, CAMAttachmentDetailsDto dto);
+
+		Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID);
 	}
 }
