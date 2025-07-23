@@ -515,7 +515,206 @@ namespace TracePca.Service.DigitalFilling
 			await transaction.CommitAsync();
 			return dto.DOT_DOCTYPEID ?? 0;
 		}
-	}
+
+
+
+        //public async Task<IEnumerable<CabinetDto>> SearchDocumentsAsync(string sValue)
+        //{
+        //	using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //	await connection.OpenAsync();
+
+        //          string query = @"select * from edt_page where PGE_Details_ID in(Select distinct(PGE_Details_ID) from edt_page where PGE_Status='A'  and ( PGE_KeyWord like '%;@PGE_KeyWord;%' or PGE_KeyWord like '%;@PGE_KeyWord;%' or PGE_KeyWord like '%;@PGE_KeyWord;%'  or PGE_KeyWord like '%;@PGE_KeyWord;%' or PGE_KeyWord=@PGE_KeyWord) or ( pge_Title like  '%;@pge_Title;%' or pge_Title like ';@pge_Title;%'  or pge_Title like '%;@pge_Title;' or pge_Title=@pge_Title) or PGE_Details_ID in (Select distinct(epd_baseid) from edt_page_details where EPD_Value Like '%'@EPD_Value'%' or EPD_Value like ';@EPD_Value;%'  or EPD_Value like '%;@EPD_Value;' or EPD_Value=@EPD_Value)) and  Pge_Status='A' order by pge_BaseName";
+
+        //	var result = await connection.QueryAsync<CabinetDto>(query, new
+        //	{
+        //		PGE_KeyWord = sValue,
+        //		pge_Title = sValue,
+        //		EPD_Value = sValue,
+        //	});
+        //	return result;
+        //}
+
+
+        //public async Task<IEnumerable<SearchDto>> SearchDocumentsAsync(string sValue)
+        //{
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    await connection.OpenAsync();
+
+        //    string query = @"
+        //select * from edt_page 
+        //where PGE_Details_ID in (
+        //    Select distinct(PGE_Details_ID) from edt_page 
+        //    where PGE_Status='A' and 
+        //    (
+        //        PGE_KeyWord like '%@PGE_KeyWord%' 
+        //        or PGE_KeyWord like '%@PGE_KeyWord%' 
+        //        or PGE_KeyWord like '%@PGE_KeyWord%'  
+        //        or PGE_KeyWord like '%@PGE_KeyWord%' 
+        //        or PGE_KeyWord = @PGE_KeyWord
+        //    ) 
+        //    or 
+        //    (
+        //        pge_Title like '%@pge_Title%' 
+        //        or pge_Title like '@pge_Title%'  
+        //        or pge_Title like '%@pge_Title' 
+        //        or pge_Title = @pge_Title
+        //    ) 
+        //    or PGE_Details_ID in (
+        //        Select distinct(epd_baseid) from edt_page_details 
+        //        where EPD_Value like '%@EPD_Value%' 
+        //        or EPD_Value like '@EPD_Value%'  
+        //        or EPD_Value like '%@EPD_Value' 
+        //        or EPD_Value = @EPD_Value
+        //    )
+        //) 
+        //and Pge_Status='A' 
+        //order by pge_BaseName";
+
+        //    var result = await connection.QueryAsync<SearchDto>(query, new
+        //    {
+        //        PGE_KeyWord = sValue,
+        //        pge_Title = sValue,
+        //        EPD_Value = sValue,
+        //    });
+        //    return result;
+        //}
+
+
+
+        //public async Task<IEnumerable<SearchDto>> SearchDocumentsAsync(string sValue)
+        //{
+        //	using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //	await connection.OpenAsync();
+
+        //	string query = @"
+        //                          select Cab.CBN_Name as Cabinet,SubCab.CBN_Name as SubCabinet,Fol.Fol_Name as Folder,A.PGE_Title as Title,A.PGE_Ext as Extension from edt_page A join edt_Cabinet Cab on A.PGE_CABINET = cab.CBN_ID join EDT_Cabinet SubCab on A.PGE_SubCabinet = SubCab.cbn_Id
+        //                          join edt_Folder Fol on A.PGE_FOLDER = Fol.FOL_FolID 
+        //                          where A.PGE_Details_ID in (
+        //                              Select distinct(PGE_Details_ID) from edt_page 
+        //                              where PGE_Status='A' and 
+        //                              (
+        //                                  PGE_KeyWord like '%' + @PGE_KeyWord + '%' 
+        //                                  or PGE_KeyWord like '%;' + @PGE_KeyWord + ';%' 
+        //                                  or PGE_KeyWord like '%' + @PGE_KeyWord + ';%'  
+        //                                  or PGE_KeyWord like '%;' + @PGE_KeyWord + '%' 
+        //                                  or PGE_KeyWord = @PGE_KeyWord
+        //                              ) 
+        //                              or 
+        //                              (
+        //                                  pge_Title like '%' + @pge_Title + '%' 
+        //                                  or pge_Title like ';' + @pge_Title + ';%'  
+        //                                  or pge_Title like '%' + @pge_Title + ';' 
+        //                                  or pge_Title = @pge_Title
+        //                              ) 
+        //                              or PGE_Details_ID in (
+        //                                  Select distinct(epd_baseid) from edt_page_details 
+        //                                  where EPD_Value like '%' + @EPD_Value + '%' 
+        //                                  or EPD_Value like ';' + @EPD_Value + ';%'  
+        //                                  or EPD_Value like '%' + @EPD_Value + ';' 
+        //                                  or EPD_Value = @EPD_Value
+        //                              )
+        //                              or PGE_Cabinet in (
+        //                                  Select distinct(CBN_ID) from edt_Cabinet 
+        //                                  where CBN_Name like '%' + @pge_Title + '%' 
+        //                                  or CBN_Name like ';' + @pge_Title + ';%'  
+        //                                  or CBN_Name like '%' + @pge_Title + ';' 
+        //                                  or CBN_Name = @pge_Title
+        //                                          )
+        //	                    or PGE_SubCabinet in (
+        //                                  Select distinct(CBN_ID) from edt_Cabinet 
+        //                                  where CBN_Name like '%' + @pge_Title + '%' 
+        //                                  or CBN_Name like ';' + @pge_Title + ';%'  
+        //                                  or CBN_Name like '%' + @pge_Title + ';' 
+        //                                  or CBN_Name = @pge_Title
+        //                                          )
+        //	                    or PGE_Folder in (
+        //                                  Select distinct(Fol_FolID) from edt_Folder 
+        //                                  where FOL_Name like '%' + @pge_Title + '%' 
+        //                                  or FOL_Name like ';' + @pge_Title + ';%'  
+        //                                  or FOL_Name like '%' + @pge_Title + ';' 
+        //                                  or FOL_Name = @pge_Title
+
+
+        //                              )              
+        //                          ) 
+        //                          and A.Pge_Status='A' 
+        //                          order by A.pge_BaseName";
+
+        //	var result = await connection.QueryAsync<SearchDto>(query, new
+        //	{
+        //		PGE_KeyWord = sValue,
+        //		pge_Title = sValue,
+        //		EPD_Value = sValue,
+        //	});
+
+        //	if (result == null || !result.Any())
+        //	{
+        //		throw new Exception("No data found for the given criteria.");
+        //	}
+
+        //	return result;
+        //}
+
+
+        public async Task<IEnumerable<SearchDto>> SearchDocumentsAsync(string sValue)
+        {
+            if (string.IsNullOrWhiteSpace(sValue))
+            {
+                return Enumerable.Empty<SearchDto>();
+            }
+
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                string query = @"
+                  SELECT Cab.CBN_Name AS Cabinet, SubCab.CBN_Name AS SubCabinet, Fol.Fol_Name AS Folder, 
+                        A.PGE_Title AS Title, A.PGE_Ext AS Extension,PGE_BASENAME,
+                        (select SAD_Config_Value from [Sad_Config_Settings] where sad_Config_key='DisplayPath') +
+						'BITMAPS\' + CAST(FLOOR(CAST(PGE_BASENAME AS numeric)/301) AS varchar) + '\' +
+						CAST(PGE_BASENAME AS varchar) + '.'  + A.PGE_Ext AS URLPath
+                        FROM edt_page A 
+                        JOIN edt_Cabinet Cab ON A.PGE_CABINET = Cab.CBN_ID 
+                        JOIN EDT_Cabinet SubCab ON A.PGE_SubCabinet = SubCab.cbn_Id
+                        JOIN edt_Folder Fol ON A.PGE_FOLDER = Fol.FOL_FolID 
+                        WHERE A.Pge_Status = 'A' 
+                        AND (
+                                A.PGE_KeyWord LIKE '%' + @SearchTerm + '%'
+                                OR A.pge_Title LIKE '%' + @SearchTerm + '%'
+                        OR EXISTS (
+                                SELECT 1 FROM edt_page_details 
+                                WHERE epd_baseid = A.PGE_Details_ID 
+                                AND EPD_Value LIKE '%' + @SearchTerm + '%'
+                        )
+                        OR EXISTS (
+                                SELECT 1 FROM edt_Cabinet 
+                                WHERE CBN_ID = A.PGE_Cabinet 
+                                AND CBN_Name LIKE '%' + @SearchTerm + '%'
+                        )
+                        OR EXISTS (
+                                SELECT 1 FROM edt_Cabinet 
+                                WHERE CBN_ID = A.PGE_SubCabinet 
+                                AND CBN_Name LIKE '%' + @SearchTerm + '%'
+                        )
+                        OR EXISTS (
+                                SELECT 1 FROM edt_Folder 
+                                WHERE Fol_FolID = A.PGE_Folder 
+                                AND FOL_Name LIKE '%' + @SearchTerm + '%'
+                        )
+                  )
+                  ORDER BY A.pge_BaseName";
+
+                var result = await connection.QueryAsync<SearchDto>(query, new { SearchTerm = sValue });
+                return result ?? Enumerable.Empty<SearchDto>();
+            }
+            catch (Exception ex)
+            {
+
+                throw;
+            }
+        }
+    }
 }
 
 

@@ -152,29 +152,29 @@ namespace TracePca.Controllers
 
 
 
-        [HttpPost]
-        [Route("UserLogin")]
-        public async Task<IActionResult> Login([FromBody] LoginDto user)
-        {
-            if (user == null || string.IsNullOrWhiteSpace(user.UsrEmail) || string.IsNullOrWhiteSpace(user.UsrPassWord))
-            {
-                return BadRequest(new { statuscode = 400, message = "Email and password are required." });
-            }
+        //[HttpPost]
+        //[Route("UserLogin")]
+        //public async Task<IActionResult> Login([FromBody] LoginDto user)
+        //{
+        //    if (user == null || string.IsNullOrWhiteSpace(user.UsrEmail) || string.IsNullOrWhiteSpace(user.UsrPassWord))
+        //    {
+        //        return BadRequest(new { statuscode = 400, message = "Email and password are required." });
+        //    }
 
-            var result = await _LoginInterface.AuthenticateUserAsync(user.UsrEmail, user.UsrPassWord);
+        //    var result = await _LoginInterface.AuthenticateUserAsync(user.UsrEmail, user.UsrPassWord);
 
-            // ✅ Use strongly typed DTO instead of reflection
-            return result.StatusCode switch
-            {
-                200 => Ok(result),
-                401 => Unauthorized(result),
-                404 => NotFound(result),
-                _ => StatusCode(500, result)
-            };
+        //    // ✅ Use strongly typed DTO instead of reflection
+        //    return result.StatusCode switch
+        //    {
+        //        200 => Ok(result),
+        //        401 => Unauthorized(result),
+        //        404 => NotFound(result),
+        //        _ => StatusCode(500, result)
+        //    };
         
         
         
-        }
+        //}
 
         [HttpGet("Loginpermissions")]
         public async Task<IActionResult> GetUserPermissions([FromQuery] int userId, [FromQuery] int companyId)

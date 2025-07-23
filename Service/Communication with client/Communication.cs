@@ -56,6 +56,7 @@ using DocumentFormat.OpenXml.Office2010.Word;
 using Microsoft.Playwright;
 
 
+
 //using QuestPDF.Fluent;
 //using QuestPDF.Helpers;
 //using QuestPDF.Infrastructure;
@@ -213,7 +214,7 @@ JOIN SAD_CUSTOMER_MASTER CM ON SA.SA_CustID = CM.Cust_ID
 WHERE SA.SA_ID = @AuditId AND SA.SA_CustID = @CustomerId;
 ";
 
-            var connectionString = _configuration.GetConnectionString("NewDatabaseTemplate");
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
@@ -321,7 +322,18 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<Dto.Audit.CustomerDto>> GetCustomerLoeAsync(int companyId)
         {
+<<<<<<< HEAD
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+=======
+<<<<<<< HEAD
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("NewDatabaseTemplate"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = _dbConnectionProvider.GetConnection();
+=======
+           // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = _dbConnectionProvider.GetConnection();
+>>>>>>> 5ce59a43120ce5a87447a7f8c34af0fee9b4b0bb
+>>>>>>> a7539c31e9784fc4c126f51443ac857ebfaf10ec
 
             string query = @"SELECT LOE_ID as CustomerID, LOE_Name as CustomerName
                      FROM SAD_CUST_LOE
@@ -402,7 +414,7 @@ WHERE LOET_CustomerId = @CustomerId
         public async Task<IEnumerable<Dto.Audit.CustomerDto>> LoadActiveCustomersAsync(int companyId)
         {
              using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-          //  using var connection = _dbConnectionProvider.GetConnection();
+         // using var connection = _dbConnectionProvider.GetConnection();
 
             await connection.OpenAsync();
 
@@ -1049,8 +1061,10 @@ WHERE LOET_CustomerId = @CustomerId
     FROM Content_Management_Master 
     WHERE CMM_CompID = @CompanyId AND CMM_ID = @DrlId";
 
+
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
-            using var connection = new SqlConnection(connectionString);
+             using var connection = new SqlConnection(connectionString);
+         //   using var connection = _dbConnectionProvider.GetConnection();
             await connection.OpenAsync();
 
             var result = await connection.ExecuteScalarAsync<string>(query, new

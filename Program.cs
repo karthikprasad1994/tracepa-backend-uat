@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Interface;
 using TracePca.Interface.AssetMaserInterface;
 using TracePca.Interface.Audit;
+using TracePca.Interface.DatabaseConnection;
 using TracePca.Interface.DigitalFiling;
 using TracePca.Interface.DigitalFilling;
 using TracePca.Interface.FIN_Statement;
@@ -29,6 +31,9 @@ using TracePca.Service.FixedAssetsService;
 using TracePca.Service.LedgerReview;
 using TracePca.Service.Master;
 using TracePca.Service.ProfileSetting;
+// Change this in CustomerContextMiddleware.cs
+
+
 //using TracePca.Interface.AssetMaserInterface;
 
 
@@ -54,10 +59,40 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddControllers()
 
+
 .AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
 });
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
+
+    c.AddSecurityDefinition("CustomerCode", new OpenApiSecurityScheme
+    {
+        In = ParameterLocation.Header,
+        Name = "X-Customer-Code",
+        Type = SecuritySchemeType.ApiKey,
+        Description = "Enter the customer code (e.g. harsha123)",
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "CustomerCode"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<LoginInterface, Login>();
@@ -101,6 +136,7 @@ builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSu
 builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();
 builder.Services.AddScoped<LedgerReviewInterface, LedgerReviewService>();
 builder.Services.AddScoped<DbConnectionProvider, DbConnectionProvider>();
+builder.Services.AddScoped<ICustomerContext, CustomerContext>();
 
 
 
@@ -179,6 +215,10 @@ app.UseStaticFiles(new StaticFileOptions
         Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")),
     RequestPath = ""
 });
+
+app.UseMiddleware<TracePca.Middleware.CustomerContextMiddleware>();
+
+
 
 app.UseAuthorization();
 

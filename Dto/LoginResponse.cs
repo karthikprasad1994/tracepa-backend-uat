@@ -17,5 +17,7 @@
 
         public string CustomerCode { get; set; }
 
+        public string? SystemIpAddress { get; set; }
+
     }
 }

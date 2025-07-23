@@ -213,6 +213,26 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpGet("GetSignedByUDINInAuditAsync")]
+        public async Task<IActionResult> GetSignedByUDINInAudit(int compId, int auditId)
+        {
+            try
+            {
+                var data = await _auditCompletionInterface.GetSignedByUDINInAuditAsync(compId, auditId);
+
+                if (data == null || (data.SA_SignedBy == 0 && string.IsNullOrWhiteSpace(data.SA_UDIN)))
+                {
+                    return Ok(new { statusCode = 200, message = "No Data." });
+                }
+
+                return Ok(new { statusCode = 200, message = "Audit completion SignedByUDIN details fetched successfully.", data = data });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to fetch audit completion SignedByUDIN details.", error = ex.Message });
+            }
+        }
+
         [HttpGet("LoadAllAttachmentsById")]
         public async Task<IActionResult> LoadAllAttachmentsByIdAsync(int compId, int attachId)
         {
@@ -323,6 +343,20 @@ namespace TracePca.Controllers.Audit
             {
                 var url = await _auditCompletionInterface.GenerateReportAndGetURLPathAsync(compId, auditId, format);
                 return Ok(new { statusCode = 200, message = "Audit Completion report generated successfully. Download URL is available.", fileUrl = url });
+            }
+            catch
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to generate report." });
+            }
+        }
+
+        [HttpPost("GenerateACSubPointsReportAndGetURLPath")]
+        public async Task<IActionResult> GenerateACSubPointsReportAndGetURLPath(int compId, int auditId, string format = "pdf")
+        {
+            try
+            {
+                var url = await _auditCompletionInterface.GenerateReportAndGetURLPathAsync(compId, auditId, format);
+                return Ok(new { statusCode = 200, message = "Audit Completion sub points report generated successfully. Download URL is available.", fileUrl = url });
             }
             catch
             {
