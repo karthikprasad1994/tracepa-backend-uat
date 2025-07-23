@@ -485,6 +485,63 @@ namespace TracePca.Controllers.Audit
 
 
 
+<<<<<<< HEAD
+		//[HttpPost("GetCAMAttachmentDetails")]
+		//public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID, [FromBody] CAMAttachmentDetailsDto dto)
+		//{
+		//	try
+		//	{
+		//		var camDetails = await _AuditSummaryInterface.GetCAMAttachmentDetailsAsync(AttachID, dto);
+
+		//		if (camDetails != null && camDetails.Any())
+		//		{
+		//			return Ok(new
+		//			{
+		//				statusCode = 200,
+		//				message = "Critical Audit Matter Attachment details fetched successfully.",
+		//				data = new
+		//				{
+		//					camDetails = camDetails
+		//				}
+		//			});
+		//		}
+		//		else
+		//		{
+		//			return NotFound(new
+		//			{
+		//				statusCode = 404,
+		//				message = "No Critical Audit Matter Attachment details found for the selected filters.",
+		//				data = new
+		//				{
+		//					camDetails = new List<object>()
+		//				}
+		//			});
+		//		}
+		//	}
+		//	catch (Exception ex)
+		//	{
+		//		return StatusCode(500, new
+		//		{
+		//			statusCode = 500,
+		//			message = $"Internal server error: {ex.Message}",
+		//			data = new
+		//			{
+		//				camDetails = new List<object>()
+		//			}
+		//		});
+		//	}
+		//}
+
+
+
+		[HttpGet("GetCAMAttachmentDetails")]
+		public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID)
+		{
+			try
+			{
+				var camDetails = await _AuditSummaryInterface.GetCAMAttachmentDetailsAsync(AttachID);
+=======
+>>>>>>> 243edc43391c4b6ebb2ae75cfed0880fa0e20a8f
 
         //[HttpPost("GetCAMAttachmentDetails")]
         //public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID, [FromBody] CAMAttachmentDetailsDto dto)

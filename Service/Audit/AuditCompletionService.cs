@@ -469,6 +469,38 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<AuditSignedByUDINRequestDTO> GetSignedByUDINInAuditAsync(int compId, int auditId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var query = @"SELECT SA_SignedBy, SA_UDIN, SA_UDINdate, SA_ID, SA_CompID FROM StandardAudit_Schedule WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
+
+                var parameters = new { AuditID = auditId, ACID = compId };
+                var result = await connection.QueryFirstOrDefaultAsync(query, parameters);
+
+                if (result == null)
+                {
+                    return new AuditSignedByUDINRequestDTO();
+                }
+
+                return new AuditSignedByUDINRequestDTO
+                {
+                    SA_ID = result.SA_ID ?? 0,
+                    SA_SignedBy = result.SA_SignedBy ?? 0,
+                    SA_UDIN = result.SA_UDIN ?? string.Empty,
+                    SA_UDINdate = result.SA_UDINdate ?? DateTime.MinValue,
+                    SA_CompID = result.SA_CompID ?? 0
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while fetching the SignedBy and UDIN in the audit.", ex);
+            }
+        }
+
         public async Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadReportAsync(int compId, int auditId, string format)
         {
             try
