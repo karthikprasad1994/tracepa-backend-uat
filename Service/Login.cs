@@ -518,6 +518,8 @@ namespace TracePca.Service
         public async Task<bool> VerifyOtpJwtAsync(string token, string enteredOtp)
         {
             return await Task.FromResult(_otpService.VerifyOtpJwt(token, enteredOtp)); // ✅ Use await correctly
+
+
         }
 
         public string GetLocalIp()
