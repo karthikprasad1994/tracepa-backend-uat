@@ -65,7 +65,7 @@ namespace TracePca.Dto.Audit
     {
         public int SA_ID { get; set; }
         public int SA_SignedBy { get; set; }
-        public string SA_UDIN { get; set; }
+        public string? SA_UDIN { get; set; }
         public DateTime SA_UDINdate { get; set; }
         public int SA_CompID { get; set; }
     }

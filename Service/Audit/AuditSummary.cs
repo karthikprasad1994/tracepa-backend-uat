@@ -51,7 +51,7 @@ namespace TracePca.Service.Audit
         }
 
 
-     public async Task<DropDownDataDto> LoadAuditNoDataAsync(int custId, int compId, int financialYearId, int loginUserId)
+        public async Task<DropDownDataDto> LoadAuditNoDataAsync(int custId, int compId, int financialYearId, int loginUserId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -141,7 +141,7 @@ namespace TracePca.Service.Audit
             return new DropDownDataDto
             {
                 CustomerDetails = CustomersDt.Result.ToList()
-              
+
                 //FeeTypes = FeesType.Result.ToList(),
                 //Loenames = loeListTask.Result.ToList()
             };
@@ -158,7 +158,7 @@ namespace TracePca.Service.Audit
                 Join SAD_CUSTOMER_MASTER on Cust_Id=b.SA_CustID Join Content_Management_Master on CMM_ID=b.SA_AuditTypeID 
             Where b.SA_CompID=@CompId And b.SA_CustID=@CustomerId And b.SA_ID=@AuditNo
             Order by b.SA_ID Desc";
-     
+
 
             var result = await connection.QueryAsync<AuditDetailsDto>(query, new
             {
@@ -169,7 +169,7 @@ namespace TracePca.Service.Audit
 
             return result;
         }
-         
+
         public async Task<IEnumerable<DocumentRequestSummaryDto>> GetDocumentRequestSummaryAsync(int compId, int customerId, int auditNo, int yearId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -244,8 +244,8 @@ namespace TracePca.Service.Audit
             return result;
         }
 
-         
-        public async Task<IEnumerable<AuditProgramSummaryDto>> GetAuditProgramSummaryAsync(int compId,  int auditNo)
+
+        public async Task<IEnumerable<AuditProgramSummaryDto>> GetAuditProgramSummaryAsync(int compId, int auditNo)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
@@ -475,11 +475,11 @@ namespace TracePca.Service.Audit
         }
 
 
-        private async Task<int> SaveAttachmentsModulewise(CMADtoAttachment dto,  int CompId, string AccessCodeDirectory, string sModule, string sFilePath, int iUserId, int iAttachID)
+        private async Task<int> SaveAttachmentsModulewise(CMADtoAttachment dto, int CompId, string AccessCodeDirectory, string sModule, string sFilePath, int iUserId, int iAttachID)
         {
 
-            string sFileExtension = "";  
-            string sFileName = "";  int iDocID= 0;
+            string sFileExtension = "";
+            string sFileName = ""; int iDocID = 0;
             int iPosSlash = sFilePath.LastIndexOf('\\');
             int iPosDot = sFilePath.LastIndexOf('.');
 
@@ -501,8 +501,8 @@ namespace TracePca.Service.Audit
 
             if (iDocID == 0)
             {
-               int icheck = await CheckDocumentIdAsync(CompId, iAttachID);
-                if(icheck > 0)
+                int icheck = await CheckDocumentIdAsync(CompId, iAttachID);
+                if (icheck > 0)
                 {
                     iAttachID = await GenerateNextAttachmentIdAsync(CompId);
                     iDocID = await GetDocumentIdAsync(CompId);
@@ -540,7 +540,7 @@ namespace TracePca.Service.Audit
 
             string sFileType = "";
 
-            if(aImageExtensions.Contains(sFileExtension) == true)
+            if (aImageExtensions.Contains(sFileExtension) == true)
             {
                 sFileType = "Images";
             }
@@ -556,7 +556,7 @@ namespace TracePca.Service.Audit
             if (!Directory.Exists(sAccessCodeModulePath))
                 Directory.CreateDirectory(sAccessCodeModulePath);
 
-            string sFinalDirectory = Path.Combine(sAccessCodeModulePath, sFileType, Convert.ToInt32(iDocID/301).ToString());
+            string sFinalDirectory = Path.Combine(sAccessCodeModulePath, sFileType, Convert.ToInt32(iDocID / 301).ToString());
             if (!Directory.Exists(sFinalDirectory))
                 Directory.CreateDirectory(sFinalDirectory);
 
@@ -596,7 +596,7 @@ namespace TracePca.Service.Audit
             return iAttachID;
         }
 
-        private async Task UpdateStandardAuditASCAMAttachmentdetails(int compId, int CAMPkID,int attachId )
+        private async Task UpdateStandardAuditASCAMAttachmentdetails(int compId, int CAMPkID, int attachId)
         {
             using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
@@ -617,7 +617,7 @@ namespace TracePca.Service.Audit
 
                 string AccessCodeDirectory = await GetAccessCodeDirectory(dto.CompId);
 
-                string UserLoginName = await GetUserName(dto.CompId,dto.UserId);
+                string UserLoginName = await GetUserName(dto.CompId, dto.UserId);
 
                 //1. Generate Filepath
                 String sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
@@ -641,7 +641,7 @@ namespace TracePca.Service.Audit
 
 
                 UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
-                 
+
                 return "Successs";
             }
             catch (Exception ex)
