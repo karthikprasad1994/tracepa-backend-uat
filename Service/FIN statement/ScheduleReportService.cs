@@ -1192,53 +1192,64 @@ ORDER BY ud.ATBUD_Subheading";
         public async Task<OrgTypeResponseDto> GetOrgTypeAndMembersAsync(int customerId, int companyId)
         {
             var response = new OrgTypeResponseDto();
-            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            await using var conn = new SqlConnection(connectionString);
             await conn.OpenAsync();
 
-            // Get Org Type
+            // Step 1: Get Org Type
             var orgTypeQuery = @"
-            SELECT cmm_Desc
-            FROM SAD_CUSTOMER_MASTER 
-            LEFT JOIN Content_Management_Master 
+        SELECT cmm_Desc
+        FROM SAD_CUSTOMER_MASTER 
+        LEFT JOIN Content_Management_Master 
             ON Content_Management_Master.cmm_id = SAD_CUSTOMER_MASTER.CUST_ORGTYPEID 
-            WHERE SAD_CUSTOMER_MASTER.CUST_ID = @CustomerId";
+        WHERE SAD_CUSTOMER_MASTER.CUST_ID = @CustomerId";
 
-            using var cmd = new SqlCommand(orgTypeQuery, conn);
-            cmd.Parameters.AddWithValue("@CustomerId", customerId);
-            var orgType = (await cmd.ExecuteScalarAsync())?.ToString() ?? "Unknown";
-            response.OrgType = orgType;
+            await using (var cmd = new SqlCommand(orgTypeQuery, conn))
+            {
+                cmd.Parameters.AddWithValue("@CustomerId", customerId);
+                var orgTypeResult = await cmd.ExecuteScalarAsync();
+                response.OrgType = orgTypeResult?.ToString() ?? "Unknown";
+            }
 
-            // Load Partners or Directors
+            // Step 2: Load People Based on Org Type
             string peopleQuery;
             string label;
-            if (orgType == "Partnership firms")
+
+            if (response.OrgType.Equals("Partnership firms", StringComparison.OrdinalIgnoreCase))
             {
                 label = "Partners";
-                peopleQuery = @"SELECT SSP_Id AS Id, SSP_PartnerName AS Name
-                            FROM SAD_Statutory_PartnerDetails
-                            WHERE SSP_CustID = @CustomerId AND SSP_CompID = @CompanyId";
+                peopleQuery = @"
+            SELECT SSP_Id AS Id, SSP_PartnerName AS Name, SSD_DIN as DIN
+            FROM SAD_Statutory_PartnerDetails
+            WHERE SSP_CustID = @CustomerId AND SSP_CompID = @CompanyId";
             }
             else
             {
                 label = "Directors";
-                peopleQuery = @"SELECT SSD_Id AS Id, SSD_DirectorName AS Name
-                            FROM SAD_Statutory_DirectorDetails
-                            WHERE SSD_CustID = @CustomerId AND SSD_CompID = @CompanyId";
+                peopleQuery = @"
+            SELECT SSD_Id AS Id, SSD_DirectorName AS Name, SSD_DIN as DIN
+            FROM SAD_Statutory_DirectorDetails
+            WHERE SSD_CustID = @CustomerId AND SSD_CompID = @CompanyId";
             }
 
-            using var peopleCmd = new SqlCommand(peopleQuery, conn);
-            peopleCmd.Parameters.AddWithValue("@CustomerId", customerId);
-            peopleCmd.Parameters.AddWithValue("@CompanyId", companyId);
-
-            using var reader = await peopleCmd.ExecuteReaderAsync();
             var persons = new List<PersonDto>();
-            while (await reader.ReadAsync())
+
+            await using (var peopleCmd = new SqlCommand(peopleQuery, conn))
             {
-                persons.Add(new PersonDto
+                peopleCmd.Parameters.AddWithValue("@CustomerId", customerId);
+                peopleCmd.Parameters.AddWithValue("@CompanyId", companyId);
+
+                await using var reader = await peopleCmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
                 {
-                    Id = reader.GetInt32(0),
-                    Name = reader.GetString(1)
-                });
+                    persons.Add(new PersonDto
+                    {
+                        Id = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
+                        Name = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                        DIN = reader.IsDBNull(2) ? "" : reader.GetString(2)
+                    });
+                }
             }
 
             response.Label = label;
@@ -1246,6 +1257,7 @@ ORDER BY ud.ATBUD_Subheading";
 
             return response;
         }
+
 
         public async Task<List<CompanyDto>> LoadCompanyDetailsAsync(int compId)
         {

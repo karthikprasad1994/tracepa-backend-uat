@@ -163,6 +163,8 @@ namespace TracePca.Dto.FIN_Statement
         {
             public int Id { get; set; }
             public string Name { get; set; }
+            public string DIN { get; set; }
+
         }
 
         // Dtos/OrgTypeResponseDto.cs
