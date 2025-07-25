@@ -597,10 +597,10 @@ namespace TracePca.Service
 
                         if (isPasswordValid)
                         {
-                            // ✅ Migrate password to BCrypt
-                          //  string newHash = BCrypt.Net.BCrypt.HashPassword(password);
 
-                          //  Update the user's password
+                           // string newHash = BCrypt.Net.BCrypt.HashPassword(password);
+
+
                             //await connection.ExecuteAsync(
                             //    "UPDATE Sad_UserDetails SET usr_Password = @newHash WHERE LOWER(usr_Email) = @email",
                             //    new { newHash, email = plainEmail });

@@ -385,6 +385,29 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+
+        [HttpPost("GetScheduleReportAllDetails")]
+        public async Task<IActionResult> GetScheduleReport([FromBody] ScheduleReportRequestDto request)
+        {
+            var result = await _ScheduleReportService.GetScheduleReportDetailsAsync(request);
+            return Ok(result);
+        }
+        [HttpPost("GetOrgTypeAndDirectors")]
+        public async Task<IActionResult> GetOrgTypeAndMembers([FromBody] OrgTypeRequestDto request)
+        {
+            if (request.CustomerId <= 0 || request.CompanyId <= 0)
+                return BadRequest("Invalid input.");
+
+            var result = await _ScheduleReportService.GetOrgTypeAndMembersAsync(request.CustomerId, request.CompanyId);
+            return Ok(result);
+        }
+        [HttpGet("GetCompanyDetails")]
+        public async Task<IActionResult> GetCompanyDetails(int compId)
+        {
+            var result = await _ScheduleReportService.LoadCompanyDetailsAsync(compId);
+            return Ok(result);
+        }
     }
 }
 
