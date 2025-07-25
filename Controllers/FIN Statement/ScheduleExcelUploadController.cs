@@ -39,7 +39,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveScheduleTemplate(P and L)
         [HttpPost("SaveScheduleTemplate(P and L)")]
-        public async Task<IActionResult> SaveSchedulePandL([FromQuery] int CompId, [FromBody] List<ScheduleTemplatePandLDto> dtos)
+        public async Task<IActionResult> SaveSchedulePandL([FromQuery] string DBName, [FromQuery] int CompId, [FromBody] List<ScheduleTemplatePandLDto> dtos)
         {
             if (dtos == null || !dtos.Any())
             {
@@ -52,7 +52,7 @@ namespace TracePca.Controllers.FIN_Statement
 
             try
             {
-                var resultIds = await _ScheduleExcelUploadService.SaveSchedulePandLAsync(CompId, dtos);
+                var resultIds = await _ScheduleExcelUploadService.SaveSchedulePandLAsync(DBName, CompId, dtos);
 
                 return Ok(new
                 {
@@ -74,7 +74,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveScheduleTemplate(BalanceSheet)
         [HttpPost("SaveScheduleTemplate(BalnceSheet)")]
-        public async Task<IActionResult> SaveScheduleBalanceSheet([FromQuery] int CompId, [FromBody] List<ScheduleTemplateBalanceSheetDto> dtos)
+        public async Task<IActionResult> SaveScheduleBalanceSheet([FromQuery] string DBName, [FromQuery] int CompId, [FromBody] List<ScheduleTemplateBalanceSheetDto> dtos)
         {
             if (dtos == null || !dtos.Any())
             {
@@ -87,7 +87,7 @@ namespace TracePca.Controllers.FIN_Statement
 
             try
             {
-                var resultIds = await _ScheduleExcelUploadService.SaveScheduleBalanceSheetAsync(CompId, dtos);
+                var resultIds = await _ScheduleExcelUploadService.SaveScheduleBalanceSheetAsync(DBName, CompId, dtos);
 
                 return Ok(new
                 {
@@ -109,7 +109,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveScheduleTemplate
         [HttpPost("SaveScheduleTemplate")]
-        public async Task<IActionResult> SaveScheduleTemplate([FromQuery] int CompId, [FromBody] List<ScheduleTemplateDto> dtos)
+        public async Task<IActionResult> SaveScheduleTemplate([FromQuery] string DBName, [FromQuery] int CompId, [FromBody] List<ScheduleTemplateDto> dtos)
         {
             if (dtos == null || !dtos.Any())
             {
@@ -122,7 +122,7 @@ namespace TracePca.Controllers.FIN_Statement
 
             try
             {
-                var resultIds = await _ScheduleExcelUploadService.SaveScheduleTemplateAsync(CompId, dtos);
+                var resultIds = await _ScheduleExcelUploadService.SaveScheduleTemplateAsync(DBName, CompId, dtos);
 
                 return Ok(new
                 {
@@ -144,7 +144,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveOpeningBalance
         [HttpPost("SaveOpeningBalance")]
-        public async Task<IActionResult> SaveOpeningBalance([FromQuery] int CompId, [FromBody] List<OpeningBalanceDto> dtos)
+        public async Task<IActionResult> SaveOpeningBalance([FromQuery] string DBName, [FromQuery] int CompId, [FromBody] List<OpeningBalanceDto> dtos)
         {
             try
             {
@@ -158,7 +158,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var resultIds = await _ScheduleExcelUploadService.SaveOpeningBalanceAsync(CompId, dtos);
+                var resultIds = await _ScheduleExcelUploadService.SaveOpeningBalanceAsync(DBName, CompId, dtos);
 
                 return Ok(new
                 {
@@ -180,11 +180,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveTrailBalance
         [HttpPost("SaveTrailBalance")]
-        public async Task<IActionResult> SaveTrailBalanceDetails([FromQuery] int CompId, [FromBody] List<TrailBalanceDto> HeaderDtos)
+        public async Task<IActionResult> SaveTrailBalanceDetails([FromQuery] string DBName, [FromQuery] int CompId, [FromBody] List<TrailBalanceDto> HeaderDtos)
         {
             try
             {
-                var resultIds = await _ScheduleExcelUploadService.SaveTrailBalanceDetailsAsync(CompId, HeaderDtos);
+                var resultIds = await _ScheduleExcelUploadService.SaveTrailBalanceDetailsAsync(DBName, CompId, HeaderDtos);
                 return Ok(new
                 {
                     status = 200,
@@ -208,13 +208,13 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveClientTrailBalance
         [HttpPost("SaveClientTrailBalance")]
-        public async Task<IActionResult> UploadClientTrailBalance([FromQuery] int CompId, [FromBody] List<ClientTrailBalance> items)
+        public async Task<IActionResult> UploadClientTrailBalance([FromQuery] string DBName, [FromQuery] int CompId, [FromBody] List<ClientTrailBalance> items)
         {
             if (items == null || !items.Any())
                 return BadRequest("No data provided.");
             try
             {
-                var result = await _ScheduleExcelUploadService.ClientTrailBalanceAsync(CompId, items);
+                var result = await _ScheduleExcelUploadService.ClientTrailBalanceAsync(DBName, CompId, items);
                 return Ok(new
                 {
                     Success = true,
@@ -235,7 +235,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveJournalEntry
         [HttpPost("SaveJournalEntry")]
-        public async Task<IActionResult> SaveCompleteTrailBalance([FromQuery] int CompId, [FromBody] List<TrailBalanceCompositeModel> models)
+        public async Task<IActionResult> SaveCompleteTrailBalance([FromQuery] string DBName, [FromQuery] int CompId, [FromBody] List<TrailBalanceCompositeModel> models)
         {
             try
             {
@@ -248,7 +248,7 @@ namespace TracePca.Controllers.FIN_Statement
                         data = (object)null
                     });
                 }
-                var result = await _ScheduleExcelUploadService.SaveCompleteTrailBalanceAsync(CompId, models);
+                var result = await _ScheduleExcelUploadService.SaveCompleteTrailBalanceAsync(DBName, CompId, models);
                 return Ok(new
                 {
                     statusCode = 200,

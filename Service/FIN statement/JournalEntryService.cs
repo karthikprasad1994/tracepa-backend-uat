@@ -26,9 +26,9 @@ namespace TracePca.Service.FIN_statement
 
         //GetJournalEntryInformation
         public async Task<IEnumerable<JournalEntryInformationDto>> GetJournalEntryInformationAsync(
-            int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId)
+            string DBName, int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
 
             var statusFilter = Status switch

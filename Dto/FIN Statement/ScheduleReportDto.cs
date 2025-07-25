@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Identity.Client;
 
 namespace TracePca.Dto.FIN_Statement
 {
@@ -35,48 +36,6 @@ namespace TracePca.Dto.FIN_Statement
             public string ItemsName { get; set; }
         }
 
-        ////GetSummaryReportForPandL(Income)
-        //public class SummaryPnLIncome
-        //{      
-        //    public int ACID { get; set; }        
-        //    public int YearID { get; set; }      
-        //    public int CustID { get; set; }      
-        //    public int ScheduleTypeID { get; set; }  
-        //    public int ChkPt { get; set; }    
-        //    public int InAmt { get; set; }       
-        //    public int RoundOff { get; set; }        
-        //}
-        //public class SummaryPnLRowIncome
-        //{
-        //    public string SrNo { get; set; }
-        //    public string HeadingName { get; set; }
-        //    public string SubHeadingName { get; set; }
-        //    public string HeaderSLNo { get; set; }
-        //    public string PrevYearTotal { get; set; }
-        //    public string Notes { get; set; }
-        //}
-
-        ////GetSummaryReportForPandL(Expenses)
-        //public class SummaryPnLExpenses
-        //{
-        //    public int ACID { get; set; }
-        //    public int YearID { get; set; }
-        //    public int CustID { get; set; }
-        //    public int ScheduleTypeID { get; set; }
-        //    public int ChkPt { get; set; }
-        //    public int InAmt { get; set; }
-        //    public int RoundOff { get; set; }
-        //}
-        //public class SummaryPnLRowExpenses
-        //{
-        //    public string SrNo { get; set; }
-        //    public string HeadingName { get; set; }
-        //    public string SubHeadingName { get; set; }
-        //    public string HeaderSLNo { get; set; }
-        //    public string PrevYearTotal { get; set; }
-        //    public string Notes { get; set; }
-        //}
-
         //GetSummaryReportForPandL
         public class SummaryReportPnL
         {
@@ -107,22 +66,37 @@ namespace TracePca.Dto.FIN_Statement
             public string SrNo { get; set; }
             public string Name { get; set; }
             public string HeaderSLNo { get; set; }
+            public string YearId { get; set; }
             public string PrevYearTotal { get; set; }
             public string Notes { get; set; }
         }
 
         //GetDetaledReportPandL
-        public class DetailedReportParams
+        public class DetailedReportPandL
         {
+            // Request Parameters
+            public int YearID { get; set; }
             public int CustID { get; set; }
-            public int ScheduleTypeID { get; set; }
-            public int InAmt { get; set; }
+            public int BranchID { get; set; }
         }
-        public class DetailedReportRow
+        public class DetailedReportPandLRow
         {
-            public string Status { get; set; }  
-            public string Name { get; set; }   
-        }
+            internal object HeadingID;
 
+            public string SrNo { get; set; }
+            public string Status { get; set; }
+            public string Name { get; set; }
+            public string HeadingName { get; set; }
+            public string SubHeadingName { get; set; }
+            public string ItemName { get; set; }
+            public string SubItemName { get; set; }
+            public string HeaderSLNo { get; set; }
+            public string PrevYearTotal { get; set; }
+            public string Notes { get; set; }
+            public decimal? CrTotal { get; set; }
+            public decimal? DbTotal { get; set; }
+            public decimal? CrTotalPrev { get; set; }
+            public decimal? DbTotalPrev { get; set; }
+        }
     }
 }

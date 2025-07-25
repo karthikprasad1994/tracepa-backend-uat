@@ -8,51 +8,47 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetScheduleHeading
         Task<IEnumerable<ScheduleHeadingDto>> GetScheduleFormatHeadingAsync(
-            int CompId, int ScheduleId, int CustId, int AccHead);
+           string DBName, int CompId, int ScheduleId, int CustId, int AccHead);
 
         //GetScheduleSubHeading
         Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleFormatSubHeadingAsync(
-            int CompId, int ScheduleId, int CustId, int HeadingId);
+          string DBName, int CompId, int ScheduleId, int CustId, int HeadingId);
 
         //GetScheduleItem
         Task<IEnumerable<ScheduleItemDto>> GetScheduleFormatItemsAsync(
-            int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId);
+           string DBName, int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId);
 
         //GetScheduleSubitems
         Task<IEnumerable<ScheduleSubItemDto>> GetScheduleFormatSubItemsAsync(
-            int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId, int ItemId);
+           string DBName, int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId, int ItemId);
 
         //GetScheduleTemplate
         Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(
-        int CompId, int ScheduleId, int CustId, int AccHead);
+        string DBName, int CompId, int ScheduleId, int CustId, int AccHead);
 
         //DeleteScheduleTemplate(Grid)
         Task<bool> DeleteScheduleTemplateAsync(
-            int CompId, int ScheduleType, int CustId, int SelectedValue, int MainId);
+           string DBName, int CompId, int ScheduleType, int CustId, int SelectedValue, int MainId);
 
         //SaveScheduleHeading
-        Task<int[]> SaveScheduleHeadingAndTemplateAsync(int CompId, SaveScheduleHeadingDto dto);
+        Task<int[]> SaveScheduleHeadingAndTemplateAsync(string DBName, int CompId, SaveScheduleHeadingDto dto);
 
         //SaveScheduleSubHeading
-        Task<int[]> SaveScheduleSubHeadingAndTemplateAsync(int CompId, SaveScheduleSubHeadingDto dto);
+        Task<int[]> SaveScheduleSubHeadingAndTemplateAsync(string DBName, int CompId, SaveScheduleSubHeadingDto dto);
 
         //SaveScheduleItem
-        Task<int[]> SaveScheduleItemAndTemplateAsync(int CompId, SaveScheduleItemDto dto);
+        Task<int[]> SaveScheduleItemAndTemplateAsync(string DBName, int CompId, SaveScheduleItemDto dto);
 
         //SaveScheduleSubItem
-        Task<int[]> SaveScheduleSubItemAndTemplateAsync(int CompId, SaveScheduleSubItemDto dto);
-
-        //DeleteScheduleTemplate
-        Task<bool> DeleteInformationAsync(int CompId, int ScheduleType, int CustId, int SelectedValue, int MainId);
+        Task<int[]> SaveScheduleSubItemAndTemplateAsync(string DBName, int CompId, SaveScheduleSubItemDto dto);
 
         //SaveOrUpdateScheduleHeadingAlias
-        Task<int[]> SaveScheduleHeadingAliasAsync(ScheduleHeadingAliasDto dto);
+        Task<int[]> SaveScheduleHeadingAliasAsync(string DBName, ScheduleHeadingAliasDto dto);
 
         //GetScheduleTemplateCount
-        Task<IEnumerable<ScheduleTemplateCountDto>> GetScheduleFormatItemsAsync(
-        int CustId, int CompId);
+        Task<IEnumerable<ScheduleTemplateCountDto>> GetScheduleFormatItemsAsync(string DBName, int CustId, int CompId);
 
         //SaveScheduleTemplate(P and L)
-        Task<List<int>> SaveScheduleTemplateAsync(int CompId, List<ScheduleTemplate> dtos);
+        Task<List<int>> SaveScheduleTemplateAsync(string DBName, int CompId, List<ScheduleTemplate> dtos);
     }
 }

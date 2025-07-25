@@ -23,6 +23,7 @@ namespace TracePca.Controllers.FIN_Statement
         //GetJournalEntryInformation
         [HttpGet("GetJournalEntryInformation")]
         public async Task<IActionResult> GetJournalEntryInformation(
+        [FromQuery] string DBName,
         [FromQuery] int CompId,
         [FromQuery] int UserId,
         [FromQuery] string Status,
@@ -34,7 +35,7 @@ namespace TracePca.Controllers.FIN_Statement
         {
             try
             {
-                var result = await _JournalEntryService.GetJournalEntryInformationAsync(
+                var result = await _JournalEntryService.GetJournalEntryInformationAsync( DBName,
                     CompId, UserId, Status, CustId, YearId, BranchId, DateFormat, DurationId);
 
                 return Ok(new

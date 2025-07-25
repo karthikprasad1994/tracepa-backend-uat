@@ -11,24 +11,24 @@ namespace TracePca.Interface.FIN_Statement
         FileDownloadResult GetExcelTemplate();
 
         //SaveScheduleTemplate(P and L)
-        Task<List<int>> SaveSchedulePandLAsync(int CompId, List<ScheduleTemplatePandLDto> dtos);
+        Task<List<int>> SaveSchedulePandLAsync(string DBName, int CompId, List<ScheduleTemplatePandLDto> dtos);
 
         //SaveScheduleTemplate(Balance Sheet)
-        Task<List<int>> SaveScheduleBalanceSheetAsync(int CompId, List<ScheduleTemplateBalanceSheetDto> dtos);
+        Task<List<int>> SaveScheduleBalanceSheetAsync(string DBName, int CompId, List<ScheduleTemplateBalanceSheetDto> dtos);
 
         //SaveScheduleTemplate
-        Task<List<int>> SaveScheduleTemplateAsync(int CompId, List<ScheduleTemplateDto> dtos);
+        Task<List<int>> SaveScheduleTemplateAsync(string DBName, int CompId, List<ScheduleTemplateDto> dtos);
 
         //SaveOpeningBalance
-        Task<List<int>> SaveOpeningBalanceAsync(int CompId, List<OpeningBalanceDto> dtos);
+        Task<List<int>> SaveOpeningBalanceAsync(string DBName, int CompId, List<OpeningBalanceDto> dtos);
 
         //SaveTrailBalance
-        Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDto> dtos);
+        Task<int[]> SaveTrailBalanceDetailsAsync(string DBName, int CompId, List<TrailBalanceDto> dtos);
 
         //SaveClientTrailBalance
-        Task<List<int>> ClientTrailBalanceAsync(int CompId, List<ClientTrailBalance> items);
+        Task<List<int>> ClientTrailBalanceAsync(string DBName, int CompId, List<ClientTrailBalance> items);
 
         //SaveJournalEntry
-        Task<List<int>> SaveCompleteTrailBalanceAsync(int CompId, List<TrailBalanceCompositeModel> models);
+        Task<List<int>> SaveCompleteTrailBalanceAsync(string DBName, int CompId, List<TrailBalanceCompositeModel> models);
     }
 }

@@ -9,6 +9,6 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetJournalEntryInformation
         Task<IEnumerable<JournalEntryInformationDto>> GetJournalEntryInformationAsync(
-            int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId);
+            string DBName, int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId);
     }
 }

@@ -18,9 +18,9 @@ namespace TracePca.Service.FIN_statement
             _configuration = configuration;
         }
         //GetCustomersName
-        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId)
+        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(string DBName, int CompId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT 
@@ -35,9 +35,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetDuration
-        public async Task<int?> GetCustomerDurationIdAsync(int compId, int custId)
+        public async Task<int?> GetCustomerDurationIdAsync(string DBName, int compId, int custId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             var query = "SELECT Cust_DurtnId FROM SAD_CUSTOMER_MASTER WHERE CUST_CompID = @CompId AND CUST_ID = @CustId";
 
             var parameters = new { CompId = compId, CustId = custId };
@@ -47,9 +47,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetFinancialYear
-        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CompId)
+        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(string DBName, int CompId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT 
@@ -66,9 +66,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetBranchName
-        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId)
+        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(string DBName, int CompId, int CustId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT 
@@ -83,9 +83,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetScheduleHeading
-        public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(string DBName, int CompId, int CustId, int ScheduleTypeId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT DISTINCT 
@@ -106,9 +106,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetScheduleSubHeading
-        public async Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(string DBName, int CompId, int CustId, int ScheduleTypeId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT DISTINCT 
@@ -129,9 +129,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetScheduleItem
-        public async Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(string DBName, int CompId, int CustId, int ScheduleTypeId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT DISTINCT 
@@ -152,9 +152,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetScheduleSubItem
-        public async Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(string DBName, int CompId, int CustId, int ScheduleTypeId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT DISTINCT 
@@ -174,9 +174,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetCustomerOrgType
-        public async Task<string> GetCustomerOrgTypeAsync(int CustId, int CompId)
+        public async Task<string> GetCustomerOrgTypeAsync(string DBName, int CustId, int CompId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT ISNULL(cmm_Desc, '') 

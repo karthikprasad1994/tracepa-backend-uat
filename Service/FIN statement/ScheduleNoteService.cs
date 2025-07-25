@@ -20,9 +20,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetSubHeadingname(Notes For SubHeading)
-        public async Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CustomerId, int SubHeadingId)
+        public async Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(string DBName, int CustomerId, int SubHeadingId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
 SELECT 
@@ -43,9 +43,9 @@ WHERE ASHN_CustomerId = @CustomerId
         }
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
-        public async Task<int[]> SaveSubHeadindNotesAsync(SubHeadingNotesDto dto)
+        public async Task<int[]> SaveSubHeadindNotesAsync(string DBName, SubHeadingNotesDto dto)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            using (var connection = new SqlConnection(_configuration.GetConnectionString(DBName)))
             {
                 await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
@@ -102,9 +102,9 @@ WHERE ASHN_CustomerId = @CustomerId
         }
 
         //GetBranch(Notes For Ledger)
-        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId)
+        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(string DBName, int CompId, int CustId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT 
@@ -119,9 +119,9 @@ WHERE ASHN_CustomerId = @CustomerId
         }
 
         //GetLedger(Notes For Ledger)
-        public async Task<IEnumerable<LedgerIndividualDto>> GetLedgerIndividualDetailsAsync(int CustomerId, int SubHeadingId)
+        public async Task<IEnumerable<LedgerIndividualDto>> GetLedgerIndividualDetailsAsync(string DBName, int CustomerId, int SubHeadingId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
 SELECT 
@@ -142,9 +142,9 @@ WHERE ASHL_CustomerId = @CustomerId
         }
 
         //SaveOrUpdateLedger(Notes For Ledger)
-        public async Task<int[]> SaveLedgerDetailsAsync(SubHeadingLedgerNoteDto dto)
+        public async Task<int[]> SaveLedgerDetailsAsync(string DBName, SubHeadingLedgerNoteDto dto)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            using (var connection = new SqlConnection(_configuration.GetConnectionString(DBName)))
             {
                 await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
@@ -241,9 +241,9 @@ WHERE ASHL_CustomerId = @CustomerId
         }
 
         //SaveOrUpdate
-        public async Task<int> SaveFirstScheduleNoteDetailsAsync(FirstScheduleNoteDto dto)
+        public async Task<int> SaveFirstScheduleNoteDetailsAsync(string DBName, FirstScheduleNoteDto dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
 
             if (dto.SNF_ID != 0)

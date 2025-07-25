@@ -18,9 +18,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetScheduleHeading
-        public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleFormatHeadingAsync(int CompId, int ScheduleId, int CustId, int AccHead)
+        public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleFormatHeadingAsync(string DBName, int CompId, int ScheduleId, int CustId, int AccHead)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT 
@@ -46,9 +46,9 @@ namespace TracePca.Service.FIN_statement
 
         //GetScheduleSubHeading
         public async Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleFormatSubHeadingAsync(
-        int CompId, int ScheduleId, int CustId, int HeadingId)
+        string DBName, int CompId, int ScheduleId, int CustId, int HeadingId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT 
@@ -76,9 +76,9 @@ namespace TracePca.Service.FIN_statement
 
         //GetScheduleItem
         public async Task<IEnumerable<ScheduleItemDto>> GetScheduleFormatItemsAsync(
-        int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId)
+        string DBName, int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT 
@@ -104,10 +104,10 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetScheduleSubItem
-        public async Task<IEnumerable<ScheduleSubItemDto>> GetScheduleFormatSubItemsAsync(
+        public async Task<IEnumerable<ScheduleSubItemDto>> GetScheduleFormatSubItemsAsync(string DBName,
         int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId, int ItemId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT 
@@ -132,10 +132,10 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetScheduleTemplate
-        public async Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(
+        public async Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(string DBName,
     int CompId, int ScheduleId, int CustId, int AccHead)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var baseQuery = @"
 SELECT 
@@ -192,9 +192,9 @@ WHERE AST_CompId = @CompId
         }
 
         //DeleteScheduleTemplate(Grid)
-        public async Task<bool> DeleteScheduleTemplateAsync(int CompId, int ScheduleType, int CustId, int SelectedValue, int MainId)
+        public async Task<bool> DeleteScheduleTemplateAsync(string DBName, int CompId, int ScheduleType, int CustId, int SelectedValue, int MainId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -262,9 +262,9 @@ WHERE AST_CompId = @CompId
         }
 
         //SaveScheduleHeadingAndTemplate
-        public async Task<int[]> SaveScheduleHeadingAndTemplateAsync(int CompId, SaveScheduleHeadingDto dto)
+        public async Task<int[]> SaveScheduleHeadingAndTemplateAsync(string DBName, int CompId, SaveScheduleHeadingDto dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -347,9 +347,9 @@ WHERE AST_CompId = @CompId
         }
 
         //SaveScheduleSubHeadingAndTemplate
-        public async Task<int[]> SaveScheduleSubHeadingAndTemplateAsync(int CompId, SaveScheduleSubHeadingDto dto)
+        public async Task<int[]> SaveScheduleSubHeadingAndTemplateAsync(string DBName, int CompId, SaveScheduleSubHeadingDto dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -437,9 +437,9 @@ WHERE AST_CompId = @CompId
 
 
         //SaveScheduleItem
-        public async Task<int[]> SaveScheduleItemAndTemplateAsync(int CompId, SaveScheduleItemDto dto)
+        public async Task<int[]> SaveScheduleItemAndTemplateAsync(string DBName, int CompId, SaveScheduleItemDto dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -525,9 +525,9 @@ WHERE AST_CompId = @CompId
         }
 
         //SaveScheduleSubItem
-        public async Task<int[]> SaveScheduleSubItemAndTemplateAsync(int CompId, SaveScheduleSubItemDto dto)
+        public async Task<int[]> SaveScheduleSubItemAndTemplateAsync(string DBName, int CompId, SaveScheduleSubItemDto dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -616,9 +616,9 @@ WHERE AST_CompId = @CompId
         }
 
         //DeleteScheduleTemplate
-        public async Task<bool> DeleteInformationAsync(int CompId, int ScheduleType, int CustId, int SelectedValue, int MainId)
+        public async Task<bool> DeleteInformationAsync(string DBName, int CompId, int ScheduleType, int CustId, int SelectedValue, int MainId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -666,9 +666,9 @@ WHERE AST_CompId = @CompId
         }
 
         //SaveOrUpdateScheduleHeadingAlias
-        public async Task<int[]> SaveScheduleHeadingAliasAsync(ScheduleHeadingAliasDto dto)
+        public async Task<int[]> SaveScheduleHeadingAliasAsync(string DBName, ScheduleHeadingAliasDto dto)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection1")))
+            using (var connection = new SqlConnection(_configuration.GetConnectionString(DBName)))
             {
                 await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
@@ -722,10 +722,10 @@ WHERE AST_CompId = @CompId
         }
 
         //GetScheduleTemplateCount
-        public async Task<IEnumerable<ScheduleTemplateCountDto>> GetScheduleFormatItemsAsync(
+        public async Task<IEnumerable<ScheduleTemplateCountDto>> GetScheduleFormatItemsAsync(string DBName,
         int CustId, int CompId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
            
           var query = @"
@@ -742,11 +742,11 @@ WHERE AST_CompId = @CompId
         }
 
         //SaveScheduleTemplate
-        public async Task<List<int>> SaveScheduleTemplateAsync(int CompId, List<ScheduleTemplate> dtos)
+        public async Task<List<int>> SaveScheduleTemplateAsync(string DBName, int CompId, List<ScheduleTemplate> dtos)
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 

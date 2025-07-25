@@ -51,9 +51,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetScheduleHeading
-        public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(string DBName, int CompId, int CustId, int ScheduleTypeId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT DISTINCT 
@@ -74,9 +74,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetScheduleSub-Heading
-        public async Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(string DBName, int CompId, int CustId, int ScheduleTypeId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT DISTINCT 
@@ -97,9 +97,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetScheduleItem
-        public async Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(string DBName, int CompId, int CustId, int ScheduleTypeId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT DISTINCT 
@@ -120,9 +120,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetScheduleSub-Item
-        public async Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(string DBName, int CompId, int CustId, int ScheduleTypeId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
         SELECT DISTINCT 
@@ -138,13 +138,13 @@ namespace TracePca.Service.FIN_statement
             AND b.ASSI_ID IS NOT NULL";
 
             await connection.OpenAsync();
-            return await connection.QueryAsync<ScheduleSubItemDto>(query, new { CompId, CustId, ScheduleTypeId });
+            return await connection.QueryAsync<ScheduleSubItemDto>(query, new {CompId, CustId, ScheduleTypeId });
         }
 
         //GetTotalAmount
-        public async Task<IEnumerable<CustCOASummaryDto>>  GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId)
+        public async Task<IEnumerable<CustCOASummaryDto>>  GetCustCOAMasterDetailsAsync(string DBName, int CompId, int CustId, int YearId, int BranchId, int DurationId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
 SELECT 
@@ -194,10 +194,10 @@ WHERE
         }
 
         //GetTrailBalance(Grid)
-        public async Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(
+        public async Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(string DBName,
     int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
 SELECT 
@@ -283,21 +283,13 @@ ORDER BY ATBU_ID;";
 
             await connection.OpenAsync();
             return await connection.QueryAsync<CustCOADetailsDto>(query, new
-            {
-                CompId,
-                CustId,
-                YearId,
-                ScheduleTypeId,
-                Unmapped,
-                BranchId,
-                DurationId
-            });
+            {CompId, CustId, YearId, ScheduleTypeId, Unmapped, BranchId, DurationId });
         }
 
         //FreezeForPreviousDuration
-        public async Task<int[]> FreezePreviousYearTrialBalanceAsync(FreezePreviousDurationRequestDto input)
+        public async Task<int[]> FreezePreviousYearTrialBalanceAsync(string DBName, FreezePreviousDurationRequestDto input)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
 
             using var transaction = connection.BeginTransaction();
@@ -433,9 +425,9 @@ WHERE ATBUD_Description = @AtbudDescription
         }
 
         //FreezeForNextDuration
-        public async Task<int[]> FreezeNextDurationrialBalanceAsync(FreezeNextDurationRequestDto input)
+        public async Task<int[]> FreezeNextDurationrialBalanceAsync(string DBName, FreezeNextDurationRequestDto input)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
 
             using var transaction = connection.BeginTransaction();
@@ -591,9 +583,9 @@ WHERE ATBUD_Description = @AtbudDescription
         }
 
         //SaveTrailBalnceDetails
-        public async Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDetailsDto> dtos)
+        public async Task<int[]> SaveTrailBalanceDetailsAsync(string DBName, int CompId, List<TrailBalanceDetailsDto> dtos)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -742,11 +734,11 @@ WHERE ATBUD_Description = @AtbudDescription
         }
 
         //UpdateTrailBalance
-        public async Task<List<int>> UpdateTrailBalanceAsync(List<UpdateTrailBalanceDto> dtos)
+        public async Task<List<int>> UpdateTrailBalanceAsync(string DBName, List<UpdateTrailBalanceDto> dtos)
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -802,9 +794,9 @@ WHERE ATBUD_Description = @AtbudDescription
         }
 
         //LoadSubHeadingByHeading
-        public async Task<IEnumerable<LoadSubHeadingByHeadingDto>> GetSubHeadingsByHeadingIdAsync(int headingId, int orgType)
+        public async Task<IEnumerable<LoadSubHeadingByHeadingDto>> GetSubHeadingsByHeadingIdAsync(string DBName, int headingId, int orgType)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
 SELECT ASSH_ID AS Id, ASSH_Name AS Name 
@@ -819,9 +811,9 @@ WHERE ASSH_HeadingID = @HeadingId
         }
 
         //LoadItemBySubHeading
-        public async Task<IEnumerable<LoadItemBySubHeadingDto>> GetItemsBySubHeadingIdAsync(int subHeadingId, int orgType)
+        public async Task<IEnumerable<LoadItemBySubHeadingDto>> GetItemsBySubHeadingIdAsync(string DBName, int subHeadingId, int orgType)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
 SELECT ASI_ID AS Id, ASI_Name AS Name 
@@ -836,9 +828,9 @@ WHERE ASI_SubHeadingID = @SubHeadingId
         }
 
         //LoadSubItemByItem
-        public async Task<IEnumerable<LoadSubItemByItemDto>> GetSubItemsByItemIdAsync(int itemId, int orgType)
+        public async Task<IEnumerable<LoadSubItemByItemDto>> GetSubItemsByItemIdAsync(string DBName, int itemId, int orgType)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
 
             var query = @"
 SELECT ASSI_ID AS Id, ASSI_Name AS Name 
@@ -853,10 +845,10 @@ WHERE ASSI_ItemsID = @ItemId
         }
 
         //GetPreviousLoadId
-        public async Task<(int? HeadingId, int? SubHeadingId, int? ItemId)> GetPreviousLoadIdAsync(
+        public async Task<(int? HeadingId, int? SubHeadingId, int? ItemId)> GetPreviousLoadIdAsync(string DBName,
   int? subItemId = null, int? itemId = null, int? subHeadingId = null)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 

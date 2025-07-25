@@ -22,11 +22,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetCompanyName
         [HttpGet("GetCompanyName")]
-        public async Task<IActionResult> GetCopanyName([FromQuery] int CompId)
+        public async Task<IActionResult> GetCopanyName([FromQuery] string DBName, [FromQuery] int CompId)
         {
             try
             {
-                var result = await _ScheduleReportService.GetCompanyNameAsync(CompId);
+                var result = await _ScheduleReportService.GetCompanyNameAsync(DBName, CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -58,11 +58,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetPartner
         [HttpGet("LoadCustomerPartners")]
-        public async Task<ActionResult<IEnumerable<PartnersDto>>> LoadCustomerPartners(int CompId, int DetailsId)
+        public async Task<ActionResult<IEnumerable<PartnersDto>>> LoadCustomerPartners(string DBName, int CompId, int DetailsId)
         {
             try
             {
-                var result = await _ScheduleReportService.LoadCustomerPartnersAsync(CompId, DetailsId);
+                var result = await _ScheduleReportService.LoadCustomerPartnersAsync(DBName, CompId, DetailsId);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -74,7 +74,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetSubHeading
         [HttpGet("GetSubHeading")]
-        public async Task<IActionResult> GetSubHeading([FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId)
+        public async Task<IActionResult> GetSubHeading([FromQuery] string DBName, [FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId)
         {
             try
             {
@@ -88,7 +88,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var result = await _ScheduleReportService.GetSubHeadingAsync(
+                var result = await _ScheduleReportService.GetSubHeadingAsync(DBName,
                     CompId, ScheduleId, CustId, HeadingId);
 
                 if (result == null || !result.Any())
@@ -121,13 +121,13 @@ namespace TracePca.Controllers.FIN_Statement
 
         //Getitem
         [HttpGet("GetItem")]
-        public async Task<IActionResult> GetItem(
+        public async Task<IActionResult> GetItem([FromQuery] string DBName,
         [FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId, [FromQuery] int SubHeadId)
         {
             try
             {
                 // Call service method
-                var result = await _ScheduleReportService.GetItemAsync(
+                var result = await _ScheduleReportService.GetItemAsync(DBName,
                     CompId, ScheduleId, CustId, HeadingId, SubHeadId);
 
                 // Check for no data
@@ -258,7 +258,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetSummaryReportForPandL
         [HttpGet("GetSummaryPnL")]
-        public async Task<IActionResult> GetSummaryReportPnL([FromQuery] int CompId, [FromQuery] SummaryReportPnL dto)
+        public async Task<IActionResult> GetSummaryReportPnL([FromQuery] string DBName, [FromQuery] int CompId, [FromQuery] SummaryReportPnL dto)
         {
             try
             {
@@ -273,7 +273,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var result = await _ScheduleReportService.GetReportSummaryPnLAsync(CompId, dto);
+                var result = await _ScheduleReportService.GetReportSummaryPnLAsync(DBName, CompId, dto);
 
                 if (result == null || !result.Any())
                 {
@@ -305,7 +305,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetSummaryReportForBalanceSheet
         [HttpGet("GetSummaryBalanceSheet")]
-        public async Task<IActionResult> GetSummaryReportBalanceSheet([FromQuery] int CompId, [FromQuery] SummaryReportBalanceSheet dto)
+        public async Task<IActionResult> GetSummaryReportBalanceSheet([FromQuery] string DBName, [FromQuery] int CompId, [FromQuery] SummaryReportBalanceSheet dto)
         {
             try
             {
@@ -320,7 +320,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var result = await _ScheduleReportService.GetReportSummaryBalanceSheetAsync(CompId, dto);
+                var result = await _ScheduleReportService.GetReportSummaryBalanceSheetAsync(DBName, CompId, dto);
 
                 if (result == null || !result.Any())
                 {
@@ -350,20 +350,31 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GetDetailedreportPandL
-        [HttpGet("GetDetailedReport")]
-        public async Task<IActionResult> GetDetailedReport([FromQuery] DetailedReportParams p)
+        //GetDetailedReportPandL
+        [HttpGet("GetDetailedreportPandL")]
+        public async Task<IActionResult> GetDetailedReportPandL([FromQuery] string DBName, [FromQuery] int CompId, [FromQuery] DetailedReportPandL dto)
         {
             try
             {
-                var result = await _ScheduleReportService.GetDetailedReportAsync(p);
+                // Minimal validation
+                if (dto.YearID <= 0 || dto.CustID <= 0)
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "YearID, CustID, and ScheduleTypeID are required and must be greater than zero.",
+                        data = (object)null
+                    });
+                }
+
+                var result = await _ScheduleReportService.GetDetailedReportPandLAsync(DBName, CompId, dto);
 
                 if (result == null || !result.Any())
                 {
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No data found.",
+                        message = "No summary P&L data found.",
                         data = (object)null
                     });
                 }
@@ -371,7 +382,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Data fetched successfully.",
+                    message = "Summary P&L data fetched successfully.",
                     data = result
                 });
             }
@@ -380,11 +391,10 @@ namespace TracePca.Controllers.FIN_Statement
                 return StatusCode(500, new
                 {
                     statusCode = 500,
-                    message = "An error occurred while retrieving the data.",
+                    message = "An error occurred while retrieving Summary P&L data.",
                     error = ex.Message
                 });
             }
         }
     }
 }
-

@@ -5,16 +5,15 @@
     <Controller_SelectedScaffolderID>ApiControllerWithActionsScaffolder</Controller_SelectedScaffolderID>
     <Controller_SelectedScaffolderCategoryPath>root/Common/Api</Controller_SelectedScaffolderCategoryPath>
     <WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
-<<<<<<< HEAD
 
     <NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
 
     <NameOfLastUsedPublishProfile>E:\Harsha\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile6.pubxml</NameOfLastUsedPublishProfile>
  
-=======
+
     <NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
 
     <NameOfLastUsedPublishProfile>E:\Harsha\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile6.pubxml</NameOfLastUsedPublishProfile>
->>>>>>> c44f3fb6ef86d1525c355d3f662a7e605e942c20
+ 
   </PropertyGroup>
 </Project>
