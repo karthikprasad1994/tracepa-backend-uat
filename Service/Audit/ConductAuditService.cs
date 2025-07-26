@@ -1214,5 +1214,27 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<bool> CheckAuditMandatoryCheckpointsAsync(int compId, int auditId)
+        {
+            const string query = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_Mandatory = 1 AND SAC_TestResult IS NULL AND SAC_CompID = @SAC_CompID";
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var parameters = new
+                {
+                    SAC_CompID = compId,
+                    SAC_SA_ID = auditId,
+                };
+
+                int count = await connection.ExecuteScalarAsync<int>(query, parameters);
+                return count > 0;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while checking incomplete mandatory audit checkpoints", ex);
+            }         
+        }
     }
 }
