@@ -401,18 +401,23 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var hasIncompleteCheckpoints = await _conductAuditInterface.CheckAuditMandatoryCheckpointsAsync(compId, auditId);
-
-                if (hasIncompleteCheckpoints)
+                int count = await _conductAuditInterface.CheckAuditMandatoryCheckpointsAsync(compId, auditId);
+                if (count == 1)
                 {
-                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory Checkpoints before submitting." });
+                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before submitting." });
                 }
-
-                return Ok(new { statusCode = 200, message = "All mandatory Checkpoints are completed." });
+                else if (count == 0)
+                {
+                    return Ok(new { statusCode = 200, message = "No checkpoints exist for this audit." });
+                }
+                else
+                {
+                    return Ok(new { statusCode = 200, message = "All mandatory checkpoints are completed." });
+                }
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { statusCode = 500, message = "An error occurred while checking audit Checkpoints.", error = ex.Message });
+                return StatusCode(500, new { statusCode = 500, message = "An error occurred while checking audit checkpoints.", error = ex.Message });
             }
         }
     }

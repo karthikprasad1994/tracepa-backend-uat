@@ -1214,9 +1214,10 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<bool> CheckAuditMandatoryCheckpointsAsync(int compId, int auditId)
+        public async Task<int> CheckAuditMandatoryCheckpointsAsync(int compId, int auditId)
         {
-            const string query = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_Mandatory = 1 AND SAC_TestResult IS NULL AND SAC_CompID = @SAC_CompID";
+            const string checkExistQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_CompID = @SAC_CompID";
+            const string incompleteMandatoryQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_Mandatory = 1 AND SAC_TestResult IS NULL AND SAC_CompID = @SAC_CompID";
             try
             {
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -1225,16 +1226,22 @@ namespace TracePca.Service.Audit
                 var parameters = new
                 {
                     SAC_CompID = compId,
-                    SAC_SA_ID = auditId,
+                    SAC_SA_ID = auditId
                 };
 
-                int count = await connection.ExecuteScalarAsync<int>(query, parameters);
-                return count > 0;
+                int totalCheckpoints = await connection.ExecuteScalarAsync<int>(checkExistQuery, parameters);
+                if (totalCheckpoints == 0)
+                {
+                    return 0;
+                }
+
+                int incompleteMandatoryCount = await connection.ExecuteScalarAsync<int>(incompleteMandatoryQuery, parameters);
+                return incompleteMandatoryCount > 0 ? 1 : 2;
             }
             catch (Exception ex)
             {
-                throw new ApplicationException("An error occurred while checking incomplete mandatory audit checkpoints", ex);
-            }         
+                throw new ApplicationException("An error occurred while checking audit checkpoints.", ex);
+            }
         }
     }
 }
