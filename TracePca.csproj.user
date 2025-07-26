@@ -1,30 +1,16 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-
   <PropertyGroup>
     <ActiveDebugProfile>https</ActiveDebugProfile>
     <Controller_SelectedScaffolderID>ApiControllerWithActionsScaffolder</Controller_SelectedScaffolderID>
     <Controller_SelectedScaffolderCategoryPath>root/Common/Api</Controller_SelectedScaffolderCategoryPath>
     <WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
-
-
-    <NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
-
-    <NameOfLastUsedPublishProfile>E:\Harsha\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile6.pubxml</NameOfLastUsedPublishProfile>
- 
-    <NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
-
-    <NameOfLastUsedPublishProfile>E:\Harsha\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile6.pubxml</NameOfLastUsedPublishProfile>
-
-    <NameOfLastUsedPublishProfile>C:\Users\Crcuial\Desktop\Trace-B\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
-
   </PropertyGroup>
-        <PropertyGroup>
-                <ActiveDebugProfile>https</ActiveDebugProfile>
-                <Controller_SelectedScaffolderID>ApiControllerWithActionsScaffolder</Controller_SelectedScaffolderID>
-                <Controller_SelectedScaffolderCategoryPath>root/Common/Api</Controller_SelectedScaffolderCategoryPath>
-                <WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
-                <NameOfLastUsedPublishProfile>E:\Harsha\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
-        </PropertyGroup>
-
+  <PropertyGroup>
+    <ActiveDebugProfile>https</ActiveDebugProfile>
+    <Controller_SelectedScaffolderID>ApiControllerWithActionsScaffolder</Controller_SelectedScaffolderID>
+    <Controller_SelectedScaffolderCategoryPath>root/Common/Api</Controller_SelectedScaffolderCategoryPath>
+    <WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
+    <NameOfLastUsedPublishProfile>C:\Users\Crcuial\Desktop\Trace-B\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile7.pubxml</NameOfLastUsedPublishProfile>
+  </PropertyGroup>
 </Project>
