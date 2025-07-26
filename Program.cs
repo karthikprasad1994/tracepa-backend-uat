@@ -1,10 +1,8 @@
-
-using System.Text;
+﻿using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
@@ -31,49 +29,61 @@ using TracePca.Service.FixedAssetsService;
 using TracePca.Service.LedgerReview;
 using TracePca.Service.Master;
 using TracePca.Service.ProfileSetting;
-// Change this in CustomerContextMiddleware.cs
-
-
-//using TracePca.Interface.AssetMaserInterface;
-
-
-
-
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Initial setup
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-// Add services to the container.
 
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new FlexibleDateTimeConverter());
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-builder.Services.AddHttpContextAccessor();
-
-
-builder.Services.AddControllers()
-
-
-.AddJsonOptions(options =>
+// Add controllers
+builder.Services.AddControllers().AddJsonOptions(options =>
 {
-    options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+    options.JsonSerializerOptions.Converters.Add(new FlexibleDateTimeConverter());
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
 });
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddHttpContextAccessor();
+
+// Session setup
 builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.Name = ".AspNetCore.Session";
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
+
+#if DEBUG
+    // Local development settings (no HTTPS)
+    options.Cookie.SameSite = SameSiteMode.Lax; // Use Lax for localhost:3000 -> 7090
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+#else
+    // Production settings (with HTTPS)
+    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+#endif
 });
 
+// CORS setup
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReactApp", policy =>
+    {
+        policy.WithOrigins(
+            "http://localhost:3000",
+             "https://localhost:3000",
+            "http://localhost:4000",
+            "https://tracelites.multimedia.interactivedns.com")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials(); // ✅ Important for cookies
+    });
+});
+
+// Swagger setup
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
@@ -83,7 +93,7 @@ builder.Services.AddSwaggerGen(c =>
         In = ParameterLocation.Header,
         Name = "X-Customer-Code",
         Type = SecuritySchemeType.ApiKey,
-        Description = "Enter the customer code (e.g. harsha123)",
+        Description = "Enter the customer code (e.g. harsha123)"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -102,8 +112,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-builder.Services.AddHttpContextAccessor();
-
+// Dependency injection
 builder.Services.AddScoped<LoginInterface, Login>();
 builder.Services.AddScoped<OtpService>();
 builder.Services.AddScoped<AssetInterface, Asset>();
@@ -113,7 +122,6 @@ builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAd
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
 builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
-
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 builder.Services.AddScoped<JournalEntryInterface, JournalEntryService>();
@@ -121,70 +129,35 @@ builder.Services.AddScoped<ScheduleNoteInterface, ScheduleNoteService>();
 builder.Services.AddScoped<ScheduleReportInterface, ScheduleReportService>();
 builder.Services.AddScoped<ScheduleExcelUploadInterface, ScheduleExcelUploadService>();
 builder.Services.AddScoped<ScheduleMastersInterface, ScheduleMastersService>();
-
-
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
 builder.Services.AddScoped<SubCabinetsInterface, SubCabinetsService>();
 builder.Services.AddScoped<FoldersInterface, FoldersService>();
 builder.Services.AddScoped<AuditAndDashboardInterface, DashboardAndSchedule>();
-
 builder.Services.AddScoped<AuditInterface, Communication>();
-
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
-
 builder.Services.AddScoped<ReportanIssueInterface, ReportanIssueService>();
-
 builder.Services.AddScoped<ConductAuditInterface, TracePca.Service.Audit.ConductAuditService>();
-
-
-
 builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMasterService>();
-
-
-builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();
 builder.Services.AddScoped<LedgerReviewInterface, LedgerReviewService>();
 builder.Services.AddScoped<DbConnectionProvider, DbConnectionProvider>();
 builder.Services.AddScoped<ICustomerContext, CustomerContext>();
 
-
-
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowReactApp", policy =>
-    {
-        policy.WithOrigins(
-
-             "http://localhost:3000", // React app for local development
-              "http://localhost:4000",
-              "https://tracelites.multimedia.interactivedns.com"
-            )
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
-    });
-});
+// Database contexts
 builder.Services.AddDbContext<CustomerRegistrationContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("CustomerRegistrationConnection")));
+
 builder.Services.AddDbContext<DynamicDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("UserConnection")));
 
+// Only register once or conditionally
 builder.Services.AddDbContext<Trdmyus1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddDbContext<Trdmyus1Context>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection1")));
-builder.Services.AddDbContext<Trdmyus1Context>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection2")));
 
-
-
+// JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"]);
 
-// Configure Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -199,40 +172,39 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(secretKey)
         };
     });
+
 var app = builder.Build();
+
+// Middleware ordering
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
-
-app.UseCors("AllowReactApp");
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (!app.Environment.IsDevelopment())
 {
-
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseHttpsRedirection();
 }
 
-app.UseHttpsRedirection();
 
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(
-        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")),
-    RequestPath = ""
-});
+app.UseStaticFiles();
+app.UseRouting();
+
+app.UseCors("AllowReactApp");
+app.UseAuthentication();     // ✅
+app.UseAuthorization();
+
+app.UseSession();            // ✅ Before Authentication
+
 
 app.UseMiddleware<TracePca.Middleware.CustomerContextMiddleware>();
 
-
-app.UseSession();
-app.UseAuthorization();
-
 app.MapControllers();
-
-app.UseStaticFiles();
 
 app.Run();

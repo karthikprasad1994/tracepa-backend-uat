@@ -7,6 +7,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using System.Data;
 using TracePca.Dto.Audit;
+using TracePca.Interface;
 using TracePca.Interface.Audit;
 using static Azure.Core.HttpHeader;
 using Colors = QuestPDF.Helpers.Colors;
@@ -768,6 +769,12 @@ namespace TracePca.Controllers.Audit
 
             static IContainer HeaderCellStyle(IContainer container) =>
                 container.PaddingVertical(6).PaddingHorizontal(6).Background(Colors.Grey.Lighten3).BorderBottom(1).BorderColor(Colors.Black);
+        }
+        [HttpGet("customers")]
+        public async Task<IActionResult> GetCustomers([FromQuery] int companyId)
+        {
+            var customers = await _DashboardAndScheduleInterface.GetCustomersAsync(companyId);
+            return Ok(customers);
         }
 
         [HttpGet("get-formatted-date")]
