@@ -469,6 +469,23 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<bool> CheckCAEIndependentAuditorsReportSavedAsync(int compId, int auditId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                const string query = @"Select * From LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = 33 AND LTD_LOE_ID = @LOEId";
+                int count = await connection.ExecuteScalarAsync<int>(query, new { LOEId = auditId });
+                return count > 0;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while checking for duplicate Workpaper Reference.", ex);
+            }
+        }
+
         public async Task<AuditSignedByUDINRequestDTO> GetSignedByUDINInAuditAsync(int compId, int auditId)
         {
             try

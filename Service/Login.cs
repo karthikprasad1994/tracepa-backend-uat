@@ -16,6 +16,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Org.BouncyCastle.Asn1.Crmf;
+using StackExchange.Redis;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
@@ -39,6 +41,7 @@ namespace TracePca.Service
         private readonly IWebHostEnvironment _env;
         private readonly string _appSettingsPath;
         private readonly IDbConnection _db;
+       
 
         public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DynamicDbContext context, OtpService otpService, IWebHostEnvironment env)
         {
@@ -51,6 +54,8 @@ namespace TracePca.Service
             _env = env;
             _appSettingsPath = Path.Combine(env.ContentRootPath, "appsettings.json");
             _db = new SqlConnection(configuration.GetConnectionString("DefaultConnection"));
+         
+           
         }
 
         public async Task<object> GetAllUsersAsync()
@@ -88,6 +93,7 @@ namespace TracePca.Service
         }
 
 
+       
 
 
         public async Task<IActionResult> SignUpUserAsync(RegistrationDto registerModel)
@@ -518,6 +524,8 @@ namespace TracePca.Service
         public async Task<bool> VerifyOtpJwtAsync(string token, string enteredOtp)
         {
             return await Task.FromResult(_otpService.VerifyOtpJwt(token, enteredOtp)); // ✅ Use await correctly
+
+
         }
 
         public string GetLocalIp()
@@ -589,10 +597,10 @@ namespace TracePca.Service
 
                         if (isPasswordValid)
                         {
-                            // ✅ Migrate password to BCrypt
-                          //  string newHash = BCrypt.Net.BCrypt.HashPassword(password);
 
-                          //  Update the user's password
+                           // string newHash = BCrypt.Net.BCrypt.HashPassword(password);
+
+
                             //await connection.ExecuteAsync(
                             //    "UPDATE Sad_UserDetails SET usr_Password = @newHash WHERE LOWER(usr_Email) = @email",
                             //    new { newHash, email = plainEmail });
@@ -619,6 +627,7 @@ namespace TracePca.Service
 
                 // Step 6: Generate JWT
                 string token = GenerateJwtToken(email, customerCode);
+                _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
                 string? ymsId = null;
                 int? ymsYearId = null;
 
@@ -657,6 +666,8 @@ namespace TracePca.Service
                     YmsYearId = ymsYearId,
                     CustomerCode = customerCode,
                     ClientIpAddress = clientIp,
+                    SystemIpAddress = systemIp
+
 
                 };
             }

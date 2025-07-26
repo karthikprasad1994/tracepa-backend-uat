@@ -196,8 +196,13 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var result = await _auditCompletionInterface.UpdateSignedByUDINInAuditAsync(dto);
+                bool checkCAESaved = await _auditCompletionInterface.CheckCAEIndependentAuditorsReportSavedAsync(dto.SA_CompID, dto.SA_ID);
+                if (!checkCAESaved)
+                {
+                    return BadRequest(new { statusCode = 400, message = $"Independent Auditor's Report details have not been generated. Please generate the report before saving Audit Completion data." });
+                }
 
+                var result = await _auditCompletionInterface.UpdateSignedByUDINInAuditAsync(dto);
                 if (result > 0)
                 {
                     return Ok(new { statusCode = 200, message = "Audit Status, SignedBy and UDIN details updated successfully.", Data = result });
