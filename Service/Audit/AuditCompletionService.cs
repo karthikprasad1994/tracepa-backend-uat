@@ -294,7 +294,6 @@ namespace TracePca.Service.Audit
             }
         }
 
-
         public async Task<int> SaveOrUpdateAuditCompletionDataAsync(AuditCompletionDTO dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -1324,60 +1323,102 @@ namespace TracePca.Service.Audit
 
         public async Task<StandardAuditAllAttachmentsDTO> LoadAllAuditAttachmentsByAuditIdAsync(int compId, int auditId)
         {
-            var result = new StandardAuditAllAttachmentsDTO();
-
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
             try
             {
-                // 1. Get PreAudit Attachment IDs
-                var beginningAuditAttachIdsQuery = @"SELECT DISTINCT ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAR_AttchId, 0) AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory
-                WHERE SAR_SA_ID = @AuditID AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = @CompId And RTM_TemplateId = 2) FOR XML PATH('')), 1, 1, ''), '0')";
-                var beginningAuditAttachIds = await connection.ExecuteScalarAsync<string>(beginningAuditAttachIdsQuery, new { CompId = compId, AuditID = auditId });
-
-                // 2. Get DuringAudit Attachment IDsf=1
-                var duringAuditAttachIdsQuery = @" SELECT DISTINCT ISNULL(STUFF((SELECT ',' + CAST(ISNULL(ADRL_AttachID, 0) AS VARCHAR) FROM Audit_DRLLog 
-                LEFT JOIN Content_Management_Master ON ADRL_RequestedTypeID = CMM_ID And cmm_Category = 'DRL' WHERE ADRL_AuditNo = @AuditID FOR XML PATH('')), 1, 1, ''), '0')";
-                var duringAuditAttachIds = await connection.ExecuteScalarAsync<string>(duringAuditAttachIdsQuery, new { AuditID = auditId });
-
-                // 3. Get PostAudit Attachment IDs
-                var nearingEndAuditAttachIdsQuery = @"SELECT DISTINCT ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAR_AttchId, 0) AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory
-                WHERE SAR_SA_ID = @AuditID AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = @CompId And RTM_TemplateId = 4) FOR XML PATH('')), 1, 1, ''), '0')";
-                var nearingEndAuditAttachIds = await connection.ExecuteScalarAsync<string>(nearingEndAuditAttachIdsQuery, new { CompId = compId, AuditID = auditId });
-
-                // 4. Get Workpaper Attachment IDs
-                var workpaperAttachIdsQuery = @"SELECT DISTINCT ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SSW_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper
-                WHERE SSW_SA_ID = @AuditID FOR XML PATH('')), 1, 1, ''), '0')";
-                var workpaperAttachIds = await connection.ExecuteScalarAsync<string>(workpaperAttachIdsQuery, new { AuditID = auditId });
-
-                // 5. Get Conduct Attachment IDs
-                var conductAuditIdsQuery = @"SELECT DISTINCT ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAC_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList
-                WHERE SAC_SA_ID = @AuditID FOR XML PATH('')), 1, 1, ''), '0')";
-                var conductAuditAttachIds = await connection.ExecuteScalarAsync<string>(conductAuditIdsQuery, new { AuditID = auditId });
-
-                async Task<List<AttachmentDetailsDTO>> LoadAttachmentsByIdsAsync(string ids)
+                var result = new StandardAuditAllAttachmentsDTO
                 {
-                    if (string.IsNullOrEmpty(ids) || ids == "0") return new();
+                    BeginningAuditAttachments = new List<AttachmentGroupDTO>(),
+                    DuringAuditAttachments = new List<AttachmentGroupDTO>(),
+                    NearingEndAuditAttachments = new List<AttachmentGroupDTO>(),
+                    WorkpaperAttachments = new List<AttachmentGroupDTO>(),
+                    ConductAuditAttachments = new List<AttachmentGroupDTO>()
+                };
 
-                    var query = @"SELECT A.ATCH_ID, A.ATCH_DOCID, A.ATCH_FNAME, A.ATCH_EXT, A.ATCH_DESC, A.ATCH_CREATEDBY, U.Usr_FullName AS ATCH_CREATEDBYNAME, A.ATCH_CREATEDON, A.ATCH_SIZE FROM edt_attachments A
-                    LEFT JOIN Sad_Userdetails U ON A.ATCH_CREATEDBY = U.Usr_ID AND A.ATCH_COMPID = U.Usr_CompId
-                    WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID IN (SELECT value FROM STRING_SPLIT(@Ids, ',')) AND A.ATCH_Status <> 'D' ORDER BY A.ATCH_CREATEDON";
+                // 1. Beginning Audit (Pre-Audit)
+                var beginningTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
+                    @"SELECT RTM_Id AS TypeId, RTM_ReportTypeName AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAR_AttchId, 0) AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory
+                    WHERE SAR_SA_ID = @AuditID AND SAR_ReportType = RTM_Id FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM SAD_ReportTypeMaster WHERE RTM_CompID = @CompId AND RTM_TemplateId = 2",
+                    new { CompId = compId, AuditID = auditId });
 
-                    var attachments = await connection.QueryAsync<AttachmentDetailsDTO>(query, new { CompId = compId, Ids = ids });
-                    return attachments.ToList();
+                foreach (var item in beginningTypes)
+                {
+                    var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
+                    if (attachments.Any())
+                        result.BeginningAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
-                result.BeginningAuditAttachments = await LoadAttachmentsByIdsAsync(beginningAuditAttachIds ?? string.Empty);
-                result.DuringAuditAttachments = await LoadAttachmentsByIdsAsync(duringAuditAttachIds ?? string.Empty);
-                result.NearingEndAuditAttachments = await LoadAttachmentsByIdsAsync(nearingEndAuditAttachIds ?? string.Empty);
-                result.WorkpaperAttachments = await LoadAttachmentsByIdsAsync(workpaperAttachIds ?? string.Empty);
-                result.ConductAuditAttachments = await LoadAttachmentsByIdsAsync(conductAuditAttachIds ?? string.Empty);
+                // 2. During Audit (DRL)
+                var duringTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
+                    @"SELECT CMM_ID AS TypeId, CMM_Desc AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(ADRL_AttachID, 0) AS VARCHAR) FROM Audit_DRLLog
+                    WHERE ADRL_AuditNo = @AuditID AND ADRL_RequestedTypeID = CMM_ID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM Content_Management_Master WHERE CMM_Category = 'DRL'",
+                    new { AuditID = auditId });
+
+                foreach (var item in duringTypes)
+                {
+                    var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
+                    if (attachments.Any())
+                        result.DuringAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
+                }
+
+                // 3. Nearing End Audit (Post-Audit)
+                var nearingTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
+                    @"SELECT RTM_Id AS TypeId, RTM_ReportTypeName AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAR_AttchId, 0) AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory
+                    WHERE SAR_SA_ID = @AuditID AND SAR_ReportType = RTM_Id FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM SAD_ReportTypeMaster WHERE RTM_CompID = @CompId AND RTM_TemplateId = 4",
+                    new { CompId = compId, AuditID = auditId });
+
+                foreach (var item in nearingTypes)
+                {
+                    var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
+                    if (attachments.Any())
+                        result.NearingEndAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
+                }
+
+                // 4. Workpaper
+                var workpaperTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
+                    @"SELECT wp.SSW_ID AS TypeId, wp.SSW_WorkpaperRef AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SSW_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper
+                    WHERE SSW_SA_ID = @AuditID AND SSW_ID = wp.SSW_ID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM StandardAudit_ScheduleConduct_WorkPaper wp WHERE SSW_SA_ID = @AuditID",
+                    new { AuditID = auditId });
+
+                foreach (var item in workpaperTypes)
+                {
+                    var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
+                    if (attachments.Any())
+                        result.WorkpaperAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
+                }
+
+                // 5. Conduct Audit (Checkpoints)
+                var conductTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
+                    @"SELECT DISTINCT ACM_ID AS TypeId, ACM_CheckPoint AS TypeName,  ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAC_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList
+                    WHERE SAC_SA_ID = @AuditID AND SAC_CheckPointID = cp.SAC_CheckPointID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM StandardAudit_ScheduleCheckPointList cp
+                    INNER JOIN AuditType_Checklist_Master ON ACM_ID = cp.SAC_CheckPointID WHERE cp.SAC_SA_ID = @AuditID",
+                    new { AuditID = auditId });
+
+                foreach (var item in conductTypes)
+                {
+                    var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
+                    if (attachments.Any())
+                        result.ConductAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
+                }
+                return result;
             }
             catch (Exception ex)
             {
                 throw new ApplicationException("An error occurred while loading all audit attachments.", ex);
             }
-            return result;
+        }
+
+        public async Task<List<AttachmentDetailsDTO>> LoadAttachmentsByIdsAsync(string ids, int compId, IDbConnection connection)
+        {
+            if (string.IsNullOrEmpty(ids) || ids == "0") return new();
+
+            var query = @"SELECT A.ATCH_ID, A.ATCH_DOCID, A.ATCH_FNAME, A.ATCH_EXT, A.ATCH_DESC, A.ATCH_CREATEDBY, U.Usr_FullName AS ATCH_CREATEDBYNAME, A.ATCH_CREATEDON, A.ATCH_SIZE FROM edt_attachments A
+                  LEFT JOIN Sad_Userdetails U ON A.ATCH_CREATEDBY = U.Usr_ID AND A.ATCH_COMPID = U.Usr_CompId
+                  WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID IN (SELECT value FROM STRING_SPLIT(@Ids, ',')) AND A.ATCH_Status <> 'D' ORDER BY A.ATCH_CREATEDON";
+
+            var result = await connection.QueryAsync<AttachmentDetailsDTO>(query, new { CompId = compId, Ids = ids });
+            return result.ToList();
         }
 
         private string SanitizeName(string name)
