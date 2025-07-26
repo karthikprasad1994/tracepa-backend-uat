@@ -1,33 +1,10 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-<<<<<<< HEAD
-
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-
->>>>>>> 5ce59a43120ce5a87447a7f8c34af0fee9b4b0bb
->>>>>>> a7539c31e9784fc4c126f51443ac857ebfaf10ec
->>>>>>> c621ee943e2197a9c28ce35e1a2d9c36c80fd11e
->>>>>>> 142803532d29076ea114f9e890de4a7aeb5f2161
   <PropertyGroup>
     <ActiveDebugProfile>https</ActiveDebugProfile>
     <Controller_SelectedScaffolderID>ApiControllerWithActionsScaffolder</Controller_SelectedScaffolderID>
     <Controller_SelectedScaffolderCategoryPath>root/Common/Api</Controller_SelectedScaffolderCategoryPath>
     <WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-
-=======
-<<<<<<< HEAD
   </PropertyGroup>
   <PropertyGroup>
     <ActiveDebugProfile>https</ActiveDebugProfile>
@@ -36,63 +13,4 @@
     <WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
     <NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
   </PropertyGroup>
-=======
-<<<<<<< HEAD
-=======
->>>>>>> c621ee943e2197a9c28ce35e1a2d9c36c80fd11e
->>>>>>> 142803532d29076ea114f9e890de4a7aeb5f2161
-
-
-    <NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
-
-    <NameOfLastUsedPublishProfile>E:\Harsha\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile6.pubxml</NameOfLastUsedPublishProfile>
- 
-    <NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
-
-    <NameOfLastUsedPublishProfile>E:\Harsha\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile6.pubxml</NameOfLastUsedPublishProfile>
-
-    <NameOfLastUsedPublishProfile>C:\Users\Crcuial\Desktop\Trace-B\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
-<<<<<<< HEAD
-
-=======
-<<<<<<< HEAD
-
-=======
-<<<<<<< HEAD
-=======
-
->>>>>>> 5ce59a43120ce5a87447a7f8c34af0fee9b4b0bb
->>>>>>> c621ee943e2197a9c28ce35e1a2d9c36c80fd11e
->>>>>>> 142803532d29076ea114f9e890de4a7aeb5f2161
-  </PropertyGroup>
->>>>>>> f278e8d8a2b688354cbe39459a1e8a5280cd6329
-	<PropertyGroup>
-		<ActiveDebugProfile>https</ActiveDebugProfile>
-		<Controller_SelectedScaffolderID>ApiControllerWithActionsScaffolder</Controller_SelectedScaffolderID>
-		<Controller_SelectedScaffolderCategoryPath>root/Common/Api</Controller_SelectedScaffolderCategoryPath>
-		<WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
-	</PropertyGroup>
-<<<<<<< HEAD
-
-=======
-<<<<<<< HEAD
-	<PropertyGroup>
-		<ActiveDebugProfile>https</ActiveDebugProfile>
-		<Controller_SelectedScaffolderID>ApiControllerWithActionsScaffolder</Controller_SelectedScaffolderID>
-		<Controller_SelectedScaffolderCategoryPath>root/Common/Api</Controller_SelectedScaffolderCategoryPath>
-		<WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
-		<NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
-	</PropertyGroup>
-=======
-<<<<<<< HEAD
-
-=======
-<<<<<<< HEAD
-=======
-
->>>>>>> 5ce59a43120ce5a87447a7f8c34af0fee9b4b0bb
->>>>>>> a7539c31e9784fc4c126f51443ac857ebfaf10ec
->>>>>>> c621ee943e2197a9c28ce35e1a2d9c36c80fd11e
->>>>>>> f278e8d8a2b688354cbe39459a1e8a5280cd6329
->>>>>>> 142803532d29076ea114f9e890de4a7aeb5f2161
 </Project>
