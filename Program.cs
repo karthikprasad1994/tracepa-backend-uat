@@ -1,14 +1,10 @@
-<<<<<<< HEAD
-﻿using System.Text;
-=======
-
 using System;
 using System.Text;
->>>>>>> a26ab9244bfdef9d7d82925347b386a75118faa2
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
@@ -35,12 +31,6 @@ using TracePca.Service.FixedAssetsService;
 using TracePca.Service.LedgerReview;
 using TracePca.Service.Master;
 using TracePca.Service.ProfileSetting;
-<<<<<<< HEAD
-
-var builder = WebApplication.CreateBuilder(args);
-
-// Initial setup
-=======
 // Change this in CustomerContextMiddleware.cs
 
 
@@ -48,22 +38,30 @@ var builder = WebApplication.CreateBuilder(args);
 
 var builder = WebApplication.CreateBuilder(args);
 var environment = builder.Environment;
->>>>>>> a26ab9244bfdef9d7d82925347b386a75118faa2
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+// Add services to the container.
 
-// Add controllers
-builder.Services.AddControllers().AddJsonOptions(options =>
-{
-    options.JsonSerializerOptions.Converters.Add(new FlexibleDateTimeConverter());
-    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-});
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new FlexibleDateTimeConverter());
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
 
-// Session setup
+
+builder.Services.AddControllers()
+
+
+.AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+});
+
 builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddSession(options =>
@@ -72,36 +70,6 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 
-<<<<<<< HEAD
-#if DEBUG
-    // Local development settings (no HTTPS)
-    options.Cookie.SameSite = SameSiteMode.Lax; // Use Lax for localhost:3000 -> 7090
-    options.Cookie.SecurePolicy = CookieSecurePolicy.None;
-#else
-    // Production settings (with HTTPS)
-    options.Cookie.SameSite = SameSiteMode.None;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-#endif
-});
-
-// CORS setup
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowReactApp", policy =>
-    {
-        policy.WithOrigins(
-            "http://localhost:3000",
-             "https://localhost:3000",
-            "http://localhost:4000",
-            "https://tracelites.multimedia.interactivedns.com")
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials(); // ✅ Important for cookies
-    });
-});
-
-// Swagger setup
-=======
     if (environment.IsDevelopment())
     {
         // Local development settings (no HTTPS)
@@ -117,7 +85,6 @@ builder.Services.AddCors(options =>
 });
 
 
->>>>>>> a26ab9244bfdef9d7d82925347b386a75118faa2
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
@@ -127,7 +94,7 @@ builder.Services.AddSwaggerGen(c =>
         In = ParameterLocation.Header,
         Name = "X-Customer-Code",
         Type = SecuritySchemeType.ApiKey,
-        Description = "Enter the customer code (e.g. harsha123)"
+        Description = "Enter the customer code (e.g. harsha123)",
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -146,7 +113,8 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Dependency injection
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddScoped<LoginInterface, Login>();
 builder.Services.AddScoped<OtpService>();
 builder.Services.AddScoped<AssetInterface, Asset>();
@@ -156,6 +124,7 @@ builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAd
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
 builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
+
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 builder.Services.AddScoped<JournalEntryInterface, JournalEntryService>();
@@ -163,35 +132,70 @@ builder.Services.AddScoped<ScheduleNoteInterface, ScheduleNoteService>();
 builder.Services.AddScoped<ScheduleReportInterface, ScheduleReportService>();
 builder.Services.AddScoped<ScheduleExcelUploadInterface, ScheduleExcelUploadService>();
 builder.Services.AddScoped<ScheduleMastersInterface, ScheduleMastersService>();
+
+
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
 builder.Services.AddScoped<SubCabinetsInterface, SubCabinetsService>();
 builder.Services.AddScoped<FoldersInterface, FoldersService>();
 builder.Services.AddScoped<AuditAndDashboardInterface, DashboardAndSchedule>();
+
 builder.Services.AddScoped<AuditInterface, Communication>();
+
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
+
 builder.Services.AddScoped<ReportanIssueInterface, ReportanIssueService>();
+
 builder.Services.AddScoped<ConductAuditInterface, TracePca.Service.Audit.ConductAuditService>();
+
+
+
 builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMasterService>();
+
+
+builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();
 builder.Services.AddScoped<LedgerReviewInterface, LedgerReviewService>();
 builder.Services.AddScoped<DbConnectionProvider, DbConnectionProvider>();
 builder.Services.AddScoped<ICustomerContext, CustomerContext>();
 
-// Database contexts
+
+
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReactApp", policy =>
+    {
+        policy.WithOrigins(
+
+             "http://localhost:3000", // React app for local development
+              "http://localhost:4000",
+              "https://tracelites.multimedia.interactivedns.com"
+            )
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
 builder.Services.AddDbContext<CustomerRegistrationContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("CustomerRegistrationConnection")));
-
 builder.Services.AddDbContext<DynamicDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("UserConnection")));
 
-// Only register once or conditionally
 builder.Services.AddDbContext<Trdmyus1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<Trdmyus1Context>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection1")));
+builder.Services.AddDbContext<Trdmyus1Context>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection2")));
 
-// JWT Authentication
+
+
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"]);
 
+// Configure Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -206,55 +210,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(secretKey)
         };
     });
-
 var app = builder.Build();
-
-// Middleware ordering
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
-<<<<<<< HEAD
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
 
-
 app.UseStaticFiles();
+
 app.UseRouting();
 
 app.UseCors("AllowReactApp");
-app.UseAuthentication();     // ✅
-app.UseAuthorization();
-
-app.UseSession();            // ✅ Before Authentication
-
-
-app.UseMiddleware<TracePca.Middleware.CustomerContextMiddleware>();
-
-app.MapControllers();
-
-app.Run();
-=======
-
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
-
-app.UseStaticFiles();
-
-app.UseRouting();
-
-app.UseCors("AllowReactApp"); 
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -312,4 +284,3 @@ app.Run();
 //app.UseStaticFiles();
 
 //app.Run();
->>>>>>> a26ab9244bfdef9d7d82925347b386a75118faa2
