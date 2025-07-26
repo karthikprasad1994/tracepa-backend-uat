@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 ﻿using System.Text;
+=======
+
+using System;
+using System.Text;
+>>>>>>> a26ab9244bfdef9d7d82925347b386a75118faa2
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -29,10 +35,20 @@ using TracePca.Service.FixedAssetsService;
 using TracePca.Service.LedgerReview;
 using TracePca.Service.Master;
 using TracePca.Service.ProfileSetting;
+<<<<<<< HEAD
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Initial setup
+=======
+// Change this in CustomerContextMiddleware.cs
+
+
+//using TracePca.Interface.AssetMaserInterface;
+
+var builder = WebApplication.CreateBuilder(args);
+var environment = builder.Environment;
+>>>>>>> a26ab9244bfdef9d7d82925347b386a75118faa2
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
@@ -56,6 +72,7 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 
+<<<<<<< HEAD
 #if DEBUG
     // Local development settings (no HTTPS)
     options.Cookie.SameSite = SameSiteMode.Lax; // Use Lax for localhost:3000 -> 7090
@@ -84,6 +101,23 @@ builder.Services.AddCors(options =>
 });
 
 // Swagger setup
+=======
+    if (environment.IsDevelopment())
+    {
+        // Local development settings (no HTTPS)
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+    }
+    else
+    {
+        // Production settings (with HTTPS)
+        options.Cookie.SameSite = SameSiteMode.None;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    }
+});
+
+
+>>>>>>> a26ab9244bfdef9d7d82925347b386a75118faa2
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
@@ -187,6 +221,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
+<<<<<<< HEAD
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
@@ -208,3 +243,73 @@ app.UseMiddleware<TracePca.Middleware.CustomerContextMiddleware>();
 app.MapControllers();
 
 app.Run();
+=======
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseStaticFiles();
+
+app.UseRouting();
+
+app.UseCors("AllowReactApp"); 
+
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseSession();
+app.UseMiddleware<TracePca.Middleware.CustomerContextMiddleware>();
+
+
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapControllers();
+});
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.Run();
+
+//app.UseForwardedHeaders(new ForwardedHeadersOptions
+//{
+//    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+//});
+
+
+//app.UseCors("AllowReactApp");
+
+//// Configure the HTTP request pipeline.
+//if (app.Environment.IsDevelopment())
+//{
+
+//    app.UseSwagger();
+//    app.UseSwaggerUI();
+//}
+
+//app.UseHttpsRedirection();
+
+//app.UseStaticFiles(new StaticFileOptions
+//{
+//    FileProvider = new PhysicalFileProvider(
+//        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")),
+//    RequestPath = ""
+//});
+//app.UseSession();
+
+//app.UseMiddleware<TracePca.Middleware.CustomerContextMiddleware>();
+
+
+
+//app.UseAuthorization();
+
+//app.MapControllers();
+
+//app.UseStaticFiles();
+
+//app.Run();
+>>>>>>> a26ab9244bfdef9d7d82925347b386a75118faa2
