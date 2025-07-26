@@ -1329,6 +1329,7 @@ namespace TracePca.Service.Audit
             {
                 var result = new StandardAuditAllAttachmentsDTO
                 {
+                    AuditPlanAttachments = new List<AttachmentGroupDTO>(),
                     BeginningAuditAttachments = new List<AttachmentGroupDTO>(),
                     DuringAuditAttachments = new List<AttachmentGroupDTO>(),
                     NearingEndAuditAttachments = new List<AttachmentGroupDTO>(),
