@@ -134,7 +134,7 @@ namespace TracePca.Service.Audit
                 var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
                     CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
                     CASE WHEN ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isReviewer,
-                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor                
+                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, SA_Status As Status 
                     FROM StandardAudit_Schedule SA LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
                     WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId ";
 
@@ -468,20 +468,40 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<bool> CheckCAEIndependentAuditorsReportSavedAsync(int compId, int auditId)
+        public async Task<int> CheckCAEIndependentAuditorsReportSavedAsync(int compId, int auditId)
         {
+            const string CAEQuery = @"SELECT COUNT(*) FROM LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = 33 AND LTD_LOE_ID = @LOEId";
+            const string checkExistQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_CompID = @SAC_CompID";
+            const string incompleteMandatoryQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_Mandatory = 1 AND SAC_TestResult IS NULL AND SAC_CompID = @SAC_CompID";
             try
             {
                 using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                 await connection.OpenAsync();
 
-                const string query = @"Select * From LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = 33 AND LTD_LOE_ID = @LOEId";
-                int count = await connection.ExecuteScalarAsync<int>(query, new { LOEId = auditId });
-                return count > 0;
+                int caeCount = await connection.ExecuteScalarAsync<int>(CAEQuery, new { LOEId = auditId });
+                if (caeCount == 0)
+                {
+                    return 0; // CAE Report not saved
+                }
+
+                var parameters = new { SAC_CompID = compId, SAC_SA_ID = auditId };
+                int totalCheckpoints = await connection.ExecuteScalarAsync<int>(checkExistQuery, parameters);
+                if (totalCheckpoints == 0)
+                {
+                    return 3; // No checkpoints
+                }
+
+                int incompleteMandatoryCount = await connection.ExecuteScalarAsync<int>(incompleteMandatoryQuery, parameters);
+                if (incompleteMandatoryCount > 0)
+                {
+                    return 1; // Incomplete mandatory checkpoints
+                }
+
+                return 2;
             }
             catch (Exception ex)
             {
-                throw new ApplicationException("An error occurred while checking for duplicate Workpaper Reference.", ex);
+                throw new ApplicationException("An error occurred while checking Audit status.", ex);
             }
         }
 
@@ -1335,6 +1355,25 @@ namespace TracePca.Service.Audit
                     WorkpaperAttachments = new List<AttachmentGroupDTO>(),
                     ConductAuditAttachments = new List<AttachmentGroupDTO>()
                 };
+
+                // 0. Audit Plan/EngagementPlan
+                var auditPlanTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
+                    @"SELECT TOP 1 RTM.RTM_Id AS TypeId, RTM.RTM_ReportTypeName AS TypeName,
+                    ISNULL(STUFF((SELECT ',' + CAST(ISNULL(LOET2.LOE_AttachID, 0) AS VARCHAR) FROM StandardAudit_Schedule SA2 JOIN SAD_CUST_LOE LOE2 ON LOE2.LOE_CustomerId = SA2.SA_CustID 
+                    AND LOE2.LOE_YearId = SA2.SA_YearID AND LOE2.LOE_ServiceTypeId = SA2.SA_AuditTypeID
+                    JOIN LOE_Template LOET2 ON LOET2.LOET_LOEID = LOE2.LOE_ID WHERE SA2.SA_ID = @AuditID AND SA2.SA_CompID = @CompId FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, ''), '0') AttachIds
+                    FROM StandardAudit_Schedule SA
+                    JOIN SAD_CUST_LOE LOE ON LOE.LOE_CustomerId = SA.SA_CustID AND LOE.LOE_YearId = SA.SA_YearID AND LOE.LOE_ServiceTypeId = SA.SA_AuditTypeID
+                    JOIN LOE_Template LOET ON LOET.LOET_LOEID = LOE.LOE_ID JOIN LOE_Template_Details LTD ON LTD.LTD_LOE_ID = LOET.LOET_LOEID AND LTD.LTD_FormName = 'LOE' AND LTD.LTD_CompID = SA.SA_CompID
+                    JOIN SAD_ReportTypeMaster RTM ON RTM.RTM_Id = LTD.LTD_ReportTypeID WHERE SA.SA_ID = @AuditID And SA.SA_CompID = @CompId",
+                    new { CompId = compId, AuditID = auditId });
+
+                foreach (var item in auditPlanTypes)
+                {
+                    var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
+                    if (attachments.Any())
+                        result.AuditPlanAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
+                }
 
                 // 1. Beginning Audit (Pre-Audit) & Nearing End Audit (Post-Audit)
                 var beginningTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(

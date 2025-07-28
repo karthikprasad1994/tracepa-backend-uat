@@ -402,13 +402,13 @@ namespace TracePca.Controllers.Audit
             try
             {
                 int count = await _conductAuditInterface.CheckAuditMandatoryCheckpointsAsync(compId, auditId);
-                if (count == 1)
-                {
-                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before submitting." });
-                }
-                else if (count == 0)
+                if (count == 0)
                 {
                     return Ok(new { statusCode = 200, message = "No checkpoints exist for this audit." });
+                }
+                else if (count == 1)
+                {
+                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before submitting." });
                 }
                 else
                 {
