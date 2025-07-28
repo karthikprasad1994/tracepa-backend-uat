@@ -124,7 +124,7 @@ namespace TracePca.Service.Audit
                 var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
                     CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
                     CASE WHEN ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isReviewer,
-                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor                
+                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, SA_Status As Status 
                     FROM StandardAudit_Schedule SA LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
                     WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId ";
 
@@ -1214,5 +1214,40 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<int> CheckAuditMandatoryCheckpointsAsync(int compId, int auditId)
+        {
+            const string checkExistQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_CompID = @SAC_CompID";
+            const string incompleteMandatoryQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_Mandatory = 1 AND SAC_TestResult IS NULL AND SAC_CompID = @SAC_CompID";
+            const string updateStatusQuery = @"UPDATE StandardAudit_Schedule SET SA_Status = 8 WHERE SA_ID = @SA_ID AND SA_CompID = @SA_CompID";
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await connection.OpenAsync();
+
+                var parameters = new { SAC_CompID = compId, SAC_SA_ID = auditId };
+
+                int totalCheckpoints = await connection.ExecuteScalarAsync<int>(checkExistQuery, parameters);
+                if (totalCheckpoints == 0)
+                {
+                    return 0; // No checkpoints
+                }
+
+                int incompleteMandatoryCount = await connection.ExecuteScalarAsync<int>(incompleteMandatoryQuery, parameters);
+                if (incompleteMandatoryCount > 0)
+                {
+                    return 1; // Incomplete mandatory checkpoints
+                }
+                else
+                {
+                    // All mandatory checkpoints are completed – update status
+                    await connection.ExecuteAsync(updateStatusQuery, new { SA_ID = auditId, SA_CompID = compId });
+                    return 2;
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while checking audit checkpoints.", ex);
+            }
+        }
     }
 }

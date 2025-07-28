@@ -57,6 +57,7 @@ namespace TracePca.Interface.Audit
 
         string GetFormattedDate(string accessCode, int accessCodeId);
 
+        Task<IEnumerable<CustomerDto1>> GetCustomersAsync(int companyId);
 
 
 

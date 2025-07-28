@@ -33,6 +33,11 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetDetailedReportPandL
         Task<IEnumerable<DetailedReportRow>> GetDetailedReportAsync(DetailedReportParams p);
+        Task<ScheduleReportResponseDto> GetScheduleReportDetailsAsync(ScheduleReportRequestDto request);
+        Task<OrgTypeResponseDto> GetOrgTypeAndMembersAsync(int customerId, int companyId);
+        Task<List<CompanyDto>> LoadCompanyDetailsAsync(int compId);
+
+
     }
 }
                          

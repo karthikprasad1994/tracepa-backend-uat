@@ -16,6 +16,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Org.BouncyCastle.Asn1.Crmf;
+using StackExchange.Redis;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
@@ -39,6 +41,7 @@ namespace TracePca.Service
         private readonly IWebHostEnvironment _env;
         private readonly string _appSettingsPath;
         private readonly IDbConnection _db;
+       
 
         public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DynamicDbContext context, OtpService otpService, IWebHostEnvironment env)
         {
@@ -51,6 +54,8 @@ namespace TracePca.Service
             _env = env;
             _appSettingsPath = Path.Combine(env.ContentRootPath, "appsettings.json");
             _db = new SqlConnection(configuration.GetConnectionString("DefaultConnection"));
+         
+           
         }
 
         public async Task<object> GetAllUsersAsync()
@@ -88,6 +93,7 @@ namespace TracePca.Service
         }
 
 
+       
 
 
         public async Task<IActionResult> SignUpUserAsync(RegistrationDto registerModel)
@@ -518,6 +524,8 @@ namespace TracePca.Service
         public async Task<bool> VerifyOtpJwtAsync(string token, string enteredOtp)
         {
             return await Task.FromResult(_otpService.VerifyOtpJwt(token, enteredOtp)); // ✅ Use await correctly
+
+
         }
 
         public string GetLocalIp()
@@ -532,24 +540,25 @@ namespace TracePca.Service
             {
                 email = email?.Trim().ToLower();
                 password = password?.Trim();
+
                 using var regConnection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
                 await regConnection.OpenAsync();
 
-                // Step 1: Get customer code from MCR_emails
+                // Get customer code
                 string customerCodeSql = @"
-            SELECT TOP 1 MCR_CustomerCode 
-            FROM mmcs_customerregistration 
-            CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
-            WHERE LTRIM(RTRIM(Emails.value)) = @Email";
+        SELECT TOP 1 MCR_CustomerCode 
+        FROM mmcs_customerregistration 
+        CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
+        WHERE LTRIM(RTRIM(Emails.value)) = @Email";
 
                 var customerCode = await regConnection.QuerySingleOrDefaultAsync<string>(customerCodeSql, new { Email = email });
 
                 if (string.IsNullOrEmpty(customerCode))
                 {
                     return new LoginResponse { StatusCode = 404, Message = "Email not found in customer registration." };
-                   }
+                }
 
-                // Step 2: Connect to the customer's DB
+                // Connect to customer's DB
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
                 string customerDbConnection = string.Format(connectionStringTemplate, customerCode);
 
@@ -558,11 +567,11 @@ namespace TracePca.Service
 
                 string plainEmail = email.Trim().ToLower();
 
-                // Step 3: Fetch user details
+                // Fetch user details
                 var user = await connection.QueryFirstOrDefaultAsync<LoginDto>(
                     @"SELECT usr_Email AS UsrEmail, usr_Password AS UsrPassWord
-              FROM Sad_UserDetails
-              WHERE LOWER(usr_Email) = @email",
+          FROM Sad_UserDetails
+          WHERE LOWER(usr_Email) = @email",
                     new { email = plainEmail });
 
                 if (user == null)
@@ -570,62 +579,35 @@ namespace TracePca.Service
                     return new LoginResponse { StatusCode = 404, Message = "Invalid email." };
                 }
 
-                bool isPasswordValid = false;
-
-                // Step 4: Try BCrypt verification
-                try
-                {
-                   isPasswordValid = DecryptPassword(user.UsrPassWord) == password;
-
-
-                }
-                catch
-                {
-                    // Not a BCrypt hash, try legacy AES decryption
-                    try
-                    {
-                        string decryptedPassword = DecryptPassword(user.UsrPassWord);
-                        isPasswordValid = password == decryptedPassword;
-
-                        if (isPasswordValid)
-                        {
-                            // ✅ Migrate password to BCrypt
-                          //  string newHash = BCrypt.Net.BCrypt.HashPassword(password);
-
-                          //  Update the user's password
-                            //await connection.ExecuteAsync(
-                            //    "UPDATE Sad_UserDetails SET usr_Password = @newHash WHERE LOWER(usr_Email) = @email",
-                            //    new { newHash, email = plainEmail });
-
-                            //Console.WriteLine("🔁 Legacy password migrated to BCrypt.");
-                        }
-                    }
-                    catch
-                    {
-                        // Decryption failed — bad format
-                        isPasswordValid = false;
-                    }
-                }
+                bool isPasswordValid = DecryptPassword(user.UsrPassWord) == password;
 
                 if (!isPasswordValid)
                 {
                     return new LoginResponse { StatusCode = 401, Message = "Invalid password." };
                 }
 
-                // Step 5: Get user ID
+                // Get user ID
                 var userId = await connection.QueryFirstOrDefaultAsync<int>(
                     @"SELECT usr_Id FROM Sad_UserDetails WHERE LOWER(usr_Email) = @email",
                     new { email = plainEmail });
 
-                // Step 6: Generate JWT
+                // Generate JWT
+                var httpContext = _httpContextAccessor.HttpContext;
+                if (httpContext != null)
+                {
+                    httpContext.Session.SetString("CustomerCode", customerCode);
+                    httpContext.Session.SetInt32("UserId", userId);
+                }
+
                 string token = GenerateJwtToken(email, customerCode);
+
+                // Get year info
                 string? ymsId = null;
                 int? ymsYearId = null;
 
                 using (var yearConnection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
                 {
                     await yearConnection.OpenAsync();
-
                     const string query = @"SELECT YMS_ID, YMS_YEARID FROM Year_Master WHERE YMS_Default = 1";
                     var yearResult = await yearConnection.QueryFirstOrDefaultAsync<YearDto>(query);
 
@@ -636,16 +618,9 @@ namespace TracePca.Service
                     }
                 }
 
-
-
-
-
-                var httpContext = _httpContextAccessor.HttpContext;
                 string clientIp = httpContext?.Request?.Headers["X-Forwarded-For"].FirstOrDefault()
                     ?? httpContext?.Connection?.RemoteIpAddress?.ToString();
                 string systemIp = GetLocalIp();
-
-
 
                 return new LoginResponse
                 {
@@ -657,6 +632,7 @@ namespace TracePca.Service
                     YmsYearId = ymsYearId,
                     CustomerCode = customerCode,
                     ClientIpAddress = clientIp,
+                    SystemIpAddress = systemIp,
 
                 };
             }
@@ -669,7 +645,6 @@ namespace TracePca.Service
                 };
             }
         }
-
 
 
 

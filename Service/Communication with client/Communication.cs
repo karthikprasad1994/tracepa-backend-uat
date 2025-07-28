@@ -322,9 +322,11 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<Dto.Audit.CustomerDto>> GetCustomerLoeAsync(int companyId)
         {
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("NewDatabaseTemplate"));
+
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            //using var connection = _dbConnectionProvider.GetConnection();
+          
+
+          //  using var connection = _dbConnectionProvider.GetConnection();
 
             string query = @"SELECT LOE_ID as CustomerID, LOE_Name as CustomerName
                      FROM SAD_CUST_LOE
@@ -404,12 +406,20 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<Dto.Audit.CustomerDto>> LoadActiveCustomersAsync(int companyId)
         {
-             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-         // using var connection = _dbConnectionProvider.GetConnection();
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            var query = @"
+            const string query = @"
         SELECT Cust_Id, Cust_Name 
         FROM SAD_CUSTOMER_MASTER 
         WHERE CUST_DelFlg = 'A' AND Cust_CompId = @CompanyId 
@@ -417,6 +427,7 @@ WHERE LOET_CustomerId = @CustomerId
 
             return await connection.QueryAsync<Dto.Audit.CustomerDto>(query, new { CompanyId = companyId });
         }
+
 
         public async Task<IEnumerable<AuditScheduleDto>> LoadScheduledAuditNosAsync(
     string connectionStringName, int companyId, int financialYearId, int customerId)

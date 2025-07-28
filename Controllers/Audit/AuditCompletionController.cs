@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
 
@@ -196,20 +197,40 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var result = await _auditCompletionInterface.UpdateSignedByUDINInAuditAsync(dto);
+                int result = await _auditCompletionInterface.CheckCAEIndependentAuditorsReportSavedAsync(dto.SA_CompID, dto.SA_ID);
 
-                if (result > 0)
+                if (result == 0)
                 {
-                    return Ok(new { statusCode = 200, message = "Audit Status, SignedBy and UDIN details updated successfully.", Data = result });
+                    return BadRequest(new { statusCode = 400, message = "Independent Auditor's Report details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                }
+                else if (result == 1)
+                {
+                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
+                }
+                else if (result == 2)
+                {
+                    var res = await _auditCompletionInterface.UpdateSignedByUDINInAuditAsync(dto);
+                    if (res > 0)
+                    {
+                        return Ok(new { statusCode = 200, message = "Audit Status, SignedBy and UDIN details updated successfully.", Data = res });
+                    }
+                    else
+                    {
+                        return BadRequest(new { statusCode = 400, message = "No Audit Completion data was saved." });
+                    }
+                }
+                else if (result == 3)
+                {
+                    return Ok(new { statusCode = 200, message = "No checkpoints exist for this audit." });
                 }
                 else
                 {
-                    return BadRequest(new { statusCode = 400, message = "No audit completion data was saved." });
+                    return StatusCode(500, new { statusCode = 500, message = "Unexpected result from CAE status check."});
                 }
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { statusCode = 500, message = "An error occurred while saving or updating audit completion data.", error = ex.Message });
+                return StatusCode(500, new { statusCode = 500, message = "An error occurred while saving or updating Audit Completion data.", error = ex.Message });
             }
         }
 
@@ -225,11 +246,11 @@ namespace TracePca.Controllers.Audit
                     return Ok(new { statusCode = 200, message = "No Data." });
                 }
 
-                return Ok(new { statusCode = 200, message = "Audit completion SignedByUDIN details fetched successfully.", data = data });
+                return Ok(new { statusCode = 200, message = "Audit Completion SignedByUDIN details fetched successfully.", data = data });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { statusCode = 500, message = "Failed to fetch audit completion SignedByUDIN details.", error = ex.Message });
+                return StatusCode(500, new { statusCode = 500, message = "Failed to fetch Audit Completion SignedByUDIN details.", error = ex.Message });
             }
         }
 
@@ -370,8 +391,17 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var result = await _auditCompletionInterface.LoadAllAuditAttachmentsByAuditIdAsync(compId, auditId);
-                var isAnyDataPresent = result.BeginningAuditAttachments?.Count > 0 || result.DuringAuditAttachments?.Count > 0 || result.NearingEndAuditAttachments?.Count > 0 || result.WorkpaperAttachments?.Count > 0 || result.ConductAuditAttachments?.Count > 0;
-                return Ok(new { success = true, message = isAnyDataPresent ? "Attachments loaded successfully." : "No attachments found.", data = result });
+                var customData = new Dictionary<string, object>
+                    {
+                        { "Audit Plan", result?.AuditPlanAttachments ?? new List<AttachmentGroupDTO>() },
+                        { "Pre / Post Audit", result?.BeginningNearEndAuditAttachments ?? new List<AttachmentGroupDTO>() },
+                        { "During Audit", result?.DuringAuditAttachments ?? new List<AttachmentGroupDTO>() },
+                        { "Workpaper", result?.WorkpaperAttachments ?? new List<AttachmentGroupDTO>() },
+                        { "Conduct Audit Checkpoints", result?.ConductAuditAttachments ?? new List<AttachmentGroupDTO>() }
+                    };
+
+                var isAnyDataPresent = customData.Values.OfType<IEnumerable<object>>().Any(list => list.Any());
+                return Ok(new { success = true, message = isAnyDataPresent ? "Attachments loaded successfully." : "No attachments found.", data = customData });
             }
             catch (Exception ex)
             {

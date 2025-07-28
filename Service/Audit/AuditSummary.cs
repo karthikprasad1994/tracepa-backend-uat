@@ -320,6 +320,7 @@ namespace TracePca.Service.Audit
         }
 
 
+   
         public async Task<IEnumerable<AuditProgramSummaryDto>> GetAuditProgramSummaryAsync(int compId, int auditNo)
         {
 			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -403,7 +404,9 @@ namespace TracePca.Service.Audit
 			//Where (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') Or a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId Order by 
 			//CASE WHEN cm.cmm_Desc IS NULL THEN 1 ELSE 0 END, cm.cmm_ID ASC";
 
+
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
 
 			if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
