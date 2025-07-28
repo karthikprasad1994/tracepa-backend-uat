@@ -408,7 +408,7 @@ WHERE AST_CompId = @CompId
                     templateCommand.Parameters.AddWithValue("@AST_STATUS", dto.AST_STATUS ?? string.Empty);
                     templateCommand.Parameters.AddWithValue("@AST_UPDATEDBY", dto.AST_UPDATEDBY);
                     templateCommand.Parameters.AddWithValue("@AST_IPAddress", dto.AST_IPAddress ?? string.Empty);
-                    templateCommand.Parameters.AddWithValue("@AST_CompId", CompId);
+                    templateCommand.Parameters.AddWithValue("@AST_CompId", dto.AST_CompId);
                     templateCommand.Parameters.AddWithValue("@AST_YEARId", dto.AST_YEARId);
                     templateCommand.Parameters.AddWithValue("@AST_Schedule_type", dto.AST_Schedule_type);
                     templateCommand.Parameters.AddWithValue("@AST_Companytype", dto.AST_Companytype);
@@ -497,7 +497,7 @@ WHERE AST_CompId = @CompId
                     templateCommand.Parameters.AddWithValue("@AST_STATUS", dto.AST_STATUS ?? string.Empty);
                     templateCommand.Parameters.AddWithValue("@AST_UPDATEDBY", dto.AST_UPDATEDBY);
                     templateCommand.Parameters.AddWithValue("@AST_IPAddress", dto.AST_IPAddress ?? string.Empty);
-                    templateCommand.Parameters.AddWithValue("@AST_CompId", CompId);
+                    templateCommand.Parameters.AddWithValue("@AST_CompId", dto.AST_CompId);
                     templateCommand.Parameters.AddWithValue("@AST_YEARId", dto.AST_YEARId);
                     templateCommand.Parameters.AddWithValue("@AST_Schedule_type", dto.AST_Schedule_type);
                     templateCommand.Parameters.AddWithValue("@AST_Companytype", dto.AST_Companytype);
@@ -551,7 +551,7 @@ WHERE AST_CompId = @CompId
                     subItemCommand.Parameters.AddWithValue("@ASSI_STATUS", dto.ASSI_STATUS ?? string.Empty);
                     subItemCommand.Parameters.AddWithValue("@ASSI_UPDATEDBY", dto.ASSI_UPDATEDBY);
                     subItemCommand.Parameters.AddWithValue("@ASSI_IPAddress", dto.ASSI_IPAddress ?? string.Empty);
-                    subItemCommand.Parameters.AddWithValue("@ASSI_CompId", CompId);
+                    subItemCommand.Parameters.AddWithValue("@ASSI_CompId", dto.ASSI_CompId);
                     subItemCommand.Parameters.AddWithValue("@ASSI_YEARId", dto.ASSI_YEARId);
                     subItemCommand.Parameters.AddWithValue("@ASSi_scheduletype", dto.ASSI_ScheduleType);
                     subItemCommand.Parameters.AddWithValue("@ASSi_Orgtype", dto.ASSI_OrgType);
@@ -588,7 +588,7 @@ WHERE AST_CompId = @CompId
                     templateCommand.Parameters.AddWithValue("@AST_STATUS", dto.AST_STATUS ?? string.Empty);
                     templateCommand.Parameters.AddWithValue("@AST_UPDATEDBY", dto.AST_UPDATEDBY);
                     templateCommand.Parameters.AddWithValue("@AST_IPAddress", dto.AST_IPAddress ?? string.Empty);
-                    templateCommand.Parameters.AddWithValue("@AST_CompId", CompId);
+                    templateCommand.Parameters.AddWithValue("@AST_CompId", dto.AST_CompId);
                     templateCommand.Parameters.AddWithValue("@AST_YEARId", dto.AST_YEARId);
                     templateCommand.Parameters.AddWithValue("@AST_Schedule_type", dto.AST_Schedule_type);
                     templateCommand.Parameters.AddWithValue("@AST_Companytype", dto.AST_Companytype);
