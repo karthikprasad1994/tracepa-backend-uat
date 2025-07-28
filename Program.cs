@@ -137,7 +137,7 @@ builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cab
 builder.Services.AddScoped<LedgerReviewInterface, LedgerReviewService>();
 builder.Services.AddScoped<DbConnectionProvider, DbConnectionProvider>();
 builder.Services.AddScoped<ICustomerContext, CustomerContext>();
-
+builder.Services.AddScoped<ErrorLogInterface, TracePca.Service.Master.ErrorLog>();
 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
