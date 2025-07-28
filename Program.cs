@@ -70,6 +70,7 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 
+<<<<<<< HEAD
     // Always allow cross-site cookies
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Requires HTTPS
@@ -77,6 +78,23 @@ builder.Services.AddSession(options =>
 
 
 
+=======
+    if (environment.IsDevelopment())
+    {
+        // Local development settings (no HTTPS)
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+    }
+    else
+    {
+        // Production settings (with HTTPS)
+        options.Cookie.SameSite = SameSiteMode.None;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    }
+});
+
+
+>>>>>>> e915cfcd2f569f33fa0791b58e42582d0a6b51c3
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
