@@ -19,6 +19,8 @@ namespace TracePca.Service
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
 
 
         private readonly List<CustomerDto> _customers = new()
@@ -31,10 +33,11 @@ namespace TracePca.Service
     };
 
 
-        public Asset(Trdmyus1Context dbcontext, IConfiguration configuration)
+        public Asset(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
+            _httpContextAccessor = httpContextAccessor;
         }
 
 
@@ -42,7 +45,12 @@ namespace TracePca.Service
 
         public async Task<IEnumerable<CustomerDto>> GetCustomersAsync(int companyId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             string query = "SELECT CUST_ID AS CustId, CUST_NAME AS CustName, CUST_CompID AS CompanyId FROM SAD_CUSTOMER_MASTER WHERE CUST_STATUS <> 'D' AND CUST_CompID = @CompanyId";
 
             return await connection.QueryAsync<CustomerDto>(query, new { CompanyId = companyId });

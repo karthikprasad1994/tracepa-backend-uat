@@ -1,4 +1,3 @@
-
 using System;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -71,19 +70,11 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 
-    if (environment.IsDevelopment())
-    {
-        // Local development settings (no HTTPS)
-        options.Cookie.SameSite = SameSiteMode.Lax;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.None;
-    }
-    else
-    {
-        // Production settings (with HTTPS)
-        options.Cookie.SameSite = SameSiteMode.None;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    }
+    // Always allow cross-site cookies
+    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Requires HTTPS
 });
+
 
 
 builder.Services.AddSwaggerGen(c =>
@@ -227,7 +218,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseCors("AllowReactApp"); 
+app.UseCors("AllowReactApp");
 
 app.UseAuthentication();
 app.UseAuthorization();
