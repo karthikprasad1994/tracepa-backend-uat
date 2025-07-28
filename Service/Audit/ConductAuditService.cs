@@ -31,24 +31,37 @@ namespace TracePca.Service.Audit
 {
     public class ConductAuditService : ConductAuditInterface
     {
-        private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
         private readonly AuditCompletionInterface _auditCompletionInterface;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly string _connectionString;
 
-        public ConductAuditService(Trdmyus1Context dbcontext, IConfiguration configuration, AuditCompletionInterface auditCompletionInterface, IHttpContextAccessor httpContextAccessor)
+        public ConductAuditService(IConfiguration configuration, AuditCompletionInterface auditCompletionInterface, IHttpContextAccessor httpContextAccessor)
         {
-            _dbcontext = dbcontext;
-            _configuration = configuration;
-            _auditCompletionInterface = auditCompletionInterface;
-            _httpContextAccessor = httpContextAccessor;
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _auditCompletionInterface = auditCompletionInterface ?? throw new ArgumentNullException(nameof(auditCompletionInterface));
+            _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _connectionString = GetConnectionStringFromSession();
+        }
+
+        private string GetConnectionStringFromSession()
+        {
+            var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrWhiteSpace(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connStr = _configuration.GetConnectionString(dbName);
+            if (string.IsNullOrWhiteSpace(connStr))
+                throw new Exception($"Connection string for '{dbName}' not found in configuration.");
+
+            return connStr;
         }
 
         public async Task<AuditDropDownListDataDTO> LoadAllAuditDDLDataAsync(int compId)
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var parameters = new { CompId = compId };
@@ -118,7 +131,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
@@ -158,7 +171,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 const string query = @"
@@ -192,7 +205,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var nextSerialNo = await connection.QueryFirstOrDefaultAsync<string>(@"SELECT RIGHT('000' + CAST(COUNT(*) + 1 AS VARCHAR(3)), 3) FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID = @AuditId", new { AuditId = auditId });
@@ -214,7 +227,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var sql = @"SELECT CMM_ID AS ID, CMM_Desc AS Name FROM Content_Management_Master WHERE CMM_CompID = @compId AND cmm_delflag = 'A' 
@@ -236,7 +249,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 const string query = @"SELECT COUNT(1) FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID = @AuditId AND SSW_WorkpaperRef = @WorkpaperRef AND (@WorkpaperId = 0 OR SSW_ID != @WorkpaperId)";
@@ -257,7 +270,7 @@ namespace TracePca.Service.Audit
 
         public async Task<int> SaveOrUpdateConductAuditWorkpaperAsync(ConductAuditWorkPaperDetailsDTO dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -346,7 +359,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var result = new List<ConductAuditWorkPaperDetailsDTO>();
@@ -380,7 +393,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var result = new ConductAuditWorkPaperDetailsDTO();
@@ -414,7 +427,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var query = @"SELECT DENSE_RANK() OVER (ORDER BY ACM_Heading DESC) AS ID, ACM_Heading AS Name FROM AuditType_Checklist_Master WHERE ACM_ID IN 
@@ -447,7 +460,7 @@ namespace TracePca.Service.Audit
             const string query = @"UPDATE StandardAudit_ScheduleCheckPointList SET SAC_WorkpaperID = @SAC_WorkpaperID, SAC_ConductedBy = @SAC_ConductedBy, SAC_LastUpdatedOn = GETDATE()
                 WHERE SAC_ID = @SAC_ID AND SAC_SA_ID = @SAC_SA_ID AND SAC_CompID = @SAC_CompID AND SAC_CheckPointID = @SAC_CheckPointID";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
             try
@@ -470,7 +483,7 @@ namespace TracePca.Service.Audit
                     SAC_TestResult = @SAC_TestResult WHERE SAC_ID = @SAC_ID AND SAC_SA_ID = @SAC_SA_ID AND SAC_CheckPointID = @SAC_CheckPointID AND SAC_CompID = @SAC_CompID;";
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
                 int rows = await connection.ExecuteAsync(query, dto);
                 return rows > 0;
@@ -488,7 +501,7 @@ namespace TracePca.Service.Audit
                 if (dto.File == null || dto.File.Length == 0)
                     throw new ArgumentException("Invalid file.");
 
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 int attachId = dto.ATCH_ID == 0 ? await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID }) : dto.ATCH_ID;
@@ -555,7 +568,7 @@ namespace TracePca.Service.Audit
 
         public async Task<List<ConductAuditDetailsDTO>> LoadConductAuditCheckPointDetailsAsync(int compId, int auditId, int userId, string? heading)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             string checkpointIds = "";
@@ -744,7 +757,7 @@ namespace TracePca.Service.Audit
 
         private async Task<byte[]> GenerateWorkpapersPdfAsync(int compId, int auditId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             var result = await connection.QueryFirstOrDefaultAsync<(int EpPkId, int CustID, string CustName, string YearName, string AuditNo)>(
@@ -866,7 +879,7 @@ namespace TracePca.Service.Audit
 
         private async Task<byte[]> GenerateCheckPointsPdfAsync(int compId, int auditId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             var result = await connection.QueryFirstOrDefaultAsync<(int EpPkId, int CustID, string CustName, string YearName, string AuditNo)>(
@@ -1007,7 +1020,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var userList = await connection.QueryAsync<DropDownListData>(@"SELECT usr_FullName As Name,usr_Id As ID from Sad_UserDetails where usr_CompanyId = @CustId And (usr_DelFlag='A' or usr_DelFlag='B' or usr_DelFlag='L') And Usr_Email IS NOT NULL And Usr_Email<>'' order by usr_FullName", new { CustId = custId });
@@ -1028,7 +1041,7 @@ namespace TracePca.Service.Audit
                 WHERE SSW_SA_ID = @SSW_SA_ID AND SSW_CompID = @SSW_CompID AND SSW_ID = @SSW_ID;";
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var parameters = new
@@ -1053,7 +1066,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var result = new List<ConductAuditRemarksHistoryDisplayDTO>();
@@ -1078,7 +1091,7 @@ namespace TracePca.Service.Audit
 
         public async Task<int> SaveConductAuditRemarksHistoryAsync(ConductAuditRemarksHistoryDTO dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
             try
             {
@@ -1221,7 +1234,7 @@ namespace TracePca.Service.Audit
             const string updateStatusQuery = @"UPDATE StandardAudit_Schedule SET SA_Status = 8 WHERE SA_ID = @SA_ID AND SA_CompID = @SA_CompID";
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var parameters = new { SAC_CompID = compId, SAC_SA_ID = auditId };
