@@ -1429,7 +1429,7 @@ namespace TracePca.Service.Audit
 
                 // 4. Conduct Audit (Checkpoints)
                 var conductTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
-                    @"SELECT DISTINCT ACM_ID AS TypeId, ACM_CheckPoint AS TypeName,  ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAC_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList
+                    @"SELECT DISTINCT ACM_ID AS TypeId, ACM_CheckPoint AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAC_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList
                     WHERE SAC_SA_ID = @AuditID AND SAC_CheckPointID = cp.SAC_CheckPointID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM StandardAudit_ScheduleCheckPointList cp
                     INNER JOIN AuditType_Checklist_Master ON ACM_ID = cp.SAC_CheckPointID WHERE cp.SAC_SA_ID = @AuditID",
                     new { AuditID = auditId });
@@ -1530,25 +1530,61 @@ namespace TracePca.Service.Audit
 
                 String mainFolder = SanitizeName(result.SubCabinet);
 
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, "PreAudit", ipAddress,
-                @"SELECT DISTINCT ISNULL(CAST(SAR_AttchId AS VARCHAR), '0') AS SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = " + compId + " And RTM_TemplateId = 2)",
-                folderNameField: null, attachIdField: "SAR_AttchId");
+                // 0. Audit Plan/EngagementPlan
+                var auditPlanTypes = "SELECT TOP 1 RTM.RTM_Id AS TypeId, 'LOE - ' + RTM.RTM_ReportTypeName AS TypeName, " +
+                    "ISNULL(STUFF((SELECT ',' + CAST(ISNULL(LOET2.LOE_AttachID, 0) AS VARCHAR) FROM StandardAudit_Schedule SA2 JOIN SAD_CUST_LOE LOE2 ON LOE2.LOE_CustomerId = SA2.SA_CustID " +
+                    "AND LOE2.LOE_YearId = SA2.SA_YearID AND LOE2.LOE_ServiceTypeId = SA2.SA_AuditTypeID " +
+                    "JOIN LOE_Template LOET2 ON LOET2.LOET_LOEID = LOE2.LOE_ID WHERE SA2.SA_ID = " + auditId + " AND SA2.SA_CompID = " + compId + " FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, ''), '0') AttachIds  " +
+                    "FROM StandardAudit_Schedule SA  " +
+                    "JOIN SAD_CUST_LOE LOE ON LOE.LOE_CustomerId = SA.SA_CustID AND LOE.LOE_YearId = SA.SA_YearID AND LOE.LOE_ServiceTypeId = SA.SA_AuditTypeID  " +
+                    "JOIN LOE_Template LOET ON LOET.LOET_LOEID = LOE.LOE_ID JOIN LOE_Template_Details LTD ON LTD.LTD_LOE_ID = LOET.LOET_LOEID AND LTD.LTD_FormName = 'LOE' AND LTD.LTD_CompID = SA.SA_CompID  " +
+                    "JOIN SAD_ReportTypeMaster RTM ON RTM.RTM_Id = LTD.LTD_ReportTypeID WHERE SA.SA_ID = " + auditId + " And SA.SA_CompID = " + compId + "";
 
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, "", ipAddress,
-                @"SELECT DISTINCT ISNULL(CMM_DESC, 'Audit') AS FolderName, ISNULL(CAST(ADRL_AttachID AS VARCHAR), '0') AS ADRL_AttachID FROM Audit_DRLLog LEFT JOIN Content_Management_Master ON ADRL_RequestedTypeID = CMM_ID And cmm_Category = 'DRL' WHERE ADRL_AuditNo = " + auditId,
-                folderNameField: "FolderName", attachIdField: "ADRL_AttachID");
+                // 1. Beginning Audit (Pre-Audit)
+                var beginningTypes = "SELECT RTM_Id AS TypeId, 'Beginning of the Audit - ' + RTM_ReportTypeName AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAR_AttchId, 0) AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory " +
+                    "WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType = RTM_Id FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM SAD_ReportTypeMaster WHERE RTM_CompID = " + compId + " AND RTM_TemplateId in (2)";
 
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, "PostAudit", ipAddress,
-                @"SELECT DISTINCT ISNULL(CAST(SAR_AttchId AS VARCHAR), '0') AS SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = " + compId + " And RTM_TemplateId = 4)",
-                folderNameField: null, attachIdField: "SAR_AttchId");
+                // 2. During Audit (DRL)
+                var duringTypes = "SELECT CMM_ID AS TypeId, 'DRL - ' + CMM_Desc AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(ADRL_AttachID, 0) AS VARCHAR) FROM Audit_DRLLog " +
+                    "WHERE ADRL_AuditNo = " + auditId + " AND ADRL_RequestedTypeID = CMM_ID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM Content_Management_Master WHERE CMM_Category = 'DRL'";
 
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, "", ipAddress,
-                @"SELECT SSW_WorkpaperNo, ISNULL(CAST(SSW_AttachID AS VARCHAR), '0') AS SSW_AttachID FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID = " + auditId,
-                folderNameField: "SSW_WorkpaperNo", attachIdField: "SSW_AttachID");
+                // 3. Nearing End Audit (Post-Audit)
+                var nearingEndTypes = "SELECT RTM_Id AS TypeId, 'Near end of the Audit - ' + RTM_ReportTypeName AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAR_AttchId, 0) AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory " +
+                    "WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType = RTM_Id FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM SAD_ReportTypeMaster WHERE RTM_CompID = " + compId + " AND RTM_TemplateId in (4)";
 
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, "ConductAudit", ipAddress,
-                @"SELECT DISTINCT ISNULL(CAST(SAC_AttachID AS VARCHAR), '0') AS SAC_AttachID FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = " + auditId,
-                folderNameField: null, attachIdField: "SAC_AttachID");
+                // 4. Workpaper
+                var workpaperTypes = "SELECT wp.SSW_ID AS TypeId, 'WP - ' + wp.SSW_WorkpaperRef AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SSW_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper " +
+                    "WHERE SSW_SA_ID = " + auditId + " AND SSW_ID = wp.SSW_ID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM StandardAudit_ScheduleConduct_WorkPaper wp WHERE SSW_SA_ID = " + auditId + "";
+
+                // 5. Conduct Audit (Checkpoints)
+                var conductTypes = "SELECT DISTINCT ACM_ID AS TypeId, 'CheckPoint - ' + ACM_CheckPoint AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAC_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList " +
+                    "WHERE SAC_SA_ID = " + auditId + " AND SAC_CheckPointID = cp.SAC_CheckPointID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM StandardAudit_ScheduleCheckPointList cp " +
+                    "INNER JOIN AuditType_Checklist_Master ON ACM_ID = cp.SAC_CheckPointID WHERE cp.SAC_SA_ID = " + auditId + "";
+
+
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, auditPlanTypes);
+                //@"SELECT DISTINCT ISNULL(CAST(SAR_AttchId AS VARCHAR), '0') AS SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = " + compId + " And RTM_TemplateId = 2)",
+                //folderNameField: null, attachIdField: "SAR_AttchId");
+
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, beginningTypes);
+                //@"SELECT DISTINCT ISNULL(CMM_DESC, 'Audit') AS FolderName, ISNULL(CAST(ADRL_AttachID AS VARCHAR), '0') AS ADRL_AttachID FROM Audit_DRLLog LEFT JOIN Content_Management_Master ON ADRL_RequestedTypeID = CMM_ID And cmm_Category = 'DRL' WHERE ADRL_AuditNo = " + auditId,
+                //folderNameField: "FolderName", attachIdField: "ADRL_AttachID");
+
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, duringTypes);
+                //@"SELECT DISTINCT ISNULL(CAST(SAR_AttchId AS VARCHAR), '0') AS SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = " + compId + " And RTM_TemplateId = 4)",
+                //folderNameField: null, attachIdField: "SAR_AttchId");
+
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, nearingEndTypes);
+                //@"SELECT DISTINCT ISNULL(CMM_DESC, 'Audit') AS FolderName, ISNULL(CAST(ADRL_AttachID AS VARCHAR), '0') AS ADRL_AttachID FROM Audit_DRLLog LEFT JOIN Content_Management_Master ON ADRL_RequestedTypeID = CMM_ID And cmm_Category = 'DRL' WHERE ADRL_AuditNo = " + auditId,
+                //folderNameField: "FolderName", attachIdField: "ADRL_AttachID");
+
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, workpaperTypes);
+                //@"SELECT SSW_WorkpaperNo, ISNULL(CAST(SSW_AttachID AS VARCHAR), '0') AS SSW_AttachID FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID = " + auditId,
+                //folderNameField: "SSW_WorkpaperNo", attachIdField: "SSW_AttachID");
+
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, conductTypes);
+                //@"SELECT DISTINCT ISNULL(CAST(SAC_AttachID AS VARCHAR), '0') AS SAC_AttachID FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = " + auditId,
+                //folderNameField: null, attachIdField: "SAC_AttachID");
 
                 string cleanedPath = downloadDirectoryPath.TrimEnd('\\');
                 string zipFilePath = cleanedPath + ".zip";
@@ -1586,7 +1622,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task ProcessGenericAttachmentsAsync(SqlConnection connection, int compId, string downloadDirectoryPath, string module, string mainFolder, int auditId, int userId, int cabinetId, int subCabinetId, string defaultFolderName, string ipAddress, string query, string folderNameField, string attachIdField)
+        public async Task ProcessGenericAttachmentsAsync(SqlConnection connection, int compId, string downloadDirectoryPath, string module, string mainFolder, int auditId, int userId, int cabinetId, int subCabinetId, string ipAddress, string query)
         {
             try
             {
@@ -1596,7 +1632,7 @@ namespace TracePca.Service.Audit
                 {
                     bool folderExists = true;
 
-                    string folderName = folderNameField == null ? defaultFolderName : row[folderNameField]?.ToString() ?? "StandardAudit";
+                    string folderName = row["TypeName"] == null ? "StandardAudit" : row["TypeName"]?.ToString() ?? "StandardAudit";
                     string folderPath = System.IO.Path.Combine(downloadDirectoryPath, mainFolder, SanitizeName(folderName));
 
                     if (!Directory.Exists(folderPath))
@@ -1620,9 +1656,15 @@ namespace TracePca.Service.Audit
                           SELECT @NewFolId;", new { Name = folderName, Cabinet = cabinetId, SubCabinet = subCabinetId, UserId = userId, CompId = compId });
                     }
 
-                    string attachId = row[attachIdField]?.ToString() ?? "0";
-
-                    await HandleFileProcessingAsync(connection, compId, userId, cabinetId, subCabinetId, folderId, module, folderPath, attachId, folderExists);
+                    string attachIds = row["AttachIds"]?.ToString() ?? "0";
+                    var uniqueAttachIds = attachIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(id => int.TryParse(id, out var num) ? num : 0).Where(id => id > 0).Distinct();
+                    foreach (var attachId in uniqueAttachIds)
+                    {
+                        if (attachId > 0)
+                        {
+                            await HandleFileProcessingAsync(connection, compId, userId, cabinetId, subCabinetId, folderId, module, folderPath, attachId.ToString(), folderExists);
+                        }
+                    }
                 }
             }
             catch (Exception ex)
