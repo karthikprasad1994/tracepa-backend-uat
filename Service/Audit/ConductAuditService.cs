@@ -307,18 +307,16 @@ namespace TracePca.Service.Audit
                 else
                 {
                     dto.SSW_WorkpaperNo = await GenerateWorkpaperNoync(dto.SSW_CompID ?? 0, dto.SSW_SA_ID ?? 0);
-                    var newId = await connection.QuerySingleAsync<int>(@"
-                    DECLARE @SSW_ID INT;
+
+                    var newId = await connection.QuerySingleAsync<int>(@"DECLARE @SSW_ID INT;
                     SELECT @SSW_ID = ISNULL(MAX(SSW_ID), 0) + 1 FROM StandardAudit_ScheduleConduct_WorkPaper;
 
-                    INSERT INTO StandardAudit_ScheduleConduct_WorkPaper(
-                        SSW_ID, SSW_SA_ID, SSW_WorkpaperNo, SSW_WorkpaperRef, SSW_TypeOfTest, SSW_WPCheckListID, SSW_DRLID,
-                        SSW_ExceededMateriality, SSW_AuditorHoursSpent, SSW_Observation, SSW_NotesSteps, SSW_CriticalAuditMatter, SSW_Conclusion,
-                        SSW_Status, SSW_AttachID, SSW_CrBy, SSW_CrOn, SSW_IPAddress, SSW_CompID
+                    INSERT INTO StandardAudit_ScheduleConduct_WorkPaper (
+                        SSW_ID, SSW_SA_ID, SSW_WorkpaperNo, SSW_WorkpaperRef, SSW_TypeOfTest, SSW_WPCheckListID, SSW_DRLID, SSW_ExceededMateriality, SSW_AuditorHoursSpent, SSW_Observation, 
+                        SSW_NotesSteps, SSW_CriticalAuditMatter, SSW_Conclusion, SSW_Status, SSW_AttachID, SSW_CrBy, SSW_CrOn, SSW_IPAddress, SSW_CompID
                     ) VALUES (
-                        @SSW_ID, @SSW_SA_ID, @SSW_WorkpaperNo, @SSW_WorkpaperRef, @SSW_TypeOfTest, @SSW_WPCheckListID, @SSW_DRLID,
-                        @SSW_ExceededMateriality, @SSW_AuditorHoursSpent, @SSW_Observation, @SSW_NotesSteps, @SSW_CriticalAuditMatter, @SSW_Conclusion,
-                        @SSW_Status, @SSW_AttachID, @SSW_CrBy, GETDATE(), @SSW_IPAddress, @SSW_CompID
+                        @SSW_ID, @SSW_SA_ID, @SSW_WorkpaperNo, @SSW_WorkpaperRef, @SSW_TypeOfTest, @SSW_WPCheckListID, @SSW_DRLID, @SSW_ExceededMateriality, @SSW_AuditorHoursSpent, @SSW_Observation, 
+                        @SSW_NotesSteps, @SSW_CriticalAuditMatter, @SSW_Conclusion, @SSW_Status, @SSW_AttachID, @SSW_CrBy, GETDATE(), @SSW_IPAddress, @SSW_CompID
                     );
 
                     SELECT @SSW_ID;", new
@@ -343,8 +341,32 @@ namespace TracePca.Service.Audit
                     }, transaction);
 
                     dto.SSW_ID = newId;
-                }
 
+                    await connection.ExecuteAsync(@"DECLARE @SACAM_PKID INT;
+                    SELECT @SACAM_PKID = ISNULL(MAX(SACAM_PKID), 0) + 1 FROM StandardAudit_AuditSummary_CAMDetails;
+
+                    INSERT INTO StandardAudit_AuditSummary_CAMDetails (
+                        SACAM_PKID, SACAM_SA_ID, SACAM_SSW_ID, SACAM_SSW_WorkpaperNo, SACAM_SSW_WorkpaperRef, SACAM_SSW_TypeOfTest, SACAM_SSW_Observation, SACAM_SSW_Conclusion,
+                        SACAM_SSW_Status, SACAM_SSW_ExceededMateriality, SACAM_SSW_CriticalAuditMatter, SACAM_AttachID, SACAM_CrBy, SACAM_CrOn, SACAM_CompID
+                    )
+                    VALUES (
+                        @SACAM_PKID, @SSW_SA_ID, @SSW_ID, @SSW_WorkpaperNo, @SSW_WorkpaperRef, @SSW_TypeOfTest, @SSW_Observation, @SSW_Conclusion, 
+                        @SSW_Status, @SSW_ExceededMateriality, @SSW_CriticalAuditMatter, 0, @SSW_CrBy, GETDATE(), @SSW_CompID);", new
+                    {
+                        SSW_SA_ID = dto.SSW_SA_ID,
+                        SSW_ID = dto.SSW_ID,
+                        SSW_WorkpaperNo = dto.SSW_WorkpaperNo,
+                        SSW_WorkpaperRef = dto.SSW_WorkpaperRef,
+                        SSW_TypeOfTest = dto.SSW_TypeOfTest,
+                        SSW_Observation = dto.SSW_Observation,
+                        SSW_Conclusion = dto.SSW_Conclusion,
+                        SSW_Status = dto.SSW_Status,
+                        SSW_ExceededMateriality = dto.SSW_ExceededMateriality,
+                        SSW_CriticalAuditMatter = dto.SSW_CriticalAuditMatter,
+                        SSW_CrBy = dto.SSW_CrBy,
+                        SSW_CompID = dto.SSW_CompID
+                    }, transaction);
+                }
                 await transaction.CommitAsync();
                 return dto.SSW_ID ?? 0;
             }
