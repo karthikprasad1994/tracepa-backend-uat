@@ -7,34 +7,32 @@ namespace TracePca.Interface.FIN_Statement
     {
 
         //GetCompanyName
-        Task<IEnumerable<CompanyDetailsDto>> GetCompanyNameAsync(string DBName, int CompId);
+        Task<IEnumerable<CompanyDetailsDto>> GetCompanyNameAsync(int CompId);
 
         //GetPartners
-        Task<IEnumerable<PartnersDto>> LoadCustomerPartnersAsync(string DBName, int CompId, int DetailsId);
+        Task<IEnumerable<PartnersDto>> LoadCustomerPartnersAsync(int CompId, int DetailsId);
 
         //GetSubHeading
-        Task<IEnumerable<SubHeadingDto>> GetSubHeadingAsync(string DBName,
-       int CompId, int ScheduleId, int CustId, int HeadingId);
+        Task<IEnumerable<SubHeadingDto>> GetSubHeadingAsync(int CompId, int ScheduleId, int CustId, int HeadingId);
 
         //GetItem
-        Task<IEnumerable<ItemDto>> GetItemAsync(string DBName,
-        int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId);
-
-        ////GetSummaryReportForPandL(Income)
-        //Task<IEnumerable<SummaryPnLRowIncome>> GetSummaryPnLIncomeAsync(int CompId, SummaryPnLIncome p);
-
-        ////GetSummaryReportForPandL(Expenses)
-        //Task<IEnumerable<SummaryPnLRowExpenses>> GetSummaryPnLExpensesAsync(int CompId, SummaryPnLExpenses dto);
+        Task<IEnumerable<ItemDto>> GetItemAsync(int CompId, int ScheduleId, int CustId, int HeadingId, int SubHeadId);
 
         //GetSummaryReportForPandL
-        Task<IEnumerable<SummaryReportPnLRow>> GetReportSummaryPnLAsync(string DBName, int CompId, SummaryReportPnL p);
+        Task<IEnumerable<SummaryReportPnLRow>> GetReportSummaryPnLAsync(int CompId, SummaryReportPnL p);
 
         //GetSummaryReportForBalanceSheet
-        Task<IEnumerable<SummaryReportBalanceSheetRow>> GetReportSummaryBalanceSheetAsync(string DBName, int CompId, SummaryReportBalanceSheet p);
+        Task<IEnumerable<SummaryReportBalanceSheetRow>> GetReportSummaryBalanceSheetAsync(int CompId, SummaryReportBalanceSheet p);
 
         //GetDetailedReportPandL
-        Task<IEnumerable<DetailedReportPandLRow>> GetDetailedReportPandLAsync(string DBName, int CompId, DetailedReportPandL p);
+        Task<IEnumerable<DetailedReportPandLRow>> GetDetailedReportPandLAsync(int CompId, DetailedReportPandL p);
 
+        //GetDetailedReportBalanceSheet
+        Task<IEnumerable<DetailedReportBalanceSheetRow>> GetDetailedReportBalanceSheetAsync(int CompId, DetailedReportBalanceSheet p);
+
+        Task<ScheduleReportResponseDto> GetScheduleReportDetailsAsync(ScheduleReportRequestDto request);
+        Task<OrgTypeResponseDto> GetOrgTypeAndMembersAsync(int customerId, int companyId);
+        Task<List<CompanyDto>> LoadCompanyDetailsAsync(int compId);
     }
 }
                          

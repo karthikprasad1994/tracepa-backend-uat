@@ -1,4 +1,5 @@
 ﻿using Dapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
 using TracePca.Interface.FIN_Statement;
@@ -10,17 +11,29 @@ namespace TracePca.Service.FIN_statement
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-
-        public ScheduleMastersService(Trdmyus1Context dbcontext, IConfiguration configuration)
+        public ScheduleMastersService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
+            _httpContextAccessor = httpContextAccessor;
         }
         //GetCustomersName
-        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(string DBName, int CompId)
+        public async Task<IEnumerable<CustDto>> GetCustomerNameAsync(int CompId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
 
             var query = @"
         SELECT 
@@ -29,15 +42,24 @@ namespace TracePca.Service.FIN_statement
         FROM SAD_CUSTOMER_MASTER
         WHERE cust_Compid = @CompID";
 
-            await connection.OpenAsync();
-
             return await connection.QueryAsync<CustDto>(query, new { CompID = CompId });
         }
 
         //GetDuration
-        public async Task<int?> GetCustomerDurationIdAsync(string DBName, int compId, int custId)
+        public async Task<int?> GetCustomerDurationIdAsync(int compId, int custId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             var query = "SELECT Cust_DurtnId FROM SAD_CUSTOMER_MASTER WHERE CUST_CompID = @CompId AND CUST_ID = @CustId";
 
             var parameters = new { CompId = compId, CustId = custId };
@@ -47,10 +69,20 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetFinancialYear
-        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(string DBName, int CompId)
+        public async Task<IEnumerable<FinancialYearDto>> GetFinancialYearAsync(int CompId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             var query = @"
         SELECT 
             YMS_YEARID AS YearId,
@@ -60,16 +92,24 @@ namespace TracePca.Service.FIN_statement
           AND YMS_CompId = @CompID 
         ORDER BY YMS_ID DESC";
 
-            await connection.OpenAsync();
-
             return await connection.QueryAsync<FinancialYearDto>(query, new { CompID = CompId });
         }
 
         //GetBranchName
-        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(string DBName, int CompId, int CustId)
+        public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             var query = @"
         SELECT 
             Mas_Id AS Branchid, 
@@ -77,16 +117,24 @@ namespace TracePca.Service.FIN_statement
         FROM SAD_CUST_LOCATION 
         WHERE Mas_CompID = @compId AND Mas_CustID = @custId";
 
-            await connection.OpenAsync();
-
             return await connection.QueryAsync<CustBranchDto>(query, new { CompId, CustId });
         }
 
         //GetScheduleHeading
-        public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(string DBName, int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int CompId, int CustId, int ScheduleTypeId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             var query = @"
         SELECT DISTINCT 
             b.ASH_Name AS ASH_Name, 
@@ -100,16 +148,24 @@ namespace TracePca.Service.FIN_statement
             AND b.ASH_Name IS NOT NULL 
             AND b.ASH_ID IS NOT NULL";
 
-            await connection.OpenAsync();
-
             return await connection.QueryAsync<ScheduleHeadingDto>(query, new { CompId, CustId, ScheduleTypeId });
         }
 
         //GetScheduleSubHeading
-        public async Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(string DBName, int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(int CompId, int CustId, int ScheduleTypeId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             var query = @"
         SELECT DISTINCT 
             b.AsSH_Name AS ASSH_Name,
@@ -123,16 +179,24 @@ namespace TracePca.Service.FIN_statement
           AND b.AsSH_Name IS NOT NULL 
           AND b.AsSH_ID IS NOT NULL";
 
-            await connection.OpenAsync();
-
             return await connection.QueryAsync<ScheduleSubHeadingDto>(query, new { CompId, CustId, ScheduleTypeId });
         }
 
         //GetScheduleItem
-        public async Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(string DBName, int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(int CompId, int CustId, int ScheduleTypeId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             var query = @"
         SELECT DISTINCT 
             b.ASI_ID AS ASI_ID,
@@ -146,16 +210,24 @@ namespace TracePca.Service.FIN_statement
             AND b.ASI_Name IS NOT NULL 
             AND b.ASI_ID IS NOT NULL";
 
-            await connection.OpenAsync();
-
             return await connection.QueryAsync<ScheduleItemDto>(query, new { CompId, CustId, ScheduleTypeId });
         }
 
         //GetScheduleSubItem
-        public async Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(string DBName, int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(int CompId, int CustId, int ScheduleTypeId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             var query = @"
         SELECT DISTINCT 
             b.ASSI_ID AS ASSI_ID,
@@ -168,16 +240,25 @@ namespace TracePca.Service.FIN_statement
             AND a.AST_Schedule_type = @scheduleTypeId
             AND b.ASSI_Name IS NOT NULL 
             AND b.ASSI_ID IS NOT NULL";
-
-            await connection.OpenAsync();
+            
             return await connection.QueryAsync<ScheduleSubItemDto>(query, new { CompId, CustId, ScheduleTypeId });
         }
 
         //GetCustomerOrgType
-        public async Task<string> GetCustomerOrgTypeAsync(string DBName, int CustId, int CompId)
+        public async Task<string> GetCustomerOrgTypeAsync(int CustId, int CompId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             var query = @"
         SELECT ISNULL(cmm_Desc, '') 
         FROM SAD_CUSTOMER_MASTER

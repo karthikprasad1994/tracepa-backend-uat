@@ -1,8 +1,20 @@
-﻿using System.Text.Json.Serialization;
+﻿using Org.BouncyCastle.Bcpg;
+using Org.BouncyCastle.Bcpg.OpenPgp;
+using System.Text.Json.Serialization;
 using TracePca.Dto.Audit;
 
 namespace TracePca.Dto.DigitalFilling
 {
+    public class SearchDto
+    {
+		public string Title { get; set; }
+		public string Extension { get; set; }
+        public string Cabinet { get; set; }
+		public string SubCabinet { get; set; }
+        public string Folder { get; set; }
+		public string PGE_BASENAME { get; set; }
+		public string URLPath { get; set; }
+	}
     public class CabinetDto
     {
        

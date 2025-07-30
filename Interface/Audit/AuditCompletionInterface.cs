@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using System.Threading.Tasks;
 using TracePca.Dto.Audit;
 
 namespace TracePca.Interface.Audit
@@ -12,8 +14,11 @@ namespace TracePca.Interface.Audit
         Task<AuditCompletionDTO> GetAuditCompletionDetailsByIdAsync(int compId, int auditId);
         Task<List<AuditCompletionSubPointDetailsDTO>> GetAuditCompletionSubPointDetailsAsync(int compId, int auditId, int checkPointId);
         Task<List<AuditCompletionSubPointDetailsDTO>> GetAuditClosureSubPointDetailsAsync(int compId, int auditId, int checkPointId);
-        Task<int> SaveOrUpdateAuditCompletionDataAsync(AuditCompletionDTO dto);
+        Task<int> SaveOrUpdateAuditCompletionSubPointDataAsync(AuditCompletionSingleDTO dto);
+        Task<int> SaveOrUpdateAuditCompletionDataAsync(AuditCompletionDTO dto);        
         Task<int> UpdateSignedByUDINInAuditAsync(AuditSignedByUDINRequestDTO dto);
+        Task<bool> CheckCAEIndependentAuditorsReportSavedAsync(int compId, int auditId);
+        Task<AuditSignedByUDINRequestDTO> GetSignedByUDINInAuditAsync(int compId, int auditId);
         Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadReportAsync(int compId, int auditId, string format);
         Task<string> GenerateReportAndGetURLPathAsync(int compId, int auditId, string format);
         Task<List<ConductAuditReportDetailDTO>> GetConductAuditReportAsync(int compId, int auditId);

@@ -23,11 +23,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetSubHeadingname(Notes For SubHeading)
         [HttpGet("SubHeading-NotesForSubHeading")]
-        public async Task<IActionResult> GetSubHeadingNotes(string DBName, int CustomerId, int SubHeadingId)
+        public async Task<IActionResult> GetSubHeadingNotes(int CustomerId, int SubHeadingId)
         {
             try
             {
-                var notes = await _ScheduleNoteService.GetSubHeadingDetailsAsync(DBName, CustomerId, SubHeadingId);
+                var notes = await _ScheduleNoteService.GetSubHeadingDetailsAsync(CustomerId, SubHeadingId);
 
                 if (notes == null || !notes.Any())
                 {
@@ -59,7 +59,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
         [HttpPost("SaveOrUpdateScheduleFormatHeading")]
-        public async Task<IActionResult> aveSubHeadindNotes([FromQuery] string DBName, [FromBody] SubHeadingNotesDto dto)
+        public async Task<IActionResult> aveSubHeadindNotes([FromBody] SubHeadingNotesDto dto)
         {
             if (dto == null)
             {
@@ -74,7 +74,7 @@ namespace TracePca.Controllers.FIN_Statement
             {
                 bool isUpdate = dto.ASHN_ID > 0;
 
-                var result = await _ScheduleNoteService.SaveSubHeadindNotesAsync(DBName, dto);
+                var result = await _ScheduleNoteService.SaveSubHeadindNotesAsync(dto);
 
                 string successMessage = isUpdate
                     ? "Schedule Heading successfully updated."
@@ -106,11 +106,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetBranch(Notes For Ledger)
         [HttpGet("GetBranchNameNotesForLedger")]
-        public async Task<IActionResult> GetBranchName([FromQuery] string DBName, [FromQuery] int CompId, [FromQuery] int CustId)
+        public async Task<IActionResult> GetBranchName([FromQuery] int CompId, [FromQuery] int CustId)
         {
             try
             {
-                var result = await _ScheduleNoteService.GetBranchNameAsync(DBName, CompId, CustId);
+                var result = await _ScheduleNoteService.GetBranchNameAsync(CompId, CustId);
 
                 if (result == null || !result.Any())
                 {
@@ -142,11 +142,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetLedger(Notes For Ledger)
         [HttpGet("GetLedgerNotesForLedger")]
-        public async Task<IActionResult> GetLedgerIndividualDetails([FromQuery] string DBName, [FromQuery] int CustomerId, [FromQuery] int SubHeadingId)
+        public async Task<IActionResult> GetLedgerIndividualDetails([FromQuery] int CustomerId, [FromQuery] int SubHeadingId)
         {
             try
             {
-                var result = await _ScheduleNoteService.GetLedgerIndividualDetailsAsync(DBName, CustomerId, SubHeadingId);
+                var result = await _ScheduleNoteService.GetLedgerIndividualDetailsAsync(CustomerId, SubHeadingId);
 
                 if (result != null && result.Any())
                 {
@@ -178,7 +178,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveOrUpdateLedger(Notes For Ledger)
         [HttpPost("SaveOrUpdateLedgerDetails")]
-        public async Task<IActionResult> SaveLedgerDetails([FromQuery] string DBName, [FromBody] SubHeadingLedgerNoteDto dto)
+        public async Task<IActionResult> SaveLedgerDetails([FromBody] SubHeadingLedgerNoteDto dto)
         {
             if (dto == null)
             {
@@ -194,7 +194,7 @@ namespace TracePca.Controllers.FIN_Statement
             {
                 bool isUpdate = dto.ASHL_ID > 0;
 
-                var result = await _ScheduleNoteService.SaveLedgerDetailsAsync(DBName, dto);
+                var result = await _ScheduleNoteService.SaveLedgerDetailsAsync(dto);
 
                 string successMessage = isUpdate
                     ? "Ledger details successfully updated."
@@ -254,7 +254,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveOrUpdate
         [HttpPost("SaveFirstScheduleNote")]
-        public async Task<IActionResult> SaveFirstScheduleNoteAsync([FromQuery] string DBName, [FromBody] FirstScheduleNoteDto dto)
+        public async Task<IActionResult> SaveFirstScheduleNoteAsync([FromBody] FirstScheduleNoteDto dto)
         {
             try
             {
@@ -268,7 +268,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var noteId = await _ScheduleNoteService.SaveFirstScheduleNoteDetailsAsync(DBName, dto);
+                var noteId = await _ScheduleNoteService.SaveFirstScheduleNoteDetailsAsync(dto);
 
                 return Ok(new
                 {

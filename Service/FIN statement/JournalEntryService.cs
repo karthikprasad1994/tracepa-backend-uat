@@ -2,6 +2,7 @@
 using System.Data.Common;
 using System.Text;
 using Dapper;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using TracePca.Data;
@@ -16,19 +17,32 @@ namespace TracePca.Service.FIN_statement
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
-      
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public JournalEntryService(Trdmyus1Context dbcontext, IConfiguration configuration)
+
+        public JournalEntryService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
+            _httpContextAccessor = httpContextAccessor;
+
         }
 
         //GetJournalEntryInformation
         public async Task<IEnumerable<JournalEntryInformationDto>> GetJournalEntryInformationAsync(
-            string DBName, int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId)
+             int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
             var statusFilter = Status switch
@@ -133,6 +147,229 @@ namespace TracePca.Service.FIN_statement
             }
 
             return entries;
+        }
+
+        //GetJEType 
+        public async Task<IEnumerable<JETypeDto>> GetJETypeAsync(int CompId, string Type)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT 
+            cmm_ID, 
+            cmm_Desc 
+        FROM Content_Management_Master 
+        WHERE CMM_CompID = @CompID 
+          AND cmm_Category = @Category 
+          AND cmm_Delflag = 'A' 
+        ORDER BY cmm_Desc ASC";
+
+            return await connection.QueryAsync<JETypeDto>(query, new
+            {
+                CompID = CompId,
+                Category = Type
+            });
+        }
+
+        //GetHeadOfAccounts
+        public async Task<IEnumerable<DescheadDto>> LoadDescheadAsync(int compId, int custId, int yearId, int branchId, int durationId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT 
+            ATBU_ID, 
+            ATBU_Description 
+        FROM Acc_TrailBalance_Upload 
+        WHERE 
+            ATBU_STATUS = 'C' AND 
+            ATBU_CustId = @CustId AND 
+            ATBU_CompId = @CompId AND 
+            ATBU_YEARId = @YearId AND 
+            ATBU_Branchid = @BranchId AND 
+            ATBU_QuarterId = @DurationId";
+            
+            return await connection.QueryAsync<DescheadDto>(query, new
+            {
+                CompId = compId,
+                CustId = custId,
+                YearId = yearId,
+                BranchId = branchId,
+                DurationId = durationId
+            });
+        }
+
+        //GetGeneralLedger 
+        public async Task<IEnumerable<SubGlDto>> LoadSubGLDetailsAsync(int compId, int custId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT 
+            CC_GL AS gl_id, 
+            CC_GLCode + '-' + CC_Gldesc AS GlDesc 
+        FROM Customer_coa 
+        WHERE 
+            CC_compid = @CompId 
+            AND CC_head = 3 
+            AND CC_CustId = @CustId 
+        ORDER BY CC_gl";
+
+            return await connection.QueryAsync<SubGlDto>(query, new
+            {
+                CompId = compId,
+                CustId = custId
+            });
+        }
+
+        //SaveTransactionDetails
+        public async Task<int[]> SaveJournalEntryWithTransactionsAsync(List<SaveJournalEntryWithTransactionsDto> dtos)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var transaction = connection.BeginTransaction();
+
+            int updateOrSave = 0, oper = 0;
+
+            try
+            {
+                foreach (var dto in dtos)
+                {
+                    int iPKId = dto.Acc_JE_ID;
+
+                    // --- Save Journal Entry Master ---
+                    using (var cmdMaster = new SqlCommand("spAcc_JE_Master", connection, transaction))
+                    {
+                        cmdMaster.CommandType = CommandType.StoredProcedure;
+
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_ID", dto.Acc_JE_ID);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_TransactionNo", dto.Acc_JE_TransactionNo ?? string.Empty);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_Party", dto.Acc_JE_Party);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_Location", dto.Acc_JE_Location);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_BillType", dto.Acc_JE_BillType);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_BillNo", dto.Acc_JE_BillNo ?? string.Empty);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_BillDate", dto.Acc_JE_BillDate);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_BillAmount", dto.Acc_JE_BillAmount);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_AdvanceAmount", dto.Acc_JE_AdvanceAmount);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_AdvanceNaration", dto.Acc_JE_AdvanceNaration ?? string.Empty);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_BalanceAmount", dto.Acc_JE_BalanceAmount);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_NetAmount", dto.Acc_JE_NetAmount);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_PaymentNarration", dto.Acc_JE_PaymentNarration ?? string.Empty);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_ChequeNo", dto.Acc_JE_ChequeNo ?? string.Empty);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_ChequeDate", dto.Acc_JE_ChequeDate);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_IFSCCode", dto.Acc_JE_IFSCCode ?? string.Empty);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_BankName", dto.Acc_JE_BankName ?? string.Empty);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_BranchName", dto.Acc_JE_BranchName ?? string.Empty);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_CreatedBy", dto.Acc_JE_CreatedBy);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_YearID", dto.Acc_JE_YearID);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_CompID", dto.Acc_JE_CompID);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_Status", dto.Acc_JE_Status ?? string.Empty);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_Operation", dto.Acc_JE_Operation);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_IPAddress", dto.Acc_JE_IPAddress ?? string.Empty);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_BillCreatedDate", dto.Acc_JE_BillCreatedDate);
+                        cmdMaster.Parameters.AddWithValue("@acc_JE_BranchId", dto.acc_JE_BranchId);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_QuarterId", dto.Acc_JE_QuarterId);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_Comnments", dto.Acc_JE_Comments ?? string.Empty);
+
+                        var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+
+                        cmdMaster.Parameters.Add(updateOrSaveParam);
+                        cmdMaster.Parameters.Add(operParam);
+
+                        await cmdMaster.ExecuteNonQueryAsync();
+
+                        updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+                        oper = (int)(operParam.Value ?? 0);
+                    }
+
+                    // --- Save Transaction Details ---
+                    using (var cmdDetail = new SqlCommand("spAcc_JETransactions_Details", connection, transaction))
+                    {
+                        cmdDetail.CommandType = CommandType.StoredProcedure;
+
+                        cmdDetail.Parameters.AddWithValue("@AJTB_ID", dto.AJTB_ID);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_MasID", dto.AJTB_MasID);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_TranscNo", dto.AJTB_TranscNo ?? string.Empty);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_CustId", dto.AJTB_CustId);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_ScheduleTypeid", dto.AJTB_ScheduleTypeid);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_Deschead", dto.AJTB_Deschead);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_Desc", dto.AJTB_Desc ?? string.Empty);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_Debit", dto.AJTB_Debit);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_Credit", dto.AJTB_Credit);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_CreatedBy", dto.AJTB_CreatedBy);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_UpdatedBy", dto.AJTB_UpdatedBy);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_Status", dto.AJTB_Status ?? string.Empty);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_IPAddress", dto.AJTB_IPAddress ?? string.Empty);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_CompID", dto.AJTB_CompID);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_YearID", dto.AJTB_YearID);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_BillType", dto.AJTB_BillType);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_DescName", dto.AJTB_DescName ?? string.Empty);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_BranchId", dto.AJTB_BranchId);
+                        cmdDetail.Parameters.AddWithValue("@AJTB_QuarterId", dto.AJTB_QuarterId);
+
+                        var updateOrSaveDetail = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        var operDetail = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+
+                        cmdDetail.Parameters.Add(updateOrSaveDetail);
+                        cmdDetail.Parameters.Add(operDetail);
+
+                        await cmdDetail.ExecuteNonQueryAsync();
+                    }
+                }
+                transaction.Commit();
+                return new int[] { updateOrSave, oper };
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+
         }
     }
 }

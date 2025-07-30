@@ -14,7 +14,7 @@ namespace TracePca.Controllers.Audit
     [ApiController]
     public class AuditSummaryController : ControllerBase
     {
-        
+
         private AuditSummaryInterface _AuditSummaryInterface;
         public AuditSummaryController(AuditSummaryInterface AuditSummaryInterface)
         {
@@ -41,7 +41,7 @@ namespace TracePca.Controllers.Audit
 
 
         [HttpGet("LoadAudiNoDetails")]
-        public async Task<IActionResult> LoadAudiNoDetails(int iCustID,int compId,int Yearid, int userid)
+        public async Task<IActionResult> LoadAudiNoDetails(int iCustID, int compId, int Yearid, int userid)
         {
             var dropdownData = await _AuditSummaryInterface.LoadAuditNoDataAsync(iCustID, compId, Yearid, userid);
 
@@ -104,7 +104,7 @@ namespace TracePca.Controllers.Audit
 
 
         [HttpGet("GetDocumentRequestSummary")]
-        public async Task<IActionResult> GetDocumentRequestSummary([FromQuery] int compId, [FromQuery] int customerId, [FromQuery] int auditNo,   [FromQuery] int yearId)
+        public async Task<IActionResult> GetDocumentRequestSummary([FromQuery] int compId, [FromQuery] int customerId, [FromQuery] int auditNo, [FromQuery] int yearId)
         {
             try
             {
@@ -398,7 +398,7 @@ namespace TracePca.Controllers.Audit
             try
             {
                 // Call service method to update asset details
-                await _AuditSummaryInterface.UpdateStandardAuditASCAMdetailsAsync(sacm_pkid,sacm_sa_id, updateDto);
+                await _AuditSummaryInterface.UpdateStandardAuditASCAMdetailsAsync(sacm_pkid, sacm_sa_id, updateDto);
 
                 // Return success response
                 return Ok(new { message = "Standard Audit ASCAM details updated successfully." });
@@ -413,7 +413,7 @@ namespace TracePca.Controllers.Audit
             }
         }
 
-         
+
 
         [HttpPost("UploadCMAAttachments")]
         public async Task<IActionResult> UploadCMAAttachments([FromForm] CMADtoAttachment dto)

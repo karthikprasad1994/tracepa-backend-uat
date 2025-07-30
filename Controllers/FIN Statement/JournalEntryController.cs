@@ -22,9 +22,7 @@ namespace TracePca.Controllers.FIN_Statement
         
         //GetJournalEntryInformation
         [HttpGet("GetJournalEntryInformation")]
-        public async Task<IActionResult> GetJournalEntryInformation(
-        [FromQuery] string DBName,
-        [FromQuery] int CompId,
+        public async Task<IActionResult> GetJournalEntryInformation([FromQuery] int CompId,
         [FromQuery] int UserId,
         [FromQuery] string Status,
         [FromQuery] int CustId,
@@ -35,8 +33,7 @@ namespace TracePca.Controllers.FIN_Statement
         {
             try
             {
-                var result = await _JournalEntryService.GetJournalEntryInformationAsync( DBName,
-                    CompId, UserId, Status, CustId, YearId, BranchId, DateFormat, DurationId);
+                var result = await _JournalEntryService.GetJournalEntryInformationAsync(CompId, UserId, Status, CustId, YearId, BranchId, DateFormat, DurationId);
 
                 return Ok(new
                 {
@@ -52,6 +49,138 @@ namespace TracePca.Controllers.FIN_Statement
                     status = 500,
                     message = "An error occurred while retrieving journal entries.",
                     error = ex.Message
+                });
+            }
+        }
+
+        //GetJEType
+        [HttpGet("GetJEType")]
+        public async Task<IActionResult> GetJEType([FromQuery] int compId, [FromQuery] string type)
+        {
+            try
+            {
+                var result = await _JournalEntryService.GetJETypeAsync(compId, type);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "JE Type name found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "JE Type  loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching JE Type.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //GetHeadOfAccounts
+        [HttpGet("LoadDeschead")]
+        public async Task<IActionResult> LoadDeschead([FromQuery] int compId, [FromQuery] int custId, [FromQuery] int yearId, [FromQuery] int branchId, [FromQuery] int durationId)
+        {
+            try
+            {
+                var result = await _JournalEntryService.LoadDescheadAsync(compId, custId, yearId, branchId, durationId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "Description head not found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Description head loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while loading description head.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //GetGeneralLedger
+        [HttpGet("LoadSubGLDetails")]
+        public async Task<IActionResult> LoadSubGLDetails([FromQuery] int compId, [FromQuery] int custId)
+        {
+            try
+            {
+                var result = await _JournalEntryService.LoadSubGLDetailsAsync(compId, custId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "Sub GL details not found.",
+                        data = (object)null
+                    });
+                }
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Sub GL details loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while loading Sub GL details.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //SaveTransactionDetails
+        [HttpPost("save")]
+        public async Task<IActionResult> SaveJournalEntryWithTransactions([FromBody] List<SaveJournalEntryWithTransactionsDto> dtos)
+        {
+            try
+            {
+                var result = await _JournalEntryService.SaveJournalEntryWithTransactionsAsync(dtos);
+                return Ok(new
+                {
+                    Message = "Journal Entry saved successfully.",
+                    UpdateOrSave = result[0],
+                    Oper = result[1]
+                });
+            }
+            catch (Exception ex)
+            {
+                // Log exception if needed
+                return StatusCode(500, new
+                {
+                    Message = "An error occurred while saving the journal entry.",
+                    Error = ex.Message
                 });
             }
         }

@@ -8,50 +8,48 @@ namespace TracePca.Interface.FIN_Statement
     {
 
         //GetScheduleHeading
-        Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(string DBName, int CompId, int CustId, int ScheduleTypeId);
+        Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int CompId, int CustId, int ScheduleTypeId);
 
         //GetScheduleSub-Heading
-        Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(string DBName, int CompId, int CustId, int ScheduleTypeId);
+        Task<IEnumerable<ScheduleSubHeadingDto>> GetScheduleSubHeadingAsync(int CompId, int CustId, int ScheduleTypeId);
 
         //GetScheduleItem
-        Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(string DBName, int CompId, int CustId, int CcheduleTypeId);
+        Task<IEnumerable<ScheduleItemDto>> GetScheduleItemAsync(int CompId, int CustId, int CcheduleTypeId);
 
         //GetScheduleSub-Item
-        Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(string DBName, int CompId, int CustId, int ScheduleTypeId);
+        Task<IEnumerable<ScheduleSubItemDto>> GetScheduleSubItemAsync(int CompId, int CustId, int ScheduleTypeId);
 
         //GetTotalAmount
-        Task<IEnumerable<CustCOASummaryDto>> GetCustCOAMasterDetailsAsync(string DBName, int CompId, int CustId, int YearId, int BranchId, int DurationId);
+        Task<IEnumerable<CustCOASummaryDto>> GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId);
 
         //GetTrialBalance(Grid)
-        Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(string DBName,
-        int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId);
+        Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId);
 
         //FreezeForPreviousDuration
-        Task<int[]> FreezePreviousYearTrialBalanceAsync(string DBName, FreezePreviousDurationRequestDto input);
+        Task<int[]> FreezePreviousYearTrialBalanceAsync(FreezePreviousDurationRequestDto input);
 
         //FreezeForNextDuration
-        Task<int[]> FreezeNextDurationrialBalanceAsync(string DBName, FreezeNextDurationRequestDto input);
+        Task<int[]> FreezeNextDurationrialBalanceAsync(FreezeNextDurationRequestDto input);
 
         //DownloadUploadableExcelAndTemplate
         FileDownloadResult GetExcelTemplate();
 
         //SaveTrailbalnceDetails
-        Task<int[]> SaveTrailBalanceDetailsAsync(string DBName, int CompId, List<TrailBalanceDetailsDto> dtos);
+        Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDetailsDto> dtos);
 
         //UpdateTrailBalnce
-        Task<List<int>> UpdateTrailBalanceAsync(string DBName, List<UpdateTrailBalanceDto> dtos);
+        Task<List<int>> UpdateTrailBalanceAsync(List<UpdateTrailBalanceDto> dtos);
 
         //LoadSubHeadingByHeadingDto
-        Task<IEnumerable<LoadSubHeadingByHeadingDto>> GetSubHeadingsByHeadingIdAsync(string DBName, int headingId, int orgType);
+        Task<IEnumerable<LoadSubHeadingByHeadingDto>> GetSubHeadingsByHeadingIdAsync(int headingId, int orgType);
 
         //LoadItemBySubHeadingDto
-        Task<IEnumerable<LoadItemBySubHeadingDto>> GetItemsBySubHeadingIdAsync(string DBName, int subHeadingId, int orgType);
+        Task<IEnumerable<LoadItemBySubHeadingDto>> GetItemsBySubHeadingIdAsync(int subHeadingId, int orgType);
 
         //LoadSubItemByItemDto
-        Task<IEnumerable<LoadSubItemByItemDto>> GetSubItemsByItemIdAsync(string DBName, int itemId, int orgType);
+        Task<IEnumerable<LoadSubItemByItemDto>> GetSubItemsByItemIdAsync(int itemId, int orgType);
 
         //GetPreviousLoadId
-        Task<(int? HeadingId, int? SubHeadingId, int? ItemId)> GetPreviousLoadIdAsync(string DBName,
-  int? subItemId = null, int? itemId = null, int? subHeadingId = null);
+        Task<(int? HeadingId, int? SubHeadingId, int? ItemId)> GetPreviousLoadIdAsync(int? subItemId = null, int? itemId = null, int? subHeadingId = null);
     }
 }

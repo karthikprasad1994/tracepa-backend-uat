@@ -31,6 +31,8 @@ using TracePca.Data;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
+using TracePca.Models;
+using TracePca.Models.UserModels;
 using Xceed.Document.NET;
 using Xceed.Words.NET;
 //using static Org.BouncyCastle.Math.EC.ECCurve;
@@ -38,6 +40,7 @@ using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
 using Document = QuestPDF.Fluent.Document;
 using Paragraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
+using QuestColors = QuestPDF.Helpers.Colors;
 using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
 using RunProperties = DocumentFormat.OpenXml.Wordprocessing.RunProperties;
 // Aliases to avoid conflicts
@@ -45,10 +48,13 @@ using WordDoc = DocumentFormat.OpenXml.Wordprocessing.Document;
 using WordprocessingDocument = DocumentFormat.OpenXml.Packaging.WordprocessingDocument;
 using WorkpaperDto = TracePca.Dto.Audit.WorkpaperDto;
 
-using QuestColors = QuestPDF.Helpers.Colors;
+
+
+
 using TracePca.Models;
 using DocumentFormat.OpenXml.Office2010.Word;
 using Microsoft.Playwright;
+
 
 
 //using QuestPDF.Fluent;
@@ -70,18 +76,23 @@ namespace TracePca.Service.Communication_with_client
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IWebHostEnvironment _env;
+        private readonly DbConnectionProvider _dbConnectionProvider;
 
 
 
-        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env)
+        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider)
         {
 
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
             _env = env;
+            _dbConnectionProvider = dbConnectionProvider;
+
         }
 
+     
 
+      
 
         public async Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey)
         {
@@ -311,7 +322,11 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<Dto.Audit.CustomerDto>> GetCustomerLoeAsync(int companyId)
         {
+
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+          
+
+          //  using var connection = _dbConnectionProvider.GetConnection();
 
             string query = @"SELECT LOE_ID as CustomerID, LOE_Name as CustomerName
                      FROM SAD_CUST_LOE
@@ -332,6 +347,9 @@ WHERE LOET_CustomerId = @CustomerId
 
             using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
 
+
+
+
             var parameters = new { CompId = companyId };
             return await connection.QueryAsync<ReportData>(query, parameters);
         }
@@ -341,6 +359,8 @@ WHERE LOET_CustomerId = @CustomerId
         public async Task<IEnumerable<AuditTypeDto>> GetAuditTypesAsync(int companyId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+           
+
 
             string query = @"
         SELECT cmm_ID AS CmmId, 
@@ -357,6 +377,8 @@ WHERE LOET_CustomerId = @CustomerId
         public async Task<CustomerAuditDropdownDto> GetCustomerAuditDropdownAsync(int companyId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+           
+
             await connection.OpenAsync();
 
             // Run both queries
@@ -384,10 +406,20 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<Dto.Audit.CustomerDto>> LoadActiveCustomersAsync(int companyId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            var query = @"
+            const string query = @"
         SELECT Cust_Id, Cust_Name 
         FROM SAD_CUSTOMER_MASTER 
         WHERE CUST_DelFlg = 'A' AND Cust_CompId = @CompanyId 
@@ -395,6 +427,7 @@ WHERE LOET_CustomerId = @CustomerId
 
             return await connection.QueryAsync<Dto.Audit.CustomerDto>(query, new { CompanyId = companyId });
         }
+
 
         public async Task<IEnumerable<AuditScheduleDto>> LoadScheduledAuditNosAsync(
     string connectionStringName, int companyId, int financialYearId, int customerId)
@@ -975,7 +1008,7 @@ WHERE LOET_CustomerId = @CustomerId
             return fullName ?? string.Empty;
         }
 
-        public async Task<int> GetRequestedIdAsync(int exportType)
+        public async Task<int> GetRequestedIdAsync(int exportType, string customerCode)
         {
             var query = @"
         SELECT ISNULL(cmm_ID, 0)
@@ -987,9 +1020,12 @@ WHERE LOET_CustomerId = @CustomerId
                 ? "Beginning of the Audit"
                 : "Nearing completion of the Audit";
 
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+           var connectionString = _configuration.GetConnectionString(customerCode);
             using var connection = new SqlConnection(connectionString);
+           
             await connection.OpenAsync();
+
+            
 
             var result = await connection.QueryFirstOrDefaultAsync<int>(query, new { Desc = cmmDesc });
             return result;
@@ -1027,8 +1063,10 @@ WHERE LOET_CustomerId = @CustomerId
     FROM Content_Management_Master 
     WHERE CMM_CompID = @CompanyId AND CMM_ID = @DrlId";
 
+
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
-            using var connection = new SqlConnection(connectionString);
+             using var connection = new SqlConnection(connectionString);
+         //   using var connection = _dbConnectionProvider.GetConnection();
             await connection.OpenAsync();
 
             var result = await connection.ExecuteScalarAsync<string>(query, new

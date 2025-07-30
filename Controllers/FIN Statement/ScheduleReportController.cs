@@ -18,15 +18,16 @@ namespace TracePca.Controllers.FIN_Statement
         {
             _ScheduleReportInterface = ScheduleReportInterface;
             _ScheduleReportService = ScheduleReportInterface;
+
         }
 
         //GetCompanyName
         [HttpGet("GetCompanyName")]
-        public async Task<IActionResult> GetCopanyName([FromQuery] string DBName, [FromQuery] int CompId)
+        public async Task<IActionResult> GetCopanyName([FromQuery] int CompId)
         {
             try
             {
-                var result = await _ScheduleReportService.GetCompanyNameAsync(DBName, CompId);
+                var result = await _ScheduleReportService.GetCompanyNameAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -58,11 +59,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetPartner
         [HttpGet("LoadCustomerPartners")]
-        public async Task<ActionResult<IEnumerable<PartnersDto>>> LoadCustomerPartners(string DBName, int CompId, int DetailsId)
+        public async Task<ActionResult<IEnumerable<PartnersDto>>> LoadCustomerPartners(int CompId, int DetailsId)
         {
             try
             {
-                var result = await _ScheduleReportService.LoadCustomerPartnersAsync(DBName, CompId, DetailsId);
+                var result = await _ScheduleReportService.LoadCustomerPartnersAsync(CompId, DetailsId);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -74,7 +75,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetSubHeading
         [HttpGet("GetSubHeading")]
-        public async Task<IActionResult> GetSubHeading([FromQuery] string DBName, [FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId)
+        public async Task<IActionResult> GetSubHeading([FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId)
         {
             try
             {
@@ -88,8 +89,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var result = await _ScheduleReportService.GetSubHeadingAsync(DBName,
-                    CompId, ScheduleId, CustId, HeadingId);
+                var result = await _ScheduleReportService.GetSubHeadingAsync(CompId, ScheduleId, CustId, HeadingId);
 
                 if (result == null || !result.Any())
                 {
@@ -121,14 +121,12 @@ namespace TracePca.Controllers.FIN_Statement
 
         //Getitem
         [HttpGet("GetItem")]
-        public async Task<IActionResult> GetItem([FromQuery] string DBName,
-        [FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId, [FromQuery] int SubHeadId)
+        public async Task<IActionResult> GetItem([FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId, [FromQuery] int SubHeadId)
         {
             try
             {
                 // Call service method
-                var result = await _ScheduleReportService.GetItemAsync(DBName,
-                    CompId, ScheduleId, CustId, HeadingId, SubHeadId);
+                var result = await _ScheduleReportService.GetItemAsync(CompId, ScheduleId, CustId, HeadingId, SubHeadId);
 
                 // Check for no data
                 if (result == null || !result.Any())
@@ -161,104 +159,9 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        ////GetSummaryReportForPandL(Income)
-        //[HttpGet("GetSummaryPnL(Income)")]
-        //public async Task<IActionResult> GetSummaryPnLIncome([FromQuery] int CompId, [FromQuery] SummaryPnLIncome p)
-        //{
-        //    try
-        //    {
-        //        // Minimal validation
-        //        if (p.YearID <= 0 || p.CustID <= 0 || p.ScheduleTypeID <= 0)
-        //        {
-        //            return BadRequest(new
-        //            {
-        //                statusCode = 400,
-        //                message = "YearID, CustID, and ScheduleTypeID are required and must be greater than zero.",
-        //                data = (object)null
-        //            });
-        //        }
-
-        //        var result = await _ScheduleReportService.GetSummaryPnLIncomeAsync(CompId, p);
-
-        //        if (result == null || !result.Any())
-        //        {
-        //            return NotFound(new
-        //            {
-        //                statusCode = 404,
-        //                message = "No summary P&L data found.",
-        //                data = (object)null
-        //            });
-        //        }
-
-        //        return Ok(new
-        //        {
-        //            statusCode = 200,
-        //            message = "Summary P&L data fetched successfully.",
-        //            data = result
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            statusCode = 500,
-        //            message = "An error occurred while retrieving Summary P&L data.",
-        //            error = ex.Message
-        //        });
-        //    }
-        //}
-
-        ////GetSummaryReportForPandL(Expenses)
-        //[HttpGet("GetSummaryPnL(Expenses)")]
-        //public async Task<IActionResult> GetSummaryPnLExpenses([FromQuery] int CompId, [FromQuery] SummaryPnLExpenses dto)
-        //{
-        //    try
-        //    {
-        //        // Minimal validation
-        //        if (dto.YearID <= 0 || dto.CustID <= 0 || dto.ScheduleTypeID <= 0)
-        //        {
-        //            return BadRequest(new
-        //            {
-        //                statusCode = 400,
-        //                message = "YearID, CustID, and ScheduleTypeID are required and must be greater than zero.",
-        //                data = (object)null
-        //            });
-        //        }
-
-        //        var result = await _ScheduleReportService.GetSummaryPnLExpensesAsync(CompId, dto);
-
-        //        if (result == null || !result.Any())
-        //        {
-        //            return NotFound(new
-        //            {
-        //                statusCode = 404,
-        //                message = "No summary P&L data found.",
-        //                data = (object)null
-        //            });
-        //        }
-
-        //        return Ok(new
-        //        {
-        //            statusCode = 200,
-        //            message = "Summary P&L data fetched successfully.",
-        //            data = result
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            statusCode = 500,
-        //            message = "An error occurred while retrieving Summary P&L data.",
-        //            error = ex.Message
-        //        });
-        //    }
-        //}
-
-
         //GetSummaryReportForPandL
         [HttpGet("GetSummaryPnL")]
-        public async Task<IActionResult> GetSummaryReportPnL([FromQuery] string DBName, [FromQuery] int CompId, [FromQuery] SummaryReportPnL dto)
+        public async Task<IActionResult> GetSummaryReportPnL([FromQuery] int CompId, [FromQuery] SummaryReportPnL dto)
         {
             try
             {
@@ -273,7 +176,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var result = await _ScheduleReportService.GetReportSummaryPnLAsync(DBName, CompId, dto);
+                var result = await _ScheduleReportService.GetReportSummaryPnLAsync(CompId, dto);
 
                 if (result == null || !result.Any())
                 {
@@ -305,7 +208,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetSummaryReportForBalanceSheet
         [HttpGet("GetSummaryBalanceSheet")]
-        public async Task<IActionResult> GetSummaryReportBalanceSheet([FromQuery] string DBName, [FromQuery] int CompId, [FromQuery] SummaryReportBalanceSheet dto)
+        public async Task<IActionResult> GetSummaryReportBalanceSheet([FromQuery] int CompId, [FromQuery] SummaryReportBalanceSheet dto)
         {
             try
             {
@@ -320,7 +223,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var result = await _ScheduleReportService.GetReportSummaryBalanceSheetAsync(DBName, CompId, dto);
+                var result = await _ScheduleReportService.GetReportSummaryBalanceSheetAsync(CompId, dto);
 
                 if (result == null || !result.Any())
                 {
@@ -351,8 +254,8 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //GetDetailedReportPandL
-        [HttpGet("GetDetailedreportPandL")]
-        public async Task<IActionResult> GetDetailedReportPandL([FromQuery] string DBName, [FromQuery] int CompId, [FromQuery] DetailedReportPandL dto)
+        [HttpGet("GetDetailedReportPandL")]
+        public async Task<IActionResult> GetDetailedReportPandL([FromQuery] int CompId, [FromQuery] DetailedReportPandL dto)
         {
             try
             {
@@ -367,7 +270,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var result = await _ScheduleReportService.GetDetailedReportPandLAsync(DBName, CompId, dto);
+                var result = await _ScheduleReportService.GetDetailedReportPandLAsync(CompId, dto);
 
                 if (result == null || !result.Any())
                 {
@@ -395,6 +298,75 @@ namespace TracePca.Controllers.FIN_Statement
                     error = ex.Message
                 });
             }
+        }
+
+        //GetDetailedReportBalanceSheet
+        [HttpGet("GetDetailedreportBalanceSheet")]
+        public async Task<IActionResult> GetDetailedReportBalanceSheet([FromQuery] int CompId, [FromQuery] DetailedReportBalanceSheet dto)
+        {
+            try
+            {
+                // Minimal validation
+                if (dto.YearID <= 0 || dto.CustID <= 0)
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "YearID, CustID, and ScheduleTypeID are required and must be greater than zero.",
+                        data = (object)null
+                    });
+                }
+
+                var result = await _ScheduleReportService.GetDetailedReportBalanceSheetAsync(CompId, dto);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No summary P&L data found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Summary P&L data fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving Summary P&L data.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [HttpPost("GetScheduleReportAllDetails")]
+        public async Task<IActionResult> GetScheduleReport([FromBody] ScheduleReportRequestDto request)
+        {
+            var result = await _ScheduleReportService.GetScheduleReportDetailsAsync(request);
+            return Ok(result);
+        }
+        [HttpPost("GetOrgTypeAndDirectors")]
+        public async Task<IActionResult> GetOrgTypeAndMembers([FromBody] OrgTypeRequestDto request)
+        {
+            if (request.CustomerId <= 0 || request.CompanyId <= 0)
+                return BadRequest("Invalid input.");
+
+            var result = await _ScheduleReportService.GetOrgTypeAndMembersAsync(request.CustomerId, request.CompanyId);
+            return Ok(result);
+        }
+        [HttpGet("GetCompanyDetails")]
+        public async Task<IActionResult> GetCompanyDetails(int compId)
+        {
+            var result = await _ScheduleReportService.LoadCompanyDetailsAsync(compId);
+            return Ok(result);
         }
     }
 }

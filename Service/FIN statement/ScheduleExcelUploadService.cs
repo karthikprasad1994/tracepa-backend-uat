@@ -1,4 +1,5 @@
 ﻿using Dapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Data.Common;
@@ -14,11 +15,13 @@ namespace TracePca.Service.FIN_statement
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public ScheduleExcelUploadService(Trdmyus1Context dbcontext, IConfiguration configuration)
+        public ScheduleExcelUploadService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration;
             _dbcontext = dbcontext;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         //DownloadUploadableExcelAndTemplate
@@ -42,11 +45,22 @@ namespace TracePca.Service.FIN_statement
         }
 
         //SaveScheduleTemplate(P and L)
-        public async Task<List<int>> SaveSchedulePandLAsync(string DBName, int CompId, List<ScheduleTemplatePandLDto> dtos)
+        public async Task<List<int>> SaveSchedulePandLAsync(int CompId, List<ScheduleTemplatePandLDto> dtos)
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -389,11 +403,21 @@ namespace TracePca.Service.FIN_statement
         }
 
         //SaveScheduleTemplate(Balance Sheet)
-        public async Task<List<int>> SaveScheduleBalanceSheetAsync(string DBName, int CompId, List<ScheduleTemplateBalanceSheetDto> dtos)
+        public async Task<List<int>> SaveScheduleBalanceSheetAsync(int CompId, List<ScheduleTemplateBalanceSheetDto> dtos)
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -736,11 +760,22 @@ namespace TracePca.Service.FIN_statement
         }
         
         //SaveScheduleTemplate
-        public async Task<List<int>> SaveScheduleTemplateAsync(string DBName, int CompId, List<ScheduleTemplateDto> dtos)
+        public async Task<List<int>> SaveScheduleTemplateAsync(int CompId, List<ScheduleTemplateDto> dtos)
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1095,11 +1130,22 @@ namespace TracePca.Service.FIN_statement
         }
 
         //SaveOpeningBalance
-        public async Task<List<int>> SaveOpeningBalanceAsync(string DBName, int CompId, List<OpeningBalanceDto> dtos)
+        public async Task<List<int>> SaveOpeningBalanceAsync(int CompId, List<OpeningBalanceDto> dtos)
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1198,9 +1244,20 @@ namespace TracePca.Service.FIN_statement
         }
 
         //SaveTrailBalnce
-        public async Task<int[]> SaveTrailBalanceDetailsAsync(string DBName, int CompId, List<TrailBalanceDto> dtos)
+        public async Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDto> dtos)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1349,11 +1406,22 @@ namespace TracePca.Service.FIN_statement
         }
 
         //SaveClientTrailBalance
-        public async Task<List<int>> ClientTrailBalanceAsync(string DBName, int CompId, List<ClientTrailBalance> items)
+        public async Task<List<int>> ClientTrailBalanceAsync(int CompId, List<ClientTrailBalance> items)
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1413,11 +1481,22 @@ namespace TracePca.Service.FIN_statement
         }
 
         //SaveJournalEntry
-        public async Task<List<int>> SaveCompleteTrailBalanceAsync(string DBName, int CompId, List<TrailBalanceCompositeModel> models)
+        public async Task<List<int>> SaveCompleteTrailBalanceAsync(int CompId, List<TrailBalanceCompositeModel> models)
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString(DBName));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 

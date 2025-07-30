@@ -1,4 +1,5 @@
-﻿using Org.BouncyCastle.Tls;
+﻿using Microsoft.Data.SqlClient;
+using Org.BouncyCastle.Tls;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 
@@ -7,6 +8,8 @@ namespace TracePca.Interface.Audit
     public interface AuditInterface
     {
         //Task<CustomerAuditDropdownDto> GetCustomerAuditDropdownAsync(int companyId);
+
+       
         Task<IEnumerable<Dto.Audit.CustomerDto>> LoadActiveCustomersAsync(int companyId);
         Task<IEnumerable<AuditScheduleDto>> LoadScheduledAuditNosAsync(
         string connectionStringName, int companyId, int financialYearId, int customerId);

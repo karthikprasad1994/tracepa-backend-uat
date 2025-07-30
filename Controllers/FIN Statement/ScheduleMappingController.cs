@@ -29,11 +29,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleHeading
         [HttpGet("GetScheduleHeading")]
-        public async Task<IActionResult> GetScheduleHeadings(string DBName, int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IActionResult> GetScheduleHeadings(int CompId, int CustId, int ScheduleTypeId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetScheduleHeadingAsync(DBName, CompId, CustId, ScheduleTypeId);
+                var result = await _ScheduleMappingService.GetScheduleHeadingAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -65,11 +65,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleSub-Heading
         [HttpGet("GetScheduleSubHeading")]
-        public async Task<IActionResult> GetScheduleSubHeading(string DBName, int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IActionResult> GetScheduleSubHeading(int CompId, int CustId, int ScheduleTypeId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetScheduleSubHeadingAsync(DBName, CompId, CustId, ScheduleTypeId);
+                var result = await _ScheduleMappingService.GetScheduleSubHeadingAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -105,11 +105,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleItem
         [HttpGet("GetScheduleItem")]
-        public async Task<IActionResult> GetScheduleItem(string DBName, int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IActionResult> GetScheduleItem(int CompId, int CustId, int ScheduleTypeId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetScheduleItemAsync(DBName, CompId, CustId, ScheduleTypeId);
+                var result = await _ScheduleMappingService.GetScheduleItemAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -145,11 +145,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleSub-Item
         [HttpGet("GetScheduleSubItem")]
-        public async Task<IActionResult> GetScheduleSubItem(string DBName, int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IActionResult> GetScheduleSubItem(int CompId, int CustId, int ScheduleTypeId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetScheduleSubItemAsync(DBName, CompId, CustId, ScheduleTypeId);
+                var result = await _ScheduleMappingService.GetScheduleSubItemAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -185,12 +185,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetTotalAmount
         [HttpGet("GetTotalAmount")]
-        public async Task<IActionResult> GetCustCOAMasterDetails(string DBName,
-        int CompId, int CustId, int YearId, int BranchId, int DurationId)
+        public async Task<IActionResult> GetCustCOAMasterDetails(int CompId, int CustId, int YearId, int BranchId, int DurationId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetCustCOAMasterDetailsAsync(DBName, CompId, CustId, YearId, BranchId, DurationId);
+                var result = await _ScheduleMappingService.GetCustCOAMasterDetailsAsync(CompId, CustId, YearId, BranchId, DurationId);
 
                 if (result != null && result.Any())
                 {
@@ -224,12 +223,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetTrialBalance(Grid)
         [HttpGet("GetTrailBalance(Grid)")]
-        public async Task<IActionResult> GetCustCOADetails(string DBName,
-    int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
+        public async Task<IActionResult> GetCustCOADetails(int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetCustCOADetailsAsync(DBName, CompId, CustId, YearId, ScheduleTypeId, Unmapped, BranchId, DurationId);
+                var result = await _ScheduleMappingService.GetCustCOADetailsAsync(CompId, CustId, YearId, ScheduleTypeId, Unmapped, BranchId, DurationId);
 
                 if (result != null && result.Any())
                 {
@@ -261,11 +259,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //FreezeForPreviousDuration
         [HttpPost("FreezePreviousDurationTrialBalance")]
-        public async Task<IActionResult> FreezePreviousYearTrialBalance([FromQuery] string DBName, [FromBody] FreezePreviousDurationRequestDto input)
+        public async Task<IActionResult> FreezePreviousYearTrialBalance([FromBody] FreezePreviousDurationRequestDto input)
         {
             try
             {
-                var detailIds = await _ScheduleMappingService.FreezePreviousYearTrialBalanceAsync(DBName, input);
+                var detailIds = await _ScheduleMappingService.FreezePreviousYearTrialBalanceAsync(input);
 
                 return Ok(new
                 {
@@ -290,11 +288,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //FreezrForNextDuration
         [HttpPost("FreezeNextDuratiionrialBalance")]
-        public async Task<IActionResult> FreezeNextDurationTrialBalance(string DBName, [FromBody] FreezeNextDurationRequestDto input)
+        public async Task<IActionResult> FreezeNextDurationTrialBalance([FromBody] FreezeNextDurationRequestDto input)
         {
             try
             {
-                var detailIds = await _ScheduleMappingService.FreezeNextDurationrialBalanceAsync(DBName, input);
+                var detailIds = await _ScheduleMappingService.FreezeNextDurationrialBalanceAsync(input);
 
                 return Ok(new
                 {
@@ -333,11 +331,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveTrailBalanceDetails
         [HttpPost("SaveTrailBalanceDetails")]
-        public async Task<IActionResult> SaveTrailBalanceDetails([FromQuery] string DBName, [FromQuery] int CompId, [FromBody] List<TrailBalanceDetailsDto> HeaderDtos)
+        public async Task<IActionResult> SaveTrailBalanceDetails([FromQuery] int CompId, [FromBody] List<TrailBalanceDetailsDto> HeaderDtos)
         {
             try
             {
-                var resultIds = await _ScheduleMappingService.SaveTrailBalanceDetailsAsync(DBName, CompId, HeaderDtos);
+                var resultIds = await _ScheduleMappingService.SaveTrailBalanceDetailsAsync(CompId, HeaderDtos);
 
                 return Ok(new
                 {
@@ -362,7 +360,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //UpdateTrailBalance
         [HttpPost("UpdateTrailBalance")]
-        public async Task<IActionResult> UpdateTrailBalance([FromQuery] string DBName, [FromBody] List<UpdateTrailBalanceDto> dtos)
+        public async Task<IActionResult> UpdateTrailBalance([FromBody] List<UpdateTrailBalanceDto> dtos)
         {
             try
             {
@@ -376,7 +374,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var resultIds = await _ScheduleMappingService.UpdateTrailBalanceAsync(DBName, dtos);
+                var resultIds = await _ScheduleMappingService.UpdateTrailBalanceAsync(dtos);
 
                 return Ok(new
                 {
@@ -398,11 +396,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //LoadSubHeadingByHeadingDto
         [HttpGet("subheadings")]
-        public async Task<IActionResult> GetSubHeadingsByHeadingIdAsync([FromQuery]string DBName, [FromQuery] int headingId, [FromQuery] int orgType)
+        public async Task<IActionResult> GetSubHeadingsByHeadingIdAsync([FromQuery] int headingId, [FromQuery] int orgType)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetSubHeadingsByHeadingIdAsync(DBName, headingId, orgType);
+                var result = await _ScheduleMappingService.GetSubHeadingsByHeadingIdAsync(headingId, orgType);
 
                 if (result == null || !result.Any())
                 {
@@ -434,11 +432,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //LoadItemBySubHeadingDto
         [HttpGet("items")]
-        public async Task<IActionResult> GetItemsBySubHeadingIdAsync([FromQuery] string DBName, [FromQuery] int subHeadingId, [FromQuery] int orgType)
+        public async Task<IActionResult> GetItemsBySubHeadingIdAsync([FromQuery] int subHeadingId, [FromQuery] int orgType)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetItemsBySubHeadingIdAsync(DBName, subHeadingId, orgType);
+                var result = await _ScheduleMappingService.GetItemsBySubHeadingIdAsync(subHeadingId, orgType);
 
                 if (result == null || !result.Any())
                 {
@@ -470,11 +468,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //LoadSubItemByItemDto
         [HttpGet("subitems")]
-        public async Task<IActionResult> GetSubItemsByItemIdAsync([FromQuery] string DBName, [FromQuery] int itemId, [FromQuery] int orgType)
+        public async Task<IActionResult> GetSubItemsByItemIdAsync([FromQuery] int itemId, [FromQuery] int orgType)
         {
             try
             {
-                var result = await _ScheduleMappingService.GetSubItemsByItemIdAsync(DBName, itemId, orgType);
+                var result = await _ScheduleMappingService.GetSubItemsByItemIdAsync(itemId, orgType);
 
                 if (result == null || !result.Any())
                 {
@@ -506,13 +504,12 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetPreviousLoadId
         [HttpPost("GetPreviousLoadId")]
-        public async Task<IActionResult> GetPreviousLoadIdAsync([FromQuery] string DBName, [FromBody] HierarchyRequestDto request)
+        public async Task<IActionResult> GetPreviousLoadIdAsync([FromBody] HierarchyRequestDto request)
         {
             if (request.SubItemId is null && request.ItemId is null && request.SubHeadingId is null)
                 return BadRequest("At least one of SubItemId, ItemId, or SubHeadingId must be provided.");
 
-            var (headingId, subHeadingId, itemId) = await _ScheduleMappingService.GetPreviousLoadIdAsync(DBName,
-                request.SubItemId, request.ItemId, request.SubHeadingId);
+            var (headingId, subHeadingId, itemId) = await _ScheduleMappingService.GetPreviousLoadIdAsync(request.SubItemId, request.ItemId, request.SubHeadingId);
 
             var response = new HierarchyResponseDto
             {

@@ -21,12 +21,12 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetCustomersName
         [HttpGet("GetCustomersName")]
-        public async Task<IActionResult> GetCustomerName([FromQuery] string DBName, [FromQuery] int CompId)
+        public async Task<IActionResult> GetCustomerName([FromQuery] int CompId)
         {
 
             try
             {
-                var result = await _ScheduleMastersService.GetCustomerNameAsync(DBName, CompId);
+                var result = await _ScheduleMastersService.GetCustomerNameAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -58,11 +58,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetDuration
         [HttpGet("GetCustomerDurationId")]
-        public async Task<IActionResult> GetCustomerDurationId([FromQuery] string DBName, [FromQuery] int CompId, [FromQuery] int CustId)
+        public async Task<IActionResult> GetCustomerDurationId([FromQuery] int CompId, [FromQuery] int CustId)
         {
             try
             {
-                var durationId = await _ScheduleMastersService.GetCustomerDurationIdAsync(DBName, CompId, CustId);
+                var durationId = await _ScheduleMastersService.GetCustomerDurationIdAsync(CompId, CustId);
 
                 if (durationId == null)
                 {
@@ -94,11 +94,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetFinancialYear
         [HttpGet("GetFinancialYear")]
-        public async Task<IActionResult> GetFinancialYear([FromQuery] string DBName, [FromQuery] int CompId)
+        public async Task<IActionResult> GetFinancialYear([FromQuery] int CompId)
         {
             try
             {
-                var result = await _ScheduleMastersService.GetFinancialYearAsync(DBName, CompId);
+                var result = await _ScheduleMastersService.GetFinancialYearAsync(CompId);
 
                 if (result == null || !result.Any())
                 {
@@ -131,11 +131,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetBranchName
         [HttpGet("GetBranchName")]
-        public async Task<IActionResult> GetBranchName([FromQuery] string DBName, [FromQuery] int CompId, [FromQuery] int CustId)
+        public async Task<IActionResult> GetBranchName([FromQuery] int CompId, [FromQuery] int CustId)
         {
             try
             {
-                var result = await _ScheduleMastersService.GetBranchNameAsync(DBName, CompId, CustId);
+                var result = await _ScheduleMastersService.GetBranchNameAsync(CompId, CustId);
 
                 if (result == null || !result.Any())
                 {
@@ -167,11 +167,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleHeading
         [HttpGet("GetScheduleHeading")]
-        public async Task<IActionResult> GetScheduleHeadings(string DBName, int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IActionResult> GetScheduleHeadings(int CompId, int CustId, int ScheduleTypeId)
         {
             try
             {
-                var result = await _ScheduleMastersService.GetScheduleHeadingAsync(DBName, CompId, CustId, ScheduleTypeId);
+                var result = await _ScheduleMastersService.GetScheduleHeadingAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -203,11 +203,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleSub-Heading
         [HttpGet("GetScheduleSubHeading")]
-        public async Task<IActionResult> GetScheduleSubHeading(string DBName, int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IActionResult> GetScheduleSubHeading(int CompId, int CustId, int ScheduleTypeId)
         {
             try
             {
-                var result = await _ScheduleMastersService.GetScheduleItemAsync(DBName, CompId, CustId, ScheduleTypeId);
+                var result = await _ScheduleMastersService.GetScheduleItemAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -243,11 +243,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleItem
         [HttpGet("GetScheduleItem")]
-        public async Task<IActionResult> GetScheduleItem(string DBName, int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IActionResult> GetScheduleItem(int CompId, int CustId, int ScheduleTypeId)
         {
             try
             {
-                var result = await _ScheduleMastersService.GetScheduleItemAsync(DBName, CompId, CustId, ScheduleTypeId);
+                var result = await _ScheduleMastersService.GetScheduleItemAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -283,11 +283,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleSub-Item
         [HttpGet("GetScheduleSubItem")]
-        public async Task<IActionResult> GetScheduleSubItem(string DBName, int CompId, int CustId, int ScheduleTypeId)
+        public async Task<IActionResult> GetScheduleSubItem(int CompId, int CustId, int ScheduleTypeId)
         {
             try
             {
-                var result = await _ScheduleMastersService.GetScheduleSubItemAsync(DBName, CompId, CustId, ScheduleTypeId);
+                var result = await _ScheduleMastersService.GetScheduleSubItemAsync(CompId, CustId, ScheduleTypeId);
 
                 if (result == null || !result.Any())
                 {
@@ -323,11 +323,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetCustomerOrgType
         [HttpGet("GetCustomerOrgType")]
-        public async Task<IActionResult> GetCustomerOrgType([FromQuery] string DBName, [FromQuery] int CustId, [FromQuery] int CompId)
+        public async Task<IActionResult> GetCustomerOrgType([FromQuery] int CustId, [FromQuery] int CompId)
         {
             try
             {
-                var result = await _ScheduleMastersService.GetCustomerOrgTypeAsync(DBName, CustId, CompId);
+                var result = await _ScheduleMastersService.GetCustomerOrgTypeAsync(CustId, CompId);
 
                 if (string.IsNullOrWhiteSpace(result))
                 {
