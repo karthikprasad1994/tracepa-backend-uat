@@ -27,22 +27,35 @@ namespace TracePca.Service.Audit
 {
     public class EngagementPlanService : EngagementPlanInterface
     {
-        private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly string _connectionString;
 
-        public EngagementPlanService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public EngagementPlanService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
-            _dbcontext = dbcontext;
-            _configuration = configuration;
-            _httpContextAccessor = httpContextAccessor;
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _connectionString = GetConnectionStringFromSession();
+        }
+
+        private string GetConnectionStringFromSession()
+        {
+            var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrWhiteSpace(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connStr = _configuration.GetConnectionString(dbName);
+            if (string.IsNullOrWhiteSpace(connStr))
+                throw new Exception($"Connection string for '{dbName}' not found in configuration.");
+
+            return connStr;
         }
 
         public async Task<AuditDropDownListDataDTO> LoadAllDDLDataAsync(int compId)
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var parameters = new { CompId = compId };
@@ -83,7 +96,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 IEnumerable<LOEDropDownListData> loeList;
@@ -113,7 +126,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var contentIds = await connection.QueryAsync<int>(@"SELECT TEM_ContentId FROM SAD_Finalisation_Report_Template WHERE TEM_FunctionId = @ReportTypeId And TEM_Delflag = 'A' And TEM_CompID = @CompId",
@@ -146,7 +159,7 @@ namespace TracePca.Service.Audit
             try
             {
                 int epPKid = 0;
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
 
                 if (customerId > 0 && auditTypeId > 0)
                 {
@@ -174,7 +187,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var dto = await connection.QueryFirstOrDefaultAsync<EngagementPlanDetailsDTO>(
@@ -218,7 +231,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var nextSerialNo = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT COUNT(*) + 1 FROM SAD_CUST_LOE WHERE LOE_YearId = @YearId", new { YearId = yearId });
@@ -242,7 +255,7 @@ namespace TracePca.Service.Audit
 
         public async Task<int> SaveOrUpdateEngagementPlanDataAsync(EngagementPlanDetailsDTO dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
             try
@@ -349,7 +362,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var parameters = new { ApprovedBy = approvedBy, LOEId = epPKid, CompId = compId };
@@ -373,7 +386,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var dto = await connection.QueryFirstOrDefaultAsync<EngagementPlanReportDetailsDTO>(
@@ -444,7 +457,7 @@ namespace TracePca.Service.Audit
                 var query = @"SELECT A.ATCH_ID, A.ATCH_DOCID, A.ATCH_FNAME, A.ATCH_EXT, A.ATCH_DESC, A.ATCH_CREATEDBY, U.Usr_FullName AS ATCH_CREATEDBYNAME, A.ATCH_CREATEDON, A.ATCH_SIZE FROM edt_attachments A 
                 LEFT JOIN Sad_Userdetails U ON A.ATCH_CREATEDBY = U.Usr_ID AND A.ATCH_COMPID = U.Usr_CompId WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID = @AttachId AND A.ATCH_Status <> 'D' ORDER BY A.ATCH_CREATEDON;";
 
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 result = (await connection.QueryAsync<AttachmentDetailsDTO>(query, new { CompId = compId, AttachId = attachId })).ToList();
                 return result;
             }
@@ -470,7 +483,7 @@ namespace TracePca.Service.Audit
                 if (dto.File == null || dto.File.Length == 0)
                     throw new ArgumentException("Invalid file.");
 
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 // Generate attachment and document IDs
@@ -530,7 +543,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var query = @"UPDATE EDT_ATTACHMENTS SET ATCH_Status = 'D', ATCH_MODIFIEDBY = @UserId WHERE ATCH_CompID = @CompId AND ATCH_DOCID = @DocId AND ATCH_ID = @AttachId";
@@ -547,7 +560,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var query = @"UPDATE EDT_ATTACHMENTS SET ATCH_Desc = @Desc, ATCH_MODIFIEDBY = @UserId WHERE ATCH_CompID = @CompId AND ATCH_DOCID = @DocId AND ATCH_ID = @AttachId";
@@ -568,7 +581,7 @@ namespace TracePca.Service.Audit
                 var query = @"SELECT A.ATCH_ID, A.ATCH_DOCID, A.ATCH_FNAME, A.ATCH_EXT, A.ATCH_DESC, A.ATCH_CREATEDBY, U.Usr_FullName AS ATCH_CREATEDBYNAME, A.ATCH_CREATEDON, A.ATCH_SIZE FROM edt_attachments A 
                 LEFT JOIN Sad_Userdetails U ON A.ATCH_CREATEDBY = U.Usr_ID AND A.ATCH_COMPID = U.Usr_CompId WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID = @AttachId AND A.ATCH_DOCID = @DocId";
 
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 result = (await connection.QueryFirstAsync<AttachmentDetailsDTO>(query, new { CompId = compId, AttachId = attachId, DocId = docId }));
 
                 if (result == null)
@@ -630,7 +643,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var userList = await connection.QueryAsync<DropDownListData>(@"SELECT usr_FullName As Name,usr_Id As ID from Sad_UserDetails where usr_CompanyId = @CustId And (usr_DelFlag='A' or usr_DelFlag='B' or usr_DelFlag='L') And Usr_Email IS NOT NULL And Usr_Email<>'' order by usr_FullName", new { CustId = custId });
@@ -653,7 +666,7 @@ namespace TracePca.Service.Audit
                 if (reportdto == null)
                     throw new ApplicationException("Engagement Plan data not found for the specified ID.");
 
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
                 using var transaction = connection.BeginTransaction();
 
@@ -1021,7 +1034,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 List<int> customerUserIds = dto.CustomerUserIds;
@@ -1105,7 +1118,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var parameters = new { CompId = compId, YearID = yearId, CustId = custId };
@@ -1124,7 +1137,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var parameters = new { CompId = compId, YearID = yearId, CustId = custId };
@@ -1153,7 +1166,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                //using var connection = new SqlConnection(_connectionString);
                 //await connection.OpenAsync();
 
                 //var parameters = new { CompId = compId, YearID = yearId, CustId = custId };

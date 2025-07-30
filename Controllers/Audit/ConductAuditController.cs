@@ -395,5 +395,30 @@ namespace TracePca.Controllers.Audit
                 return StatusCode(500, new { statusCode = 500, message = "Failed to save Conduct remarks history.", error = ex.Message });
             }
         }
+
+        [HttpGet("CheckAuditMandatoryCheckpointsAsync")]
+        public async Task<IActionResult> CheckAuditMandatoryCheckpoints(int compId, int auditId)
+        {
+            try
+            {
+                int count = await _conductAuditInterface.CheckAuditMandatoryCheckpointsAsync(compId, auditId);
+                if (count == 0)
+                {
+                    return Ok(new { statusCode = 200, message = "No checkpoints exist for this audit." });
+                }
+                else if (count == 1)
+                {
+                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before submitting." });
+                }
+                else
+                {
+                    return Ok(new { statusCode = 200, message = "All mandatory checkpoints are completed." });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "An error occurred while checking audit checkpoints.", error = ex.Message });
+            }
+        }
     }
 }

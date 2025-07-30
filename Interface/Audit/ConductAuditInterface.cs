@@ -25,5 +25,6 @@ namespace TracePca.Interface.Audit
         Task<bool> UpdateConductAuditWorkPaperReviewerAsync(int compID, int auditId, int workpaperId, int userId, string reviewerComments);
         Task<List<ConductAuditRemarksHistoryDisplayDTO>> GetConductAuditRemarksHistoryAsync(int compId,int auditId, int conductAuditCheckPointPKId, int checkPointId);
         Task<int> SaveConductAuditRemarksHistoryAsync(ConductAuditRemarksHistoryDTO dto);
+        Task<int> CheckAuditMandatoryCheckpointsAsync(int compId, int auditId);
     }
 }

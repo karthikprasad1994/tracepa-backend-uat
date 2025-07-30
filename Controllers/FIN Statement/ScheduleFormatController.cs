@@ -515,6 +515,27 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
+        [HttpGet("GetSystemGenExcelFile")]
+        public IActionResult GetExcelFilePathOnly(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+                return BadRequest("File name is required.");
+
+            // Optional: validate file exists if needed (on the server side)
+            string physicalPath = Path.Combine(
+                "C:\\Users\\MMCS\\Desktop\\TracePa FrontEnd Updated - Copy\\tracepa_nextjs\\public\\SampleExcels",
+                fileName
+            );
+
+            if (!System.IO.File.Exists(physicalPath))
+                return NotFound($"File not found: {fileName}");
+
+            // ✅ Return public URL instead of local path
+            string publicUrl = $"https://tracelites.multimedia.interactivedns.com/SampleExcels/{fileName}";
+
+            return Ok(publicUrl);
+        }
+
         //SaveScheduleTemplate
         [HttpPost("SaveScheduleTemplate")]
         public async Task<IActionResult> SaveScheduleTemplate([FromQuery] int CompId, [FromBody] List<ScheduleTemplate> dtos)
