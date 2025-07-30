@@ -588,7 +588,7 @@ WHERE ATBUD_Description = @AtbudDescription
                     detailParams.Add("@ATBUD_Description", item.AtbudDescription ?? string.Empty);
                     detailParams.Add("@ATBUD_CustId", item.AtbudCustId);
                     detailParams.Add("@ATBUD_SChedule_Type", item.AtbudScheduleType);
-                    detailParams.Add("@ATBUD_Branchid", item.AtbudBranchId); // ✅ fixed casing
+                    detailParams.Add("@ATBUD_Branchid", item.AtbudBranchId); 
                     detailParams.Add("@ATBUD_QuarterId", item.AtbudQuarterId);
                     detailParams.Add("@ATBUD_Company_Type", item.AtbudCompanyType);
                     detailParams.Add("@ATBUD_Headingid", item.AtbudHeadingId);
@@ -612,12 +612,9 @@ WHERE ATBUD_Description = @AtbudDescription
                         transaction,
                         commandType: CommandType.StoredProcedure
                     );
-
-
                     int resultId = detailParams.Get<int>("@iOper");
                     detailIds.Add(resultId);
                 }
-
                 transaction.Commit();
                 return detailIds.ToArray();
             }

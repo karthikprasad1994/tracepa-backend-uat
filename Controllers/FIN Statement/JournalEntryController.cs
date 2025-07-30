@@ -2,6 +2,7 @@
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.JournalEntryDto;
+using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -52,6 +53,43 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+        //GetExistingJournalVouchers
+        [HttpGet("GetExistingVoucherNos")]
+        public async Task<IActionResult> GetExistingVoucherNos([FromQuery] int compId, [FromQuery] int yearId, [FromQuery] int partyId, [FromQuery] int branchId)
+        {
+            try
+            {
+                var result = await _JournalEntryService.LoadExistingVoucherNosAsync(compId, yearId, partyId, branchId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No existing voucher numbers found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Existing voucher numbers loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching existing voucher numbers.",
+                    error = ex.Message
+                });
+            }
+        }
+
 
         //GetJEType
         [HttpGet("GetJEType")]
@@ -161,7 +199,7 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //SaveTransactionDetails
-        [HttpPost("save")]
+        [HttpPost("SaveTransactionDetails")]
         public async Task<IActionResult> SaveJournalEntryWithTransactions([FromBody] List<SaveJournalEntryWithTransactionsDto> dtos)
         {
             try
@@ -181,6 +219,41 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     Message = "An error occurred while saving the journal entry.",
                     Error = ex.Message
+                });
+            }
+        }
+
+        //SaveGeneralLedger
+        [HttpPost("SaveGeneralLedger")]
+        public async Task<IActionResult> SaveGeneralLedger([FromQuery] int CompId, [FromBody] List<GeneralLedgerDto> dtos)
+        {
+            try
+            {
+                var result = await _JournalEntryService.SaveGeneralLedgerAsync(CompId, dtos);
+
+                if (result == null || result.Length == 0)
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "Failed to upload General Ledger."
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "General Ledger uploaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while uploading General Ledger.",
+                    error = ex.Message
                 });
             }
         }
