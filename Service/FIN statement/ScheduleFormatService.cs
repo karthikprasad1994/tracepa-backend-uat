@@ -133,51 +133,73 @@ namespace TracePca.Service.FIN_statement
 
         //GetScheduleTemplate
         public async Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(
-    int CompId, int ScheduleId, int CustId, int AccHead)
+       int CompId, int ScheduleId, int CustId, int AccHead)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
             var baseQuery = @"
-SELECT 
-    AST_ID,
-    b.ASH_ID AS HeadingId,
-    NULLIF(b.ASH_Name, LAG(b.ASH_Name) OVER (ORDER BY b.ASH_ID ASC)) AS HeadingName,
-    c.ASSH_ID AS SubheadingID,
-    NULLIF(c.ASSH_Name, LAG(c.ASSH_Name) OVER (ORDER BY c.ASSH_ID)) AS SubheadingName,
-    d.ASI_ID AS ItemId,
-    NULLIF(d.ASI_Name, LAG(d.ASI_Name) OVER (ORDER BY d.ASI_ID)) AS ItemName,
-    e.ASSI_ID AS SubitemId,
-    NULLIF(e.ASSI_Name, LAG(e.ASSI_Name) OVER (ORDER BY e.ASSI_ID)) AS SubitemName,
-    a.AST_AccHeadId,
-    CASE  
-        WHEN a.AST_Schedule_type = 4 AND a.AST_AccHeadId = 1 THEN 'ASSETS'
-        WHEN a.AST_Schedule_type = 4 AND a.AST_AccHeadId = 2 THEN 'CAPITAL AND LIABILITIES'
-        WHEN a.AST_Schedule_type = 3 AND a.AST_AccHeadId = 1 THEN 'INCOME'
-        WHEN a.AST_Schedule_type = 3 AND a.AST_AccHeadId = 2 THEN 'EXPENSES'
-    END AS AccHeadName
-FROM ACC_ScheduleTemplates a
-LEFT JOIN ACC_ScheduleHeading b 
-    ON b.ASH_ID = a.AST_HeadingId AND b.ASH_Orgtype = @CustId
-LEFT JOIN ACC_ScheduleSubHeading c 
-    ON c.ASSH_ID = a.AST_SubHeadingId AND c.ASSH_Orgtype = @CustId
-LEFT JOIN ACC_ScheduleItems d 
-    ON d.ASI_ID = a.AST_ItemId AND d.ASI_Orgtype = @CustId
-LEFT JOIN ACC_ScheduleSubItems e 
-    ON e.ASSI_ID = a.AST_SubItemId AND e.ASSI_Orgtype = @CustId
-WHERE AST_CompId = @CompId
+WITH NumberedRows AS (
+    SELECT 
+        a.AST_ID,
+        b.ASH_ID AS HeadingId,
+        b.ASH_Name AS HeadingName,
+        c.ASSH_ID AS SubheadingID,
+        c.ASSH_Name AS SubheadingName,
+        d.ASI_ID AS ItemId,
+        d.ASI_Name AS ItemName,
+        e.ASSI_ID AS SubitemId,
+        e.ASSI_Name AS SubitemName,
+        a.AST_AccHeadId,
+        CASE  
+            WHEN a.AST_Schedule_type = 4 AND a.AST_AccHeadId = 1 THEN 'ASSETS'
+            WHEN a.AST_Schedule_type = 4 AND a.AST_AccHeadId = 2 THEN 'CAPITAL AND LIABILITIES'
+            WHEN a.AST_Schedule_type = 3 AND a.AST_AccHeadId = 1 THEN 'INCOME'
+            WHEN a.AST_Schedule_type = 3 AND a.AST_AccHeadId = 2 THEN 'EXPENSES'
+        END AS AccHeadName,
+
+        ROW_NUMBER() OVER (PARTITION BY b.ASH_ID ORDER BY a.AST_ID) AS HeadingRow,
+        ROW_NUMBER() OVER (PARTITION BY b.ASH_ID, c.ASSH_ID ORDER BY a.AST_ID) AS SubheadingRow,
+        ROW_NUMBER() OVER (PARTITION BY b.ASH_ID, c.ASSH_ID, d.ASI_ID ORDER BY a.AST_ID) AS ItemRow,
+        ROW_NUMBER() OVER (PARTITION BY b.ASH_ID, c.ASSH_ID, d.ASI_ID, e.ASSI_ID ORDER BY a.AST_ID) AS SubitemRow
+
+    FROM ACC_ScheduleTemplates a
+    LEFT JOIN ACC_ScheduleHeading b 
+        ON b.ASH_ID = a.AST_HeadingId AND b.ASH_Orgtype = @CustId
+    LEFT JOIN ACC_ScheduleSubHeading c 
+        ON c.ASSH_ID = a.AST_SubHeadingId AND c.ASSH_Orgtype = @CustId
+    LEFT JOIN ACC_ScheduleItems d 
+        ON d.ASI_ID = a.AST_ItemId AND d.ASI_Orgtype = @CustId
+    LEFT JOIN ACC_ScheduleSubItems e 
+        ON e.ASSI_ID = a.AST_SubItemId AND e.ASSI_Orgtype = @CustId
+    WHERE a.AST_CompId = @CompId
 ";
 
-            // Dynamically build WHERE conditions based on input
+            // Add dynamic filtering
             if (CustId != 0)
-                baseQuery += " AND AST_Companytype = @CustId";
+                baseQuery += " AND a.AST_Companytype = @CustId";
 
             if (ScheduleId != 0)
-                baseQuery += " AND AST_Schedule_type = @ScheduleId";
+                baseQuery += " AND a.AST_Schedule_type = @ScheduleId";
 
             if (AccHead != 0)
-                baseQuery += " AND AST_AccHeadId = @AccHead";
+                baseQuery += " AND a.AST_AccHeadId = @AccHead";
 
-            baseQuery += " ORDER BY AST_ID, ASH_ID ASC";
+            baseQuery += @"
+)
+SELECT
+    AST_ID,
+    HeadingId,
+    CASE WHEN HeadingRow = 1 THEN HeadingName ELSE NULL END AS HeadingName,
+    SubheadingID,
+    CASE WHEN SubheadingRow = 1 THEN SubheadingName ELSE NULL END AS SubheadingName,
+    ItemId,
+    CASE WHEN ItemRow = 1 THEN ItemName ELSE NULL END AS ItemName,
+    SubitemId,
+    CASE WHEN SubitemRow = 1 THEN SubitemName ELSE NULL END AS SubitemName,
+    AST_AccHeadId,
+    AccHeadName
+FROM NumberedRows
+";
 
             var parameters = new
             {
@@ -190,6 +212,7 @@ WHERE AST_CompId = @CompId
             var result = await connection.QueryAsync<ScheduleFormatTemplateDto>(baseQuery, parameters);
             return result;
         }
+
 
         //DeleteScheduleTemplate(Grid)
         public async Task<bool> DeleteScheduleTemplateAsync(int CompId, int ScheduleType, int CustId, int SelectedValue, int MainId)

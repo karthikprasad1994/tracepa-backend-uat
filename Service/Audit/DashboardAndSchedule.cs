@@ -1002,6 +1002,7 @@ ORDER BY SrNo";
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
+
             using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
@@ -1053,7 +1054,7 @@ ORDER BY SrNo";
                     command.Parameters.AddWithValue("@Cust_FY", dto.Cust_FY);
                     command.Parameters.AddWithValue("@Cust_DurtnId", dto.Cust_DurtnId);
 
-                    // Add output parameters
+                    // Output parameters
                     var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
                     {
                         Direction = ParameterDirection.Output
@@ -1065,29 +1066,34 @@ ORDER BY SrNo";
 
                     command.Parameters.Add(updateOrSaveParam);
                     command.Parameters.Add(operParam);
-                    var query = @"UPDATE SAD_CUSTOMER_MASTER 
-      SET CUST_DelFlg = 'A'
-      WHERE CUST_CompID = @CompId AND CUST_ID = @Cust_Id";
-
-                    await connection.ExecuteAsync(query, new { CompId = iCompId, Cust_Id = dto.CUST_ID }); // assuming custId is defined
 
                     try
                     {
+                        // Execute stored procedure first
                         await command.ExecuteNonQueryAsync();
 
-                        int updateOrSave = (int)updateOrSaveParam.Value;
-                        int oper = (int)operParam.Value;
+                        // Now you can safely read output values
+                        int updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+                        int oper = (int)(operParam.Value ?? 0);
+
+                        // Only after getting oper value, run your update query
+                        var query = @"UPDATE SAD_CUSTOMER_MASTER 
+                              SET CUST_DelFlg = 'A'
+                              WHERE CUST_CompID = @CompId AND CUST_ID = @Cust_Id";
+
+                        await connection.ExecuteAsync(query, new { CompId = iCompId, Cust_Id = oper });
 
                         return new int[] { updateOrSave, oper };
                     }
                     catch (Exception ex)
                     {
-                        // Handle or log the error
+                        // Log or rethrow as needed
                         throw;
                     }
                 }
             }
         }
+
         public async Task<IEnumerable<AuditChecklistDto>> LoadAuditTypeCheckListAsync(
        int compId,
        int auditId,
@@ -1718,7 +1724,7 @@ ORDER BY SrNo";
             parameters.Add("@Usr_Code", emp.UsrCode);
             parameters.Add("@Usr_FullName", emp.UsrFullName);
             parameters.Add("@Usr_LoginName", emp.UsrEmail);
-            parameters.Add("@Usr_Password", emp.UsrPassword);
+            parameters.Add("@Usr_Password", EncryptPassword(emp.UsrPassword));
             parameters.Add("@Usr_Email", emp.UsrEmail);
             parameters.Add("@Usr_Category", emp.UsrSentMail);
             parameters.Add("@Usr_Suggetions", emp.UsrSuggetions);
@@ -1790,6 +1796,27 @@ ORDER BY SrNo";
         parameters.Get<int>("@iUpdateOrSave").ToString(),
         parameters.Get<int>("@iOper").ToString()
             };
+        }
+        private string EncryptPassword(string plainText)
+        {
+            string encryptionKey = "ML736@mmcs";
+            byte[] salt = new byte[] { 0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D,
+                               0x65, 0x64, 0x76, 0x65, 0x64, 0x65,
+                               0x76 };
+
+            byte[] plainBytes = Encoding.Unicode.GetBytes(plainText);
+
+            using var aes = Aes.Create();
+            var pdb = new Rfc2898DeriveBytes(encryptionKey, salt);
+            aes.Key = pdb.GetBytes(32);
+            aes.IV = pdb.GetBytes(16);
+
+            using var ms = new MemoryStream();
+            using var cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write);
+            cs.Write(plainBytes, 0, plainBytes.Length);
+            cs.Close();
+
+            return Convert.ToBase64String(ms.ToArray());
         }
 
         public async Task<string> GetMaxEmployeeCodeAsync(string connectionString, int companyId)
