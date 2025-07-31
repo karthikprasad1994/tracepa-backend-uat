@@ -82,6 +82,7 @@ builder.Services.AddSession(options =>
 });
 
 
+<<<<<<< HEAD
 
 //builder.Services.AddSession(options =>
 //{
@@ -105,6 +106,8 @@ builder.Services.AddSession(options =>
 
 
 
+=======
+>>>>>>> 89261e9 (updated by sajid)
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
