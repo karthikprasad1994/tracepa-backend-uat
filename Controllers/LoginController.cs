@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
+using TracePca.Dto.Authentication;
 using TracePca.Interface;
 using TracePca.Models;
 using TracePca.Models.CustomerRegistration;
@@ -242,19 +243,39 @@ namespace TracePca.Controllers
                 _ => StatusCode(500, result)
             };
         }
-
-
-        // PUT api/<LoginController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        [HttpPost("Logout")]
+        public async Task<IActionResult> Logout([FromBody] LogOutDto request)
         {
+            if (string.IsNullOrWhiteSpace(request.AccessToken))
+            {
+                return BadRequest(new
+                {
+                    StatusCode = 400,
+                    Message = "Access token is required."
+                });
+            }
+
+            var success = await _LoginInterface.LogoutUserAsync(request.AccessToken);
+
+            if (!success)
+            {
+                return NotFound(new
+                {
+                    StatusCode = 404,
+                    Message = "Token not found or already revoked."
+                });
+            }
+
+            return Ok(new
+            {
+                StatusCode = 200,
+                Message = "User logged out successfully."
+            });
         }
 
-        // DELETE api/<LoginController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
-        }
+
+
+
 
         [HttpGet("CheckAndAddAccessCodeConnectionString/{accessCode}")]
         public async Task<IActionResult> CheckAndAddAccessCodeConnectionString(string accessCode)

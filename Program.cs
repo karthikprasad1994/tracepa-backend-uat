@@ -1,9 +1,12 @@
-
 using System;
+using System.Data;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
+using Dapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
@@ -21,6 +24,7 @@ using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.FixedAssetsInterface;
 using TracePca.Interface.LedgerReview;
 using TracePca.Interface.Master;
+using TracePca.Interface.Middleware;
 using TracePca.Interface.ProfileSetting;
 using TracePca.Service;
 using TracePca.Service.AssetService;
@@ -31,6 +35,7 @@ using TracePca.Service.FIN_statement;
 using TracePca.Service.FixedAssetsService;
 using TracePca.Service.LedgerReview;
 using TracePca.Service.Master;
+using TracePca.Service.Miidleware;
 using TracePca.Service.ProfileSetting;
 // Change this in CustomerContextMiddleware.cs
 
@@ -71,19 +76,31 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 
-    if (environment.IsDevelopment())
-    {
-        // Local development settings (no HTTPS)
-        options.Cookie.SameSite = SameSiteMode.Lax;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.None;
-    }
-    else
-    {
-        // Production settings (with HTTPS)
-        options.Cookie.SameSite = SameSiteMode.None;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    }
+    // Always allow cross-site cookies
+    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Requires HTTPS
 });
+
+
+//builder.Services.AddSession(options =>
+//{
+//    options.Cookie.Name = ".AspNetCore.Session";
+//    options.Cookie.HttpOnly = true;
+//    options.Cookie.IsEssential = true;
+
+//    if (environment.IsDevelopment())
+//    {
+//        // Local development settings (no HTTPS)
+//        options.Cookie.SameSite = SameSiteMode.Lax;
+//        options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+//    }
+//    else
+//    {
+//        // Production settings (with HTTPS)
+//        options.Cookie.SameSite = SameSiteMode.None;
+//        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+//    }
+//});
 
 
 builder.Services.AddSwaggerGen(c =>
@@ -158,7 +175,7 @@ builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cab
 builder.Services.AddScoped<LedgerReviewInterface, LedgerReviewService>();
 builder.Services.AddScoped<DbConnectionProvider, DbConnectionProvider>();
 builder.Services.AddScoped<ICustomerContext, CustomerContext>();
-
+builder.Services.AddScoped<ErrorLoggerInterface, ErrorLoggerService>();
 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -190,6 +207,8 @@ builder.Services.AddDbContext<Trdmyus1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection1")));
 builder.Services.AddDbContext<Trdmyus1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection2")));
+builder.Services.AddScoped<IDbConnection>(sp =>
+    new SqlConnection(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 
 
@@ -197,6 +216,20 @@ var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"]);
 
 // Configure Authentication
+//builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+//    .AddJwtBearer(options =>
+//    {
+//        options.TokenValidationParameters = new TokenValidationParameters
+//        {
+//            ValidateIssuer = true,
+//            ValidateAudience = true,
+//            ValidateLifetime = true,
+//            ValidateIssuerSigningKey = true,
+//            ValidIssuer = jwtSettings["Issuer"],
+//            ValidAudience = jwtSettings["Audience"],
+//            IssuerSigningKey = new SymmetricSecurityKey(secretKey)
+//        };
+//    });
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -208,9 +241,41 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtSettings["Issuer"],
             ValidAudience = jwtSettings["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(secretKey)
+            IssuerSigningKey = new SymmetricSecurityKey(secretKey),
+            ClockSkew = TimeSpan.Zero
+        };
+
+        
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var claimsIdentity = context.Principal?.Identity as ClaimsIdentity;
+                var token = claimsIdentity?.FindFirst("access_token")?.Value;
+
+                if (string.IsNullOrEmpty(token))
+                {
+                    context.Fail("Token is missing.");
+                    return;
+                }
+
+               
+                using var scope = context.HttpContext.RequestServices.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
+
+               
+                var isRevoked = await db.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(1) FROM UserTokens WHERE AccessToken = @AccessToken AND IsRevoked = 1",
+                    new { AccessToken = token });
+
+                if (isRevoked > 0)
+                {
+                    context.Fail("Token has been revoked.");
+                }
+            }
         };
     });
+
 var app = builder.Build();
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
@@ -233,6 +298,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseSession();
 app.UseMiddleware<TracePca.Middleware.CustomerContextMiddleware>();
+app.UseMiddleware<TracePca.Middleware.ErrorLogMiddleware>();
 
 
 app.UseEndpoints(endpoints =>
