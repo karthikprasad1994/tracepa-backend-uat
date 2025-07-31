@@ -74,7 +74,7 @@ namespace TracePca.Controllers.FIN_Statement
             {
                 bool isUpdate = dto.ASHN_ID > 0;
 
-                var result = await _ScheduleNoteService.SaveSubHeadindNotesAsync( dto);
+                var result = await _ScheduleNoteService.SaveSubHeadindNotesAsync(dto);
 
                 string successMessage = isUpdate
                     ? "Schedule Heading successfully updated."

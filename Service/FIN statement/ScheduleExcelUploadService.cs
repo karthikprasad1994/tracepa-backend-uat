@@ -1,4 +1,5 @@
 ﻿using Dapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Data.Common;
@@ -14,11 +15,13 @@ namespace TracePca.Service.FIN_statement
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public ScheduleExcelUploadService(Trdmyus1Context dbcontext, IConfiguration configuration)
+        public ScheduleExcelUploadService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration;
             _dbcontext = dbcontext;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         //DownloadUploadableExcelAndTemplate
@@ -46,7 +49,18 @@ namespace TracePca.Service.FIN_statement
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -393,7 +407,17 @@ namespace TracePca.Service.FIN_statement
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -740,7 +764,18 @@ namespace TracePca.Service.FIN_statement
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1099,7 +1134,18 @@ namespace TracePca.Service.FIN_statement
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1200,7 +1246,18 @@ namespace TracePca.Service.FIN_statement
         //SaveTrailBalnce
         public async Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDto> dtos)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1353,7 +1410,18 @@ namespace TracePca.Service.FIN_statement
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1417,7 +1485,18 @@ namespace TracePca.Service.FIN_statement
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 

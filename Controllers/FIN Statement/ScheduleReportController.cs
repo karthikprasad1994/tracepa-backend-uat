@@ -18,6 +18,7 @@ namespace TracePca.Controllers.FIN_Statement
         {
             _ScheduleReportInterface = ScheduleReportInterface;
             _ScheduleReportService = ScheduleReportInterface;
+
         }
 
         //GetCompanyName
@@ -88,8 +89,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var result = await _ScheduleReportService.GetSubHeadingAsync(
-                    CompId, ScheduleId, CustId, HeadingId);
+                var result = await _ScheduleReportService.GetSubHeadingAsync(CompId, ScheduleId, CustId, HeadingId);
 
                 if (result == null || !result.Any())
                 {
@@ -121,14 +121,12 @@ namespace TracePca.Controllers.FIN_Statement
 
         //Getitem
         [HttpGet("GetItem")]
-        public async Task<IActionResult> GetItem(
-        [FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId, [FromQuery] int SubHeadId)
+        public async Task<IActionResult> GetItem([FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId, [FromQuery] int SubHeadId)
         {
             try
             {
                 // Call service method
-                var result = await _ScheduleReportService.GetItemAsync(
-                    CompId, ScheduleId, CustId, HeadingId, SubHeadId);
+                var result = await _ScheduleReportService.GetItemAsync(CompId, ScheduleId, CustId, HeadingId, SubHeadId);
 
                 // Check for no data
                 if (result == null || !result.Any())
@@ -160,101 +158,6 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
-
-        ////GetSummaryReportForPandL(Income)
-        //[HttpGet("GetSummaryPnL(Income)")]
-        //public async Task<IActionResult> GetSummaryPnLIncome([FromQuery] int CompId, [FromQuery] SummaryPnLIncome p)
-        //{
-        //    try
-        //    {
-        //        // Minimal validation
-        //        if (p.YearID <= 0 || p.CustID <= 0 || p.ScheduleTypeID <= 0)
-        //        {
-        //            return BadRequest(new
-        //            {
-        //                statusCode = 400,
-        //                message = "YearID, CustID, and ScheduleTypeID are required and must be greater than zero.",
-        //                data = (object)null
-        //            });
-        //        }
-
-        //        var result = await _ScheduleReportService.GetSummaryPnLIncomeAsync(CompId, p);
-
-        //        if (result == null || !result.Any())
-        //        {
-        //            return NotFound(new
-        //            {
-        //                statusCode = 404,
-        //                message = "No summary P&L data found.",
-        //                data = (object)null
-        //            });
-        //        }
-
-        //        return Ok(new
-        //        {
-        //            statusCode = 200,
-        //            message = "Summary P&L data fetched successfully.",
-        //            data = result
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            statusCode = 500,
-        //            message = "An error occurred while retrieving Summary P&L data.",
-        //            error = ex.Message
-        //        });
-        //    }
-        //}
-
-        ////GetSummaryReportForPandL(Expenses)
-        //[HttpGet("GetSummaryPnL(Expenses)")]
-        //public async Task<IActionResult> GetSummaryPnLExpenses([FromQuery] int CompId, [FromQuery] SummaryPnLExpenses dto)
-        //{
-        //    try
-        //    {
-        //        // Minimal validation
-        //        if (dto.YearID <= 0 || dto.CustID <= 0 || dto.ScheduleTypeID <= 0)
-        //        {
-        //            return BadRequest(new
-        //            {
-        //                statusCode = 400,
-        //                message = "YearID, CustID, and ScheduleTypeID are required and must be greater than zero.",
-        //                data = (object)null
-        //            });
-        //        }
-
-        //        var result = await _ScheduleReportService.GetSummaryPnLExpensesAsync(CompId, dto);
-
-        //        if (result == null || !result.Any())
-        //        {
-        //            return NotFound(new
-        //            {
-        //                statusCode = 404,
-        //                message = "No summary P&L data found.",
-        //                data = (object)null
-        //            });
-        //        }
-
-        //        return Ok(new
-        //        {
-        //            statusCode = 200,
-        //            message = "Summary P&L data fetched successfully.",
-        //            data = result
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            statusCode = 500,
-        //            message = "An error occurred while retrieving Summary P&L data.",
-        //            error = ex.Message
-        //        });
-        //    }
-        //}
-
 
         //GetSummaryReportForPandL
         [HttpGet("GetSummaryPnL")]
@@ -350,20 +253,31 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GetDetailedreportPandL
-        [HttpGet("GetDetailedReport")]
-        public async Task<IActionResult> GetDetailedReport([FromQuery] DetailedReportParams p)
+        //GetDetailedReportPandL
+        [HttpGet("GetDetailedReportPandL")]
+        public async Task<IActionResult> GetDetailedReportPandL([FromQuery] int CompId, [FromQuery] DetailedReportPandL dto)
         {
             try
             {
-                var result = await _ScheduleReportService.GetDetailedReportAsync(p);
+                // Minimal validation
+                if (dto.YearID <= 0 || dto.CustID <= 0)
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "YearID, CustID, and ScheduleTypeID are required and must be greater than zero.",
+                        data = (object)null
+                    });
+                }
+
+                var result = await _ScheduleReportService.GetDetailedReportPandLAsync(CompId, dto);
 
                 if (result == null || !result.Any())
                 {
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "No data found.",
+                        message = "No summary P&L data found.",
                         data = (object)null
                     });
                 }
@@ -371,7 +285,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Data fetched successfully.",
+                    message = "Summary P&L data fetched successfully.",
                     data = result
                 });
             }
@@ -380,12 +294,58 @@ namespace TracePca.Controllers.FIN_Statement
                 return StatusCode(500, new
                 {
                     statusCode = 500,
-                    message = "An error occurred while retrieving the data.",
+                    message = "An error occurred while retrieving Summary P&L data.",
                     error = ex.Message
                 });
             }
         }
 
+        //GetDetailedReportBalanceSheet
+        [HttpGet("GetDetailedreportBalanceSheet")]
+        public async Task<IActionResult> GetDetailedReportBalanceSheet([FromQuery] int CompId, [FromQuery] DetailedReportBalanceSheet dto)
+        {
+            try
+            {
+                // Minimal validation
+                if (dto.YearID <= 0 || dto.CustID <= 0)
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "YearID, CustID, and ScheduleTypeID are required and must be greater than zero.",
+                        data = (object)null
+                    });
+                }
+
+                var result = await _ScheduleReportService.GetDetailedReportBalanceSheetAsync(CompId, dto);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No summary P&L data found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Summary P&L data fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving Summary P&L data.",
+                    error = ex.Message
+                });
+            }
+        }
 
         [HttpPost("GetScheduleReportAllDetails")]
         public async Task<IActionResult> GetScheduleReport([FromBody] ScheduleReportRequestDto request)
@@ -410,4 +370,3 @@ namespace TracePca.Controllers.FIN_Statement
         }
     }
 }
-

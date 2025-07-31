@@ -2196,7 +2196,7 @@ ORDER BY SrNo";
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
-            string query = "SELECT CUST_ID AS CustId, CUST_NAME AS CustName, CUST_CompID AS CompanyId FROM SAD_CUSTOMER_MASTER WHERE CUST_STATUS <> 'D' AND CUST_CompID = @CompanyId";
+            string query = "SELECT CUST_ID AS CustId, CUST_NAME AS CustName, CUST_CompID AS CompanyId FROM SAD_CUSTOMER_MASTER WHERE CUST_STATUS <> 'D' and CUST_DELFLG <>'W' AND CUST_CompID = @CompanyId";
 
             return await connection.QueryAsync<CustomerDto1>(query, new { CompanyId = companyId });
         }

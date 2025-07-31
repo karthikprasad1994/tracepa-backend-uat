@@ -12,20 +12,20 @@ namespace TracePca.Interface.Audit
        
         Task<IEnumerable<Dto.Audit.CustomerDto>> LoadActiveCustomersAsync(int companyId);
         Task<IEnumerable<AuditScheduleDto>> LoadScheduledAuditNosAsync(
-        string connectionStringName, int companyId, int financialYearId, int customerId);
+         int companyId, int financialYearId, int customerId);
         Task<IEnumerable<ReportTypeDto>> LoadAllReportTypeDetailsDRLAsync(
-        string connectionStringName, int companyId, int templateId, string auditNo);
+         int companyId, int templateId, string auditNo);
 
 
         Task<IEnumerable<CustomerUserEmailDto>> GetCustAllUserEmailsAsync(
-        string connectionStringName, int companyId, int customerId);
+         int companyId, int customerId);
         Task<IEnumerable<YearDto>> GetAddYearTo2DigitFinancialYearAsync(
         string connectionStringName, int companyId, int incrementBy);
         Task<int> GetDuringSelfAttachIdAsync(
 
     string connectionStringName, int companyId, int yearId, int customerId, int auditId, int drlId);
-        Task<IEnumerable<DrlDescListDto>> LoadAllDRLDescriptionsAsync(string connectionStringName, int companyId);
-        Task<DrlDescReqDto> LoadDRLDescriptionAsync(string connectionStringName, int companyId, int drlId);
+        Task<IEnumerable<DrlDescListDto>> LoadAllDRLDescriptionsAsync(int companyId);
+        Task<DrlDescReqDto> LoadDRLDescriptionAsync(int companyId, int drlId);
         // Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId, string dateFormat);
         Task<List<AttachmentDto>> LoadAttachmentsAsync(string connectionStringName, int companyId, int attachId,int ReportType);
 
@@ -71,7 +71,7 @@ namespace TracePca.Interface.Audit
      string connectionStringName, int companyId, int auditTypeId, int customerId, int yearId);
         Task<string> GetCustomerFinancialYearAsync(string connectionKey, int companyId, int customerId);
 
-        Task<IEnumerable<ReportData>> GetReportTypesAsync(string connectionKey, int companyId);
+        Task<IEnumerable<ReportData>> GetReportTypesAsync( int companyId);
         Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey);
         //Task<List<int>> SaveLoETemplateDetailsAsync(string connectionKey, int companyId, List<LoETemplateDetailDto> details);
        // Task<(int Id, string Action)> SaveOrUpdateLOETemplateDetailsAsync(string connectionKey, LoETemplateDetailInputDto dto);
@@ -115,9 +115,9 @@ namespace TracePca.Interface.Audit
         Task<ScheduleMergedDto> GetScheduleMergedDetailsAsync(int customerId, int auditId);
 
         Task<List<(int Id, string Action)>> SaveOrUpdateLOETemplateDetailsAsync(
-      string connectionKey, List<LoETemplateDetailInputDto> dtos);
+      List<LoETemplateDetailInputDto> dtos);
         Task<IEnumerable<DRLDetailsDto>> LoadPostAndPreAuditAsync(
-    string connectionString, int customerId, int auditId, int reportType);
+    int customerId, int auditId, int reportType);
 
         Task<List<int>> SaveAttachmentsAsync(LocalAttachmentDto attachmentDto);
 

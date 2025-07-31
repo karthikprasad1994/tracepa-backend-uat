@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.ReportingServices.ReportProcessing.ReportObjectModel;
 using Org.BouncyCastle.Asn1.Crmf;
 using StackExchange.Redis;
 using TracePca.Data;
@@ -591,6 +592,15 @@ namespace TracePca.Service
                     @"SELECT usr_Id FROM Sad_UserDetails WHERE LOWER(usr_Email) = @email",
                     new { email = plainEmail });
 
+
+                // Step 6: Generate JWT
+                string  accessToken = GenerateJwtToken(email, customerCode, userId);
+                string refreshToken = Guid.NewGuid().ToString(); // Use JWT if you want, but GUID is fine too
+                DateTime accessExpiry = DateTime.UtcNow.AddMinutes(15);  // Match with JWT 'exp'
+                DateTime refreshExpiry = DateTime.UtcNow.AddDays(7);
+                await InsertUserTokenAsync(userId, email, accessToken, refreshToken, accessExpiry, refreshExpiry);
+                _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
+
                 // Generate JWT
                 var httpContext = _httpContextAccessor.HttpContext;
                 if (httpContext != null)
@@ -599,9 +609,10 @@ namespace TracePca.Service
                     httpContext.Session.SetInt32("UserId", userId);
                 }
 
-                string token = GenerateJwtToken(email, customerCode);
+                string token = GenerateJwtToken( email, customerCode, userId);
 
                 // Get year info
+
                 string? ymsId = null;
                 int? ymsYearId = null;
 
@@ -626,7 +637,7 @@ namespace TracePca.Service
                 {
                     StatusCode = 200,
                     Message = "Login successful",
-                    Token = token,
+                    Token = accessToken,
                     UsrId = userId,
                     YmsId = ymsId,
                     YmsYearId = ymsYearId,
@@ -645,6 +656,54 @@ namespace TracePca.Service
                 };
             }
         }
+
+        public async Task<bool> LogoutUserAsync(string accessToken)
+        {
+            const string query = @"
+        UPDATE UserTokens
+        SET IsRevoked = 1,
+            RevokedAt = GETUTCDATE()
+        WHERE AccessToken = @AccessToken AND IsRevoked = 0";
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            await connection.OpenAsync();
+            var rowsAffected = await connection.ExecuteAsync(query, new { AccessToken = accessToken });
+            return rowsAffected > 0;
+        }
+
+
+        public async Task InsertUserTokenAsync(
+    int userId,
+    string email,
+    string accessToken,
+    string refreshToken,
+    DateTime accessExpiry,
+    DateTime refreshExpiry)
+        {
+            const string sql = @"
+        INSERT INTO UserTokens 
+        (UserEmail, AccessToken, RefreshToken, AccessTokenExpiry, RefreshTokenExpiry, RevokedAt, 
+          UserId)
+        VALUES (@UserEmail, @AccessToken, @RefreshToken, @AccessTokenExpiry, @RefreshTokenExpiry, @RevokedAt, @UserId)";
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+           
+
+           
+            await connection.OpenAsync();
+
+            await connection.ExecuteAsync(sql, new
+            {
+                UserId = userId,
+                UserEmail = email,
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                AccessTokenExpiry = accessExpiry,
+                RevokedAt = (DateTime?)null,
+                RefreshTokenExpiry = refreshExpiry
+            });
+        }
+
 
 
 
@@ -828,7 +887,7 @@ namespace TracePca.Service
         }
 
 
-        public string GenerateJwtToken(string userDto, string CustomerCode)
+        public string GenerateJwtToken(string userDto, string CustomerCode, int userId)
         {
             try
             {
@@ -846,6 +905,7 @@ namespace TracePca.Service
 
                 int expiryInHours = int.Parse(expiryInHoursString);
                 var key = Encoding.UTF8.GetBytes(secretKey);
+                var tokenId = Guid.NewGuid().ToString();
 
                 var tokenDescriptor = new SecurityTokenDescriptor
                 {
@@ -853,7 +913,9 @@ namespace TracePca.Service
                     {
                 // new Claim(ClaimTypes.NameIdentifier, userDto.UsrId.ToString()),
                 new Claim(ClaimTypes.Email, userDto),
-                new Claim("CustomerCode", CustomerCode ?? string.Empty) // 👈 Add CustomerCode as a custom claim
+                new Claim("CustomerCode", CustomerCode ?? string.Empty),
+                 new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+                  new Claim("TokenId", tokenId)  // 👈 Add CustomerCode as a custom claim
             }),
                     Expires = DateTime.UtcNow.AddHours(expiryInHours),
                     Issuer = issuer,
