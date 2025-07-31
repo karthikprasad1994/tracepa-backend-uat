@@ -185,8 +185,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetTotalAmount
         [HttpGet("GetTotalAmount")]
-        public async Task<IActionResult> GetCustCOAMasterDetails(
-        int CompId, int CustId, int YearId, int BranchId, int DurationId)
+        public async Task<IActionResult> GetCustCOAMasterDetails(int CompId, int CustId, int YearId, int BranchId, int DurationId)
         {
             try
             {
@@ -224,8 +223,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetTrialBalance(Grid)
         [HttpGet("GetTrailBalance(Grid)")]
-        public async Task<IActionResult> GetCustCOADetails(
-    int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
+        public async Task<IActionResult> GetCustCOADetails(int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
         {
             try
             {
@@ -511,8 +509,7 @@ namespace TracePca.Controllers.FIN_Statement
             if (request.SubItemId is null && request.ItemId is null && request.SubHeadingId is null)
                 return BadRequest("At least one of SubItemId, ItemId, or SubHeadingId must be provided.");
 
-            var (headingId, subHeadingId, itemId) = await _ScheduleMappingService.GetPreviousLoadIdAsync(
-                request.SubItemId, request.ItemId, request.SubHeadingId);
+            var (headingId, subHeadingId, itemId) = await _ScheduleMappingService.GetPreviousLoadIdAsync(request.SubItemId, request.ItemId, request.SubHeadingId);
 
             var response = new HierarchyResponseDto
             {

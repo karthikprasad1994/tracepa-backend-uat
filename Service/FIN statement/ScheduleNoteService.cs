@@ -1,5 +1,6 @@
 ﻿using System.Data;
 using Dapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
 using TracePca.Dto.FIN_Statement;
@@ -12,18 +13,29 @@ namespace TracePca.Service.FIN_statement
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
-
-        public ScheduleNoteService(Trdmyus1Context dbcontext, IConfiguration configuration)
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        public ScheduleNoteService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration;
             _dbcontext = dbcontext;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         //GetSubHeadingname(Notes For SubHeading)
         public async Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CustomerId, int SubHeadingId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             var query = @"
 SELECT 
     ASHN_Description AS Description,
@@ -32,8 +44,6 @@ FROM ACC_SubHeadingNoteDesc
 LEFT JOIN ACC_ScheduleSubHeading a ON a.ASSH_ID = ASHN_SubHeadingId 
 WHERE ASHN_CustomerId = @CustomerId 
   AND ASHN_SubHeadingId = @SubHeadingId";
-
-            await connection.OpenAsync();
 
             return await connection.QueryAsync<SubHeadingNoteDto>(query, new
             {
@@ -45,9 +55,19 @@ WHERE ASHN_CustomerId = @CustomerId
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
         public async Task<int[]> SaveSubHeadindNotesAsync(SubHeadingNotesDto dto)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             {
-                await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
@@ -104,8 +124,18 @@ WHERE ASHN_CustomerId = @CustomerId
         //GetBranch(Notes For Ledger)
         public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             var query = @"
         SELECT 
             Mas_Id AS Branchid, 
@@ -113,16 +143,24 @@ WHERE ASHN_CustomerId = @CustomerId
         FROM SAD_CUST_LOCATION 
         WHERE Mas_CompID = @compId AND Mas_CustID = @custId";
 
-            await connection.OpenAsync();
-
             return await connection.QueryAsync<CustBranchDto>(query, new { CompId, CustId });
         }
 
         //GetLedger(Notes For Ledger)
         public async Task<IEnumerable<LedgerIndividualDto>> GetLedgerIndividualDetailsAsync(int CustomerId, int SubHeadingId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             var query = @"
 SELECT 
     ASHL_Description AS Description, 
@@ -131,9 +169,6 @@ FROM ACC_SubHeadingLedgerDesc
 LEFT JOIN Acc_TrailBalance_Upload_Details a ON a.ATBUD_ID = ASHL_SubHeadingId 
 WHERE ASHL_CustomerId = @CustomerId 
   AND ASHL_SubHeadingId = @SubHeadingId";
-
-            await connection.OpenAsync();
-
             return await connection.QueryAsync<LedgerIndividualDto>(query, new
             {
                 CustomerId = CustomerId,
@@ -144,9 +179,19 @@ WHERE ASHL_CustomerId = @CustomerId
         //SaveOrUpdateLedger(Notes For Ledger)
         public async Task<int[]> SaveLedgerDetailsAsync(SubHeadingLedgerNoteDto dto)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
             {
-                await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
@@ -243,7 +288,17 @@ WHERE ASHL_CustomerId = @CustomerId
         //SaveOrUpdate
         public async Task<int> SaveFirstScheduleNoteDetailsAsync(FirstScheduleNoteDto dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
             if (dto.SNF_ID != 0)

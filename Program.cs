@@ -82,6 +82,7 @@ builder.Services.AddSession(options =>
 });
 
 
+
 //builder.Services.AddSession(options =>
 //{
 //    options.Cookie.Name = ".AspNetCore.Session";
@@ -101,6 +102,7 @@ builder.Services.AddSession(options =>
 //        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 //    }
 //});
+
 
 
 builder.Services.AddSwaggerGen(c =>
@@ -292,7 +294,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseCors("AllowReactApp"); 
+app.UseCors("AllowReactApp");
 
 app.UseAuthentication();
 app.UseAuthorization();

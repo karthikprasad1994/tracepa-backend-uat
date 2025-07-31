@@ -277,6 +277,26 @@ namespace TracePca.Controllers
 
 
 
+
+        // DELETE api/<LoginController>/5
+        [HttpDelete("{id}")]
+        public void Delete(int id)
+        {
+        }
+        [HttpGet("TestSession")]
+        public IActionResult TestSession()
+        {
+            var customerCode = HttpContext.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(customerCode))
+            {
+                return Ok(new { customerCode = (string)null });
+            }
+
+            return Ok(new { customerCode }); // ✅ This always returns proper JSON
+        }
+
+
         [HttpGet("CheckAndAddAccessCodeConnectionString/{accessCode}")]
         public async Task<IActionResult> CheckAndAddAccessCodeConnectionString(string accessCode)
         {
