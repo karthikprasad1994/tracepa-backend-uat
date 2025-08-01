@@ -704,7 +704,7 @@ namespace TracePca.Service.Audit
 
                 if (format.ToLower() == "pdf")
                 {
-                    fileBytes = await GenerateCheckPointsPdfAsync(compId, auditId);
+                    fileBytes = await GenerateWorkpapersPdfAsync(compId, auditId);
                     contentType = "application/pdf";
                     fileName += ".pdf";
                 }
