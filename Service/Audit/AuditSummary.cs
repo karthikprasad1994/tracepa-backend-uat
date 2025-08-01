@@ -21,10 +21,14 @@ namespace TracePca.Service.Audit
     public class AuditSummary : AuditSummaryInterface
     {
 
-        private readonly Trdmyus1Context _dbcontext;
-        private readonly IConfiguration _configuration;
+		private readonly Trdmyus1Context _dbcontext;
+		private readonly IConfiguration _configuration;
+		private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public AuditSummary(Trdmyus1Context dbcontext, IConfiguration configuration)
+		private readonly IWebHostEnvironment _env;
+		private readonly DbConnectionProvider _dbConnectionProvider;
+
+		public AuditSummary(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
@@ -32,9 +36,20 @@ namespace TracePca.Service.Audit
 
         public async Task<List<ReportTypeDto>> GetReportTypesAsync(int compId, int templateId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			 
+
+			string query = @"
         SELECT RTM_Id, RTM_ReportTypeName
         FROM SAD_ReportTypeMaster
         WHERE RTM_CompID = @CompId
@@ -53,9 +68,20 @@ namespace TracePca.Service.Audit
 
         public async Task<DropDownDataDto> LoadAuditNoDataAsync(int custId, int compId, int financialYearId, int loginUserId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            var query = @"
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+ 
+
+			var query = @"
         SELECT SA_ID, SA_AuditNo + ' - ' + CMM_Desc AS SA_AuditNo
         FROM StandardAudit_Schedule
         LEFT JOIN Content_Management_Master ON CMM_ID = SA_AuditTypeID
@@ -111,12 +137,21 @@ namespace TracePca.Service.Audit
 
         public async Task<DropDownDataDto> LoadCustomerDataAsync(int compId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
 
-            // Open the connection once for better performance
-            await connection.OpenAsync();
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            var CustomersDt = connection.QueryAsync<AuditSummaryDto>(@"
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			var CustomersDt = connection.QueryAsync<AuditSummaryDto>(@"
             Select Cust_Id,Cust_Name from SAD_CUSTOMER_MASTER Where CUST_DelFlg = 'A' and cust_Compid = @CompId
             ORDER BY Cust_Name ASC", new { CompId = compId });
 
@@ -150,9 +185,19 @@ namespace TracePca.Service.Audit
 
         public async Task<IEnumerable<AuditDetailsDto>> GetAuditDetailsAsync(int compId, int customerId, int auditNo)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+
+			string query = @"
             SELECT b.SA_ID As AuditID,DENSE_RANK() OVER (ORDER BY b.SA_ID Desc) As SrNo,b.SA_AuditNo As AuditNo,b.SA_CustID As CustID,Cust_Name As CustomerName,CONCAT(SUBSTRING(Cust_Name, 0, 25),'....') As CustomerShortName, CMM_Desc As AuditType, b.SA_Status As StatusID,ISNULL(Convert(Varchar(10),b.SA_CrOn,103),'') As AuditDate,
             Case When b.SA_Status=1 then 'Scheduled' When b.SA_Status=2 then 'Communication with Client' When b.SA_Status=3 then 'TBR' When b.SA_Status=4 then 'Conduct Audit' When b.SA_Status=5 then 'Report' End AuditStatus,Partner=STUFF ((SELECT DISTINCT '; '+ CAST(usr_FullName AS VARCHAR(MAX)) FROM Sad_UserDetails WHERE usr_id in (SELECT value FROM STRING_SPLIT((Select STUFF(LEFT(a.SA_PartnerID, LEN(a.SA_PartnerID) - PATINDEX('%[^,]%', REVERSE(a.SA_PartnerID)) + 1), 1, PATINDEX('%[^,]%', a.SA_PartnerID) - 1, '') from StandardAudit_Schedule a Where SA_ID=b.SA_ID),',')) FOR XMl PATH('')),1,1,''), Team=STUFF ((SELECT DISTINCT '; '+ CAST(usr_FullName AS VARCHAR(MAX)) FROM Sad_UserDetails WHERE usr_id in (SELECT value FROM STRING_SPLIT((Select STUFF(LEFT(a.SA_AdditionalSupportEmployeeID, LEN(a.SA_AdditionalSupportEmployeeID) - PATINDEX('%[^,]%', REVERSE(a.SA_AdditionalSupportEmployeeID)) + 1), 1, PATINDEX('%[^,]%', a.SA_AdditionalSupportEmployeeID) - 1, '') from StandardAudit_Schedule a Where SA_ID=b.SA_ID),',')) FOR XMl PATH('')),1,1,'') FROM StandardAudit_Schedule b 
                 Join SAD_CUSTOMER_MASTER on Cust_Id=b.SA_CustID Join Content_Management_Master on CMM_ID=b.SA_AuditTypeID 
@@ -172,9 +217,19 @@ namespace TracePca.Service.Audit
 
         public async Task<IEnumerable<DocumentRequestSummaryDto>> GetDocumentRequestSummaryAsync(int compId, int customerId, int auditNo, int yearId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+
+			string query = @"
             SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(RTM_ReportTypeName,'Unknown Report Type') AS ReportTypeText,
             ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId  
             FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy  LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType 
@@ -198,9 +253,19 @@ namespace TracePca.Service.Audit
 
         public async Task<IEnumerable<DocumentRequestSummaryDto>> GetDocumentRequestSummaryCompletionAuditAsync(int compId, int customerId, int auditNo, int requestId, int yearId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+
+			string query = @"
             SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(RTM_ReportTypeName,'Unknown Report Type') AS ReportTypeText,
             ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId 
             FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy  LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType 
@@ -222,9 +287,19 @@ namespace TracePca.Service.Audit
 
         public async Task<IEnumerable<DocumentRequestSummaryDto>> GetDocumentRequestSummaryDuringAuditAsync(int compId, int customerId, int auditNo, int requestId, int yearId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+
+			string query = @"
             SELECT ADRL_Id, Case When ADRL_RequestedListID > 0 then IsNull(CMM_Desc,'NA') When (ADRL_RequestedListID = 0 And ADRL_FunID > 0) Then 
             IsNull(ACM_Checkpoint,'NA') End AS ReportTypeText, ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId   
             FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy LEFT JOIN Content_Management_Master ON CMM_ID = ADRL_RequestedListID 
@@ -245,11 +320,22 @@ namespace TracePca.Service.Audit
         }
 
 
+   
         public async Task<IEnumerable<AuditProgramSummaryDto>> GetAuditProgramSummaryAsync(int compId, int auditNo)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+
+			string query = @"
             SELECT ACM.ACM_Heading AS AuditProgram, COUNT(SAC_ID) AS TotalCheckpoints, COUNT(CASE WHEN SAC_Mandatory = 1 THEN 1 END) AS Mandatory,
             COUNT(CASE WHEN SAC_SA_ID = @AuditNo AND SAC_TestResult IS NOT NULL AND SAC_TestResult = 1 THEN 1 END) AS Tested, COUNT(CASE WHEN SAC_SA_ID = @AuditNo AND 
             SAC_Annexure IS NOT NULL AND SAC_Annexure = 1 THEN 1 END) AS Annexures, COUNT(DISTINCT SCR.SCR_CheckPointID) AS Reviewed,  
@@ -303,24 +389,36 @@ namespace TracePca.Service.Audit
 
         public async Task<IEnumerable<WorkspaceSummaryDto>> GetWorkspaceSummaryAsync(int compId, int auditNo)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            //string query = @"
-            //Select ISNULL(cm.cmm_ID, a.SSW_ID) As PKID,IsNull(cm.cmm_Desc,'NA') As WorkpaperChecklist,SSW_WorkpaperNo As WorkpaperNo,
-            //SSW_WorkpaperRef As WorkpaperRef,SSW_Observation As Observation,SSW_Conclusion As Conclusion,SSW_ReviewerComments As ReviewerComments, 
-            //Case When a.SSW_TypeOfTest=1 then 'Inquiry' When a.SSW_TypeOfTest=2 then 'Observation' When a.SSW_TypeOfTest=3 then 'Examination' When 
-            //a.SSW_TypeOfTest=4 then 'Inspection' When a.SSW_TypeOfTest=5 then 'Substantive Testing' End TypeOfTest, Case When a.SSW_Status=1 
-            //then 'Open' When a.SSW_Status=2 then 'WIP' When a.SSW_Status=3 then 'Closed' End Status,SSW_AttachID As AttachID,
-            //IsNull(b.usr_FullName,'-') As CreatedBy,ISNULL(Convert(Varchar(10),SSW_CrOn,103),'-') As CreatedOn, IsNull(c.usr_FullName,'-') As ReviewedBy,
-            //ISNULL(Convert(Varchar(10),SSW_ReviewedOn,103),'-') As ReviewedOn From Content_Management_Master cm 
-            //Full Outer Join StandardAudit_ScheduleConduct_WorkPaper a On cm.cmm_ID = a.SSW_WPCheckListID And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId 
-            //Left Join sad_userdetails b on b.Usr_ID=a.SSW_CrBy Left Join sad_userdetails c on c.Usr_ID=a.SSW_ReviewedBy 
-            //Where (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') Or a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId Order by 
-            //CASE WHEN cm.cmm_Desc IS NULL THEN 1 ELSE 0 END, cm.cmm_ID ASC";
+			//string query = @"
+			//Select ISNULL(cm.cmm_ID, a.SSW_ID) As PKID,IsNull(cm.cmm_Desc,'NA') As WorkpaperChecklist,SSW_WorkpaperNo As WorkpaperNo,
+			//SSW_WorkpaperRef As WorkpaperRef,SSW_Observation As Observation,SSW_Conclusion As Conclusion,SSW_ReviewerComments As ReviewerComments, 
+			//Case When a.SSW_TypeOfTest=1 then 'Inquiry' When a.SSW_TypeOfTest=2 then 'Observation' When a.SSW_TypeOfTest=3 then 'Examination' When 
+			//a.SSW_TypeOfTest=4 then 'Inspection' When a.SSW_TypeOfTest=5 then 'Substantive Testing' End TypeOfTest, Case When a.SSW_Status=1 
+			//then 'Open' When a.SSW_Status=2 then 'WIP' When a.SSW_Status=3 then 'Closed' End Status,SSW_AttachID As AttachID,
+			//IsNull(b.usr_FullName,'-') As CreatedBy,ISNULL(Convert(Varchar(10),SSW_CrOn,103),'-') As CreatedOn, IsNull(c.usr_FullName,'-') As ReviewedBy,
+			//ISNULL(Convert(Varchar(10),SSW_ReviewedOn,103),'-') As ReviewedOn From Content_Management_Master cm 
+			//Full Outer Join StandardAudit_ScheduleConduct_WorkPaper a On cm.cmm_ID = a.SSW_WPCheckListID And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId 
+			//Left Join sad_userdetails b on b.Usr_ID=a.SSW_CrBy Left Join sad_userdetails c on c.Usr_ID=a.SSW_ReviewedBy 
+			//Where (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') Or a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId Order by 
+			//CASE WHEN cm.cmm_Desc IS NULL THEN 1 ELSE 0 END, cm.cmm_ID ASC";
 
 
-            //Changed by steffi on 15-07-2025, Type of test data stroing multiple value.
-            string query = @"SELECT A.PKID,A.WorkpaperChecklist,A.WorkpaperNo,A.WorkpaperRef,A.Observation,A.Conclusion,A.ReviewerComments,
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+
+
+			//Changed by steffi on 15-07-2025, Type of test data stroing multiple value.
+			string query = @"SELECT A.PKID,A.WorkpaperChecklist,A.WorkpaperNo,A.WorkpaperRef,A.Observation,A.Conclusion,A.ReviewerComments,
                      STUFF((SELECT ', ' + cmm_Desc FROM Content_Management_Master
                      WHERE CHARINDEX(',' + CAST(cmm_ID AS VARCHAR) + ',', ',' + REPLACE(A.TypeOfTest, ' ', '') + ',') > 0
                      FOR XML PATH('')), 1, 2, '') AS TypeOfTest,
@@ -351,9 +449,19 @@ namespace TracePca.Service.Audit
 
         public async Task<IEnumerable<CMADto>> GetCAMDetailsAsync(int compId, int auditNo)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            string query = @"
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+
+			string query = @"
             Select DENSE_RANK() OVER (ORDER BY SACAM_PKID) As SrNo,SACAM_PKID As DBpkId,SACAM_SSW_WorkpaperNo As WorkpaperNo,
             SACAM_SSW_WorkpaperRef As WorkpaperRef,SACAM_SSW_Observation As Observation,SACAM_SSW_Conclusion As Conclusion, 
             Case When a.SACAM_SSW_TypeOfTest=1 then 'Inquiry' When a.SACAM_SSW_TypeOfTest=2 then 'Observation' When a.SACAM_SSW_TypeOfTest=3 
@@ -377,9 +485,19 @@ namespace TracePca.Service.Audit
 
         public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-            var query = @"
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+
+			var query = @"
             Update StandardAudit_AuditSummary_CAMDetails set SACAM_DescriptionOrReasonForSelectionAsCAM=@SACAM_DescriptionOrReasonForSelectionAsCAM,
             SACAM_AuditProcedureUndertakenToAddressTheCAM=@SACAM_AuditProcedureUndertakenToAddressTheCAM  
             Where SACAM_PKID=@SACAM_PKID and SACAM_SA_ID=@SACAM_SA_ID";
@@ -420,8 +538,17 @@ namespace TracePca.Service.Audit
 
         private async Task<int> GenerateNextAttachmentIdAsync(int compId)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
+
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+             
+			using var connection = new SqlConnection(connectionString);
+			{
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
                     @"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM Edt_Attachments WHERE ATCH_CompID = @CompId",
@@ -431,8 +558,16 @@ namespace TracePca.Service.Audit
 
         private async Task<int> GetDocumentIdAsync(int compId)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			{
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
                     @"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @compId",
@@ -442,8 +577,16 @@ namespace TracePca.Service.Audit
 
         private async Task<int> CheckDocumentIdAsync(int compId, int iAttachID)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			{
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
                     @"SELECT ATCH_DOCID FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @compId and ATCH_ID=@iAttachID",
@@ -454,8 +597,16 @@ namespace TracePca.Service.Audit
 
         private async Task<string> GetAccessCodeDirectory(int compId)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			{
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<string>(
                     @"Select sad_Config_Value from sad_config_settings where sad_Config_Key='ImgPath' and sad_compid=@compId",
@@ -465,8 +616,16 @@ namespace TracePca.Service.Audit
 
         private async Task<string> GetUserName(int compId, int userId)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			{
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<string>(
                     @"Select Usr_Email from sad_UserDetails where Usr_Id=@userId and usr_compId=@compId",
@@ -513,8 +672,16 @@ namespace TracePca.Service.Audit
             string FilePath1 = sFilePath;
 
 
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			{
                 await connection.OpenAsync();
                 await connection.ExecuteAsync(
                     @"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, ATCH_VERSION, ATCH_FLAG,
@@ -598,8 +765,17 @@ namespace TracePca.Service.Audit
 
         private async Task UpdateStandardAuditASCAMAttachmentdetails(int compId, int CAMPkID, int attachId)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
+
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			{
                 await connection.OpenAsync();
                 await connection.ExecuteAsync(
                     @"Update StandardAudit_AuditSummary_CAMDetails set SACAM_AttachID=@attachId
@@ -654,9 +830,21 @@ namespace TracePca.Service.Audit
 
         public async Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
-            using var transaction = connection.BeginTransaction();
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			using var transaction = connection.BeginTransaction();
             string query = "";
 
             query = @"Select Atch_DocID,ATCH_FNAME,ATCH_EXT,ATCH_Desc,Usr_FullName as ATCH_CreatedBy,Convert(Varchar(10),ATCH_CREATEDON,103) as 

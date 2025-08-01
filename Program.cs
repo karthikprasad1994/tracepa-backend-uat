@@ -77,6 +77,10 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 2a77984dba488e8a719b6f34ca0bf48b5623f159
     // Always allow cross-site cookies
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Requires HTTPS
@@ -84,6 +88,7 @@ builder.Services.AddSession(options =>
 
 
 
+<<<<<<< HEAD
 //builder.Services.AddSession(options =>
 //{
 //    options.Cookie.Name = ".AspNetCore.Session";
@@ -105,6 +110,8 @@ builder.Services.AddSession(options =>
 //});
 
 
+=======
+>>>>>>> 2a77984dba488e8a719b6f34ca0bf48b5623f159
 
 
 builder.Services.AddSwaggerGen(c =>
@@ -179,8 +186,14 @@ builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cab
 builder.Services.AddScoped<LedgerReviewInterface, LedgerReviewService>();
 builder.Services.AddScoped<DbConnectionProvider, DbConnectionProvider>();
 builder.Services.AddScoped<ICustomerContext, CustomerContext>();
+<<<<<<< HEAD
 builder.Services.AddScoped<ErrorLoggerInterface, ErrorLoggerService>();
 builder.Services.AddScoped<ApplicationMetricInterface, ApplicationMetric>();
+=======
+builder.Services.AddScoped<ErrorLogInterface, TracePca.Service.Master.ErrorLog>();
+
+
+>>>>>>> 2a77984dba488e8a719b6f34ca0bf48b5623f159
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

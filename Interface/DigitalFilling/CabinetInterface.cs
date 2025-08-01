@@ -3,6 +3,7 @@ using System.Net.Mail;
 using TracePca.Dto.AssetRegister;
 using TracePca.Dto.Audit;
 using TracePca.Dto.DigitalFilling;
+using TracePca.Service;
 using static TracePca.Service.DigitalFilling.Cabinet;
 
 namespace TracePca.Interface.DigitalFilling
@@ -11,7 +12,11 @@ namespace TracePca.Interface.DigitalFilling
     {
 
 
-        Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int deptId, int userId, int compID);
+	
+
+		 
+
+		Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int deptId, int userId, int compID);
         Task<int> CreateCabinetAsync(string cabinetName,int deptId, int userId, int compID, CabinetDto dto);
 
         Task<int> UpdateCabinetAsync(string cabinetName, int iCabinetID, int userId, int compID, CabinetDto dto);

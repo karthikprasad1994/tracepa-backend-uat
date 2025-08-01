@@ -26,19 +26,35 @@ namespace TracePca.Service.DigitalFilling
 
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+		private readonly IHttpContextAccessor _httpContextAccessor;
+          
+		private readonly IWebHostEnvironment _env;
+		private readonly DbConnectionProvider _dbConnectionProvider;
 
-        public Cabinet(Trdmyus1Context dbcontext, IConfiguration configuration)
+		public Cabinet(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
-        }
+			_httpContextAccessor = httpContextAccessor;
+		}
 
         public async Task  CheckandInsertMemberGroupAsync(int userId, int compID)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
-             
-            var templateOrgDetails = await connection.QueryAsync<OrgStructureDto>(@"Select org_node,org_name from sad_org_structure where Org_Parent = 3 and Org_DelFlag='A'",
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			var templateOrgDetails = await connection.QueryAsync<OrgStructureDto>(@"Select org_node,org_name from sad_org_structure where Org_Parent = 3 and Org_DelFlag='A'",
                     new { compID = compID });
             
             foreach (var Org in templateOrgDetails)
@@ -65,11 +81,22 @@ namespace TracePca.Service.DigitalFilling
 
         public async Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int deptId, int userId, int compID)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
 
-           // CheckandInsertMemberGroupAsync(userId, compID);
-            string query = @"
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			// CheckandInsertMemberGroupAsync(userId, compID);
+			string query = @"
             select CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,usr_FullName as CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag
             from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' and A.cbn_Department=@cbn_Department and A.cbn_userID=@cbn_userID ";
 
@@ -83,9 +110,22 @@ namespace TracePca.Service.DigitalFilling
 
         public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID, CabinetDto dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
-            using var transaction = connection.BeginTransaction();
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+
+			using var transaction = connection.BeginTransaction();
 
             int existingTemplateCount = 0;
             if (deptId == 0)
@@ -125,9 +165,21 @@ namespace TracePca.Service.DigitalFilling
 
         public async Task<int> UpdateCabinetAsync(string cabinetname, int CabinetId,int userID, int compID, CabinetDto dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
-            using var transaction = connection.BeginTransaction();
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+
+			using var transaction = connection.BeginTransaction();
              
             //int iCbinID = await connection.ExecuteScalarAsync<int>(@"Select CBN_ID from edt_cabinet where CBN_Name=@cabinetname and CBN_ID = @CabinetId and  
             //    CBN_Parent =-1", new { cabinetname, CabinetId }, transaction);
@@ -175,9 +227,22 @@ namespace TracePca.Service.DigitalFilling
         {
             string sStatus = "";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
-            using var transaction = connection.BeginTransaction();
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+
+			using var transaction = connection.BeginTransaction();
 
             //To Get Image Path
             var AccessCodeDirectory = await connection.ExecuteScalarAsync<string>(@"Select sad_Config_Value from sad_config_settings where sad_Config_Key='ImgPath'  
@@ -348,10 +413,21 @@ namespace TracePca.Service.DigitalFilling
 
 		public async Task<IEnumerable<DescriptorDto>> LoadDescriptorAsync(int DescId, int compID)
 		{
-			using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
 			await connection.OpenAsync();
 
-            string query = "";
+			string query = "";
 
 			if (DescId == 0)
             {
@@ -384,8 +460,19 @@ namespace TracePca.Service.DigitalFilling
 
 		public async Task<int> CreateDescriptorAsync(string DESC_NAME, string DESC_NOTE, string DESC_DATATYPE, string DESC_SIZE, DescriptorDto dto)
 		{
-			using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
 			await connection.OpenAsync();
+
 			using var transaction = connection.BeginTransaction();
 
 			var DESCId = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(DESC_CompId)+1,1) FROM edt_descriptor Where DESC_CompId=@DESC_CompId",
@@ -411,8 +498,19 @@ namespace TracePca.Service.DigitalFilling
 
 		public async Task<int> UpdateDescriptorAsync(DescriptorDto dto)
 		{
-			using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
 			await connection.OpenAsync();
+
 			using var transaction = connection.BeginTransaction();
              
 			await connection.ExecuteAsync(
@@ -433,7 +531,18 @@ namespace TracePca.Service.DigitalFilling
 
 		public async Task<IEnumerable<DocumentTypeDto>> LoadDocumentTypeAsync(int iDocTypeID, int iDepartmentID, DocumentTypeDto dto)
 		{
-			using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
 			await connection.OpenAsync();
 
 			string query = "";
@@ -468,8 +577,19 @@ namespace TracePca.Service.DigitalFilling
 
 		public async Task<int> CreateDescriptorAsync(string DocumentName, string DocumentNote, string DepartmentId, [FromBody] DocumentTypeDto dto)
 		{
-			using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
 			await connection.OpenAsync();
+
 			using var transaction = connection.BeginTransaction();
 
 			var DocID = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(DOT_DOCTYPEID)+1,1) FROM EDT_DOCUMENT_TYPE Where DOT_CompId=1",
@@ -493,8 +613,19 @@ namespace TracePca.Service.DigitalFilling
 
 		public async Task<int> UpdateDocumentTypeAsync(int iDocTypeID, string DocumentName, string DocumentNote,  [FromBody] DocumentTypeDto dto)
 		{
-			using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
 			await connection.OpenAsync();
+
 			using var transaction = connection.BeginTransaction();
 
             dto.DOT_DOCTYPEID = iDocTypeID;
@@ -665,10 +796,21 @@ namespace TracePca.Service.DigitalFilling
 
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-                await connection.OpenAsync();
+				//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+				//await connection.OpenAsync();
 
-                string query = @"
+				string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+				if (string.IsNullOrEmpty(dbName))
+					throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+				// ✅ Step 2: Get the connection string
+				var connectionString = _configuration.GetConnectionString(dbName);
+
+				using var connection = new SqlConnection(connectionString);
+				await connection.OpenAsync();
+
+				string query = @"
                   SELECT Cab.CBN_Name AS Cabinet, SubCab.CBN_Name AS SubCabinet, Fol.Fol_Name AS Folder, 
                         A.PGE_Title AS Title, A.PGE_Ext AS Extension,PGE_BASENAME,
                         (select SAD_Config_Value from [Sad_Config_Settings] where sad_Config_key='DisplayPath') +
