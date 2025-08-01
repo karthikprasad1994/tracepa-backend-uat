@@ -600,6 +600,7 @@ namespace TracePca.Service
                 DateTime refreshExpiry = DateTime.UtcNow.AddDays(7);
                 await InsertUserTokenAsync(userId, email, accessToken, refreshToken, accessExpiry, refreshExpiry);
                 _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
+                _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
 
                 // Generate JWT
                 var httpContext = _httpContextAccessor.HttpContext;

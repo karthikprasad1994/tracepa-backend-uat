@@ -72,6 +72,7 @@ builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddSession(options =>
 {
+    options.IdleTimeout = TimeSpan.FromMinutes(90);
     options.Cookie.Name = ".AspNetCore.Session";
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
@@ -178,8 +179,7 @@ builder.Services.AddScoped<LedgerReviewInterface, LedgerReviewService>();
 builder.Services.AddScoped<DbConnectionProvider, DbConnectionProvider>();
 builder.Services.AddScoped<ICustomerContext, CustomerContext>();
 builder.Services.AddScoped<ErrorLoggerInterface, ErrorLoggerService>();
-
-
+builder.Services.AddScoped<ApplicationMetricInterface, ApplicationMetric>();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -301,7 +301,7 @@ app.UseAuthorization();
 app.UseSession();
 app.UseMiddleware<TracePca.Middleware.CustomerContextMiddleware>();
 app.UseMiddleware<TracePca.Middleware.ErrorLogMiddleware>();
-
+app.UseMiddleware<TracePca.Middleware.SessionTimeout>();
 
 app.UseEndpoints(endpoints =>
 {

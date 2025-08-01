@@ -36,6 +36,7 @@ using TracePca.Models.UserModels;
 using Xceed.Document.NET;
 using Xceed.Words.NET;
 //using static Org.BouncyCastle.Math.EC.ECCurve;
+
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
 using Document = QuestPDF.Fluent.Document;
@@ -90,9 +91,9 @@ namespace TracePca.Service.Communication_with_client
 
         }
 
-     
 
-      
+
+
 
         public async Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey)
         {
@@ -334,9 +335,9 @@ WHERE LOET_CustomerId = @CustomerId
         {
 
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-          
 
-          //  using var connection = _dbConnectionProvider.GetConnection();
+
+            //  using var connection = _dbConnectionProvider.GetConnection();
 
             string query = @"SELECT LOE_ID as CustomerID, LOE_Name as CustomerName
                      FROM SAD_CUST_LOE
@@ -1079,7 +1080,7 @@ WHERE LOET_CustomerId = @CustomerId
             using var connection = new SqlConnection(connectionString);
 
             //var connectionString = _configuration.GetConnectionString(connectionStringName);
-            
+
             await connection.OpenAsync();
 
             var result = await connection.QueryFirstOrDefaultAsync<DrlDescReqDto>(sQuery, new
@@ -1102,8 +1103,8 @@ WHERE LOET_CustomerId = @CustomerId
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            
-            
+
+
             await connection.OpenAsync();
 
             var query = @"
@@ -1132,12 +1133,12 @@ WHERE LOET_CustomerId = @CustomerId
                 ? "Beginning of the Audit"
                 : "Nearing completion of the Audit";
 
-           var connectionString = _configuration.GetConnectionString(customerCode);
+            var connectionString = _configuration.GetConnectionString(customerCode);
             using var connection = new SqlConnection(connectionString);
-           
+
             await connection.OpenAsync();
 
-            
+
 
             var result = await connection.QueryFirstOrDefaultAsync<int>(query, new { Desc = cmmDesc });
             return result;
@@ -1177,8 +1178,8 @@ WHERE LOET_CustomerId = @CustomerId
 
 
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
-             using var connection = new SqlConnection(connectionString);
-         //   using var connection = _dbConnectionProvider.GetConnection();
+            using var connection = new SqlConnection(connectionString);
+            //   using var connection = _dbConnectionProvider.GetConnection();
             await connection.OpenAsync();
 
             var result = await connection.ExecuteScalarAsync<string>(query, new
@@ -1475,7 +1476,7 @@ WHERE LOET_CustomerId = @CustomerId
 
             using var connection = new SqlConnection(connectionString);
 
-           
+
             await connection.OpenAsync();
 
             var customerQuery = @"
@@ -2670,7 +2671,7 @@ ORDER BY Atch_DocID desc";
                     ReportName = row.ReportName?.ToString() ?? "",
                     FDescription = row.ATCH_Desc?.ToString() ?? "",
                     CreatedById = Convert.ToInt32(row.ATCH_CreatedBy),
-                    CreatedBy = await GetUserFullNameAsync( companyId, Convert.ToInt32(row.ATCH_CreatedBy)),
+                    CreatedBy = await GetUserFullNameAsync(companyId, Convert.ToInt32(row.ATCH_CreatedBy)),
                     CreatedOn = row.ATCH_CREATEDON?.ToString() ?? "",
                     FileSize = $"{(Convert.ToDouble(row.ATCH_SIZE) / 1024):0.00} KB",
                     Extention = row.ATCH_EXT?.ToString(),
@@ -3179,7 +3180,7 @@ ORDER BY SAR_Date DESC;";
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-           // await connection.OpenAsync();
+            // await connection.OpenAsync();
 
             var results = await connection.QueryAsync<DRLDetailsDto>(query, new
             {
@@ -3723,13 +3724,13 @@ ORDER BY
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
- if (string.IsNullOrEmpty(dbName))
-     throw new Exception("CustomerCode is missing in session. Please log in again.");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
 
- // ✅ Step 2: Get the connection string
- var connectionString = _configuration.GetConnectionString(dbName);
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
 
-    using var connection = new SqlConnection(connectionString);
+            using var connection = new SqlConnection(connectionString);
             //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
 
@@ -4198,6 +4199,9 @@ ORDER BY RCM_Id";
 
             return fallbackHeadings;
         }
+       
+
+
 
 
         public byte[] GeneratePdfByFormName(
