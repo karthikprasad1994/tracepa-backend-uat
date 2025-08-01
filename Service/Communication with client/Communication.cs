@@ -6271,7 +6271,7 @@ WHERE SA_ID = @AuditId";
 
 
            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
+            //await connection.OpenAsync();
 
             var result = await connection.QueryFirstOrDefaultAsync(query, new { AuditId = req.AuditNo });
             if (result != null)
