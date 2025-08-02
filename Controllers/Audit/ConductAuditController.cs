@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.SignalR.Protocol;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
+using TracePca.Service.Audit;
 
 namespace TracePca.Controllers.Audit
 {
@@ -418,6 +419,23 @@ namespace TracePca.Controllers.Audit
             catch (Exception ex)
             {
                 return StatusCode(500, new { statusCode = 500, message = "An error occurred while checking audit checkpoints.", error = ex.Message });
+            }
+        }
+
+        [HttpPost("SaveConductAuditCheckpointObservation")]
+        public async Task<IActionResult> SaveConductAuditCheckpointObservation([FromBody] List<ConductAuditCheckpointObservationsDTO> dtos)
+        {
+            try
+            {
+                bool success = await _conductAuditInterface.SaveConductAuditCheckpointObservationAsync(dtos);
+                if (success)
+                    return Ok(new { Message = "Conduct Audit Checkpoint Observation saved successfully." });
+                else
+                    return StatusCode(500, "Failed to save Conduct Audit Checkpoint Observation.");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to save Audit Observation.", error = ex.Message });
             }
         }
     }

@@ -18,17 +18,15 @@ namespace TracePca.Controllers.Audit
 
         private AuditSummaryInterface _AuditSummaryInterface;
         private readonly Trdmyus1Context _dbcontext;
-
+        private readonly EngagementPlanInterface _engagementInterface;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public AuditSummaryController(Trdmyus1Context dbcontext,AuditSummaryInterface AuditSummaryInterface, IHttpContextAccessor httpContextAccessor)
+        public AuditSummaryController(Trdmyus1Context dbcontext,AuditSummaryInterface AuditSummaryInterface, IHttpContextAccessor httpContextAccessor, EngagementPlanInterface engagementInterface)
         {
             _AuditSummaryInterface = AuditSummaryInterface;
             _dbcontext = dbcontext;
-
+            _engagementInterface = engagementInterface;
             _httpContextAccessor = httpContextAccessor;
-
-
         }
         //public IActionResult Index()
         //{
@@ -492,7 +490,68 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpPost("RemoveAttachmentDoc")]
+        public async Task<IActionResult> RemoveAttachmentDoc(int compId, int attachId, int docId, int userId)
+        {
+            try
+            {
+                await _engagementInterface.RemoveAttachmentDocAsync(compId, attachId, docId, userId);
+                return Ok(new { success = true, message = "Attachment marked as deleted successfully.", data = docId });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while marking the attachment as deleted: {ex.Message}" });
+            }
+        }
 
+        [HttpPost("UpdateAttachmentDocDescription")]
+        public async Task<IActionResult> UpdateAttachmentDocDescription(int compId, int attachId, int docId, int userId, string description)
+        {
+            try
+            {
+                await _engagementInterface.UpdateAttachmentDocDescriptionAsync(compId, attachId, docId, userId, description);
+                return Ok(new { success = true, message = "Attachment description updated successfully.", data = docId });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while updating the attachment description: {ex.Message}" });
+            }
+        }
+
+        [HttpGet("DownloadAttachment")]
+        public async Task<IActionResult> DownloadAttachment(int compId, int attachId, int docId)
+        {
+            try
+            {
+                var (isFileExists, messageOrfileUrl) = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId, "MRIssue");
+                if (isFileExists)
+                {
+                    return Ok(new { statusCode = 200, success = true, fileUrl = messageOrfileUrl });
+                }
+                else
+                {
+                    return Ok(new { statusCode = 200, success = false, message = messageOrfileUrl });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while downloading the file: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("GenerateCAMReportAndGetURLPath")]
+        public async Task<IActionResult> GenerateCAMReportAndGetURLPath(int compId, int auditId, string format = "pdf")
+        {
+            try
+            {
+                var url = await _AuditSummaryInterface.GenerateCAMReportAndGetURLPathAsync(compId, auditId, format);
+                return Ok(new { statusCode = 200, message = "Audit CAM report generated successfully. Download URL is available.", fileUrl = url });
+            }
+            catch
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to generate report." });
+            }
+        }
 
 
         //[HttpPost("GetCAMAttachmentDetails")]

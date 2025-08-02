@@ -40,13 +40,15 @@ namespace TracePca.Service.Audit
     {
         private readonly IConfiguration _configuration;
         private readonly EngagementPlanInterface _engagementPlanInterface;
+        private readonly AuditSummaryInterface _auditSummaryInterface;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly string _connectionString;
 
-        public AuditCompletionService(IConfiguration configuration, EngagementPlanInterface engagementPlanInterface, IHttpContextAccessor httpContextAccessor)
+        public AuditCompletionService(IConfiguration configuration, EngagementPlanInterface engagementPlanInterface, AuditSummaryInterface auditSummaryInterface, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _engagementPlanInterface = engagementPlanInterface ?? throw new ArgumentNullException(nameof(engagementPlanInterface));
+            _auditSummaryInterface = auditSummaryInterface ?? throw new ArgumentNullException(nameof(auditSummaryInterface));
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
             _connectionString = GetConnectionStringFromSession();
         }
@@ -888,8 +890,7 @@ namespace TracePca.Service.Audit
                 await connection.OpenAsync();
 
                 string query = @"SELECT SSO_SAC_CheckPointID, ACM_Checkpoint, SSO_Observations FROM StandardAudit_ScheduleObservations
-                    LEFT JOIN AuditType_Checklist_Master ON ACM_ID = SSO_SAC_CheckPointID
-                    WHERE SSO_SA_ID = @AuditID AND SSO_CompID = @CompID
+                    LEFT JOIN AuditType_Checklist_Master ON ACM_ID = SSO_SAC_CheckPointID WHERE SSO_SA_ID = @AuditID AND SSO_CompID = @CompID
                     ORDER BY SSO_SAC_CheckPointID, SSO_Observations DESC";
 
                 var parameters = new { AuditID = auditId, CompID = compId };
@@ -983,6 +984,8 @@ namespace TracePca.Service.Audit
             List<ConductAuditWorkPaperDTO> dtoCAWP = await LoadConductAuditWorkPapersAsync(compId, auditId);
             List<ConductAuditReportDetailDTO> dtoCA = await GetConductAuditReportAsync(compId, auditId);
             List<ConductAuditObservationDTO> dtoCAO = await GetConductAuditObservationsAsync(compId, auditId);
+            IEnumerable<CMADto> CAMresult = await _auditSummaryInterface.GetCAMDetailsAsync(compId, auditId);
+            List<CMADto> dtoCAM = CAMresult.ToList();
 
             var address = await GetCustomerDetailsByColumnAsync(compId, result.CustID, "CUST_ADDRESS");
             var city = await GetCustomerDetailsByColumnAsync(compId, result.CustID, "CUST_CITY");
@@ -993,7 +996,7 @@ namespace TracePca.Service.Audit
 
 
             var reportTypeList = await connection.QueryAsync<DropDownListData>(@"SELECT RTM_Id AS ID, RTM_ReportTypeName As Name FROM SAD_ReportTypeMaster
-                    WHERE RTM_TemplateId = 4 And RTM_DelFlag = 'A' AND RTM_CompID = @CompId ORDER BY RTM_ReportTypeName", new { CompId = compId }); //RTM_TemplateId = 4 And RTM_AudrptType = 3
+                    WHERE RTM_TemplateId = 4 And RTM_AudrptType = 3 And RTM_DelFlag = 'A' AND RTM_CompID = @CompId ORDER BY RTM_ReportTypeName", new { CompId = compId });
 
             var allDtoCAEs = new Dictionary<int, List<CommunicationWithClientTemplateReportDetailsDTO>>();
             foreach (var reportType in reportTypeList)
@@ -1110,7 +1113,7 @@ namespace TracePca.Service.Audit
                         page.DefaultTextStyle(x => x.FontSize(12));
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Profile / Information about the Auditee").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Profile/Information about the Auditee").FontSize(16).Bold();
                             if (dtoAD.Any() == true)
                             {
                                 column.Item().Table(table =>
@@ -1149,54 +1152,6 @@ namespace TracePca.Service.Audit
                         });
                     });
 
-                    foreach (var reportType in reportTypeList)
-                    {
-                        var dtoCAE = allDtoCAEs.ContainsKey(reportType.ID) ? allDtoCAEs[reportType.ID] : new List<CommunicationWithClientTemplateReportDetailsDTO>();
-                        container.Page(page =>
-                        {
-                            page.Margin(30);
-                            page.Size(PageSizes.A4);
-                            page.PageColor(Colors.White);
-                            page.DefaultTextStyle(x => x.FontSize(12));
-
-                            page.Content().Column(column =>
-                            {
-                                column.Item().AlignCenter().PaddingBottom(10).Text(reportType.Name).FontSize(16).Bold();
-                                column.Item().Text($"Ref.No.: {result.AuditNo}").FontSize(12).Bold();
-                                column.Item().Text($"Date: {dtoEP.CurrentDate:dd MMM yyyy}").FontSize(10);
-                                column.Item().Text(dtoEP.Customer ?? "N/A").FontSize(10);
-                                if (!string.IsNullOrWhiteSpace(address)) column.Item().Text(address).FontSize(10);
-                                if (!string.IsNullOrWhiteSpace(city)) column.Item().Text(city).FontSize(10);
-
-                                var statePin = string.Join(", ", new[] { state, pin }.Where(s => !string.IsNullOrWhiteSpace(s)));
-                                if (!string.IsNullOrWhiteSpace(statePin)) column.Item().Text(statePin).FontSize(10);
-
-                                if (!string.IsNullOrWhiteSpace(email)) column.Item().Text($"Email: {email}").FontSize(10);
-                                if (!string.IsNullOrWhiteSpace(telephone)) column.Item().Text($"Telephone: {telephone}").FontSize(10);
-
-                                column.Item().PaddingBottom(10);
-
-                                if (dtoCAE.Any())
-                                {
-                                    int count = 1;
-                                    foreach (var item in dtoCAE)
-                                    {
-                                        column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
-                                        if (!string.IsNullOrWhiteSpace(item.LTD_Decription))
-                                            column.Item().Text(item.LTD_Decription).FontSize(10);
-
-                                        column.Item().PaddingBottom(5);
-                                        count++;
-                                    }
-                                }
-
-                                column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
-                                column.Item().Text(dtoEP.CompanyName ?? "[Company Name]").FontSize(10).Bold();
-                                column.Item().Text("Chartered Accountant").FontSize(10);
-                            });
-                        });
-                    }
-
                     container.Page(page =>
                     {
                         page.Margin(30);
@@ -1206,7 +1161,7 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Report").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Workpaper Report").FontSize(16).Bold();
                             column.Item().Text(text =>
                             {
                                 text.Span("Client Name: ").FontSize(10).Bold();
@@ -1277,7 +1232,7 @@ namespace TracePca.Service.Audit
 
                             if (dtoCA.Any() == true)
                             {
-                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Details").FontSize(14).Bold();
+                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Heading wise Checkpoints report with Annexure").FontSize(14).Bold();
                                 column.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(columns =>
@@ -1343,6 +1298,133 @@ namespace TracePca.Service.Audit
                                         slNo++;
                                     }
                                     static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                                });
+                            }
+                        });
+                    });
+
+                    foreach (var reportType in reportTypeList)
+                    {
+                        var dtoCAE = allDtoCAEs.ContainsKey(reportType.ID) ? allDtoCAEs[reportType.ID] : new List<CommunicationWithClientTemplateReportDetailsDTO>();
+                        container.Page(page =>
+                        {
+                            page.Margin(30);
+                            page.Size(PageSizes.A4);
+                            page.PageColor(Colors.White);
+                            page.DefaultTextStyle(x => x.FontSize(12));
+
+                            page.Content().Column(column =>
+                            {
+                                column.Item().AlignCenter().PaddingBottom(10).Text(reportType.Name).FontSize(16).Bold();
+                                column.Item().Text($"Ref.No.: {result.AuditNo}").FontSize(12).Bold();
+                                column.Item().Text($"Date: {dtoEP.CurrentDate:dd MMM yyyy}").FontSize(10);
+                                column.Item().Text(dtoEP.Customer ?? "N/A").FontSize(10);
+                                if (!string.IsNullOrWhiteSpace(address)) column.Item().Text(address).FontSize(10);
+                                if (!string.IsNullOrWhiteSpace(city)) column.Item().Text(city).FontSize(10);
+
+                                var statePin = string.Join(", ", new[] { state, pin }.Where(s => !string.IsNullOrWhiteSpace(s)));
+                                if (!string.IsNullOrWhiteSpace(statePin)) column.Item().Text(statePin).FontSize(10);
+
+                                if (!string.IsNullOrWhiteSpace(email)) column.Item().Text($"Email: {email}").FontSize(10);
+                                if (!string.IsNullOrWhiteSpace(telephone)) column.Item().Text($"Telephone: {telephone}").FontSize(10);
+
+                                column.Item().PaddingBottom(10);
+
+                                if (dtoCAE.Any())
+                                {
+                                    int count = 1;
+                                    foreach (var item in dtoCAE)
+                                    {
+                                        column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
+                                        if (!string.IsNullOrWhiteSpace(item.LTD_Decription))
+                                            column.Item().Text(item.LTD_Decription).FontSize(10);
+
+                                        column.Item().PaddingBottom(5);
+                                        count++;
+                                    }
+                                }
+
+                                column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
+                                column.Item().Text(dtoEP.CompanyName ?? "[Company Name]").FontSize(10).Bold();
+                                column.Item().Text("Chartered Accountant").FontSize(10);
+                            });
+                        });
+                    }
+
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit CAM Report").FontSize(16).Bold();
+                            column.Item().Text(text =>
+                            {
+                                text.Span("Client Name: ").FontSize(10).Bold();
+                                text.Span(dtoEP.Customer).FontSize(10);
+                            });
+                            column.Item().Text(text =>
+                            {
+                                text.Span("Audit No: ").FontSize(10).Bold();
+                                text.Span(result.AuditNo).FontSize(10);
+                            });
+
+
+                            column.Item().PaddingBottom(10);
+
+                            if (dtoCAM.Any() == true)
+                            {
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(0.5f);
+                                        columns.RelativeColumn(1.5f);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(1.5f);
+                                        columns.RelativeColumn(1);
+                                        columns.RelativeColumn(1);
+                                        columns.RelativeColumn(1.5f);
+                                        columns.RelativeColumn(3);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Workpaper Ref").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("CAM").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Exceeded Materiality").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Deviations/Exceptions Noted").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Conclusion").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Type of Test").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Status").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Description & Reason for selection as CAM").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Audit Procedure undertaken to address the CAM").FontSize(10).Bold();
+                                    });
+
+                                    int slNo = 1;
+                                    foreach (var details in dtoCAM)
+                                    {
+                                        table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.WorkpaperRef ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.CAM ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ExceededMateriality ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Observation ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Conclusion ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.TypeOfTest ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Status ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.DescriptionOrReasonForSelectionAsCAM ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.AuditProcedureUndertakenToAddressTheCAM ?? "").FontSize(10);
+                                        slNo++;
+                                    }
+
+                                    static IContainer CellStyle(IContainer container) =>
+                                        container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
                                 });
                             }
                         });
