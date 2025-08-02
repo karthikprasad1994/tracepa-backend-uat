@@ -522,7 +522,7 @@ namespace TracePca.Controllers.FIN_Statement
 
             // Optional: validate file exists if needed (on the server side)
             string physicalPath = Path.Combine(
-                "C:\\Users\\MMCS\\Desktop\\TracePa FrontEnd Updated - Copy\\tracepa_nextjs\\public\\SampleExcels",
+                "C:\\inetpub\\vhosts\\multimedia.interactivedns.com\\tracelites.multimedia.interactivedns.com\\public\\SampleExcels",
                 fileName
             );
 

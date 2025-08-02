@@ -622,6 +622,8 @@ ORDER BY SrNo";
          string sModule, string sForm, string sEvent, int iMasterID, string sMasterName, int iSubMasterID, string sSubMasterName)
         {
             int insertedId = 0;
+            DateTime startdate = dto.SA_StartDate ?? new DateTime(1753, 1, 1);
+            DateTime EndDate = dto.SA_ExpCompDate ?? new DateTime(1753, 1, 1);
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -689,7 +691,6 @@ ORDER BY SrNo";
                 command.Parameters.AddWithValue("@SA_AttachID", dto.SA_AttachID != null ? (object)dto.SA_AttachID : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_StartDate", dto.SA_StartDate != null ? (object)dto.SA_StartDate : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_ExpCompDate", dto.SA_ExpCompDate != null ? (object)dto.SA_ExpCompDate : DBNull.Value);
-
                 // Newly added parameters
                 command.Parameters.AddWithValue("@SA_RptRvDate", dto.SA_RptRvDate != null ? (object)dto.SA_RptRvDate : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_RptFilDate", dto.SA_RptFilDate != null ? (object)dto.SA_RptFilDate : DBNull.Value);
@@ -749,7 +750,7 @@ ORDER BY SrNo";
             // Process quarters after transaction commit
             foreach (var quarter in dto.Quarters ?? Enumerable.Empty<QuarterAuditDto>())
             {
-                await UpdateStandardAuditStartEndDate(sAC, dto.SA_CompID, insertedId, quarter.StartDate, quarter.EndDate, custRegAccessCodeId);
+                await UpdateStandardAuditStartEndDate(sAC, dto.SA_CompID, insertedId, startdate, EndDate, custRegAccessCodeId);
                 await SaveUpdateAuditScheduleIntervalForCust(sAC, dto.SA_CompID, insertedId, quarter.IntervalID, quarter.SubIntervalID, quarter.StartDate, quarter.EndDate, iUserID, sIPAddress);
             }
 
@@ -2196,7 +2197,7 @@ ORDER BY SrNo";
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
-            string query = "SELECT CUST_ID AS CustId, CUST_NAME AS CustName, CUST_CompID AS CompanyId FROM SAD_CUSTOMER_MASTER WHERE CUST_STATUS <> 'D' AND CUST_CompID = @CompanyId";
+            string query = "SELECT CUST_ID AS CustId, CUST_NAME AS CustName, CUST_CompID AS CompanyId FROM SAD_CUSTOMER_MASTER WHERE CUST_STATUS <> 'D' and CUST_DELFLG <>'W' AND CUST_CompID = @CompanyId";
 
             return await connection.QueryAsync<CustomerDto1>(query, new { CompanyId = companyId });
         }

@@ -704,7 +704,7 @@ namespace TracePca.Service.Audit
 
                 if (format.ToLower() == "pdf")
                 {
-                    fileBytes = await GenerateCheckPointsPdfAsync(compId, auditId);
+                    fileBytes = await GenerateWorkpapersPdfAsync(compId, auditId);
                     contentType = "application/pdf";
                     fileName += ".pdf";
                 }
@@ -823,7 +823,7 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Work Paper Report").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Workpaper Report").FontSize(16).Bold();
                             column.Item().Text(text =>
                             {
                                 text.Span("Client Name: ").FontSize(10).Bold();
@@ -946,7 +946,7 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Report").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Heading wise Check Points report with Annexure").FontSize(16).Bold();
                             column.Item().Text(text =>
                             {
                                 text.Span("Client Name: ").FontSize(10).Bold();
@@ -1001,7 +1001,7 @@ namespace TracePca.Service.Audit
 
                             if (dtoCAO.Any() == true)
                             {
-                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Observation Details").FontSize(14).Bold();
+                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Check Point Observation Details").FontSize(14).Bold();
                                 column.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(columns =>
@@ -1282,6 +1282,66 @@ namespace TracePca.Service.Audit
             catch (Exception ex)
             {
                 throw new ApplicationException("An error occurred while checking audit checkpoints.", ex);
+            }
+        }
+
+        public async Task<bool> SaveConductAuditCheckpointObservationAsync(List<ConductAuditCheckpointObservationsDTO> dtos)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+            try
+            {
+                foreach (var dto in dtos)
+                {
+                    int newId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(SSO_PKID) + 1, 1) FROM StandardAudit_ScheduleObservations");
+                    string query = @"INSERT INTO StandardAudit_ScheduleObservations(SSO_PKID, SSO_SA_ID, SSO_SAC_CheckPointID, SSO_Observations, SSO_CrBy, SSO_CrOn, SSO_CompID, SSO_IPAddress)
+                    VALUES(@SSO_PKID, @SSO_SA_ID, @SSO_SAC_CheckPointID, @SSO_Observations, @SSO_CrBy, GETDATE(), @SSO_CompID, @SSO_IPAddress)";
+
+                    var parameters = new
+                    {
+                        SSO_PKID = newId,
+                        dto.SSO_SA_ID,
+                        dto.SSO_SAC_CheckPointID,
+                        dto.SSO_Observations,
+                        dto.SSO_CrBy,
+                        dto.SSO_CompID,
+                        dto.SSO_IPAddress
+                    };
+                    await connection.ExecuteAsync(query, parameters, transaction);
+                }
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                return false;
+            }
+        }
+
+        public async Task<List<ConductAuditCheckpointObservationsDTO>> GetConductAuditCheckpointObservationsAsync(int auditId, int checkPointId, int compId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                string query = @"SELECT a.SSO_PKID, a.SSO_SA_ID, a.SSO_SAC_CheckPointID, c.ACM_Checkpoint AS SSO_SAC_CheckPointName, a.SSO_Observations, a.SSO_CrBy,
+                    b.Usr_FullName AS SSO_CrByName, a.SSO_CrOn, a.SSO_IPAddress, a.SSO_CompID FROM StandardAudit_ScheduleObservations a
+                    LEFT JOIN AuditType_Checklist_Master c ON c.ACM_ID = a.SSO_SAC_CheckPointID
+                    LEFT JOIN sad_userdetails b ON b.Usr_ID = a.SSO_CrBy
+                    WHERE a.SSO_SA_ID = @AuditId AND a.SSO_CompID = @CompId And (@CheckPointId = 0 OR a.SSO_SAC_CheckPointID = @CheckPointId)
+                    ORDER BY a.SSO_SAC_CheckPointID, a.SSO_Observations DESC";
+
+                var result = await connection.QueryAsync<ConductAuditCheckpointObservationsDTO>(query, new { CompId = compId, AuditId = auditId, CheckPointId = checkPointId });
+
+                return result.ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting Conduct Audit Checkpoint Observations by ID", ex);
             }
         }
     }

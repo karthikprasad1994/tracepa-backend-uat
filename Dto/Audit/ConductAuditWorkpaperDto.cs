@@ -17,4 +17,16 @@
         public string SSW_CriticalAuditMatter { get; set; }
         public int SSW_AttachID { get; set; }
     }
+
+    public class ConductAuditCheckpointObservationsDTO
+    {
+        public int SSO_PKID { get; set; }
+        public int SSO_SA_ID { get; set; }
+        public int SSO_SAC_CheckPointID { get; set; }
+        public string? SSO_Observations { get; set; }
+        public int SSO_CrBy { get; set; }
+        public DateTime SSO_CrOn { get; set; }
+        public string SSO_IPAddress { get; set; }
+        public int SSO_CompID { get; set; }
+    }
 }

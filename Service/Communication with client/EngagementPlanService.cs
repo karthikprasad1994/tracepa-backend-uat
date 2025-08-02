@@ -42,7 +42,7 @@ namespace TracePca.Service.Audit
         {
             var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrWhiteSpace(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+                   throw new Exception("CustomerCode is missing in session. Please log in again.");
 
             var connStr = _configuration.GetConnectionString(dbName);
             if (string.IsNullOrWhiteSpace(connStr))
