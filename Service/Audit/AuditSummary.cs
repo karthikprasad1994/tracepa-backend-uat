@@ -32,6 +32,8 @@ namespace TracePca.Service.Audit
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
+            _httpContextAccessor = httpContextAccessor;
+
         }
 
         public async Task<List<ReportTypeDto>> GetReportTypesAsync(int compId, int templateId)

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using TracePca.Data;
 using TracePca.Dto.AssetRegister;
 using TracePca.Dto.Audit;
 using TracePca.Dto.DigitalFilling;
@@ -16,9 +17,17 @@ namespace TracePca.Controllers.Audit
     {
 
         private AuditSummaryInterface _AuditSummaryInterface;
-        public AuditSummaryController(AuditSummaryInterface AuditSummaryInterface)
+        private readonly Trdmyus1Context _dbcontext;
+
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
+        public AuditSummaryController(Trdmyus1Context dbcontext,AuditSummaryInterface AuditSummaryInterface, IHttpContextAccessor httpContextAccessor)
         {
             _AuditSummaryInterface = AuditSummaryInterface;
+            _dbcontext = dbcontext;
+
+            _httpContextAccessor = httpContextAccessor;
+
 
         }
         //public IActionResult Index()
