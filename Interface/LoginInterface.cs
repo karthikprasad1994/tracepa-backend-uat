@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using TracePca.Dto;
+using TracePca.Dto.Authentication;
 using TracePca.Models;
 using TracePca.Models.CustomerRegistration;
 
@@ -15,6 +16,7 @@ namespace TracePca.Interface
         Task<bool> VerifyOtpJwtAsync(string token, string enteredOtp);
       //  Task<(string Token, string Otp)> GenerateAndSendOtpJwtAsync(string email);
         Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email);
+        Task<IActionResult> SignUpUserViaGoogleAsync(GoogleAuthDto dto);
         Task<bool> LogoutUserAsync(string accessToken);
 
       //  Task<LoginResponse> AuthenticateUserAsync(string email, string password);

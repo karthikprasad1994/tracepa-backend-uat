@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using BCrypt.Net;
 using Dapper;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Google.Apis.Auth;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -23,6 +24,7 @@ using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
+using TracePca.Dto.Authentication;
 using TracePca.Interface;
 using TracePca.Models;
 using TracePca.Models.CustomerRegistration;
@@ -94,7 +96,43 @@ namespace TracePca.Service
         }
 
 
-       
+
+        public async Task<IActionResult> SignUpUserViaGoogleAsync(GoogleAuthDto dto)
+
+        {
+            try
+            {
+                var payload = await GoogleJsonWebSignature.ValidateAsync(dto.Token, new GoogleJsonWebSignature.ValidationSettings
+                {
+                    Audience = new[] { _configuration["GoogleAuth:ClientId"] } // your Google Client ID
+                });
+
+                var email = payload.Email;
+                var fullName = payload.Name;
+
+                // You may also fetch `payload.Subject` for Google ID (if needed)
+
+                var registerModel = new RegistrationDto
+                {
+                    McrCustomerEmail = email,
+                    McrCustomerName = fullName ?? "Google User",
+                   // McrCustomerTelephoneNo = "0000000000" // Placeholder or fetch from frontend if needed
+                };
+
+                // You can now call your existing method OR move common logic into a helper
+                return await SignUpUserAsync(registerModel);
+            }
+            catch (Exception ex)
+            {
+                return new ObjectResult(new
+                {
+                    statuscode = 401,
+                    message = "Google ID Token validation failed.",
+                    error = ex.Message
+                })
+                { StatusCode = 401 };
+            }
+        }
 
 
         public async Task<IActionResult> SignUpUserAsync(RegistrationDto registerModel)

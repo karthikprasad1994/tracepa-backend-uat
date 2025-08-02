@@ -70,6 +70,13 @@ builder.Services.AddControllers()
 
 builder.Services.AddDistributedMemoryCache();
 
+builder.Services.AddDistributedSqlServerCache(options =>
+{
+    options.ConnectionString = builder.Configuration.GetConnectionString("SessionDb"); // or "CommonSessionDb"
+    options.SchemaName = "dbo";
+    options.TableName = "SessionCache";
+});
+
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromMinutes(90);

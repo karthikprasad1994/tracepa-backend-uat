@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
 using TracePca.Dto.Authentication;
@@ -124,8 +125,44 @@ namespace TracePca.Controllers
 
                 return BadRequest(new { statuscode = 400, message = "Invalid or expired OTP." });
             }
-        
 
+
+        [HttpPost("GoogleSignup")]
+        public async Task<IActionResult> GoogleSignup([FromBody] GoogleAuthDto dto)
+        {
+            try
+            {
+                var result = await _LoginInterface.SignUpUserViaGoogleAsync(dto);
+
+                // If SignUpUserViaGoogleAsync returns IActionResult, unwrap it accordingly.
+                // Otherwise, assume it returns a DTO result.
+
+                return Ok(new
+                {
+                    statuscode = 200,
+                    message = "Signed up successfully via Google.",
+                    
+                });
+            }
+            catch (SecurityTokenException ex)
+            {
+                return Unauthorized(new
+                {
+                    statuscode = 401,
+                    message = "Invalid or expired Google ID token.",
+                    error = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statuscode = 500,
+                    message = "Internal server error while processing Google signup.",
+                    error = ex.Message
+                });
+            }
+        }
 
 
 
@@ -151,6 +188,44 @@ namespace TracePca.Controllers
             return result; // Return as it is if not OkObjectResult
         }
 
+       
+
+        [HttpGet("SessionInfo")]
+        public IActionResult GetSessionInfo()
+        {
+            var sessionStart = HttpContext.Session.GetString("SessionStartTime");
+
+            if (string.IsNullOrEmpty(sessionStart))
+            {
+                sessionStart = DateTime.UtcNow.ToString("o");
+                HttpContext.Session.SetString("SessionStartTime", sessionStart);
+            }
+
+            var startTime = DateTime.Parse(sessionStart);
+            var expiryTime = startTime.AddMinutes(90); // Same as IdleTimeout
+            var remaining = expiryTime - DateTime.UtcNow;
+
+            if (remaining.TotalSeconds <= 0)
+            {
+                return Ok(new
+                {
+                    status = 440, // Custom status to indicate session timeout
+                    message = "Session expired",
+                    sessionActive = false,
+                    remainingSeconds = 0
+                });
+            }
+
+            return Ok(new
+            {
+                status = 200,
+                message = "Session is active",
+                sessionActive = true,
+                remainingSeconds = (int)remaining.TotalSeconds
+            });
+        }
+
+
 
 
         //[HttpPost]
@@ -172,9 +247,9 @@ namespace TracePca.Controllers
         //        404 => NotFound(result),
         //        _ => StatusCode(500, result)
         //    };
-        
-        
-        
+
+
+
         //}
 
         [HttpGet("Loginpermissions")]
