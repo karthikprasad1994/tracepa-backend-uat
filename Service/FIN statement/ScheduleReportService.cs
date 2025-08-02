@@ -2661,7 +2661,13 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         public async Task<ScheduleReportResponseDto> GetScheduleReportDetailsAsync(ScheduleReportRequestDto request)
         {
             var response = new ScheduleReportResponseDto();
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
 
             using (var conn = new SqlConnection(connectionString))
             {
@@ -2745,8 +2751,16 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         {
             var response = new OrgTypeResponseDto();
 
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
-            await using var conn = new SqlConnection(connectionString);
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var conn = new SqlConnection(connectionString);
             await conn.OpenAsync();
 
             // Step 1: Get Org Type
@@ -2814,12 +2828,20 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         public async Task<List<CompanyDto>> LoadCompanyDetailsAsync(int compId)
         {
             var companies = new List<CompanyDto>();
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
 
             using (var conn = new SqlConnection(connectionString))
             {
                 await conn.OpenAsync();
-                var query = "SELECT Company_ID, Company_Name FROM TRACe_CompanyDetails WHERE Company_CompID = @CompId ORDER BY Company_Name";
+                var query = "SELECT Company_ID, Company_Name FROM TRACe_CompanyDetails WHERE Company_ID = @CompId ORDER BY Company_Name";
 
                 using (var cmd = new SqlCommand(query, conn))
                 {
