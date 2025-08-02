@@ -165,19 +165,7 @@ namespace TracePca.Service.FIN_statement
             });
             return result;
         }
-
-        //GetScheduleTemplate
-<<<<<<< HEAD
-=======
-
-     
-
-
-
-
-
->>>>>>> 17b9e94844895749e12bb5a07a83b44096f8362d
-        public async Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(
+            public async Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(
        int CompId, int ScheduleId, int CustId, int AccHead)
 
         {
