@@ -668,7 +668,7 @@ namespace TracePca.Service.Audit
 
             sFileName = sFileName.Replace("&", " and").Substring(0, Math.Min(sFileName.Length, 95));
 
-            iAttachID = await GenerateNextAttachmentIdAsync(CompId);
+            iAttachID = iAttachID == 0 ? await GenerateNextAttachmentIdAsync(CompId) : iAttachID;
             iDocID = await GetDocumentIdAsync(CompId);
 
             if (iDocID == 0)
@@ -824,7 +824,7 @@ namespace TracePca.Service.Audit
                     await dto.File.CopyToAsync(stream);
                 }
 
-                int attachId = 0;
+                int attachId = dto.AttachPKID > 0 ? dto.AttachPKID.Value : 0;
                 //2.SaveAttachmentsModulewise
                 attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
 

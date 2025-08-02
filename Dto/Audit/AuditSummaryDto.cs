@@ -115,6 +115,8 @@ namespace TracePca.Dto.Audit
         //public string UserLoginName { get; set; }
          
         public int CAMDPKID { get; set; }
+
+        public int? AttachPKID { get; set; }
     }
 
 
