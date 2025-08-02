@@ -393,5 +393,12 @@
             // === Extra / Derived Property ===
             public string AST_AccountHeadName { get; set; }
         }
+
+        //GetGridViewAlias
+        public class AliasDto
+        {
+            public int HeadingId { get; set; }
+            public string Alias { get; set; }
+        }
     }
 }

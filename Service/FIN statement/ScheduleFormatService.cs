@@ -1,8 +1,10 @@
 ﻿using Dapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Text;
+using System.Xml;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
@@ -165,12 +167,9 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetScheduleTemplate
-<<<<<<< HEAD
-        public async Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(int CompId, int ScheduleId, int CustId, int AccHead)
-=======
         public async Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(
        int CompId, int ScheduleId, int CustId, int AccHead)
->>>>>>> b1b79274adbc4d3413756b1ed8cfbb40d62dbcf9
+
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1248,6 +1247,44 @@ FROM NumberedRows
                 transaction.Rollback();
                 throw new Exception("Error while saving Schedule data: " + ex.Message, ex);
             }
+        }
+
+        //GetGridViewAlias
+        public async Task<IEnumerable<AliasDto>> LoadGridView1gridAsync(int CompId, int CustId, string lblText, int SelectedVal)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+SELECT 
+    AGA_ID AS HeadingId, 
+    AGA_Description AS Alias 
+FROM Acc_GroupingAlias 
+WHERE 
+    AGA_Compid = @CompId AND
+    AGA_Orgtype = @CustId AND
+    AGA_GLDESC = @LblText AND 
+    AGA_GrpLevel = @GrpLevel";
+
+            var result = await connection.QueryAsync<AliasDto>(query, new
+            {
+                CompId = CompId,
+                CustId = CustId,
+                LblText = lblText,
+                GrpLevel = SelectedVal
+            });
+
+            return result;
         }
     }
 }

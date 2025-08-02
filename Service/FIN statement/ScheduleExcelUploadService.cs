@@ -107,8 +107,6 @@ namespace TracePca.Service.FIN_statement
                         itemName = "";
                         subItemName = "";
                     }
-
-
                     var checkHeadingSql = @"
            SELECT ISNULL(ASH_ID, 0)
            FROM ACC_ScheduleHeading
@@ -464,8 +462,6 @@ namespace TracePca.Service.FIN_statement
                         itemName = "";
                         subItemName = "";
                     }
-
-
                     var checkHeadingSql = @"
            SELECT ISNULL(ASH_ID, 0)
            FROM ACC_ScheduleHeading
@@ -1115,10 +1111,8 @@ namespace TracePca.Service.FIN_statement
                             templateId = (int)(operParam.Value ?? 0);
                         }
                     }
-
                     resultIds.Add(templateId);
                 }
-
                 transaction.Commit();
                 return resultIds;
             }
@@ -1232,7 +1226,6 @@ namespace TracePca.Service.FIN_statement
                         }
                     }
                 }
-
                 transaction.Commit();
                 return resultIds;
             }

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using TracePca.Data;
+using TracePca.Dto.Audit;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.JournalEntryDto;
@@ -87,7 +88,6 @@ namespace TracePca.Service.FIN_statement
 
             foreach (var entry in entries)
             {
-
                 // Get Debit/Credit details
                 var detailQuery = @"
             SELECT 
@@ -179,17 +179,11 @@ namespace TracePca.Service.FIN_statement
                 query += " AND acc_je_BranchID = @BranchId";
             }
 
-            return await connection.QueryAsync<JournalEntryVoucherDto>(query, new
-            {
-                CompId = compId,
-                YearId = yearId,
-                PartyId = partyId,
-                BranchId = branchId
-            });
+            return await connection.QueryAsync<JournalEntryVoucherDto>(query, new{CompId = compId, YearId = yearId, PartyId = partyId, BranchId = branchId});
         }
 
         //GetJEType 
-        public async Task<IEnumerable<JETypeDto>> GetJETypeAsync(int CompId, string Type)
+        public async Task<IEnumerable<GeneralMasterJETypeDto>> LoadGeneralMastersAsync(int compId, string type)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -197,7 +191,7 @@ namespace TracePca.Service.FIN_statement
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
+            // ✅ Step 2: Get connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
             // ✅ Step 3: Use SqlConnection
@@ -205,21 +199,16 @@ namespace TracePca.Service.FIN_statement
             await connection.OpenAsync();
 
             var query = @"
-        SELECT 
-            cmm_ID, 
-            cmm_Desc 
-        FROM Content_Management_Master 
-        WHERE CMM_CompID = @CompID 
-          AND cmm_Category = @Category 
-          AND cmm_Delflag = 'A' 
+        SELECT cmm_ID, cmm_Desc
+        FROM Content_Management_Master
+        WHERE CMM_CompID = @CompId
+          AND cmm_Category = @Type
+          AND cmm_Delflag = 'A'
         ORDER BY cmm_Desc ASC";
 
-            return await connection.QueryAsync<JETypeDto>(query, new
-            {
-                CompID = CompId,
-                Category = Type
-            });
+            return await connection.QueryAsync<GeneralMasterJETypeDto>(query, new{ CompId = compId, Type = type});
         }
+
 
         //GetHeadOfAccounts
         public async Task<IEnumerable<DescheadDto>> LoadDescheadAsync(int compId, int custId, int yearId, int branchId, int durationId)
@@ -294,7 +283,7 @@ namespace TracePca.Service.FIN_statement
             });
         }
 
-        //SaveTransactionDetails
+        //SaveOrUpdateTransactionDetails
         public async Task<int[]> SaveJournalEntryWithTransactionsAsync(List<SaveJournalEntryWithTransactionsDto> dtos)
         {
             // ✅ Step 1: Get DB name from session
@@ -347,7 +336,7 @@ namespace TracePca.Service.FIN_statement
                         cmdMaster.Parameters.AddWithValue("@Acc_JE_YearID", dto.Acc_JE_YearID);
                         cmdMaster.Parameters.AddWithValue("@Acc_JE_CompID", dto.Acc_JE_CompID);
                         cmdMaster.Parameters.AddWithValue("@Acc_JE_Status", dto.Acc_JE_Status ?? string.Empty);
-                        cmdMaster.Parameters.AddWithValue("@Acc_JE_Operation", dto.Acc_JE_Operation);
+                        cmdMaster.Parameters.AddWithValue("@Acc_JE_Operation", dto.Acc_JE_Operation ?? string.Empty);
                         cmdMaster.Parameters.AddWithValue("@Acc_JE_IPAddress", dto.Acc_JE_IPAddress ?? string.Empty);
                         cmdMaster.Parameters.AddWithValue("@Acc_JE_BillCreatedDate", dto.Acc_JE_BillCreatedDate);
                         cmdMaster.Parameters.AddWithValue("@acc_JE_BranchId", dto.acc_JE_BranchId);
@@ -380,7 +369,7 @@ namespace TracePca.Service.FIN_statement
                                 cmdDetail.Parameters.AddWithValue("@AJTB_CustId", t.AJTB_CustId);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_ScheduleTypeid", t.AJTB_ScheduleTypeid);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_Deschead", t.AJTB_Deschead);
-                                cmdDetail.Parameters.AddWithValue("@AJTB_Desc", t.AJTB_Desc ?? string.Empty);
+                                cmdDetail.Parameters.AddWithValue("@AJTB_Desc", t.AJTB_Desc);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_Debit", t.AJTB_Debit);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_Credit", t.AJTB_Credit);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_CreatedBy", t.AJTB_CreatedBy);
@@ -405,7 +394,6 @@ namespace TracePca.Service.FIN_statement
                         }
                     }
                 }
-
                 transaction.Commit();
                 return new int[] { updateOrSave, oper };
             }
@@ -519,6 +507,7 @@ namespace TracePca.Service.FIN_statement
                 throw;
             }
         }
+
     }
 }
 

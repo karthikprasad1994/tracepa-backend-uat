@@ -1072,7 +1072,6 @@ ORDER BY ud.ATBUD_Subheading";
         //}
 
         //GetDetailedReportPandL
-        //GetDetailedReportPandL
         public async Task<IEnumerable<DetailedReportPandLRow>> GetDetailedReportPandLAsync(int CompId, DetailedReportPandL p)
         {
             var results = new List<DetailedReportPandLRow>();
@@ -1120,7 +1119,7 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
                 {
                     // 1. Fetch SubHeading
                     var subHeadingTotalsSql = $@"
-                        select distinct(ATBUD_Subheading) as SubHeadingID,a.ASSH_Name as SubHeadingName,a.AsSh_Notes as Notes, ATBUD_Description as Name,
+                        select distinct(ATBUD_Subheading) as SubHeadingID,a.ASSH_Name as SubHeadingName,a.AsSh_Notes as Notes,
  ISNULL(Sum(d.ATBU_Closing_TotalCredit_Amount + 0), 0) as CrTotal,
  ISNULL(Sum(d.ATBU_Closing_TotalDebit_Amount + 0), 0) as DbTotal ,
  e.ASHN_Description as ASHN_Description,
@@ -1137,7 +1136,7 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0  And g.ATBU_YEARId = @PrevYearId
  and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid in (@BranchId)
  where ATBUD_Headingid = @HeadingId And ATBUD_Subheading<>0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
- group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description,ATBUD_Description order by ATBUD_Subheading";
+ group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description order by ATBUD_Subheading";
                     var subHeadingTotals = await connection.QueryAsync<DetailedReportPandLRow>(subHeadingTotalsSql, new
                     {
                         YearId,
@@ -1152,18 +1151,16 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
                     {
                         if (subBalance.CrTotal1 != 0 && subBalance.CrTotal1 != 0)
                         {
-                            if (subBalance.Name != null)
+                            results.Add(new DetailedReportPandLRow
                             {
-                                results.Add(new DetailedReportPandLRow
-                                {
-                                    SrNo = (results.Count + 1).ToString(),
-                                    Status = "1",
-                                    Name = subBalance.SubHeadingName,
-                                    HeaderSLNo = "",
-                                    PrevYearTotal = "",
-                                    Notes = !string.IsNullOrEmpty(subBalance.Notes) ? subBalance.Notes.ToString() : ""
-                                });
-                                var descriptionSql = @"
+                                SrNo = (results.Count + 1).ToString(),
+                                Status = "1",
+                                Name = subBalance.SubHeadingName,
+                                HeaderSLNo = "",
+                                PrevYearTotal = "",
+                                Notes = !string.IsNullOrEmpty(subBalance.Notes) ? subBalance.Notes.ToString() : ""
+                            });
+                            var descriptionSql = @"
                             select distinct(ATBUD_Subheading),a.ASSH_Name as headingname,a.AsSh_Notes as Notes,ATBUD_Description as Name, 
  ISNULL(Sum(d.ATBU_Closing_TotalCredit_Amount + 0), 0) as CrTotal,
  ISNULL(Sum(d.ATBU_Closing_TotalDebit_Amount + 0), 0) as DbTotal ,
@@ -1182,39 +1179,36 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid in (@BranchId)
  where ATBUD_Subheading= @subHeadingId  And ATBUD_Subheading<>0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description,ATBUD_Description order by ATBUD_Subheading";
-                                var descs = await connection.QueryAsync<DetailedReportPandLRow>(descriptionSql, new
+                            var descs = await connection.QueryAsync<DetailedReportPandLRow>(descriptionSql, new
+                            {
+                                YearId,
+                                PrevYearId = YearId - 1,
+                                CustomerId = CustId,
+                                HeadingId = heading.HeadingId,
+                                subHeadingId = subBalance.SubHeadingID,
+                                BranchId = selectedBranches,
+                                ScheduleTypeID
+                            });
+                            foreach (var desc in descs)
+                            {
+                                if (desc.Name != null)
                                 {
-                                    YearId,
-                                    PrevYearId = YearId - 1,
-                                    CustomerId = CustId,
-                                    HeadingId = heading.HeadingId,
-                                    subHeadingId = subBalance.SubHeadingID,
-                                    BranchId = selectedBranches,
-                                    ScheduleTypeID
-                                });
-                                foreach (var desc in descs)
-                                {
-                                    if (desc.Name != null)
+                                    decimal subNet = (desc.CrTotal1 ?? 0) - (desc.DbTotal1 ?? 0);
+                                    decimal subPrevNet = (desc.CrTotalPrev ?? 0) - (desc.DbTotalPrev ?? 0);
+                                    totalIncome += subNet;
+                                    totalPrevIncome += subPrevNet;
+                                    results.Add(new DetailedReportPandLRow
                                     {
-                                        decimal subNet = (desc.CrTotal ?? 0) - (desc.DbTotal ?? 0);
-                                        decimal subPrevNet = (desc.CrTotalPrev ?? 0) - (desc.DbTotalPrev ?? 0);
-                                        if (subNet != 0 || subPrevNet != 0)
-                                        {
-                                            totalIncome += subNet;
-                                            totalPrevIncome += subPrevNet;
-                                            results.Add(new DetailedReportPandLRow
-                                            {
-                                                SrNo = (results.Count + 1).ToString(),
-                                                Status = "2",
-                                                Name = desc.Name,
-                                                HeaderSLNo = subNet.ToString($"N{RoundOff}"),
-                                                PrevYearTotal = subPrevNet.ToString($"N{RoundOff}")
-                                            });
-                                        }
-                                    }
+                                        SrNo = (results.Count + 1).ToString(),
+                                        Status = "2",
+                                        Name = desc.Name,
+                                        HeaderSLNo = subNet.ToString($"N{RoundOff}"),
+                                        PrevYearTotal = subPrevNet.ToString($"N{RoundOff}")
+                                    });
                                 }
-                                // 1. Fetch Item
-                                var itemSql = @" SELECT ud.ATBUD_itemid AS ItemId,i.ASI_Name AS ItemName,
+                            }
+                            // 1. Fetch Item
+                            var itemSql = @" SELECT ud.ATBUD_itemid AS ItemId,i.ASI_Name AS ItemName,
     ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal,
     ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount), 0) AS DbTotal,
     ISNULL(SUM(f.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal1,
@@ -1231,31 +1225,31 @@ LEFT JOIN Acc_TrailBalance_Upload g ON g.ATBU_Description = ud.ATBUD_Description
     AND g.ATBU_YEARId = @PrevYearId AND g.ATBU_CustId = @CustomerId AND g.ATBU_Branchid = ud.Atbud_Branchnameid AND ud.ATBUD_SubItemId = 0
 WHERE    ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_Schedule_type = @ScheduleTypeId and ATBUD_Headingid=@HeadingId And ATBUD_Subheading= @subHeadingId 
 GROUP BY ud.ATBUD_itemid, i.ASI_Name";
-                                var items = await connection.QueryAsync<DetailedReportPandLRow>(itemSql, new
+                            var items = await connection.QueryAsync<DetailedReportPandLRow>(itemSql, new
+                            {
+                                YearId = YearId,
+                                PrevYearId = YearId - 1,
+                                ScheduleTypeId = ScheduleTypeID,
+                                HeadingId = heading.HeadingId,
+                                subHeadingId = subBalance.SubHeadingID,
+                                CompanyId = CompId,
+                                CustomerId = CustId
+                            });
+                            // 2. Description under Item
+                            foreach (var item in items)
+                            {
+                                if (item.ItemName != null)
                                 {
-                                    YearId = YearId,
-                                    PrevYearId = YearId - 1,
-                                    ScheduleTypeId = ScheduleTypeID,
-                                    HeadingId = heading.HeadingId,
-                                    subHeadingId = subBalance.SubHeadingID,
-                                    CompanyId = CompId,
-                                    CustomerId = CustId
-                                });
-                                // 2. Description under Item
-                                foreach (var item in items)
-                                {
-                                    if (item.ItemName != null)
+                                    results.Add(new DetailedReportPandLRow
                                     {
-                                        results.Add(new DetailedReportPandLRow
-                                        {
-                                            SrNo = (results.Count + 1).ToString(),
-                                            Status = "1",
-                                            Name = item.ItemName,
-                                            HeaderSLNo = "",
-                                            PrevYearTotal = ""
-                                        });
-                                        {
-                                            var itemDescSql = @"
+                                        SrNo = (results.Count + 1).ToString(),
+                                        Status = "1",
+                                        Name = item.ItemName,
+                                        HeaderSLNo = "",
+                                        PrevYearTotal = ""
+                                    });
+                                    {
+                                        var itemDescSql = @"
 SELECT ud.ATBUD_Description as Name,ISNULL(SUM(b.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal,
     ISNULL(SUM(b.ATBU_Closing_TotalDebit_Amount), 0) AS DbTotal,
     ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal1,
@@ -1270,36 +1264,36 @@ LEFT JOIN ACC_SubHeadingLedgerDesc ldg ON ldg.ASHL_SubHeadingId = ud.Atbud_ID
 WHERE   ud.ATBUD_Subheading=@subHeadingId and ud.ATBUD_itemid=@ItemId and ud.ATBUD_SubItemId=0  and
     ud.ATBUD_Schedule_type = @ScheduleTypeId AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_compid = @CompanyId
 GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
-                                            var itemDescriptions = await connection.QueryAsync<DetailedReportPandLRow>(itemDescSql, new
+                                        var itemDescriptions = await connection.QueryAsync<DetailedReportPandLRow>(itemDescSql, new
+                                        {
+                                            YearId = YearId,
+                                            PrevYearId = YearId - 1,
+                                            ScheduleTypeId = ScheduleTypeID,
+                                            subHeadingId = subBalance.SubHeadingID,
+                                            ItemId = item.ItemID,
+                                            CompanyId = CompId,
+                                            CustomerId = CustId
+                                        });
+                                        foreach (var itemDescription in itemDescriptions)
+                                        {
+                                            decimal itemNet = (item.CrTotal ?? 0) - (item.DbTotal ?? 0);
+                                            decimal itemPrevNet = (item.CrTotalPrev ?? 0) - (item.DbTotalPrev ?? 0);
+                                            if (itemNet != 0 || itemPrevNet != 0)
                                             {
-                                                YearId = YearId,
-                                                PrevYearId = YearId - 1,
-                                                ScheduleTypeId = ScheduleTypeID,
-                                                subHeadingId = subBalance.SubHeadingID,
-                                                ItemId = item.ItemID,
-                                                CompanyId = CompId,
-                                                CustomerId = CustId
-                                            });
-                                            foreach (var itemDescription in itemDescriptions)
-                                            {
-                                                decimal itemNet = (item.CrTotal ?? 0) - (item.DbTotal ?? 0);
-                                                decimal itemPrevNet = (item.CrTotalPrev ?? 0) - (item.DbTotalPrev ?? 0);
-                                                if (itemNet != 0 || itemPrevNet != 0)
+                                                totalIncome += itemNet;
+                                                totalPrevIncome += itemPrevNet;
+                                                results.Add(new DetailedReportPandLRow
                                                 {
-                                                    totalIncome += itemNet;
-                                                    totalPrevIncome += itemPrevNet;
-                                                    results.Add(new DetailedReportPandLRow
-                                                    {
-                                                        SrNo = (results.Count + 1).ToString(),
-                                                        Status = "2",
-                                                        Name = itemDescription.Name,
-                                                        HeaderSLNo = itemNet.ToString($"N{RoundOff}"),
-                                                        PrevYearTotal = itemPrevNet.ToString($"N{RoundOff}")
-                                                    });
-                                                }
+                                                    SrNo = (results.Count + 1).ToString(),
+                                                    Status = "2",
+                                                    Name = itemDescription.Name,
+                                                    HeaderSLNo = itemNet.ToString($"N{RoundOff}"),
+                                                    PrevYearTotal = itemPrevNet.ToString($"N{RoundOff}")
+                                                });
                                             }
-                                            // 1. Fetch  SubItems
-                                            var subItemSql = $@"
+                                        }
+                                        // 1. Fetch  SubItems
+                                        var subItemSql = $@"
 SELECT  ud.ATBUD_SubItemId AS SubItemId,
     si.ASSI_Name AS SubItemName,
     ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal,
@@ -1317,21 +1311,21 @@ LEFT JOIN Acc_TrailBalance_Upload f ON f.ATBU_Description = ud.ATBUD_Description
 WHERE ud.ATBUD_Headingid=@HeadingId And ud.ATBUD_Subheading=@subHeadingId  And ud.ATBUD_SubItemId<>0 And ud.ATBUD_itemid =@ItemId 
    and  ud.ATBUD_Schedule_type = @ScheduleTypeId AND 
     ud.ATBUD_CustId = @CustId GROUP BY ud.ATBUD_SubItemId, si.ASSI_Name";
-                                            var subItems = (await connection.QueryAsync<DetailedReportPandLRow>(subItemSql, new
-                                            {
-                                                YearId = YearId,
-                                                PrevYearId = YearId - 1,
-                                                ScheduleTypeId = ScheduleTypeID,
-                                                HeadingId = heading.HeadingId,
-                                                subHeadingId = subBalance.SubHeadingID,
-                                                ItemId = item.ItemID,
-                                                CompId = CompId,
-                                                CustId = CustId
-                                            })).ToList();
-                                            // 2. Descriptions under subitem
-                                            foreach (var subItem in subItems)
-                                            {
-                                                var subDescSql = $@"
+                                        var subItems = (await connection.QueryAsync<DetailedReportPandLRow>(subItemSql, new
+                                        {
+                                            YearId = YearId,
+                                            PrevYearId = YearId - 1,
+                                            ScheduleTypeId = ScheduleTypeID,
+                                            HeadingId = heading.HeadingId,
+                                            subHeadingId = subBalance.SubHeadingID,
+                                            ItemId = item.ItemID,
+                                            CompId = CompId,
+                                            CustId = CustId
+                                        })).ToList();
+                                        // 2. Descriptions under subitem
+                                        foreach (var subItem in subItems)
+                                        {
+                                            var subDescSql = $@"
 SELECT ud.ATBUD_ID,ud.ATBUD_Description  as Name,si.ASSI_ID,si.ASSI_Name AS SubItemName,
     ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount + d.ATBU_Closing_TotalDebit_Amount), 0) AS Total,
     ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal,
@@ -1352,30 +1346,29 @@ LEFT JOIN ACC_SubHeadingLedgerDesc ldg ON ldg.ASHL_SubHeadingId = ud.Atbud_ID
 WHERE  ud.ATBUD_Schedule_type = @ScheduleTypeId AND ud.ATBUD_CustId = @CustId AND 
     ud.ATBUD_compid = @CompId AND     ud.ATBUD_YEARId = @YearId
 GROUP BY ud.ATBUD_ID, ud.ATBUD_Description, si.ASSI_ID, si.ASSI_Name, ldg.ASHL_Description";
-                                                var subItemDescriptions = (await connection.QueryAsync<DetailedReportPandLRow>(subDescSql, new
+                                            var subItemDescriptions = (await connection.QueryAsync<DetailedReportPandLRow>(subDescSql, new
+                                            {
+                                                YearId = YearId,
+                                                PrevYearId = YearId - 1,
+                                                ScheduleTypeId = ScheduleTypeID,
+                                                CompId = CompId,
+                                                CustId = CustId
+                                            })).ToList();
+                                            decimal subitemNet = (subItem.CrTotal ?? 0) - (subItem.DbTotal ?? 0);
+                                            decimal subitemPrevNet = (subItem.CrTotalPrev ?? 0) - (subItem.DbTotalPrev ?? 0);
+                                            if (subitemNet != 0 || subitemPrevNet != 0)
+                                            {
+                                                totalIncome += subitemNet;
+                                                totalPrevIncome += subitemPrevNet;
+                                                results.Add(new DetailedReportPandLRow
                                                 {
-                                                    YearId = YearId,
-                                                    PrevYearId = YearId - 1,
-                                                    ScheduleTypeId = ScheduleTypeID,
-                                                    CompId = CompId,
-                                                    CustId = CustId
-                                                })).ToList();
-                                                decimal subitemNet = (subItem.CrTotal ?? 0) - (subItem.DbTotal ?? 0);
-                                                decimal subitemPrevNet = (subItem.CrTotalPrev ?? 0) - (subItem.DbTotalPrev ?? 0);
-                                                if (subitemNet != 0 || subitemPrevNet != 0)
-                                                {
-                                                    totalIncome += subitemNet;
-                                                    totalPrevIncome += subitemPrevNet;
-                                                    results.Add(new DetailedReportPandLRow
-                                                    {
-                                                        SrNo = (results.Count + 1).ToString(),
-                                                        Status = "1",
-                                                        Name = item.Name,
-                                                        HeaderSLNo = subitemNet.ToString($"N{RoundOff}"),
-                                                        PrevYearTotal = subitemPrevNet.ToString($"N{RoundOff}"),
-                                                        Notes = !string.IsNullOrEmpty(subItem.Notes) ? subItem.Notes.ToString() : ""
-                                                    });
-                                                }
+                                                    SrNo = (results.Count + 1).ToString(),
+                                                    Status = "1",
+                                                    Name = item.Name,
+                                                    HeaderSLNo = subitemNet.ToString($"N{RoundOff}"),
+                                                    PrevYearTotal = subitemPrevNet.ToString($"N{RoundOff}"),
+                                                    Notes = !string.IsNullOrEmpty(subItem.Notes) ? subItem.Notes.ToString() : ""
+                                                });
                                             }
                                         }
                                     }
@@ -1719,21 +1712,19 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
                         {
                             if (desc.Name != null)
                             {
-                                decimal subNet = (desc.CrTotal ?? 0) - (desc.DbTotal ?? 0);
-                                decimal subPrevNet = (desc.CrTotalPrev ?? 0) - (desc.DbTotalPrev ?? 0);
-                                if (subNet != 0 || subPrevNet != 0)
+                                decimal subNet = (desc.DbTotal1 ?? 0) - (desc.CrTotal1 ?? 0);
+                                decimal subPrevNet = (desc.DbTotalPrev ?? 0) - (desc.CrTotalPrev ?? 0);
+
+                                totalIncome += subNet;
+                                totalPrevIncome += subPrevNet;
+                                results.Add(new DetailedReportPandLRow
                                 {
-                                    totalIncome += subNet;
-                                    totalPrevIncome += subPrevNet;
-                                    results.Add(new DetailedReportPandLRow
-                                    {
-                                        SrNo = (results.Count + 1).ToString(),
-                                        Status = "2",
-                                        Name = desc.Name,
-                                        HeaderSLNo = subNet.ToString($"N{RoundOff}"),
-                                        PrevYearTotal = subPrevNet.ToString($"N{RoundOff}")
-                                    });
-                                }
+                                    SrNo = (results.Count + 1).ToString(),
+                                    Status = "2",
+                                    Name = desc.Name,
+                                    HeaderSLNo = subNet.ToString($"N{RoundOff}"),
+                                    PrevYearTotal = subPrevNet.ToString($"N{RoundOff}")
+                                });
                             }
                         }
                         // 1. Fetch Item
@@ -1808,21 +1799,18 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                     });
                                     foreach (var itemDescription in itemDescriptions)
                                     {
-                                        decimal itemNet = (item.CrTotal ?? 0) - (item.DbTotal ?? 0);
-                                        decimal itemPrevNet = (item.CrTotalPrev ?? 0) - (item.DbTotalPrev ?? 0);
-                                        if (itemNet != 0 || itemPrevNet != 0)
+                                        decimal itemNet = (itemDescription.DbTotal ?? 0) - (itemDescription.CrTotal ?? 0);
+                                        decimal itemPrevNet = (itemDescription.DbTotalPrev ?? 0) - (itemDescription.CrTotalPrev ?? 0);
+                                        totalIncome += itemNet;
+                                        totalPrevIncome += itemPrevNet;
+                                        results.Add(new DetailedReportPandLRow
                                         {
-                                            totalIncome += itemNet;
-                                            totalPrevIncome += itemPrevNet;
-                                            results.Add(new DetailedReportPandLRow
-                                            {
-                                                SrNo = (results.Count + 1).ToString(),
-                                                Status = "2",
-                                                Name = itemDescription.Name,
-                                                HeaderSLNo = itemNet.ToString($"N{RoundOff}"),
-                                                PrevYearTotal = itemPrevNet.ToString($"N{RoundOff}"),
-                                            });
-                                        }
+                                            SrNo = (results.Count + 1).ToString(),
+                                            Status = "2",
+                                            Name = itemDescription.Name,
+                                            HeaderSLNo = itemNet.ToString($"N{RoundOff}"),
+                                            PrevYearTotal = itemPrevNet.ToString($"N{RoundOff}"),
+                                        });
                                     }
                                     // 1. Fetch  SubItems
                                     var subItemSql = $@"
@@ -1897,21 +1885,18 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                                         })).ToList();
                                         foreach (var subItemDescription in subItemDescriptions)
                                         {
-                                            decimal subitemNet = (subItemDescription.CrTotal ?? 0) - (subItemDescription.DbTotal ?? 0);
-                                            decimal subitemPrevNet = (subItemDescription.CrTotalPrev ?? 0) - (subItemDescription.DbTotalPrev ?? 0);
-                                            if (subitemNet != 0 || subitemPrevNet != 0)
+                                            decimal subitemNet = (subItemDescription.DbTotal ?? 0) - (subItemDescription.CrTotal ?? 0);
+                                            decimal subitemPrevNet = (subItemDescription.DbTotalPrev ?? 0) - (subItemDescription.CrTotalPrev ?? 0);
+                                            totalIncome += subitemNet;
+                                            totalPrevIncome += subitemPrevNet;
+                                            results.Add(new DetailedReportPandLRow
                                             {
-                                                totalIncome += subitemNet;
-                                                totalPrevIncome += subitemPrevNet;
-                                                results.Add(new DetailedReportPandLRow
-                                                {
-                                                    SrNo = (results.Count + 1).ToString(),
-                                                    Status = "2",
-                                                    Name = subItemDescription.Name,
-                                                    HeaderSLNo = subitemNet.ToString($"N{RoundOff}"),
-                                                    PrevYearTotal = subitemPrevNet.ToString($"N{RoundOff}"),
-                                                });
-                                            }
+                                                SrNo = (results.Count + 1).ToString(),
+                                                Status = "2",
+                                                Name = subItemDescription.Name,
+                                                HeaderSLNo = subitemNet.ToString($"N{RoundOff}"),
+                                                PrevYearTotal = subitemPrevNet.ToString($"N{RoundOff}"),
+                                            });
                                         }
                                     }
                                 }
@@ -1934,7 +1919,6 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
             }
             return results;
         }
-
 
         //GetDetailedReportBalanceSheet
         public async Task<IEnumerable<DetailedReportBalanceSheetRow>> GetDetailedReportBalanceSheetAsync(int CompId, DetailedReportBalanceSheet p)
@@ -1968,7 +1952,6 @@ where CUST_ID = @CompanyId and CUST_DELFLG = 'A'";
             {
                 CompanyId = CustId
             });
-
 
             // 1. Fetch Account Head -1 Heading
             var headingSql = $@"
@@ -2114,7 +2097,7 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid
  left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0  And g.ATBU_YEARId = @PrevYearId
  and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid in (@BranchId)
- where ATBUD_Subheading= @subHeadingId  And ATBUD_Subheading<>0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
+ where ATBUD_Subheading= @subHeadingId  And ATBUD_Subheading<>0 and ATBUD_ItemId = 0 and ATBUD_SubItemId = 0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description,ATBUD_Description order by ATBUD_Subheading";
                             var descs = await connection.QueryAsync<DetailedReportBalanceSheetRow>(descriptionSql, new
                             {
@@ -2235,8 +2218,8 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                     });
                                     foreach (var itemDescription in itemDescriptions)
                                     {
-                                        decimal itemNet = (item.CrTotal ?? 0) - (item.DbTotal ?? 0);
-                                        decimal itemPrevNet = (item.CrTotalPrev ?? 0) - (item.DbTotalPrev ?? 0);
+                                        decimal itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
+                                        decimal itemPrevNet = (itemDescription.CrTotalPrev ?? 0) - (itemDescription.DbTotalPrev ?? 0);
                                         if (itemNet != 0 || itemPrevNet != 0)
                                         {
                                             totalIncome += itemNet;
@@ -2244,11 +2227,10 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                             results.Add(new DetailedReportBalanceSheetRow
                                             {
                                                 SrNo = (results.Count + 1).ToString(),
-                                                Status = "3",
+                                                Status = "2",
                                                 Name = itemDescription.Name,
                                                 HeaderSLNo = itemNet.ToString($"N{RoundOff}"),
-                                                PrevYearTotal = itemPrevNet.ToString($"N{RoundOff}"),
-                                                Notes = !string.IsNullOrEmpty(item.Notes) ? item.Notes.ToString() : ""
+                                                PrevYearTotal = itemPrevNet.ToString($"N{RoundOff}")
                                             });
                                         }
                                     }
@@ -2285,6 +2267,14 @@ WHERE ud.ATBUD_Headingid=@HeadingId And ud.ATBUD_Subheading=@subHeadingId  And u
                                     // 2. Descriptions under subitem
                                     foreach (var subItem in subItems)
                                     {
+                                        results.Add(new DetailedReportBalanceSheetRow
+                                        {
+                                            SrNo = (results.Count + 1).ToString(),
+                                            Status = "1",
+                                            Name = subItem.SubItemName,
+                                            HeaderSLNo = "",
+                                            PrevYearTotal = ""
+                                        });
                                         var subDescSql = $@"
 SELECT ud.ATBUD_ID,ud.ATBUD_Description  as Name,si.ASSI_ID as subItemID,si.ASSI_Name AS SubItemName,
     ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount + d.ATBU_Closing_TotalDebit_Amount), 0) AS Total,
@@ -2338,7 +2328,6 @@ GROUP BY ud.ATBUD_ID, ud.ATBUD_Description, si.ASSI_ID, si.ASSI_Name, ldg.ASHL_D
                                                 });
                                             }
                                         }
-
                                     }
                                 }
                             }
@@ -2458,26 +2447,22 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
                         {
                             if (desc.Name != null)
                             {
-                                decimal subNet = (desc.CrTotal ?? 0) - (desc.DbTotal ?? 0);
-                                decimal subPrevNet = (desc.CrTotalPrev ?? 0) - (desc.DbTotalPrev ?? 0);
-                                if (subNet != 0 || subPrevNet != 0)
+                                decimal subNet = (desc.DbTotal1 ?? 0) - (desc.CrTotal1 ?? 0);
+                                decimal subPrevNet = (desc.DbTotalPrev ?? 0) - (desc.CrTotalPrev ?? 0);
+                                totalIncome += subNet;
+                                totalPrevIncome += subPrevNet;
+                                results.Add(new DetailedReportBalanceSheetRow
                                 {
-                                    totalIncome += subNet;
-                                    totalPrevIncome += subPrevNet;
-                                    results.Add(new DetailedReportBalanceSheetRow
-                                    {
-                                        SrNo = (results.Count + 1).ToString(),
-                                        Status = "2",
-                                        Name = desc.Name,
-                                        HeaderSLNo = subNet.ToString($"N{RoundOff}"),
-                                        PrevYearTotal = subPrevNet.ToString($"N{RoundOff}")
-                                    });
-                                }
+                                    SrNo = (results.Count + 1).ToString(),
+                                    Status = "2",
+                                    Name = desc.Name,
+                                    HeaderSLNo = subNet.ToString($"N{RoundOff}"),
+                                    PrevYearTotal = subPrevNet.ToString($"N{RoundOff}")
+                                });
                             }
                         }
                         // 1. Fetch Item
-                        var itemSql = @"
-SELECT ud.ATBUD_itemid AS ItemId,i.ASI_Name AS ItemName,
+                        var itemSql = @" SELECT ud.ATBUD_itemid AS ItemId,i.ASI_Name AS ItemName,
     ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal,
     ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount), 0) AS DbTotal,
     ISNULL(SUM(f.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal1,
@@ -2547,21 +2532,19 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                     });
                                     foreach (var itemDescription in itemDescriptions)
                                     {
-                                        decimal itemNet = (item.CrTotal ?? 0) - (item.DbTotal ?? 0);
-                                        decimal itemPrevNet = (item.CrTotalPrev ?? 0) - (item.DbTotalPrev ?? 0);
-                                        if (itemNet != 0 || itemPrevNet != 0)
+                                        decimal itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
+                                        decimal itemPrevNet = (itemDescription.CrTotalPrev ?? 0) - (itemDescription.DbTotalPrev ?? 0);
+
+                                        totalIncome += itemNet;
+                                        totalPrevIncome += itemPrevNet;
+                                        results.Add(new DetailedReportBalanceSheetRow
                                         {
-                                            totalIncome += itemNet;
-                                            totalPrevIncome += itemPrevNet;
-                                            results.Add(new DetailedReportBalanceSheetRow
-                                            {
-                                                SrNo = (results.Count + 1).ToString(),
-                                                Status = "2",
-                                                Name = itemDescription.Name,
-                                                HeaderSLNo = itemNet.ToString($"N{RoundOff}"),
-                                                PrevYearTotal = itemPrevNet.ToString($"N{RoundOff}"),
-                                            });
-                                        }
+                                            SrNo = (results.Count + 1).ToString(),
+                                            Status = "2",
+                                            Name = itemDescription.Name,
+                                            HeaderSLNo = itemNet.ToString($"N{RoundOff}"),
+                                            PrevYearTotal = itemPrevNet.ToString($"N{RoundOff}"),
+                                        });
                                     }
                                     // 1. Fetch  SubItems
                                     var subItemSql = $@"
@@ -2639,19 +2622,17 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                                         {
                                             decimal subitemNet = (subItemDescription.CrTotal ?? 0) - (subItemDescription.DbTotal ?? 0);
                                             decimal subitemPrevNet = (subItemDescription.CrTotalPrev ?? 0) - (subItemDescription.DbTotalPrev ?? 0);
-                                            if (subitemNet != 0 || subitemPrevNet != 0)
+
+                                            totalIncome += subitemNet;
+                                            totalPrevIncome += subitemPrevNet;
+                                            results.Add(new DetailedReportBalanceSheetRow
                                             {
-                                                totalIncome += subitemNet;
-                                                totalPrevIncome += subitemPrevNet;
-                                                results.Add(new DetailedReportBalanceSheetRow
-                                                {
-                                                    SrNo = (results.Count + 1).ToString(),
-                                                    Status = "2",
-                                                    Name = subItemDescription.Name,
-                                                    HeaderSLNo = subitemNet.ToString($"N{RoundOff}"),
-                                                    PrevYearTotal = subitemPrevNet.ToString($"N{RoundOff}"),
-                                                });
-                                            }
+                                                SrNo = (results.Count + 1).ToString(),
+                                                Status = "2",
+                                                Name = subItemDescription.Name,
+                                                HeaderSLNo = subitemNet.ToString($"N{RoundOff}"),
+                                                PrevYearTotal = subitemPrevNet.ToString($"N{RoundOff}"),
+                                            });
                                         }
                                     }
                                 }

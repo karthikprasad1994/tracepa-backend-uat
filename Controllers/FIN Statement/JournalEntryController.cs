@@ -2,7 +2,6 @@
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.JournalEntryDto;
-using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -90,21 +89,20 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-
         //GetJEType
-        [HttpGet("GetJEType")]
-        public async Task<IActionResult> GetJEType([FromQuery] int compId, [FromQuery] string type)
+        [HttpGet("GetGeneralMasters")]
+        public async Task<IActionResult> LoadGeneralMasters([FromQuery] int compId, [FromQuery] string type)
         {
             try
             {
-                var result = await _JournalEntryService.GetJETypeAsync(compId, type);
+                var result = await _JournalEntryService.LoadGeneralMastersAsync(compId, type);
 
                 if (result == null || !result.Any())
                 {
                     return NotFound(new
                     {
                         statusCode = 404,
-                        message = "JE Type name found.",
+                        message = "No records found.",
                         data = (object)null
                     });
                 }
@@ -112,7 +110,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "JE Type  loaded successfully.",
+                    message = "General masters loaded successfully.",
                     data = result
                 });
             }
@@ -121,7 +119,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return StatusCode(500, new
                 {
                     statusCode = 500,
-                    message = "An error occurred while fetching JE Type.",
+                    message = "An error occurred while loading general masters.",
                     error = ex.Message
                 });
             }
@@ -198,27 +196,48 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //SaveTransactionDetails
+        //SaveOrUpdateTransactionDetails
         [HttpPost("SaveTransactionDetails")]
         public async Task<IActionResult> SaveJournalEntryWithTransactions([FromBody] List<SaveJournalEntryWithTransactionsDto> dtos)
         {
+            if (dtos == null)
+            {
+                return BadRequest(new
+                {
+                    Status = 400,
+                    Message = "Invalid input: DTO is null",
+                    Data = (object)null
+                });
+            }
             try
             {
+                var isUpdate = dtos[0].Acc_JE_ID > 0;
                 var result = await _JournalEntryService.SaveJournalEntryWithTransactionsAsync(dtos);
+
+                string successMessage = isUpdate
+                    ? "Schedule Heading successfully updated."
+                    : "Schedule Heading successfully created.";
+
                 return Ok(new
                 {
-                    Message = "Journal Entry saved successfully.",
-                    UpdateOrSave = result[0],
-                    Oper = result[1]
+                    Status = 200,
+                    Message = successMessage,
+                    Data = new
+                    {
+                        UpdateOrSave = result[0],
+                        Oper = result[1],
+                        IsUpdate = isUpdate
+                    }
                 });
             }
             catch (Exception ex)
             {
-                // Log exception if needed
                 return StatusCode(500, new
                 {
-                    Message = "An error occurred while saving the journal entry.",
-                    Error = ex.Message
+                    Status = 500,
+                    Message = "An error occurred while processing your request.",
+                    Error = ex.Message,
+                    InnerException = ex.InnerException?.Message
                 });
             }
         }
@@ -257,5 +276,7 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+        //
     }
 }

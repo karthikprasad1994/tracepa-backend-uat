@@ -269,7 +269,6 @@ namespace TracePca.Controllers.FIN_Statement
             try
             {
                 bool isUpdate = dto.ASH_ID > 0;
-
                 var result = await _ScheduleFormatService.SaveScheduleHeadingAndTemplateAsync(CompId, dto);
 
                 string successMessage = isUpdate
@@ -566,6 +565,42 @@ namespace TracePca.Controllers.FIN_Statement
                     StatusCode = 500,
                     Message = "An error occurred while saving schedule data.",
                     Error = ex.Message
+                });
+            }
+        }
+
+        //GetGridViewAlias
+        [HttpGet("GetGridView1")]
+        public async Task<IActionResult> LoadGridView1gridAsync([FromQuery] int CompId, [FromQuery] int CustId, [FromQuery] string lblText, [FromQuery] int SelectedVal)
+        {
+            try
+            {
+                var result = await _ScheduleFormatService.LoadGridView1gridAsync(CompId, CustId, lblText, SelectedVal);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No heading records found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Heading records fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving heading records.",
+                    error = ex.Message
                 });
             }
         }

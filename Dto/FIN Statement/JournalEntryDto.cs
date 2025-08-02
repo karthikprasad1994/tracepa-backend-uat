@@ -2,7 +2,6 @@
 {
     public class JournalEntryDto
     {
-
         //GetJournalEntryInformation
         public class JournalEntryInformationDto
         {
@@ -29,7 +28,7 @@
         }
 
         //GetJEType 
-        public class JETypeDto
+        public class GeneralMasterJETypeDto
         {
             public int cmm_ID { get; set; }
             public string cmm_Desc { get; set; }
@@ -49,7 +48,7 @@
             public string GlDesc { get; set; }
         }
 
-        //SaveTransactionDetails
+        //SaveOrUpdateTransactionDetails
         public class SaveJournalEntryWithTransactionsDto
         {
             public int Acc_JE_ID { get; set; }
@@ -74,7 +73,7 @@
             public int Acc_JE_YearID { get; set; }
             public int Acc_JE_CompID { get; set; }
             public string Acc_JE_Status { get; set; }
-            public int Acc_JE_Operation { get; set; }
+            public string Acc_JE_Operation { get; set; }
             public string Acc_JE_IPAddress { get; set; }
             public DateTime? Acc_JE_BillCreatedDate { get; set; }
             public int acc_JE_BranchId { get; set; }
@@ -93,7 +92,7 @@
             public int AJTB_CustId { get; set; }
             public int AJTB_ScheduleTypeid { get; set; }
             public int AJTB_Deschead { get; set; }
-            public string AJTB_Desc { get; set; }
+            public int AJTB_Desc { get; set; }
             public decimal AJTB_Debit { get; set; }
             public decimal AJTB_Credit { get; set; }
             public int AJTB_CreatedBy { get; set; }

@@ -44,5 +44,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //SaveScheduleTemplate(P and L)
         Task<List<int>> SaveScheduleTemplateAsync(int CompId, List<ScheduleTemplate> dtos);
+
+        //GetGridViewAlias
+        Task<IEnumerable<AliasDto>> LoadGridView1gridAsync(int CompId, int CustId, string lblText, int SelectedVal);
     }
 }
