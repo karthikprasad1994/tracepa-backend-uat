@@ -94,45 +94,103 @@ namespace TracePca.Service
                 };
             }
         }
-
-
-
         public async Task<IActionResult> SignUpUserViaGoogleAsync(GoogleAuthDto dto)
-
         {
             try
             {
-                var payload = await GoogleJsonWebSignature.ValidateAsync(dto.Token, new GoogleJsonWebSignature.ValidationSettings
+                var email = dto.Email?.Trim().ToLower();
+
+
+                if (string.IsNullOrWhiteSpace(email))
                 {
-                    Audience = new[] { _configuration["GoogleAuth:ClientId"] } // your Google Client ID
-                });
+                    return new ObjectResult(new
+                    {
+                        statuscode = 400,
+                        message = "Email is required."
+                    })
+                    { StatusCode = 400 };
+                }
 
-                var email = payload.Email;
-                var fullName = payload.Name;
+                using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+                await connection.OpenAsync();
 
-                // You may also fetch `payload.Subject` for Google ID (if needed)
+                var existingCustomerCode = await connection.QueryFirstOrDefaultAsync<string>(
+                    @"SELECT TOP 1 MCR_CustomerCode
+       FROM MMCS_CustomerRegistration
+       CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
+       WHERE LTRIM(RTRIM(Emails.value)) = @Email", new { Email = email });
 
-                var registerModel = new RegistrationDto
+                if (!string.IsNullOrEmpty(existingCustomerCode))
                 {
-                    McrCustomerEmail = email,
-                    McrCustomerName = fullName ?? "Google User",
-                   // McrCustomerTelephoneNo = "0000000000" // Placeholder or fetch from frontend if needed
-                };
+                    // ✅ Existing user → Login
+                    var loginResult = await LoginUserAsync(email, "a"); // optional: use passwordless logic
+                    return loginResult.StatusCode == 200
+                        ? new OkObjectResult(loginResult)
+                        : new ObjectResult(loginResult) { StatusCode = loginResult.StatusCode };
+                }
+                else
+                {
+                    // ✅ New user → proceed with sign-up
+                    var registrationDto = new RegistrationDto
+                    {
+                        McrCustomerEmail = email,
+                        McrCustomerTelephoneNo = dto.PhoneNumber?.Trim(),
+                        McrCustomerName = dto.CompanyName?.Trim()
+                        // temporary, can be updated later
+                    };
 
-                // You can now call your existing method OR move common logic into a helper
-                return await SignUpUserAsync(registerModel);
+                    return await SignUpUserAsync(registrationDto);
+                }
             }
             catch (Exception ex)
             {
                 return new ObjectResult(new
                 {
-                    statuscode = 401,
-                    message = "Google ID Token validation failed.",
+                    statuscode = 500,
+                    message = "Internal server error",
                     error = ex.Message
                 })
-                { StatusCode = 401 };
+                { StatusCode = 500 };
             }
         }
+
+
+        //public async Task<IActionResult> SignUpUserViaGoogleAsync(GoogleAuthDto dto)
+
+        //{
+        //    try
+        //    {
+        //        var payload = await GoogleJsonWebSignature.ValidateAsync(dto.Token, new GoogleJsonWebSignature.ValidationSettings
+        //        {
+        //            Audience = new[] { _configuration["GoogleAuth:ClientId"] } // your Google Client ID
+        //        });
+
+        //        var email = payload.Email;
+        //        var fullName = payload.Name;
+
+        //        // You may also fetch `payload.Subject` for Google ID (if needed)
+
+        //        var registerModel = new RegistrationDto
+        //        {
+        //            McrCustomerEmail = email,
+        //            McrCustomerName = fullName ?? "Google User",
+        //           // McrCustomerTelephoneNo = "0000000000" // Placeholder or fetch from frontend if needed
+        //        };
+
+        //        // You can now call your existing method OR move common logic into a helper
+        //        return await SignUpUserAsync(registerModel);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return new ObjectResult(new
+        //        {
+        //            statuscode = 401,
+        //            message = "Google ID Token validation failed.",
+        //            error = ex.Message
+        //        })
+        //        { StatusCode = 401 };
+        //    }
+        //}
 
 
         public async Task<IActionResult> SignUpUserAsync(RegistrationDto registerModel)
