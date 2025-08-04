@@ -434,7 +434,7 @@ namespace TracePca.Service.Audit
 			string query = @"SELECT A.PKID,A.WorkpaperChecklist,A.WorkpaperNo,A.WorkpaperRef,A.Observation,A.Conclusion,A.ReviewerComments,
                      STUFF((SELECT ', ' + cmm_Desc FROM Content_Management_Master
                      WHERE CHARINDEX(',' + CAST(cmm_ID AS VARCHAR) + ',', ',' + REPLACE(A.TypeOfTest, ' ', '') + ',') > 0
-                     FOR XML PATH('')), 1, 2, '') AS TypeOfTest,
+                     FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS TypeOfTest,
                      A.Status,A.AttachID,A.CreatedBy,A.CreatedOn,A.ReviewedBy,A.ReviewedOn
                      FROM (SELECT ISNULL(cm.cmm_ID, a.SSW_ID) As PKID,IsNull(cm.cmm_Desc,'NA') As WorkpaperChecklist,
                      SSW_WorkpaperNo As WorkpaperNo,SSW_WorkpaperRef As WorkpaperRef,SSW_Observation As Observation,SSW_Conclusion As Conclusion,
@@ -477,8 +477,8 @@ namespace TracePca.Service.Audit
 			string query = @"
             Select DENSE_RANK() OVER (ORDER BY SACAM_PKID) As SrNo,SACAM_PKID As DBpkId,SACAM_SSW_WorkpaperNo As WorkpaperNo,
             SACAM_SSW_WorkpaperRef As WorkpaperRef,SACAM_SSW_Observation As Observation,SACAM_SSW_Conclusion As Conclusion, 
-            Case When a.SACAM_SSW_TypeOfTest=1 then 'Inquiry' When a.SACAM_SSW_TypeOfTest=2 then 'Observation' When a.SACAM_SSW_TypeOfTest=3 
-            then 'Examination' When a.SACAM_SSW_TypeOfTest=4 then 'Inspection' When a.SACAM_SSW_TypeOfTest=5 then 'Substantive Testing' End TypeOfTest, 
+            ISNULL(STUFF((SELECT ', ' + cmm.CMM_Desc FROM STRING_SPLIT(CAST(a.SACAM_SSW_TypeOfTest AS VARCHAR(MAX)), ',') AS s JOIN Content_Management_Master cmm ON TRY_CAST(s.value AS INT) = cmm.CMM_ID
+            WHERE cmm.CMM_Category = 'TOT' FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, ''),'') AS TypeOfTest,
             Case When a.SACAM_SSW_Status=1 then 'Open' When a.SACAM_SSW_Status=2 then 'WIP' When a.SACAM_SSW_Status=3 then 'Closed' End 
             Status,SACAM_SSW_CriticalAuditMatter As CAM,ISNULL(SACAM_AttachID,0) As AttachmentID, Case When a.SACAM_SSW_ExceededMateriality=1 then 'Yes' 
             When a.SACAM_SSW_ExceededMateriality=2 then 'No' When a.SACAM_SSW_ExceededMateriality=3 then 'NA' End ExceededMateriality, 

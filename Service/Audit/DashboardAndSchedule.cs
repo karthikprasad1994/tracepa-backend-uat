@@ -225,7 +225,7 @@ ORDER BY SrNo";
             WHERE Usr_CompID = @CompId
               AND Usr_Node > 0
               AND Usr_OrgnID > 0
-              AND usr_DelFlag IN ('A', 'B', 'L')
+              AND usr_DelFlag IN ('A', 'B', 'L') and Usr_Role = 3
             ORDER BY FullName";
 
                 parameters = new { CompId = compId };

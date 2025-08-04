@@ -422,7 +422,7 @@ namespace TracePca.Service.Audit
                     _ => "Unknown"
                 };
 
-                dto.CompanyName = await connection.ExecuteScalarAsync<string>(@"SELECT STUFF((SELECT DISTINCT '; ' + CAST(Company_Name AS VARCHAR(MAX)) FROM Trace_CompanyDetails WHERE Company_CompID = @CompId FOR XML PATH('')), 1, 2, '')",
+                dto.CompanyName = await connection.ExecuteScalarAsync<string>(@"SELECT STUFF((SELECT DISTINCT '; ' + CAST(Company_Name AS VARCHAR(MAX)) FROM Trace_CompanyDetails WHERE Company_CompID = @CompId FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '')",
                     new { CompId = compId });
 
                 dto.AnnexureToLetterOfEngagement = $"Details of Engagement Estimate for the {dto.ReportType} to {dto.Customer}";

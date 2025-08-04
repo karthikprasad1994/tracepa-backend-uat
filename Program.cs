@@ -70,12 +70,12 @@ builder.Services.AddControllers()
 
 builder.Services.AddDistributedMemoryCache();
 
-builder.Services.AddDistributedSqlServerCache(options =>
-{
-    options.ConnectionString = builder.Configuration.GetConnectionString("SessionDb"); // or "CommonSessionDb"
-    options.SchemaName = "dbo";
-    options.TableName = "SessionCache";
-});
+//builder.Services.AddDistributedSqlServerCache(options =>
+//{
+//    options.ConnectionString = builder.Configuration.GetConnectionString("SessionDb"); // or "CommonSessionDb"
+//    options.SchemaName = "dbo";
+//    options.TableName = "SessionCache";
+//});
 
 builder.Services.AddSession(options =>
 {
@@ -87,7 +87,8 @@ builder.Services.AddSession(options =>
 
     // Always allow cross-site cookies
     options.Cookie.SameSite = SameSiteMode.None;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Requires HTTPS
+    //options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;// Requires HTTPS
 });
 
 
@@ -316,7 +317,7 @@ app.UseAuthorization();
 app.UseSession();
 app.UseMiddleware<TracePca.Middleware.CustomerContextMiddleware>();
 app.UseMiddleware<TracePca.Middleware.ErrorLogMiddleware>();
-app.UseMiddleware<TracePca.Middleware.SessionTimeout>();
+//app.UseMiddleware<TracePca.Middleware.SessionTimeout>();
 
 app.UseEndpoints(endpoints =>
 {

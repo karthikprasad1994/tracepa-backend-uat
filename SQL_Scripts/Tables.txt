@@ -6506,7 +6506,8 @@ CREATE TABLE [dbo].[SAD_CUSTOMER_MASTER](
 	[CUST_fontstyleid] [int] NULL,
 	[CUST_rptBorder] [int] NULL,
 	[Cust_DeptID] [int] NULL,
-	[Cust_DurtnId] [int] NULL
+	[Cust_DurtnId] [int] NULL,
+	[Cust_FY] [varchar](50) NULL
 ) ON [PRIMARY]
 GO
 /****** Object:  Table [dbo].[SAD_CUSTOMER_MASTER1]    Script Date: 20-03-2025 15:55:21 ******/
@@ -19810,83 +19811,90 @@ SET QUOTED_IDENTIFIER ON
 GO
 
 
- CREATE Procedure [dbo].[spSAD_CUSTOMER_MASTER]                 
-(                    
-@CUST_ID int,        
-@CUST_NAME varchar(150),        
-@CUST_CODE varchar(50),        
-@CUST_WEBSITE varchar(50),        
-@CUST_EMAIL varchar(50),        
-@CUST_GROUPNAME varchar(50),        
-@CUST_GROUPINDIVIDUAL int,        
-@CUST_ORGTYPEID int,        
-@CUST_INDTYPEID int,        
-@CUST_MGMTTYPEID int,        
-@CUST_CommitmentDate datetime,        
-@CUSt_BranchId varchar(100),      
-@CUST_COMM_ADDRESS varchar(1000),        
-@CUST_COMM_CITY varchar(100),        
-@CUST_COMM_PIN varchar(10),        
-@CUST_COMM_STATE varchar(100),        
-@CUST_COMM_COUNTRY varchar(100),        
-@CUST_COMM_FAX varchar(50),        
-@CUST_COMM_TEL varchar(50),        
-@CUST_COMM_Email varchar(50),        
-@CUST_ADDRESS varchar(1000),        
-@CUST_CITY varchar(100),        
-@CUST_PIN varchar(10),        
-@CUST_STATE varchar(100),        
-@CUST_COUNTRY varchar(100),        
-@CUST_FAX varchar(50),        
-@CUST_TELPHONE varchar(50),        
-@CUST_ConEmailID varchar(50),        
-@CUST_LOCATIONID varchar(50),        
-@CUST_TASKS varchar(50),        
-@CUST_ORGID int,        
-@CUST_CRBY int,        
-@CUST_UpdatedBy int,        
-@CUST_BOARDOFDIRECTORS varchar(255),   
-@CUST_DEPMETHOD int,  
-@CUST_IPAddress varchar(25),        
-@CUST_CompID int, 
-@CUST_Amount_Type int,
-@CUST_RoundOff int, 
-@iUpdateOrSave int Output,                    
-@iOper int Output              
-)           
-As                          
-if exists(select CUST_ID from SAD_CUSTOMER_MASTER where CUST_ID= @CUST_ID And CUST_CompID=@CUST_CompID)                      
+ Create Procedure [dbo].[spSAD_CUSTOMER_MASTER]                     
+(                        
+@CUST_ID int,            
+@CUST_NAME varchar(150),            
+@CUST_CODE varchar(50),            
+@CUST_WEBSITE varchar(50),            
+@CUST_EMAIL varchar(50),            
+@CUST_GROUPNAME varchar(50),            
+@CUST_GROUPINDIVIDUAL int,            
+@CUST_ORGTYPEID int,            
+@CUST_INDTYPEID int,            
+@CUST_MGMTTYPEID int,            
+@CUST_CommitmentDate datetime,            
+@CUSt_BranchId varchar(100),          
+@CUST_COMM_ADDRESS varchar(1000),            
+@CUST_COMM_CITY varchar(100),            
+@CUST_COMM_PIN varchar(10),            
+@CUST_COMM_STATE varchar(100),            
+@CUST_COMM_COUNTRY varchar(100),            
+@CUST_COMM_FAX varchar(50),            
+@CUST_COMM_TEL varchar(50),            
+@CUST_COMM_Email varchar(50),            
+@CUST_ADDRESS varchar(1000),            
+@CUST_CITY varchar(100),            
+@CUST_PIN varchar(10),            
+@CUST_STATE varchar(100),            
+@CUST_COUNTRY varchar(100),            
+@CUST_FAX varchar(50),            
+@CUST_TELPHONE varchar(50),            
+@CUST_ConEmailID varchar(50),            
+@CUST_LOCATIONID varchar(50),            
+@CUST_TASKS varchar(50),            
+@CUST_ORGID int,            
+@CUST_CRBY int,            
+@CUST_UpdatedBy int,            
+@CUST_BOARDOFDIRECTORS varchar(255),       
+@CUST_DEPMETHOD int,      
+@CUST_IPAddress varchar(25),            
+@CUST_CompID int,     
+@CUST_Amount_Type int,    
+@CUST_RoundOff int,   
+@Cust_DurtnId int,  
+@Cust_FY varchar(50),  
+@iUpdateOrSave int Output,                        
+@iOper int Output                  
+)               
+As                              
+if exists(select CUST_ID from SAD_CUSTOMER_MASTER where CUST_ID= @CUST_ID And CUST_CompID=@CUST_CompID)                          
+Begin                              
+ set @CUST_ID=(select CUST_ID from SAD_CUSTOMER_MASTER where CUST_ID= @CUST_ID And CUST_CompID=@CUST_CompID)                          
+  Update SAD_CUSTOMER_MASTER set  CUST_NAME=@CUST_NAME,CUST_WEBSITE=@CUST_WEBSITE,CUST_EMAIL=@CUST_EMAIL,CUST_GROUPNAME=@CUST_GROUPNAME,CUST_GROUPINDIVIDUAL=@CUST_GROUPINDIVIDUAL, CUST_ORGTYPEID=@CUST_ORGTYPEID,CUST_INDTYPEID=@CUST_INDTYPEID,          
+  CUST_MGMTTYPEID=@CUST_MGMTTYPEID,CUST_CommitmentDate=@CUST_CommitmentDate, CUSt_BranchId=@CUSt_BranchId,CUST_COMM_ADDRESS=@CUST_COMM_ADDRESS,CUST_COMM_CITY=@CUST_COMM_CITY,CUST_COMM_PIN=@CUST_COMM_PIN,CUST_COMM_STATE=@CUST_COMM_STATE,           
+  CUST_COMM_COUNTRY=@CUST_COMM_COUNTRY,CUST_COMM_FAX=@CUST_COMM_FAX,CUST_COMM_TEL=@CUST_COMM_TEL,CUST_COMM_Email=@CUST_COMM_Email,CUST_ADDRESS=@CUST_ADDRESS, CUST_CITY=@CUST_CITY,CUST_PIN=@CUST_PIN,CUST_STATE=@CUST_STATE,CUST_COUNTRY=@CUST_COUNTRY,       
+  
+   
+  CUST_FAX=@CUST_FAX,CUST_TELPHONE=@CUST_TELPHONE, CUST_ConEmailID=@CUST_ConEmailID,CUST_LOCATIONID=@CUST_LOCATIONID,CUST_TASKS=@CUST_TASKS,CUST_ORGID=@CUST_ORGID, CUST_UpdatedOn=Getdate(),CUST_UpdatedBy=@CUST_UpdatedBy,          
+  CUST_BOARDOFDIRECTORS=@CUST_BOARDOFDIRECTORS,CUST_DEPMETHOD=@CUST_DEPMETHOD,    
+  CUST_STATUS='U',CUST_IPAddress=@CUST_IPAddress, CUST_Amount_Type = @CUST_Amount_Type,        
+  CUST_RoundOff = @CUST_RoundOff ,Cust_DurtnId=@Cust_DurtnId,Cust_FY=@Cust_FY   
+  where CUST_ID=@CUST_ID and CUST_CompID=@CUST_CompID                       
+  set @iUpdateOrSave=2                       
+  set @iOper = @CUST_ID                        
+End                        
+Else                           
 Begin                          
- set @CUST_ID=(select CUST_ID from SAD_CUSTOMER_MASTER where CUST_ID= @CUST_ID And CUST_CompID=@CUST_CompID)                      
-  Update SAD_CUSTOMER_MASTER set  CUST_NAME=@CUST_NAME,CUST_WEBSITE=@CUST_WEBSITE,CUST_EMAIL=@CUST_EMAIL,CUST_GROUPNAME=@CUST_GROUPNAME,CUST_GROUPINDIVIDUAL=@CUST_GROUPINDIVIDUAL, CUST_ORGTYPEID=@CUST_ORGTYPEID,CUST_INDTYPEID=@CUST_INDTYPEID,      
-  CUST_MGMTTYPEID=@CUST_MGMTTYPEID,CUST_CommitmentDate=@CUST_CommitmentDate, CUSt_BranchId=@CUSt_BranchId,CUST_COMM_ADDRESS=@CUST_COMM_ADDRESS,CUST_COMM_CITY=@CUST_COMM_CITY,CUST_COMM_PIN=@CUST_COMM_PIN,CUST_COMM_STATE=@CUST_COMM_STATE,       
-  CUST_COMM_COUNTRY=@CUST_COMM_COUNTRY,CUST_COMM_FAX=@CUST_COMM_FAX,CUST_COMM_TEL=@CUST_COMM_TEL,CUST_COMM_Email=@CUST_COMM_Email,CUST_ADDRESS=@CUST_ADDRESS, CUST_CITY=@CUST_CITY,CUST_PIN=@CUST_PIN,CUST_STATE=@CUST_STATE,CUST_COUNTRY=@CUST_COUNTRY,      
-  CUST_FAX=@CUST_FAX,CUST_TELPHONE=@CUST_TELPHONE, CUST_ConEmailID=@CUST_ConEmailID,CUST_LOCATIONID=@CUST_LOCATIONID,CUST_TASKS=@CUST_TASKS,CUST_ORGID=@CUST_ORGID, CUST_UpdatedOn=Getdate(),CUST_UpdatedBy=@CUST_UpdatedBy,      
-  CUST_BOARDOFDIRECTORS=@CUST_BOARDOFDIRECTORS,CUST_DEPMETHOD=@CUST_DEPMETHOD,
-  CUST_STATUS='U',CUST_IPAddress=@CUST_IPAddress, CUST_Amount_Type = @CUST_Amount_Type,    
-  CUST_RoundOff = @CUST_RoundOff
-  where CUST_ID=@CUST_ID and CUST_CompID=@CUST_CompID                   
-  set @iUpdateOrSave=2                   
-  set @iOper = @CUST_ID                    
-End                    
-Else                       
-Begin                      
-set @CUST_ID=(select IsNull(Max(CUST_ID)+1,1) from SAD_CUSTOMER_MASTER)                      
+set @CUST_ID=(select IsNull(Max(CUST_ID)+1,1) from SAD_CUSTOMER_MASTER)                          
    insert into SAD_CUSTOMER_MASTER(CUST_ID,CUST_NAME,CUST_CODE,CUST_WEBSITE,CUST_EMAIL,CUST_GROUPNAME,CUST_GROUPINDIVIDUAL,CUST_ORGTYPEID ,CUST_INDTYPEID,CUST_MGMTTYPEID,CUST_CommitmentDate,CUSt_BranchId,CUST_COMM_ADDRESS,CUST_COMM_CITY,CUST_COMM_PIN ,   
-    CUST_COMM_STATE, CUST_COMM_COUNTRY,CUST_COMM_FAX,CUST_COMM_TEL,CUST_COMM_Email,CUST_ADDRESS,CUST_CITY,CUST_PIN ,
-	CUST_STATE,CUST_COUNTRY,CUST_FAX,CUST_TELPHONE,CUST_ConEmailID,CUST_LOCATIONID,CUST_TASKS,CUST_ORGID,CUST_DELFLG ,
-	CUST_CRON,CUST_CRBY,CUST_BOARDOFDIRECTORS,
-	CUST_DEPMETHOD,CUST_STATUS,CUST_CompID,CUST_Amount_Type,CUST_RoundOff)                    
-   values(@CUST_ID,@CUST_NAME,@CUST_CODE,@CUST_WEBSITE,@CUST_EMAIL,@CUST_GROUPNAME,@CUST_GROUPINDIVIDUAL,@CUST_ORGTYPEID,
-   @CUST_INDTYPEID,@CUST_MGMTTYPEID,@CUST_CommitmentDate,@CUSt_BranchId,@CUST_COMM_ADDRESS,@CUST_COMM_CITY,
-   @CUST_COMM_PIN ,@CUST_COMM_STATE,  
-   @CUST_COMM_COUNTRY,@CUST_COMM_FAX,@CUST_COMM_TEL,@CUST_COMM_Email,@CUST_ADDRESS,@CUST_CITY,@CUST_PIN ,
-   @CUST_STATE,@CUST_COUNTRY,@CUST_FAX,@CUST_TELPHONE,@CUST_ConEmailID,@CUST_LOCATIONID,@CUST_TASKS,@CUST_ORGID,
-   'W' ,Getdate(),@CUST_CRBY,@CUST_BOARDOFDIRECTORS,
-   @CUST_DEPMETHOD,'C',@CUST_CompID,@CUST_Amount_Type,@CUST_RoundOff)                      
-   set @iUpdateOrSave=3                     
-   set @iOper = @CUST_ID                       
-End
+  
+    
+    CUST_COMM_STATE, CUST_COMM_COUNTRY,CUST_COMM_FAX,CUST_COMM_TEL,CUST_COMM_Email,CUST_ADDRESS,CUST_CITY,CUST_PIN ,    
+ CUST_STATE,CUST_COUNTRY,CUST_FAX,CUST_TELPHONE,CUST_ConEmailID,CUST_LOCATIONID,CUST_TASKS,CUST_ORGID,CUST_DELFLG ,    
+ CUST_CRON,CUST_CRBY,CUST_BOARDOFDIRECTORS,    
+ CUST_DEPMETHOD,CUST_STATUS,CUST_CompID,CUST_Amount_Type,CUST_RoundOff,Cust_DurtnId,Cust_FY)                        
+   values(@CUST_ID,@CUST_NAME,@CUST_CODE,@CUST_WEBSITE,@CUST_EMAIL,@CUST_GROUPNAME,@CUST_GROUPINDIVIDUAL,@CUST_ORGTYPEID,    
+   @CUST_INDTYPEID,@CUST_MGMTTYPEID,@CUST_CommitmentDate,@CUSt_BranchId,@CUST_COMM_ADDRESS,@CUST_COMM_CITY,    
+   @CUST_COMM_PIN ,@CUST_COMM_STATE,      
+   @CUST_COMM_COUNTRY,@CUST_COMM_FAX,@CUST_COMM_TEL,@CUST_COMM_Email,@CUST_ADDRESS,@CUST_CITY,@CUST_PIN ,    
+   @CUST_STATE,@CUST_COUNTRY,@CUST_FAX,@CUST_TELPHONE,@CUST_ConEmailID,@CUST_LOCATIONID,@CUST_TASKS,@CUST_ORGID,    
+   'W' ,Getdate(),@CUST_CRBY,@CUST_BOARDOFDIRECTORS,    
+   @CUST_DEPMETHOD,'C',@CUST_CompID,@CUST_Amount_Type,@CUST_RoundOff,@Cust_DurtnId,@Cust_FY)                          
+   set @iUpdateOrSave=3                         
+   set @iOper = @CUST_ID                           
+End    
+    
 
 GO
 /****** Object:  StoredProcedure [dbo].[spSAD_EmpCategory_Charges]    Script Date: 20-03-2025 15:55:34 ******/

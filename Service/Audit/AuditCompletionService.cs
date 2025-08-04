@@ -949,7 +949,8 @@ namespace TracePca.Service.Audit
                     SSW_NotesSteps As Notes, SSW_ReviewerComments AS ReviewerComments, SSW_CriticalAuditMatter As CriticalAuditMatter, SSW_AttachID AS AttachID, b.usr_FullName AS CreatedBy,
                     CONVERT(VARCHAR(10), SSW_CrOn, 103) AS CreatedOn, c.usr_FullName AS ReviewedBy, ISNULL(CONVERT(VARCHAR(10), SSW_ReviewedOn, 103), '') AS ReviewedOn,
                     ISNULL(STUFF((SELECT ', ' + cmm.CMM_Desc FROM STRING_SPLIT(CAST(a.SSW_TypeOfTest AS VARCHAR(MAX)), ',') AS s JOIN Content_Management_Master cmm ON TRY_CAST(s.value AS INT) = cmm.CMM_ID
-                    WHERE cmm.CMM_Category = 'TOT' FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, ''),'') AS TypeOfTest,
+                    WHERE cmm.CMM_Category = 'TOT' FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, ''),'') AS TypeOfTest, SSW_AuditorHoursSpent,
+                    CASE WHEN a.SSW_ExceededMateriality = 1 THEN 'Yes' WHEN a.SSW_ExceededMateriality = 2 THEN 'No' WHEN a.SSW_ExceededMateriality = 3 THEN 'NA' ELSE NULL END AS SSW_ExceededMaterialityName,                   
                     CASE WHEN a.SSW_Status = 1 THEN 'Open' WHEN a.SSW_Status = 2 THEN 'WIP' WHEN a.SSW_Status = 3 THEN 'Closed' ELSE '' END AS Status            
                     FROM StandardAudit_ScheduleConduct_WorkPaper a
                     LEFT JOIN sad_userdetails b ON b.Usr_ID = a.SSW_CrBy
