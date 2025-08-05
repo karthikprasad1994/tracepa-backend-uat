@@ -263,7 +263,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.Zero
         };
 
-        
+
         options.Events = new JwtBearerEvents
         {
             OnTokenValidated = async context =>
@@ -277,11 +277,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     return;
                 }
 
-               
+
                 using var scope = context.HttpContext.RequestServices.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
 
-               
+
                 var isRevoked = await db.ExecuteScalarAsync<int>(
                     "SELECT COUNT(1) FROM UserTokens WHERE AccessToken = @AccessToken AND IsRevoked = 1",
                     new { AccessToken = token });

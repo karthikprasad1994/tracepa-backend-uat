@@ -27,6 +27,7 @@ using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 using static TracePca.Service.FIN_statement.ScheduleMappingService;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
+using StackExchange.Redis;
 namespace TracePca.Service.FIN_statement
 {
     public class ScheduleMappingService : ScheduleMappingInterface
@@ -671,7 +672,7 @@ WHERE ATBUD_Description = @AtbudDescription
                     int updateOrSave = 0, oper = 0;
 
                     // Step 1: Resolve schedule mapping IDs from names
-                    int subItemId = 0, itemId = 0, subHeadingId = 0, headingId = 0, scheduleType = 0;
+                    int subItemId = 0, itemId = 0, subHeadingId = 0, headingId = 0, scheduleType = 0, scheduleIDs = 0;
 
                     if (!string.IsNullOrWhiteSpace(dto.Excel_SubItem))
                         subItemId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleSubItems", "ASSI_ID", dto.Excel_SubItem, dto.ATBU_CustId);
@@ -687,6 +688,7 @@ WHERE ATBUD_Description = @AtbudDescription
 
                     // Optional: Fetch ScheduleType from template
                     scheduleType = await GetScheduleTypeFromTemplateAsync(connection, transaction, subItemId, itemId, subHeadingId, headingId, dto.ATBUD_Company_Type);
+                    //scheduleIDs = await GetScheduleIDs(connection, transaction, subItemId, itemId, subHeadingId, headingId, orgType);
 
                     // --- Master Insert ---
                     using (var cmdMaster = new SqlCommand("spAcc_TrailBalance_Upload", connection, transaction))
@@ -769,6 +771,66 @@ WHERE ATBUD_Description = @AtbudDescription
                 throw;
             }
         }
+        //private async Task<DataTable> GetScheduleIDs(SqlConnection conn, SqlTransaction tran, int subItemId, int itemId, int subHeadingId, int headingId, int orgType)
+        //{
+        //    string sSql = "";
+
+
+        //    if (subItemId > 0)
+        //    {
+        //            sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+        //            ISNULL(b.ASSH_ID,0) AS ASSH_ID, ISNULL(b.ASSH_Name,'') AS ASSH_Name, 
+        //            ISNULL(c.ASI_ID,0) AS ASI_ID, ISNULL(c.ASI_Name,'') AS ASI_Name,
+        //            ISNULL(d.ASSI_ID,0) AS ASSi_ID, ISNULL(d.ASSI_Name,'') AS ASSI_Name 
+        //            FROM ACC_ScheduleTemplates 
+        //            LEFT JOIN ACC_ScheduleSubItems d ON d.ASSI_ID=AST_SubItemID
+        //            LEFT JOIN ACC_ScheduleItems c ON c.ASI_ID=AST_ItemID
+        //            LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID=AST_SubHeadingID
+        //            LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID=AST_HeadingID
+        //            WHERE AST_SubItemID={subItemId} AND AST_Companytype={orgType}";
+        //        }
+        //    else if (itemId > 0)
+        //    {
+        //            sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+        //            ISNULL(b.ASSH_ID,0) AS ASSH_ID, ISNULL(b.ASSH_Name,'') AS ASSH_Name, 
+        //            ISNULL(c.ASI_ID,0) AS ASI_ID, ISNULL(c.ASI_Name,'') AS ASI_Name,
+        //            0 AS ASSi_ID, '' AS ASSI_Name 
+        //            FROM ACC_ScheduleTemplates 
+        //            LEFT JOIN ACC_ScheduleSubItems d ON d.ASSI_ID=AST_SubItemID
+        //            LEFT JOIN ACC_ScheduleItems c ON c.ASI_ID=AST_ItemID
+        //            LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID=AST_SubHeadingID
+        //            LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID=AST_HeadingID
+        //            WHERE AST_ItemID={itemId} AND AST_Companytype={orgType} AND AST_SubItemID=0";
+        //        }
+        //    else if (subHeadingId > 0)
+        //    {
+        //            sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+        //            ISNULL(b.ASSH_ID,0) AS ASSH_ID, ISNULL(b.ASSH_Name,'') AS ASSH_Name,
+        //            0 AS ASI_ID, '' AS ASI_Name,
+        //            0 AS ASSi_ID, '' AS ASSI_Name 
+        //            FROM ACC_ScheduleTemplates 
+        //            LEFT JOIN ACC_ScheduleSubItems d ON d.ASSI_ID=AST_SubItemID
+        //            LEFT JOIN ACC_ScheduleItems c ON c.ASI_ID=AST_ItemID
+        //            LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID=AST_SubHeadingID
+        //            LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID=AST_HeadingID
+        //            WHERE AST_SubHeadingID={subHeadingId} AND AST_Companytype={orgType}";
+        //        }
+        //    else if (headingId > 0)
+        //    {
+        //            sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+        //            0 AS ASSH_ID, '' AS ASSH_Name,
+        //            0 AS ASI_ID, '' AS ASI_Name,
+        //            0 AS ASSi_ID, '' AS ASSI_Name 
+        //            FROM ACC_ScheduleTemplates 
+        //            LEFT JOIN ACC_ScheduleSubItems d ON d.ASSI_ID=AST_SubItemID
+        //            LEFT JOIN ACC_ScheduleItems c ON c.ASI_ID=AST_ItemID
+        //            LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID=AST_SubHeadingID
+        //            LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID=AST_HeadingID
+        //            WHERE AST_HeadingID={headingId} AND AST_Companytype={orgType}";
+        //        }  
+        //    return await ExecuteSqlToDataTableAsync(conn, sSql);
+        //}
+
         private async Task<int> GetIdFromNameAsync(SqlConnection conn, SqlTransaction tran, string table, string column, string name, int orgType)
         {
             string nameCol = column.Replace("_ID", "_Name");
