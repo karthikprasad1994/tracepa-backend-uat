@@ -806,10 +806,10 @@ namespace TracePca.Service.Audit
 
                 string AccessCodeDirectory = await GetAccessCodeDirectory(dto.CompId);
 
-                string UserLoginName = await GetUserName(dto.CompId, dto.UserId);
+                //string UserLoginName = await GetUserName(dto.CompId, dto.UserId);
 
                 //1. Generate Filepath
-                String sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
+                String sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, dto.UserId.ToString(), "Upload");
 
 
                 if (dto.File == null || dto.File.Length == 0)

@@ -281,9 +281,9 @@ namespace TracePca.Service.Audit
                 if (isUpdate)
                 {
                     await connection.ExecuteAsync(@"UPDATE StandardAudit_ScheduleConduct_WorkPaper SET SSW_WorkpaperRef = @SSW_WorkpaperRef, SSW_TypeOfTest = @SSW_TypeOfTest, SSW_WPCheckListID = @SSW_WPCheckListID, 
-                        SSW_DRLID = @SSW_DRLID, SSW_ExceededMateriality = @SSW_ExceededMateriality, SSW_AuditorHoursSpent = @SSW_AuditorHoursSpent, SSW_Observation = @SSW_Observation,
-                        SSW_NotesSteps = @SSW_NotesSteps, SSW_CriticalAuditMatter = @SSW_CriticalAuditMatter, SSW_Conclusion = @SSW_Conclusion, SSW_Status = @SSW_Status, SSW_AttachID = @SSW_AttachID,
-                        SSW_UpdatedBy = @SSW_UpdatedBy, SSW_UpdatedOn = GETDATE(), SSW_IPAddress = @SSW_IPAddress WHERE SSW_ID = @SSW_ID And SSW_SA_ID = @SSW_SA_ID And SSW_CompID = @SSW_CompID;", new
+                SSW_DRLID = @SSW_DRLID, SSW_ExceededMateriality = @SSW_ExceededMateriality, SSW_AuditorHoursSpent = @SSW_AuditorHoursSpent, SSW_Observation = @SSW_Observation,
+                SSW_NotesSteps = @SSW_NotesSteps, SSW_CriticalAuditMatter = @SSW_CriticalAuditMatter, SSW_Conclusion = @SSW_Conclusion, SSW_Status = @SSW_Status,
+                SSW_UpdatedBy = @SSW_UpdatedBy, SSW_UpdatedOn = GETDATE(), SSW_IPAddress = @SSW_IPAddress WHERE SSW_ID = @SSW_ID And SSW_SA_ID = @SSW_SA_ID And SSW_CompID = @SSW_CompID;", new
                     {
                         dto.SSW_ID,
                         dto.SSW_SA_ID,
@@ -298,7 +298,6 @@ namespace TracePca.Service.Audit
                         dto.SSW_CriticalAuditMatter,
                         dto.SSW_Conclusion,
                         dto.SSW_Status,
-                        dto.SSW_AttachID,
                         dto.SSW_UpdatedBy,
                         dto.SSW_IPAddress,
                         dto.SSW_CompID
@@ -309,17 +308,17 @@ namespace TracePca.Service.Audit
                     dto.SSW_WorkpaperNo = await GenerateWorkpaperNoync(dto.SSW_CompID ?? 0, dto.SSW_SA_ID ?? 0);
 
                     var newId = await connection.QuerySingleAsync<int>(@"DECLARE @SSW_ID INT;
-                    SELECT @SSW_ID = ISNULL(MAX(SSW_ID), 0) + 1 FROM StandardAudit_ScheduleConduct_WorkPaper;
+            SELECT @SSW_ID = ISNULL(MAX(SSW_ID), 0) + 1 FROM StandardAudit_ScheduleConduct_WorkPaper;
 
-                    INSERT INTO StandardAudit_ScheduleConduct_WorkPaper (
-                        SSW_ID, SSW_SA_ID, SSW_WorkpaperNo, SSW_WorkpaperRef, SSW_TypeOfTest, SSW_WPCheckListID, SSW_DRLID, SSW_ExceededMateriality, SSW_AuditorHoursSpent, SSW_Observation, 
-                        SSW_NotesSteps, SSW_CriticalAuditMatter, SSW_Conclusion, SSW_Status, SSW_AttachID, SSW_CrBy, SSW_CrOn, SSW_IPAddress, SSW_CompID
-                    ) VALUES (
-                        @SSW_ID, @SSW_SA_ID, @SSW_WorkpaperNo, @SSW_WorkpaperRef, @SSW_TypeOfTest, @SSW_WPCheckListID, @SSW_DRLID, @SSW_ExceededMateriality, @SSW_AuditorHoursSpent, @SSW_Observation, 
-                        @SSW_NotesSteps, @SSW_CriticalAuditMatter, @SSW_Conclusion, @SSW_Status, @SSW_AttachID, @SSW_CrBy, GETDATE(), @SSW_IPAddress, @SSW_CompID
-                    );
+            INSERT INTO StandardAudit_ScheduleConduct_WorkPaper (
+                SSW_ID, SSW_SA_ID, SSW_WorkpaperNo, SSW_WorkpaperRef, SSW_TypeOfTest, SSW_WPCheckListID, SSW_DRLID, SSW_ExceededMateriality, SSW_AuditorHoursSpent, SSW_Observation, 
+                SSW_NotesSteps, SSW_CriticalAuditMatter, SSW_Conclusion, SSW_Status, SSW_AttachID, SSW_CrBy, SSW_CrOn, SSW_IPAddress, SSW_CompID
+            ) VALUES (
+                @SSW_ID, @SSW_SA_ID, @SSW_WorkpaperNo, @SSW_WorkpaperRef, @SSW_TypeOfTest, @SSW_WPCheckListID, @SSW_DRLID, @SSW_ExceededMateriality, @SSW_AuditorHoursSpent, @SSW_Observation, 
+                @SSW_NotesSteps, @SSW_CriticalAuditMatter, @SSW_Conclusion, @SSW_Status, @SSW_AttachID, @SSW_CrBy, GETDATE(), @SSW_IPAddress, @SSW_CompID
+            );
 
-                    SELECT @SSW_ID;", new
+            SELECT @SSW_ID;", new
                     {
                         dto.SSW_SA_ID,
                         dto.SSW_WorkpaperNo,
@@ -343,15 +342,15 @@ namespace TracePca.Service.Audit
                     dto.SSW_ID = newId;
 
                     await connection.ExecuteAsync(@"DECLARE @SACAM_PKID INT;
-                    SELECT @SACAM_PKID = ISNULL(MAX(SACAM_PKID), 0) + 1 FROM StandardAudit_AuditSummary_CAMDetails;
+            SELECT @SACAM_PKID = ISNULL(MAX(SACAM_PKID), 0) + 1 FROM StandardAudit_AuditSummary_CAMDetails;
 
-                    INSERT INTO StandardAudit_AuditSummary_CAMDetails (
-                        SACAM_PKID, SACAM_SA_ID, SACAM_SSW_ID, SACAM_SSW_WorkpaperNo, SACAM_SSW_WorkpaperRef, SACAM_SSW_TypeOfTest, SACAM_SSW_Observation, SACAM_SSW_Conclusion,
-                        SACAM_SSW_Status, SACAM_SSW_ExceededMateriality, SACAM_SSW_CriticalAuditMatter, SACAM_AttachID, SACAM_CrBy, SACAM_CrOn, SACAM_CompID
-                    )
-                    VALUES (
-                        @SACAM_PKID, @SSW_SA_ID, @SSW_ID, @SSW_WorkpaperNo, @SSW_WorkpaperRef, @SSW_TypeOfTest, @SSW_Observation, @SSW_Conclusion, 
-                        @SSW_Status, @SSW_ExceededMateriality, @SSW_CriticalAuditMatter, 0, @SSW_CrBy, GETDATE(), @SSW_CompID);", new
+            INSERT INTO StandardAudit_AuditSummary_CAMDetails (
+                SACAM_PKID, SACAM_SA_ID, SACAM_SSW_ID, SACAM_SSW_WorkpaperNo, SACAM_SSW_WorkpaperRef, SACAM_SSW_TypeOfTest, SACAM_SSW_Observation, SACAM_SSW_Conclusion,
+                SACAM_SSW_Status, SACAM_SSW_ExceededMateriality, SACAM_SSW_CriticalAuditMatter, SACAM_AttachID, SACAM_CrBy, SACAM_CrOn, SACAM_CompID
+            )
+            VALUES (
+                @SACAM_PKID, @SSW_SA_ID, @SSW_ID, @SSW_WorkpaperNo, @SSW_WorkpaperRef, @SSW_TypeOfTest, @SSW_Observation, @SSW_Conclusion, 
+                @SSW_Status, @SSW_ExceededMateriality, @SSW_CriticalAuditMatter, 0, @SSW_CrBy, GETDATE(), @SSW_CompID);", new
                     {
                         SSW_SA_ID = dto.SSW_SA_ID,
                         SSW_ID = dto.SSW_ID,
@@ -374,6 +373,78 @@ namespace TracePca.Service.Audit
             {
                 await transaction.RollbackAsync();
                 throw new ApplicationException("An error occurred while saving or updating the workpaper", ex);
+            }
+        }
+
+        public async Task<(int attachmentId, string relativeFilePath)> UploadAndSaveWorkPaperAttachmentAsync(FileAttachmentDTO dto, int auditId, int workPaperId, string module)
+        {
+            try
+            {
+                if (dto.File == null || dto.File.Length == 0)
+                    throw new ArgumentException("Invalid file.");
+
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                int attachId = dto.ATCH_ID == 0 ? await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID }) : dto.ATCH_ID;
+                int docId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID });
+
+                // Prepare file metadata
+                string originalName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
+                string safeFileName = (originalName.Replace("&", " and")).Substring(0, Math.Min(95, originalName.Length));
+                string fileExt = Path.GetExtension(dto.File.FileName)?.ToLower() ?? ".unk";
+                long fileSize = dto.File.Length;
+
+                // Determine file type
+                string[] imageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv" };
+                string[] documentExtensions = { ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar" };
+                string fileType = imageExtensions.Contains(fileExt) ? "Images" : documentExtensions.Contains(fileExt) ? "Documents" : "Others";
+
+                // Build file path
+                string basePath = GetTRACeConfigValue("ImgPath"); // Or Directory.GetCurrentDirectory()
+                string folderChunk = (docId / 301).ToString();
+                string savePath = Path.Combine(basePath, module, fileType, folderChunk);
+                if (!Directory.Exists(savePath))
+                    Directory.CreateDirectory(savePath);
+
+                // Save the file
+                string uniqueFileName = $"{docId}{fileExt}";
+                string fullPath = Path.Combine(savePath, uniqueFileName);
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await dto.File.CopyToAsync(stream);
+                }
+
+                var insertQuery = @"
+        INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
+        ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID)
+        VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
+
+                await connection.ExecuteAsync(insertQuery, new
+                {
+                    AtchId = attachId,
+                    DocId = docId,
+                    FileName = safeFileName,
+                    FileExt = fileExt,
+                    CreatedBy = dto.ATCH_CREATEDBY,
+                    Size = fileSize,
+                    CompId = dto.ATCH_COMPID
+                });
+
+                const string attachQuery = @"UPDATE StandardAudit_ScheduleConduct_WorkPaper SET SSW_AttachID = @SSW_AttachID WHERE SSW_ID = @SSW_ID And SSW_SA_ID = @SSW_SA_ID And SSW_CompID = @SSW_CompID;";
+                await connection.ExecuteAsync(attachQuery, new
+                {
+                    SSW_AttachID = attachId,
+                    SSW_SA_ID = auditId,
+                    SSW_ID = workPaperId,
+                    SSW_CompID = dto.ATCH_COMPID
+                });
+
+                return (attachId, fullPath.Replace("\\", "/"));
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to upload the attachment document.", ex);
             }
         }
 

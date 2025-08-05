@@ -236,6 +236,28 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpPost("UploadAndSaveWorkPaperAttachment")]
+        public async Task<IActionResult> UploadAndSaveWorkPaperAttachment([FromForm] FileAttachmentDTO dto, int auditId, int workPaperId)
+        {
+            try
+            {
+                var (attachmentId, relativeFilePath) = await _conductAuditInterface.UploadAndSaveWorkPaperAttachmentAsync(dto, auditId, workPaperId, "StandardAudit");
+                if (attachmentId > 0)
+                {
+                    return Ok(new { success = true, message = "File uploaded and saved successfully.", data = attachmentId });
+                }
+                else
+                {
+                    return StatusCode(500, new { success = false, message = "File upload failed. No attachment record was saved." });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while uploading the file: {ex.Message}" });
+            }
+        }
+
+
         [HttpPost("RemoveAttachmentDoc")]
         public async Task<IActionResult> RemoveAttachmentDoc(int compId, int attachId, int docId, int userId)
         {

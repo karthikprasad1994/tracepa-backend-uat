@@ -62,5 +62,26 @@
         {
             public string OrgType { get; set; }
         }
+
+        public class CustomerLocationDto
+        {
+            public int MasId { get; set; }
+            public string MasCode { get; set; }
+            public string MasDescription { get; set; }
+            public string MasDelFlag { get; set; }
+            public int MasCustID { get; set; }
+            public string MasLocAddress { get; set; }
+            public string MasContactPerson { get; set; }
+            public string MasContactMobileNo { get; set; }
+            public string MasContactLandLineNo { get; set; }
+            public string MasContactEmail { get; set; }
+            public string MasDesignation { get; set; }
+            public int MasCRBY { get; set; }
+            public int MasUpdatedBy { get; set; }
+            public string MasStatus { get; set; }
+            public string MasIPAddress { get; set; }
+            public int MasCompID { get; set; }
+        }
+
     }
 }
