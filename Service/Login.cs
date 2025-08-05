@@ -285,27 +285,51 @@ namespace TracePca.Service
 
                 // Step 4: Create Customer Database
                 await CreateCustomerDatabaseAsync(newCustomerCode);
-
-                // Step 5: Setup Schema
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
                 string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
 
-               string scriptFilePath = Path.Combine(@"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SQL_Scripts", "Tables.txt");
+                string localScriptPath = Path.Combine(_env.ContentRootPath, "SQL_Scripts", "Tables.txt");
+                string serverScriptPath = Path.Combine(@"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SQL_Scripts", "Tables.txt");
 
-                // Ensure the folder and file exist
-                if (!Directory.Exists(Path.GetDirectoryName(scriptFilePath)))
+                // Decide which script file path to use (prefer local if available)
+                string scriptFilePathToUse = File.Exists(localScriptPath) ? localScriptPath : serverScriptPath;
+
+                // Ensure the folder and file exist (for whichever path we are using)
+                string scriptDir = Path.GetDirectoryName(scriptFilePathToUse);
+                if (!Directory.Exists(scriptDir))
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(scriptFilePath));
+                    Directory.CreateDirectory(scriptDir);
                 }
 
-                if (!File.Exists(scriptFilePath))
+                if (!File.Exists(scriptFilePathToUse))
                 {
                     string defaultSql = "-- Initial SQL script\n-- Example: CREATE TABLE TestTable (Id INT PRIMARY KEY);";
-                    File.WriteAllText(scriptFilePath, defaultSql);
+                    File.WriteAllText(scriptFilePathToUse, defaultSql);
                 }
 
                 // Execute the script
-                await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePath);
+                await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePathToUse);
+
+                // Step 5: Setup Schema
+                //string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+                //string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
+                //string localScriptPath = Path.Combine(_env.ContentRootPath, "SQL_Scripts", "Tables.txt");
+                //string scriptFilePath = Path.Combine(@"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SQL_Scripts", "Tables.txt");
+
+                //// Ensure the folder and file exist
+                //if (!Directory.Exists(Path.GetDirectoryName(scriptFilePath)))
+                //{
+                //    Directory.CreateDirectory(Path.GetDirectoryName(scriptFilePath));
+                //}
+
+                //if (!File.Exists(scriptFilePath))
+                //{
+                //    string defaultSql = "-- Initial SQL script\n-- Example: CREATE TABLE TestTable (Id INT PRIMARY KEY);";
+                //    File.WriteAllText(scriptFilePath, defaultSql);
+                //}
+
+                //// Execute the script
+                //await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePath);
 
 
                 //   string scriptsFolderPath = Path.Combine(_env.ContentRootPath, "SqlScripts", "Cleaned_Sign-up.sql");
