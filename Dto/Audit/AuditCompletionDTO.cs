@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using DocumentFormat.OpenXml.Bibliography;
+using System.Text.Json.Serialization;
 
 namespace TracePca.Dto.Audit
 {
@@ -86,8 +87,10 @@ namespace TracePca.Dto.Audit
         public string CriticalAuditMatter { get; set; }
         public string Conclusion { get; set; }        
         public string TypeOfTest { get; set; }
+        public string ExceededMateriality { get; set; }
+        public string AuditorHoursSpent { get; set; }
         public string Status { get; set; }
-        public string AttachNames { get; set; }
+        public string AttachmentCount { get; set; }
         public string CreatedBy { get; set; }
         public string CreatedOn { get; set; }
         public string ReviewedBy { get; set; }
@@ -100,7 +103,12 @@ namespace TracePca.Dto.Audit
         public string Heading { get; set; }
         public string CheckPoints { get; set; }
         public string Comments { get; set; }
-        public string Annexures { get; set; }
+        public string Mandatory { get; set; }
+        public string TestResult { get; set; }
+        public string Annexure { get; set; }
+        public string WorkpaperRef { get; set; }        
+        public string ConductedBy { get; set; }
+        public string ConductedOn { get; set; }
     }
 
     public class ConductAuditObservationDTO

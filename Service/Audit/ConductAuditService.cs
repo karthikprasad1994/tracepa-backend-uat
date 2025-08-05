@@ -867,6 +867,12 @@ namespace TracePca.Service.Audit
                                         table.Cell().Element(CellStyle).Text("Status:").Bold();
                                         table.Cell().Element(CellStyle).Text(details.Status);
 
+                                        table.Cell().Element(CellStyle).Text("Exceeded Materiality:").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.ExceededMateriality);
+
+                                        table.Cell().Element(CellStyle).Text("Auditor Hours Spent:").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.AuditorHoursSpent);
+
                                         table.Cell().Element(CellStyle).Text("Notes/Steps:").Bold();
                                         table.Cell().Element(CellStyle).Text(details.Notes);
 
@@ -880,7 +886,7 @@ namespace TracePca.Service.Audit
                                         table.Cell().Element(CellStyle).Text(details.Conclusion);
 
                                         table.Cell().Element(CellStyle).Text("Attachments:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.AttachNames);
+                                        table.Cell().Element(CellStyle).Text(details.AttachmentCount);
 
                                         table.Cell().Element(CellStyle).Text("").Bold();
                                         table.Cell().Element(CellStyle).Text("");
@@ -946,7 +952,7 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Heading wise Check Points report with Annexure").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Heading wise Checkpoints Report").FontSize(16).Bold();
                             column.Item().Text(text =>
                             {
                                 text.Span("Client Name: ").FontSize(10).Bold();
@@ -967,10 +973,10 @@ namespace TracePca.Service.Audit
                                     table.ColumnsDefinition(columns =>
                                     {
                                         columns.RelativeColumn(0.5f);
+                                        columns.RelativeColumn(1.75f);
+                                        columns.RelativeColumn(1.75f);
+                                        columns.RelativeColumn(1.5f);
                                         columns.RelativeColumn(2);
-                                        columns.RelativeColumn(2);
-                                        columns.RelativeColumn(2);
-                                        columns.RelativeColumn(1);
                                     });
 
                                     table.Header(header =>
@@ -978,18 +984,18 @@ namespace TracePca.Service.Audit
                                         header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Heading").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Check Point").FontSize(10).Bold();
-                                        header.Cell().Element(CellStyle).Text("Comments").FontSize(10).Bold();
-                                        header.Cell().Element(CellStyle).Text("Annexures").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Assertions").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Workpaper Ref/Index").FontSize(10).Bold();
                                     });
 
                                     int slNo = 1;
                                     foreach (var details in dtoCA)
                                     {
                                         table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
-                                        table.Cell().Element(CellStyle).Text(details.Heading.ToString()).FontSize(10);
-                                        table.Cell().Element(CellStyle).Text(details.CheckPoints.ToString()).FontSize(10);
-                                        table.Cell().Element(CellStyle).Text(details.Comments.ToString()).FontSize(10);
-                                        table.Cell().Element(CellStyle).Text(details.Annexures.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Heading).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.CheckPoints).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text($"Mandatory: {details.Mandatory}\nTest Result: {details.TestResult}\nAnnexure: {details.Annexure}").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text($"Workpaper Ref: {details.WorkpaperRef}\nComments: {details.Comments}\nBy: {details.ConductedBy}\nOn: {details.ConductedOn}").FontSize(10);
                                         slNo++;
                                     }
                                     static IContainer CellStyle(IContainer container) =>

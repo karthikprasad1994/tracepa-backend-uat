@@ -862,8 +862,13 @@ namespace TracePca.Service.Audit
                 await connection.OpenAsync();
 
                 var query = @"SELECT DENSE_RANK() OVER (ORDER BY SAC_CheckPointID) AS SlNo, ACM_Heading AS Heading, ACM_Checkpoint AS CheckPoints, ISNULL(SAC_Remarks, '') AS Comments,
-                    CASE WHEN SAC_Annexure = 1 THEN 'Yes' WHEN SAC_Mandatory = 0 THEN 'No' ELSE '' END AS Annexures FROM StandardAudit_ScheduleCheckPointList
-                    JOIN AuditType_Checklist_Master ON ACM_ID = SAC_CheckPointID
+                    CASE WHEN SAC_Annexure = 1 THEN 'Yes' WHEN SAC_Mandatory = 0 THEN 'No' ELSE '' END AS Annexures ,
+                    CASE WHEN ISNULL(SAC_Mandatory, 0) = 1 THEN 'Yes' ELSE 'No' END AS Mandatory, ISNULL(SSW_WorkpaperRef, '') AS WorkpaperRef,
+                    CASE WHEN ISNULL(SAC_TestResult, 0) = 1 THEN 'Yes' WHEN ISNULL(SAC_TestResult, 0) = 2 THEN 'No' WHEN ISNULL(SAC_TestResult, 0) = 3 THEN 'NA' ELSE '' END AS TestResult,
+                    ISNULL(a.Usr_FullName, '') AS ConductedBy, ISNULL(SAC_LastUpdatedOn,'') AS ConductedOn
+                    FROM StandardAudit_ScheduleCheckPointList
+                    LEFT JOIN AuditType_Checklist_Master ON ACM_ID = SAC_CheckPointID
+					LEFT JOIN sad_userdetails a ON a.Usr_ID = SAC_ConductedBy
                     LEFT JOIN StandardAudit_ScheduleConduct_WorkPaper ON SSW_SA_ID = @AuditID AND SSW_ID = SAC_WorkpaperID
                     WHERE SAC_SA_ID = @AuditID AND SAC_CompID = @CompID ORDER BY SAC_CheckPointID";
 
@@ -949,9 +954,10 @@ namespace TracePca.Service.Audit
                     SSW_NotesSteps As Notes, SSW_ReviewerComments AS ReviewerComments, SSW_CriticalAuditMatter As CriticalAuditMatter, SSW_AttachID AS AttachID, b.usr_FullName AS CreatedBy,
                     CONVERT(VARCHAR(10), SSW_CrOn, 103) AS CreatedOn, c.usr_FullName AS ReviewedBy, ISNULL(CONVERT(VARCHAR(10), SSW_ReviewedOn, 103), '') AS ReviewedOn,
                     ISNULL(STUFF((SELECT ', ' + cmm.CMM_Desc FROM STRING_SPLIT(CAST(a.SSW_TypeOfTest AS VARCHAR(MAX)), ',') AS s JOIN Content_Management_Master cmm ON TRY_CAST(s.value AS INT) = cmm.CMM_ID
-                    WHERE cmm.CMM_Category = 'TOT' FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, ''),'') AS TypeOfTest, SSW_AuditorHoursSpent,
-                    CASE WHEN a.SSW_ExceededMateriality = 1 THEN 'Yes' WHEN a.SSW_ExceededMateriality = 2 THEN 'No' WHEN a.SSW_ExceededMateriality = 3 THEN 'NA' ELSE NULL END AS SSW_ExceededMaterialityName,                   
-                    CASE WHEN a.SSW_Status = 1 THEN 'Open' WHEN a.SSW_Status = 2 THEN 'WIP' WHEN a.SSW_Status = 3 THEN 'Closed' ELSE '' END AS Status            
+                    WHERE cmm.CMM_Category = 'TOT' FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, ''),'') AS TypeOfTest, SSW_AuditorHoursSpent As AuditorHoursSpent,
+                    CASE WHEN a.SSW_ExceededMateriality = 1 THEN 'Yes' WHEN a.SSW_ExceededMateriality = 2 THEN 'No' WHEN a.SSW_ExceededMateriality = 3 THEN 'NA' ELSE NULL END AS ExceededMateriality,                   
+                    CASE WHEN a.SSW_Status = 1 THEN 'Open' WHEN a.SSW_Status = 2 THEN 'WIP' WHEN a.SSW_Status = 3 THEN 'Closed' ELSE '' END AS Status,
+                    ISNULL((SELECT Count(*) FROM edt_attachments WHERE ATCH_CompID = @CompId AND ATCH_ID in (SELECT SSW_AttachID FROM StandardAudit_ScheduleConduct_WorkPaper SSW WHERE SSW.SSW_SA_ID = @AuditId AND SSW.SSW_CompID = @CompId And SSW.SSW_ID = a.SSW_ID)), 0) As AttachmentCount
                     FROM StandardAudit_ScheduleConduct_WorkPaper a
                     LEFT JOIN sad_userdetails b ON b.Usr_ID = a.SSW_CrBy
                     LEFT JOIN sad_userdetails c ON c.Usr_ID = a.SSW_ReviewedBy
@@ -1207,6 +1213,12 @@ namespace TracePca.Service.Audit
                                         table.Cell().Element(CellStyle).Text("Status:").Bold();
                                         table.Cell().Element(CellStyle).Text(details.Status);
 
+                                        table.Cell().Element(CellStyle).Text("Exceeded Materiality:").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.ExceededMateriality);
+
+                                        table.Cell().Element(CellStyle).Text("Auditor Hours Spent:").Bold();
+                                        table.Cell().Element(CellStyle).Text(details.AuditorHoursSpent);
+
                                         table.Cell().Element(CellStyle).Text("Notes/Steps:").Bold();
                                         table.Cell().Element(CellStyle).Text(details.Notes);
 
@@ -1220,7 +1232,7 @@ namespace TracePca.Service.Audit
                                         table.Cell().Element(CellStyle).Text(details.Conclusion);
 
                                         table.Cell().Element(CellStyle).Text("Attachments:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.AttachNames);
+                                        table.Cell().Element(CellStyle).Text(details.AttachmentCount);
 
                                         table.Cell().Element(CellStyle).Text("").Bold();
                                         table.Cell().Element(CellStyle).Text("");
@@ -1233,16 +1245,16 @@ namespace TracePca.Service.Audit
 
                             if (dtoCA.Any() == true)
                             {
-                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Heading wise Checkpoints report with Annexure").FontSize(14).Bold();
+                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Heading wise Checkpoints Report").FontSize(14).Bold();
                                 column.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(columns =>
                                     {
                                         columns.RelativeColumn(0.5f);
+                                        columns.RelativeColumn(1.75f);
+                                        columns.RelativeColumn(1.75f);
+                                        columns.RelativeColumn(1.5f);
                                         columns.RelativeColumn(2);
-                                        columns.RelativeColumn(2);
-                                        columns.RelativeColumn(2);
-                                        columns.RelativeColumn(1);
                                     });
 
                                     table.Header(header =>
@@ -1250,18 +1262,18 @@ namespace TracePca.Service.Audit
                                         header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Heading").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Check Point").FontSize(10).Bold();
-                                        header.Cell().Element(CellStyle).Text("Comments").FontSize(10).Bold();
-                                        header.Cell().Element(CellStyle).Text("Annexures").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Assertions").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Workpaper Ref/Index").FontSize(10).Bold();
                                     });
 
                                     int slNo = 1;
                                     foreach (var details in dtoCA)
                                     {
                                         table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
-                                        table.Cell().Element(CellStyle).Text(details.Heading.ToString()).FontSize(10);
-                                        table.Cell().Element(CellStyle).Text(details.CheckPoints.ToString()).FontSize(10);
-                                        table.Cell().Element(CellStyle).Text(details.Comments.ToString()).FontSize(10);
-                                        table.Cell().Element(CellStyle).Text(details.Annexures.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Heading).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.CheckPoints).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text($"Mandatory: {details.Mandatory}\nTest Result: {details.TestResult}\nAnnexure: {details.Annexure}").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text($"Workpaper Ref: {details.WorkpaperRef}\nComments: {details.Comments}\nBy: {details.ConductedBy}\nOn: {details.ConductedOn}").FontSize(10);
                                         slNo++;
                                     }
                                     static IContainer CellStyle(IContainer container) =>
