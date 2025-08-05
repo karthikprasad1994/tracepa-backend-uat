@@ -399,10 +399,11 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     CommandType = CommandType.StoredProcedure
                 };
+                string sCodeSave = dto.MasDescription.Substring(0, 2).ToUpper();
 
                 // Add input parameters
                 cmd.Parameters.AddWithValue("@Mas_Id", dto.MasId);
-                cmd.Parameters.AddWithValue("@Mas_code", dto.MasCode ?? "");
+                cmd.Parameters.AddWithValue("@Mas_code", sCodeSave ?? "");
                 cmd.Parameters.AddWithValue("@Mas_Description", dto.MasDescription ?? "");
                 cmd.Parameters.AddWithValue("@Mas_DelFlag", dto.MasDelFlag ?? "A");
                 cmd.Parameters.AddWithValue("@Mas_CustID", dto.MasCustID);
