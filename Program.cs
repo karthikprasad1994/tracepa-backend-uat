@@ -42,7 +42,7 @@ using TracePca.Service.ProfileSetting;
 
 //using TracePca.Interface.AssetMaserInterface;
 
-var builder = WebApplication.CreateBuilder(args);
+ var builder = WebApplication.CreateBuilder(args);
 var environment = builder.Environment;
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
@@ -318,6 +318,13 @@ app.UseSession();
 app.UseMiddleware<TracePca.Middleware.CustomerContextMiddleware>();
 app.UseMiddleware<TracePca.Middleware.ErrorLogMiddleware>();
 //app.UseMiddleware<TracePca.Middleware.SessionTimeout>();
+<<<<<<< HEAD
+=======
+ 
+
+
+ 
+>>>>>>> b010d62 (dafney code updated 2)
 
 app.UseEndpoints(endpoints =>
 {
