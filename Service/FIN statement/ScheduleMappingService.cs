@@ -779,6 +779,8 @@ WHERE ATBUD_Description = @AtbudDescription
         //    if (subItemId > 0)
         //    {
         //        sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+
+        //            sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
         //            ISNULL(b.ASSH_ID,0) AS ASSH_ID, ISNULL(b.ASSH_Name,'') AS ASSH_Name, 
         //            ISNULL(c.ASI_ID,0) AS ASI_ID, ISNULL(c.ASI_Name,'') AS ASI_Name,
         //            ISNULL(d.ASSI_ID,0) AS ASSi_ID, ISNULL(d.ASSI_Name,'') AS ASSI_Name 
@@ -788,10 +790,16 @@ WHERE ATBUD_Description = @AtbudDescription
         //            LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID=AST_SubHeadingID
         //            LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID=AST_HeadingID
         //            WHERE AST_SubItemID={subItemId} AND AST_Companytype={orgType}";
+
         //    }
         //    else if (itemId > 0)
         //    {
         //        sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+
+        //        }
+        //    else if (itemId > 0)
+        //    {
+        //            sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
         //            ISNULL(b.ASSH_ID,0) AS ASSH_ID, ISNULL(b.ASSH_Name,'') AS ASSH_Name, 
         //            ISNULL(c.ASI_ID,0) AS ASI_ID, ISNULL(c.ASI_Name,'') AS ASI_Name,
         //            0 AS ASSi_ID, '' AS ASSI_Name 
@@ -801,10 +809,17 @@ WHERE ATBUD_Description = @AtbudDescription
         //            LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID=AST_SubHeadingID
         //            LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID=AST_HeadingID
         //            WHERE AST_ItemID={itemId} AND AST_Companytype={orgType} AND AST_SubItemID=0";
+
         //    }
         //    else if (subHeadingId > 0)
         //    {
         //        sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+
+        //        }
+        //    else if (subHeadingId > 0)
+        //    {
+        //            sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+
         //            ISNULL(b.ASSH_ID,0) AS ASSH_ID, ISNULL(b.ASSH_Name,'') AS ASSH_Name,
         //            0 AS ASI_ID, '' AS ASI_Name,
         //            0 AS ASSi_ID, '' AS ASSI_Name 
@@ -814,10 +829,17 @@ WHERE ATBUD_Description = @AtbudDescription
         //            LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID=AST_SubHeadingID
         //            LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID=AST_HeadingID
         //            WHERE AST_SubHeadingID={subHeadingId} AND AST_Companytype={orgType}";
+
         //    }
         //    else if (headingId > 0)
         //    {
         //        sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+
+        //        }
+        //    else if (headingId > 0)
+        //    {
+        //            sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+
         //            0 AS ASSH_ID, '' AS ASSH_Name,
         //            0 AS ASI_ID, '' AS ASI_Name,
         //            0 AS ASSi_ID, '' AS ASSI_Name 
@@ -829,6 +851,10 @@ WHERE ATBUD_Description = @AtbudDescription
         //            WHERE AST_HeadingID={headingId} AND AST_Companytype={orgType}";
         //    }
         //    return await ExecuteSqlToAsync(conn, sSql);
+
+        //        }  
+        //    return await ExecuteSqlToDataTableAsync(conn, sSql);
+
         //}
 
         private async Task<int> GetIdFromNameAsync(SqlConnection conn, SqlTransaction tran, string table, string column, string name, int orgType)
