@@ -100,7 +100,6 @@ namespace TracePca.Service
             {
                 var email = dto.Email?.Trim().ToLower();
 
-
                 if (string.IsNullOrWhiteSpace(email))
                 {
                     return new ObjectResult(new
@@ -116,29 +115,30 @@ namespace TracePca.Service
 
                 var existingCustomerCode = await connection.QueryFirstOrDefaultAsync<string>(
                     @"SELECT TOP 1 MCR_CustomerCode
-       FROM MMCS_CustomerRegistration
-       CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
-       WHERE LTRIM(RTRIM(Emails.value)) = @Email", new { Email = email });
+              FROM MMCS_CustomerRegistration
+              CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
+              WHERE LTRIM(RTRIM(Emails.value)) = @Email", new { Email = email });
 
                 if (!string.IsNullOrEmpty(existingCustomerCode))
                 {
                     // ✅ Existing user → Login
-                    var loginResult = await LoginUserAsync(email, "a"); // optional: use passwordless logic
+                    var loginResult = await LoginUserAsync(email, "sa"); // optional: use passwordless logic here
+
                     return loginResult.StatusCode == 200
                         ? new OkObjectResult(loginResult)
                         : new ObjectResult(loginResult) { StatusCode = loginResult.StatusCode };
                 }
                 else
                 {
-                    // ✅ New user → proceed with sign-up
+                    // ✅ New user → register only
                     var registrationDto = new RegistrationDto
                     {
                         McrCustomerEmail = email,
                         McrCustomerTelephoneNo = dto.PhoneNumber?.Trim(),
                         McrCustomerName = dto.CompanyName?.Trim()
-                        // temporary, can be updated later
                     };
 
+                    // Return your normal sign-up response
                     return await SignUpUserAsync(registrationDto);
                 }
             }
@@ -153,6 +153,7 @@ namespace TracePca.Service
                 { StatusCode = 500 };
             }
         }
+
 
 
         //public async Task<IActionResult> SignUpUserViaGoogleAsync(GoogleAuthDto dto)
