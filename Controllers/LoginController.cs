@@ -127,43 +127,11 @@ namespace TracePca.Controllers
             }
 
 
-        [HttpPost("GoogleSignup")]
-        public async Task<IActionResult> GoogleSignup([FromBody] GoogleAuthDto dto)
+        [HttpPost("GmailSignup")]
+        public async Task<IActionResult> SignUpUserViaGoogleAsync([FromBody] GoogleAuthDto dto)
         {
-            try
-            {
-                var result = await _LoginInterface.SignUpUserViaGoogleAsync(dto);
-
-                // If SignUpUserViaGoogleAsync returns IActionResult, unwrap it accordingly.
-                // Otherwise, assume it returns a DTO result.
-
-                return Ok(new
-                {
-                    statuscode = 200,
-                    message = "Signed up successfully via Google.",
-                    
-                });
-            }
-            catch (SecurityTokenException ex)
-            {
-                return Unauthorized(new
-                {
-                    statuscode = 401,
-                    message = "Invalid or expired Google ID token.",
-                    error = ex.Message
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statuscode = 500,
-                    message = "Internal server error while processing Google signup.",
-                    error = ex.Message
-                });
-            }
+            return await _LoginInterface.SignUpUserViaGoogleAsync(dto);
         }
-
 
 
         // POST api/<LoginController>
