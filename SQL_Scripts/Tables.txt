@@ -21934,3 +21934,42 @@ GO
 
 GO
 
+
+IF OBJECT_ID('dbo.UserTokens', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.UserTokens
+    (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        UserEmail NVARCHAR(200) NOT NULL,
+        AccessToken NVARCHAR(MAX) NOT NULL,
+        RefreshToken NVARCHAR(MAX) NOT NULL,
+        AccessTokenExpiry DATETIME NOT NULL,
+        RefreshTokenExpiry DATETIME NOT NULL,
+        IsRevoked BIT NOT NULL DEFAULT 0,
+        RevokedAt DATETIME NULL,
+        CreatedAt DATETIME NOT NULL DEFAULT GETDATE()
+    );
+END
+GO
+
+IF OBJECT_ID('dbo.ApplicationErrorLogs', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ApplicationErrorLogs
+    (
+        Id            INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        FormName      NVARCHAR(200)     NULL,
+        Controller    NVARCHAR(200)     NULL,
+        Action        NVARCHAR(200)     NULL,
+        ErrorMessage  NVARCHAR(MAX)     NULL,
+        StackTrace    NVARCHAR(MAX)     NULL,
+        UserId        INT              NULL,
+        CustomerId    INT              NULL,
+        Description   NVARCHAR(1000)    NULL,
+        CreatedDate   DATETIME          NULL,
+        ResponseTime  INT               NULL
+    );
+END
+GO
+
+
+
