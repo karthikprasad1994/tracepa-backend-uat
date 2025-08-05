@@ -862,7 +862,7 @@ namespace TracePca.Service.Audit
                 await connection.OpenAsync();
 
                 var query = @"SELECT DENSE_RANK() OVER (ORDER BY SAC_CheckPointID) AS SlNo, ACM_Heading AS Heading, ACM_Checkpoint AS CheckPoints, ISNULL(SAC_Remarks, '') AS Comments,
-                    CASE WHEN SAC_Annexure = 1 THEN 'Yes' WHEN SAC_Mandatory = 0 THEN 'No' ELSE '' END AS Annexures ,
+                    CASE WHEN SAC_Annexure = 1 THEN 'Yes' WHEN SAC_Annexure = 0 THEN 'No' ELSE '' END AS Annexure ,
                     CASE WHEN ISNULL(SAC_Mandatory, 0) = 1 THEN 'Yes' ELSE 'No' END AS Mandatory, ISNULL(SSW_WorkpaperRef, '') AS WorkpaperRef,
                     CASE WHEN ISNULL(SAC_TestResult, 0) = 1 THEN 'Yes' WHEN ISNULL(SAC_TestResult, 0) = 2 THEN 'No' WHEN ISNULL(SAC_TestResult, 0) = 3 THEN 'NA' ELSE '' END AS TestResult,
                     ISNULL(a.Usr_FullName, '') AS ConductedBy, ISNULL(SAC_LastUpdatedOn,'') AS ConductedOn

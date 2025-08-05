@@ -17,6 +17,7 @@ namespace TracePca.Interface.Audit
         Task<bool> AssignWorkpapersToCheckPointsAsync(List<ConductAuditDetailsDTO> dtos);
         Task<bool> UpdateConductAuditCheckPointRemarksAndAnnexureAsync(ConductAuditDetailsDTO dto);
         Task<(int attachmentId, string relativeFilePath)> UploadAndSaveCheckPointAttachmentAsync(FileAttachmentDTO dto, int auditId, int checkPointId, string module);
+        Task<(int attachmentId, string relativeFilePath)> UploadAndSaveWorkPaperAttachmentAsync(FileAttachmentDTO dto, int auditId, int checkPointId, string module);
         Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadWorkpapersReportAsync(int compId, int auditId, string format);
         Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadCheckPointsReportAsync(int compId, int auditId, string format);
         Task<string> GenerateWorkpapersReportAndGetURLPathAsync(int compId, int auditId, string format);
