@@ -9,8 +9,6 @@
 //            _next = next;
 //        }
 
-<<<<<<< HEAD
-=======
  
 //        public async Task InvokeAsync(HttpContext context)
 //        {
@@ -41,7 +39,7 @@
 //            await _next(context);
 //        }
 
->>>>>>> b010d62 (dafney code updated 2)
+
 //        //public async Task InvokeAsync(HttpContext context)
 //        //{
 //        //    var path = context.Request.Path.Value?.ToLower();
@@ -70,7 +68,6 @@
 
 //        //    await _next(context);
 //        //}
-<<<<<<< HEAD
 
 //        public async Task InvokeAsync(HttpContext context)
 //        {
@@ -100,9 +97,7 @@
 
 //            await _next(context);
 //        }
-=======
- 
->>>>>>> b010d62 (dafney code updated 2)
+
 //    }
 //}
 

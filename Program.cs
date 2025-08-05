@@ -42,7 +42,7 @@ using TracePca.Service.ProfileSetting;
 
 //using TracePca.Interface.AssetMaserInterface;
 
- var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 var environment = builder.Environment;
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
@@ -263,7 +263,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.Zero
         };
 
-        
+
         options.Events = new JwtBearerEvents
         {
             OnTokenValidated = async context =>
@@ -277,11 +277,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     return;
                 }
 
-               
+
                 using var scope = context.HttpContext.RequestServices.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
 
-               
+
                 var isRevoked = await db.ExecuteScalarAsync<int>(
                     "SELECT COUNT(1) FROM UserTokens WHERE AccessToken = @AccessToken AND IsRevoked = 1",
                     new { AccessToken = token });
@@ -318,13 +318,6 @@ app.UseSession();
 app.UseMiddleware<TracePca.Middleware.CustomerContextMiddleware>();
 app.UseMiddleware<TracePca.Middleware.ErrorLogMiddleware>();
 //app.UseMiddleware<TracePca.Middleware.SessionTimeout>();
-<<<<<<< HEAD
-=======
- 
-
-
- 
->>>>>>> b010d62 (dafney code updated 2)
 
 app.UseEndpoints(endpoints =>
 {
