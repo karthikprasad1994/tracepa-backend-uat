@@ -178,6 +178,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetSummaryReportForPandL
+        //GetSummaryReportForPandL
         public async Task<IEnumerable<SummaryReportPnLRow>> GetReportSummaryPnLAsync(int CompId, SummaryReportPnL p)
         {
             var results = new List<SummaryReportPnLRow>();
@@ -205,14 +206,14 @@ namespace TracePca.Service.FIN_statement
 
             //🟩 INCOME HEADINGS
             var incomeHeadingSql = @"
-            SELECT AST_HeadingID AS HeadingID, ASH_Name AS Name
+            SELECT AST_HeadingID AS HeadingId, ASH_Name AS Name
             FROM ACC_ScheduleTemplates
             LEFT JOIN ACC_ScheduleHeading a ON a.ash_id = AST_HeadingID
             WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND a.ASH_Notes = 1
             GROUP BY AST_HeadingID, ASH_Name
             ORDER BY AST_HeadingID";
 
-            var incomeHeadings = await connection.QueryAsync<(int HeadingID, string Name)>(incomeHeadingSql, new { ScheduleTypeID, CustID = p.CustID });
+            var incomeHeadings = await connection.QueryAsync<SummaryReportPnLRow>(incomeHeadingSql, new { ScheduleTypeID, CustID = p.CustID });
 
             foreach (var heading in incomeHeadings)
             {
@@ -237,16 +238,18 @@ WHERE
 GROUP BY ud.ATBUD_Headingid, h.ASH_Name, h.ASH_Notes
 ORDER BY ud.ATBUD_Headingid";
 
-                var headingBalance = await connection.QueryFirstOrDefaultAsync(headingBalanceSql, new
+                var headingBalance = await connection.QueryAsync<SummaryReportPnLRow>(headingBalanceSql, new
                 {
                     YearID = p.YearID,
                     PrevYearID = p.YearID - 1,
                     CustID = p.CustID,
                     ScheduleTypeID,
-                    HeadingID = heading.HeadingID,
+                    HeadingID = heading.HeadingId,
                     CompID = CompId
                 });
-
+                if (headingBalance != null)
+                {
+                }
                 results.Add(new SummaryReportPnLRow
                 {
                     SrNo = (results.Count + 1).ToString(),
@@ -263,11 +266,11 @@ LEFT JOIN ACC_ScheduleSubHeading a ON a.ASSH_ID = AST_SubHeadingID
 WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND AST_AccHeadId = 1 AND AST_HeadingID = @HeadingID
 GROUP BY AST_SubHeadingID, ASsH_Name, ASSH_Notes";
 
-                var incomeSubHeadings = await connection.QueryAsync<(int SubHeadingID, string Name, int Notes)>(incomeSubSql, new
+                var incomeSubHeadings = await connection.QueryAsync<SummaryReportPnLRow>(incomeSubSql, new
                 {
                     ScheduleTypeID,
                     CustID = p.CustID,
-                    HeadingID = heading.HeadingID
+                    HeadingID = heading.HeadingId
                 });
 
                 foreach (var sub in incomeSubHeadings)
@@ -289,7 +292,7 @@ WHERE ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_Subheading = @SubHea
 GROUP BY ud.ATBUD_Subheading, sh.ASSH_Name, sh.ASSH_Notes
 ORDER BY ud.ATBUD_Subheading";
 
-                    var subBalance = await connection.QueryFirstOrDefaultAsync(subBalSql, new
+                    var subBalance = await connection.QueryAsync<SummaryReportPnLRow>(subBalSql, new
                     {
                         YearID = p.YearID,
                         PrevYearID = p.YearID - 1,
@@ -297,22 +300,36 @@ ORDER BY ud.ATBUD_Subheading";
                         ScheduleTypeID,
                         SubHeadingID = sub.SubHeadingID
                     });
-
-                    subNet = (subBalance?.CrTotal ?? 0) - (subBalance?.DbTotal ?? 0);
-                    subPrevNet = (subBalance?.PrevCrTotal ?? 0) - (subBalance?.PrevDbTotal ?? 0);
-
-                    if (subNet != 0 && subPrevNet != 0)
+                    if (subBalance.Count() > 0)
                     {
-                        totalIncome += subNet;
-                        totalPrevIncome += subPrevNet;
+                        foreach (var subBalances in subBalance)
+                        {
+                            if (subBalances.Name != "")
+                            {
+                                subNet = (subBalances?.CrTotal ?? 0) - (subBalances?.DbTotal ?? 0);
+                                subPrevNet = (subBalances?.PrevCrTotal ?? 0) - (subBalances?.PrevDbTotal ?? 0);
+                                totalIncome += subNet;
+                                totalPrevIncome += subPrevNet;
 
+                                results.Add(new SummaryReportPnLRow
+                                {
+                                    SrNo = (results.Count + 1).ToString(),
+                                    Name = subBalances.Name,
+                                    HeaderSLNo = subNet.ToString($"N{RoundOff}"),
+                                    PrevYearTotal = subPrevNet.ToString($"N{RoundOff}"),
+                                    status = "2"
+                                });
+                            }
+                        }
+                    }
+                    else
+                    {
                         results.Add(new SummaryReportPnLRow
                         {
                             SrNo = (results.Count + 1).ToString(),
                             Name = sub.Name,
-                            HeaderSLNo = subNet.ToString($"N{RoundOff}"),
-                            PrevYearTotal = subPrevNet.ToString($"N{RoundOff}"),
-                            Notes = sub.Notes != 0 ? sub.Notes.ToString() : "",
+                            HeaderSLNo = "",
+                            PrevYearTotal = "",
                             status = "2"
                         });
                     }
@@ -326,21 +343,21 @@ ORDER BY ud.ATBUD_Subheading";
                 });
                 results.Add(new SummaryReportPnLRow
                 {
-                   
                 });
+
             }
 
             // 🟥 EXPENSE HEADINGS
             subNet = 0; subPrevNet = 0;
             var expenseHeadingSql = @"
-SELECT AST_HeadingID AS HeadingID, ASH_Name AS HeadingName
+SELECT AST_HeadingID AS HeadingID, ASH_Name AS Name
 FROM ACC_ScheduleTemplates
 LEFT JOIN ACC_ScheduleHeading a ON a.ash_id = AST_HeadingID
 WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND a.ASH_Notes = 2
 GROUP BY AST_HeadingID, ASH_Name
 ORDER BY AST_HeadingID";
 
-            var expenseHeadings = await connection.QueryAsync<(int HeadingID, string Name)>(expenseHeadingSql, new { ScheduleTypeID, CustID = p.CustID });
+            var expenseHeadings = await connection.QueryAsync<SummaryReportPnLRow>(expenseHeadingSql, new { ScheduleTypeID, CustID = p.CustID });
 
             foreach (var heading in expenseHeadings)
             {
@@ -363,64 +380,65 @@ WHERE
 GROUP BY ud.ATBUD_Headingid, h.ASH_Name, h.ASH_Notes
 ORDER BY ud.ATBUD_Headingid";
 
-                var headingBalance = await connection.QueryFirstOrDefaultAsync(expenseBalanceSql, new
+                var headingBalance = await connection.QueryAsync<SummaryReportPnLRow>(expenseBalanceSql, new
                 {
                     YearID = p.YearID,
                     PrevYearID = p.YearID - 1,
                     CustID = p.CustID,
                     ScheduleTypeID,
-                    HeadingID = heading.HeadingID,
+                    HeadingID = heading.HeadingId,
                     CompID = CompId
                 });
 
-                decimal net = 0;
-                decimal prevNet = 0;
-                if (net != 0 || prevNet != 0)
-
-                if (headingBalance != null)
+                if (headingBalance.Count() > 0)
                 {
-                    decimal Net = (headingBalance?.CrTotal ?? 0) - (headingBalance?.DbTotal ?? 0);
-                    decimal PrevNet = (headingBalance?.PrevCrTotal ?? 0) - (headingBalance?.PrevDbTotal ?? 0);
-                    if (Net != 0 || PrevNet != 0)
+                    foreach (var headingBalances in headingBalance)
                     {
-                        results.Add(new SummaryReportPnLRow
+                        if (headingBalances.Name != null)
                         {
-                            SrNo = (results.Count + 1).ToString(),
-                            Name = heading.Name,
-                            HeaderSLNo = "",
-                            PrevYearTotal = "",
-                            status = "1"
-                        });
-                    }
-                    else
-                    {
-                        results.Add(new SummaryReportPnLRow
-                        {
-                            SrNo = (results.Count + 1).ToString(),
-                            Name = heading.Name,
-                            HeaderSLNo = fallback == 0 ? "-" : fallback.ToString($"N{RoundOff}"),
-                            PrevYearTotal = fallbackPrev == 0 ? "-" : fallbackPrev.ToString($"N{RoundOff}")
-                        });
-                    }
-                    subNet = 0; subPrevNet = 0;
-                    var subSql = @"
+                            decimal Net = (headingBalances?.CrTotal ?? 0) - (headingBalances?.DbTotal ?? 0);
+                            decimal PrevNet = (headingBalances?.PrevCrTotal ?? 0) - (headingBalances?.PrevDbTotal ?? 0);
+                            if (Net != 0 || PrevNet != 0)
+                            {
+                                results.Add(new SummaryReportPnLRow
+                                {
+                                    SrNo = (results.Count + 1).ToString(),
+                                    Name = heading.Name,
+                                    HeaderSLNo = "",
+                                    PrevYearTotal = "",
+                                    status = "1"
+                                });
+                            }
+                            else
+                            {
+                                results.Add(new SummaryReportPnLRow
+                                {
+                                    SrNo = (results.Count + 1).ToString(),
+                                    Name = heading.Name,
+                                    HeaderSLNo = fallback == 0 ? "-" : fallback.ToString($"N{RoundOff}"),
+                                    PrevYearTotal = fallbackPrev == 0 ? "-" : fallbackPrev.ToString($"N{RoundOff}")
+                                });
+                            }
+                            subNet = 0; subPrevNet = 0;
+                            var subSql = @"
 SELECT AST_SubHeadingID AS SubHeadingID, ASsH_Name AS SubHeadingName, ASSH_Notes AS Notes
 FROM ACC_ScheduleTemplates
 LEFT JOIN ACC_ScheduleSubHeading a ON a.ASSH_ID = AST_SubHeadingID
 WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND AST_AccHeadId = 2 AND AST_HeadingID = @HeadingID
 GROUP BY AST_SubHeadingID, ASsH_Name, ASSH_Notes";
 
-                    var subHeadings = await connection.QueryAsync<(int SubHeadingID, string Name, int Notes)>(subSql, new
-                    {
-                        ScheduleTypeID,
-                        CustID = p.CustID,
-                        HeadingID = heading.HeadingID
-                    });
-                    if (subHeadings != null)
-                    {
-                        foreach (var sub in subHeadings)
-                        {
-                            var subBalSql = @"
+                            var subHeadings = await connection.QueryAsync<SummaryReportPnLRow>(subSql, new
+                            {
+                                ScheduleTypeID,
+                                CustID = p.CustID,
+                                HeadingID = heading.HeadingId
+                            });
+                            if (subHeadings != null)
+                            {
+                                foreach (var sub in subHeadings)
+                                {
+
+                                    var subBalSql = @"
 SELECT
     ud.ATBUD_Subheading AS SubHeadingID,
     ssh.ASSH_Name AS Name,
@@ -437,67 +455,76 @@ WHERE ud.ATBUD_Subheading = @SubHeadingID AND ud.ATBUD_Schedule_type = @Schedule
 GROUP BY ud.ATBUD_Subheading, ssh.ASSH_Name, ssh.ASSH_Notes
 ORDER BY ud.ATBUD_Subheading";
 
-                            var subBalance = await connection.QueryFirstOrDefaultAsync(subBalSql, new
-                            {
-                                YearID = p.YearID,
-                                PrevYearID = p.YearID - 1,
-                                CustID = p.CustID,
-                                ScheduleTypeID,
-                                SubHeadingID = sub.SubHeadingID
-                            });
-                            string resultsubNet; string resultsubPrevNet;
-                            subNet = (subBalance?.DbTotal ?? 0) - (subBalance?.CrTotal ?? 0);
-                            if (subNet < 0)
-                            {
-                                resultsubNet = $"({Math.Abs(subNet)})";
-                            }
-                            else
-                            {
-                                resultsubNet = subNet.ToString();
-                            }
-                            subPrevNet = (subBalance?.PrevDbTotal ?? 0) - (subBalance?.PrevCrTotal ?? 0);
-                            if (subPrevNet < 0)
-                            {
-                                resultsubPrevNet = $"({Math.Abs(subPrevNet)})";
-                            }
-                            else
-                            {
-                                resultsubPrevNet = subPrevNet.ToString();
-                            }
-                            if (subNet != 0 && subPrevNet != 0)
-                            {
-                                totalExpense += subNet;
-                                totalPrevExpense += subPrevNet;
+                                    var subBalance = await connection.QueryAsync<SummaryReportPnLRow>(subBalSql, new
+                                    {
+                                        YearID = p.YearID,
+                                        PrevYearID = p.YearID - 1,
+                                        CustID = p.CustID,
+                                        ScheduleTypeID,
+                                        SubHeadingID = sub.SubHeadingID
+                                    });
+                                    if (subBalance != null)
+                                    {
+                                        foreach (var subBalances in subBalance)
+                                        {
+                                            if (subBalances.Name != "")
+                                            {
+                                                string resultsubNet; string resultsubPrevNet;
+                                                subNet = (subBalances?.DbTotal ?? 0) - (subBalances?.CrTotal ?? 0);
+                                                if (subNet < 0)
+                                                {
+                                                    resultsubNet = $"({Math.Abs(subNet)})";
+                                                }
+                                                else
+                                                {
+                                                    resultsubNet = subNet.ToString();
+                                                }
+                                                subPrevNet = (subBalances?.PrevDbTotal ?? 0) - (subBalances?.PrevCrTotal ?? 0);
+                                                if (subPrevNet < 0)
+                                                {
+                                                    resultsubPrevNet = $"({Math.Abs(subPrevNet)})";
+                                                }
+                                                else
+                                                {
+                                                    resultsubPrevNet = subPrevNet.ToString();
+                                                }
+                                                if (subNet != 0 || subPrevNet != 0)
+                                                {
+                                                    totalExpense += subNet;
+                                                    totalPrevExpense += subPrevNet;
 
+                                                    results.Add(new SummaryReportPnLRow
+                                                    {
+                                                        SrNo = (results.Count + 1).ToString(),
+                                                        Name = subBalances.Name,
+                                                        HeaderSLNo = resultsubNet,
+                                                        PrevYearTotal = resultsubPrevNet,
+                                                        status = "2"
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                                 results.Add(new SummaryReportPnLRow
                                 {
                                     SrNo = (results.Count + 1).ToString(),
-                                    Name = sub.Name,
-                                    HeaderSLNo = resultsubNet,
-                                    PrevYearTotal = resultsubPrevNet,
-                                    Notes = sub.Notes != 0 ? sub.Notes.ToString() : "",
-                                    status = "2"
+                                    Name = "Total Expenses",
+                                    HeaderSLNo = totalExpense == 0 ? "-" : totalExpense.ToString($"N{RoundOff}"),
+                                    PrevYearTotal = totalPrevExpense == 0 ? "-" : totalPrevExpense.ToString($"N{RoundOff}")
                                 });
                             }
+                            GtotalExpense += totalExpense; GtotalPrevExpense += totalPrevExpense;
+                            // end sub head
                         }
-                        results.Add(new SummaryReportPnLRow
-                        {
-                            SrNo = (results.Count + 1).ToString(),
-                            Name = "Total Expenses",
-                            HeaderSLNo = totalExpense == 0 ? "-" : totalExpense.ToString($"N{RoundOff}"),
-                            PrevYearTotal = totalPrevExpense == 0 ? "-" : totalPrevExpense.ToString($"N{RoundOff}")
-                        });
+
                     }
-                    GtotalExpense += totalExpense; GtotalPrevExpense += totalPrevExpense;
-                    // end sub head
                 }
                 else
                 {
                     fallback = totalIncome - GtotalExpense;
                     fallbackPrev = totalPrevIncome - GtotalPrevExpense;
                     totalExpense = 0; totalPrevExpense = 0;
-
-
                     results.Add(new SummaryReportPnLRow
                     {
                         SrNo = (results.Count + 1).ToString(),
@@ -510,6 +537,8 @@ ORDER BY ud.ATBUD_Subheading";
             return results;
         }
 
+        //GetSummaryReportForBalanceSheet
+        //GetSummaryReportForBalanceSheet
         //GetSummaryReportForBalanceSheet
         public async Task<IEnumerable<SummaryReportBalanceSheetRow>> GetReportSummaryBalanceSheetAsync(int CompId, SummaryReportBalanceSheet p)
         {
@@ -672,6 +701,7 @@ ORDER BY ud.ATBUD_Subheading";
             });
 
             // 🟥 EXPENSE HEADINGS
+
             // Heading
             results.Add(new SummaryReportBalanceSheetRow
             {
@@ -776,30 +806,28 @@ ORDER BY ud.ATBUD_Subheading";
                     decimal subNet = (subBalance?.DbTotal ?? 0) - (subBalance?.CrTotal ?? 0);
                     decimal subPrevNet = (subBalance?.PrevDbTotal ?? 0) - (subBalance?.PrevCrTotal ?? 0);
 
- 
-                    if (subNet != 0 && subPrevNet != 0)
-                    {
-                        totalExpense += subNet;
-                        totalPrevExpense += subPrevNet;
+                    totalExpense += subNet;
+                    totalPrevExpense += subPrevNet;
 
-                        results.Add(new SummaryReportBalanceSheetRow
-                        {
-                            SrNo = (results.Count + 1).ToString(),
-                            Name = sub.Name,
-                            HeaderSLNo = subNet.ToString($"N{RoundOff}"),
-                            PrevYearTotal = subPrevNet.ToString($"N{RoundOff}"),
-                            Notes = sub.Notes != 0 ? sub.Notes.ToString() : ""
-                        });
-                    }
+                    results.Add(new SummaryReportBalanceSheetRow
+                    {
+                        SrNo = (results.Count + 1).ToString(),
+                        Name = sub.Name,
+                        HeaderSLNo = subNet == 0 ? "-" : subNet.ToString($"N{RoundOff}"),
+                        PrevYearTotal = subPrevNet == 0 ? "-" : subPrevNet.ToString($"N{RoundOff}"),
+                        Notes = sub.Notes != 0 ? sub.Notes.ToString() : "",
+                        status = "2"
+                    });
                 }
-                results.Add(new SummaryReportBalanceSheetRow
-                {
-                    SrNo = (results.Count + 1).ToString(),
-                    Name = "Total Expenses",
-                    HeaderSLNo = totalExpense == 0 ? "-" : totalExpense.ToString($"N{RoundOff}"),
-                    PrevYearTotal = totalPrevExpense == 0 ? "-" : totalPrevExpense.ToString($"N{RoundOff}")
-                });
             }
+            results.Add(new SummaryReportBalanceSheetRow
+            {
+                SrNo = (results.Count + 1).ToString(),
+                Name = "Total",
+                HeaderSLNo = totalExpense == 0 ? "-" : totalExpense.ToString($"N{RoundOff}"),
+                PrevYearTotal = totalPrevExpense == 0 ? "-" : totalPrevExpense.ToString($"N{RoundOff}"),
+                status = "1"
+            });
             return results;
         }
 

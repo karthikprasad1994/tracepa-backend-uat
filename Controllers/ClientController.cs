@@ -849,12 +849,18 @@ namespace TracePca.Controllers
                 if (headings == null || !headings.Any())
                     return NotFound("No LOE headings found.");
 
-                var pdfBytes = _AuditInterface.GeneratePdfByFormName(sFormName, $"LOE - {sFormName}", headings, reportTypeId, loeTemplateId, customerId);
-
+                var wordBytes = _AuditInterface.GenerateWordByFormName(
+                            sFormName,
+                            $"LOE - {sFormName}",
+                            headings,
+                            reportTypeId,
+                            loeTemplateId,
+                            customerId
+                        );
                 var response = new
                 {
                     headings,
-                    pdfBase64 = Convert.ToBase64String(pdfBytes)
+                    pdfBase64 = Convert.ToBase64String(wordBytes)
                 };
 
                 return Ok(response);

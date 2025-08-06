@@ -498,22 +498,22 @@ namespace TracePca.Service.Audit
 
         public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
         {
-			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 
-			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-			if (string.IsNullOrEmpty(dbName))
-				throw new Exception("CustomerCode is missing in session. Please log in again.");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-			// ✅ Step 2: Get the connection string
-			var connectionString = _configuration.GetConnectionString(dbName);
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
 
-			using var connection = new SqlConnection(connectionString);
+            using var connection = new SqlConnection(connectionString);
 
-			var query = @"
-            Update StandardAudit_AuditSummary_CAMDetails set SACAM_DescriptionOrReasonForSelectionAsCAM=@SACAM_DescriptionOrReasonForSelectionAsCAM,
-            SACAM_AuditProcedureUndertakenToAddressTheCAM=@SACAM_AuditProcedureUndertakenToAddressTheCAM  
-            Where SACAM_PKID=@SACAM_PKID and SACAM_SA_ID=@SACAM_SA_ID";
+            var query = @"
+     Update StandardAudit_AuditSummary_CAMDetails set SACAM_DescriptionOrReasonForSelectionAsCAM=@SACAM_DescriptionOrReasonForSelectionAsCAM,
+     SACAM_AuditProcedureUndertakenToAddressTheCAM=@SACAM_AuditProcedureUndertakenToAddressTheCAM  
+     Where SACAM_PKID=@SACAM_PKID and SACAM_SA_ID=@SACAM_SA_ID";
 
             var parameters = new DynamicParameters(dto);
             parameters.Add("SACAM_PKID", sacm_pkid);
@@ -523,6 +523,7 @@ namespace TracePca.Service.Audit
 
             return rowsAffected > 0;
         }
+
 
 
         public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
@@ -824,7 +825,7 @@ namespace TracePca.Service.Audit
                     await dto.File.CopyToAsync(stream);
                 }
 
-                int attachId = dto.AttachPKID > 0 ? dto.AttachPKID.Value : 0;
+                int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
                 //2.SaveAttachmentsModulewise
                 attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
 

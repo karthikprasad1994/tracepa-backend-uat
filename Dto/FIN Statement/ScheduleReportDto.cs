@@ -51,6 +51,16 @@ namespace TracePca.Dto.FIN_Statement
             public string PrevYearTotal { get; set; }
             public string Notes { get; set; }
             public string status { get; set; }
+            public decimal? HeadingId { get; set; }
+            public decimal? SubHeadingID { get; set; }
+            public decimal? ItemID { get; set; }
+            public decimal? subItemID { get; set; }
+            public decimal? CrTotal { get; set; }
+            public decimal? DbTotal { get; set; }
+            public decimal? CrTotalPrev { get; set; }
+            public decimal? DbTotalPrev { get; set; }
+            public decimal? PrevCrTotal { get; set; }
+            public decimal? PrevDbTotal { get; set; }
         }
 
         //GetSummaryReportForBalanceSheet
