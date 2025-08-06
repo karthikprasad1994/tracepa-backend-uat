@@ -272,7 +272,7 @@ namespace TracePca.Service.FIN_statement
                     // === 4. Check SubItem ===
 
                     if (dto.ASSI_Name != "")
-                    { 
+                    {
                         subItemName = dto.ASSI_Name.Trim();
                     }
 
@@ -754,7 +754,7 @@ namespace TracePca.Service.FIN_statement
                 throw new Exception("Error while saving Schedule data: " + ex.Message, ex);
             }
         }
-        
+
         //SaveScheduleTemplate
         public async Task<List<int>> SaveScheduleTemplateAsync(int CompId, List<ScheduleTemplateDto> dtos)
         {
