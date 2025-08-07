@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using Microsoft.Data.SqlClient;
 using OfficeOpenXml;
+using OpenAI;
 using TracePca.Data;
 using TracePca.Dto.Audit;
 using TracePca.Dto.SuperMaster;
@@ -23,8 +24,8 @@ namespace TracePca.Service.SuperMaster
             _httpContextAccessor = httpContextAccessor;
         }
 
-        //ValidateClientDetails
-        public async Task<IEnumerable<SuperMasterValidateClientDetailsResult>> SuperMasterValidateClientDetailsExcelAsync(SuperMasterValidateClientDetailsResult file)
+        //ValidateEmployeeMasters
+        public async Task<object> ValidateExcelDataAsync(int CompId, List<SuperMasterValidateEmployeeDto> employees)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -38,88 +39,54 @@ namespace TracePca.Service.SuperMaster
             // ✅ Step 3: Setup Excel
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
+            var duplicates = new List<SuperMasterValidateEmployeeDto>();
+            var missingFields = new List<(string CustID, List<string> MissingFields)>();
 
-            var results = new List<SuperMasterValidateClientDetailsResult>();
-            var customerNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var emails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            using var stream = new MemoryStream();
-            //await file.CopyToAsync(stream);
-
-            using var package = new ExcelPackage(stream);
-            var worksheet = package.Workbook.Worksheets[0];
-
-            if (worksheet == null)
-                throw new Exception("Excel file does not contain a valid worksheet.");
-
-            var mandatoryFields = new[]
+            foreach (var emp in employees)
             {
-            "Customer Name", "Organisation Type", "Address", "City", "E-Mail", "Mobile No",
-            "Business Reltn. Start Date", "Industry Type", "Professional Services Offered 1",
-            "Location Name 1", "Contact Person 1", "Address 1"
+                var missing = new List<string>();
+                emp.Partner = string.IsNullOrWhiteSpace(emp.Partner) ? "No" : emp.Partner;
+
+                if (string.IsNullOrWhiteSpace(emp.CustID)) missing.Add("CustID");
+                if (string.IsNullOrWhiteSpace(emp.CustName)) missing.Add("CustName");
+                if (string.IsNullOrWhiteSpace(emp.EmailID)) missing.Add("EmailID");
+                if (string.IsNullOrWhiteSpace(emp.LoginName)) missing.Add("LoginName");
+                if (string.IsNullOrWhiteSpace(emp.OfficePhoneNo)) missing.Add("OfficePhoneNo");
+                if (string.IsNullOrWhiteSpace(emp.Designation)) missing.Add("Designation");
+                if (string.IsNullOrWhiteSpace(emp.Partner)) missing.Add("Partner");
+
+                if (missing.Any())
+                {
+                    missingFields.Add((emp.CustID ?? "UNKNOWN", missing));
+                    continue;
+                }
+
+                // Duplicate check (CustName + EmailID)
+                string key = $"{emp.CustName.Trim().ToLower()}|{emp.EmailID.Trim().ToLower()}";
+
+                if (!seen.Add(key))
+                {
+                    duplicates.Add(new SuperMasterValidateEmployeeDto
+                    {
+                        CustID = emp.CustID,
+                        CustName = emp.CustName,
+                        EmailID = emp.EmailID
+                    });
+                }
+            }
+            return new
+            {
+                Duplicates = duplicates,
+                MissingFields = missingFields.Select(x => new
+                {
+                    CustID = x.CustID,
+                    MissingFields = x.MissingFields
+                }).ToList()
             };
-
-            var headers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            for (int col = 1; col <= worksheet.Dimension.End.Column; col++)
-            {
-                var header = worksheet.Cells[1, col].Text.Trim().Replace("*", "");
-                if (!string.IsNullOrEmpty(header))
-                    headers[header] = col;
-            }
-
-            var missingColumns = mandatoryFields.Where(field => !headers.ContainsKey(field)).ToList();
-            if (missingColumns.Any())
-            {
-                throw new Exception("Missing mandatory columns: " + string.Join(", ", missingColumns));
-            }
-
-            int customerCounter = 1;
-
-            for (int row = 2; row <= worksheet.Dimension.End.Row; row++)
-            {
-                var result = new SuperMasterValidateClientDetailsResult
-                {
-                    RowNumber = row,
-                    MissingFields = new List<string>(),
-                    Data = new Dictionary<string, string>()
-                };
-
-                foreach (var column in mandatoryFields)
-                {
-                    string value = worksheet.Cells[row, headers[column]].Text.Trim();
-                    result.Data[column] = value;
-
-                    if (string.IsNullOrWhiteSpace(value))
-                        result.MissingFields.Add(column);
-
-                    if (column == "Customer Name")
-                        result.CustomerName = value;
-
-                    if (column == "E-Mail")
-                        result.Email = value;
-                }
-
-                // Check for duplicates
-                string nameKey = result.CustomerName?.ToLowerInvariant() ?? "";
-                string emailKey = result.Email?.ToLowerInvariant() ?? "";
-
-                bool isDuplicate = false;
-                if (!string.IsNullOrEmpty(nameKey) && !customerNames.Add(nameKey))
-                    isDuplicate = true;
-                if (!string.IsNullOrEmpty(emailKey) && !emails.Add(emailKey))
-                    isDuplicate = true;
-
-                result.IsDuplicate = isDuplicate;
-
-                if (!result.IsDuplicate && !result.MissingFields.Any())
-                {
-                    result.GeneratedCustomerId = $"CUST{customerCounter:D3}";
-                    customerCounter++;
-                }
-                results.Add(result);
-            }
-            return results;
         }
+
 
         //SaveEmployeeMaster
         public async Task<int[]> SuperMasterSaveEmployeeDetailsAsync(int CompId, SuperMasterSaveEmployeeMasterDto objEmp)
@@ -212,6 +179,71 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
+        //ValidateClientDetails
+        public async Task<object> ValidateClientDetailsAsync(int CompId, List<SuperMasterValidateClientDetailsDto> employees)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Setup Excel
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            var duplicates = new List<SuperMasterValidateClientDetailsDto>();
+            var missingFields = new List<(string CustID, List<string> MissingFields)>();
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var emp in employees)
+            {
+                var missing = new List<string>();
+
+                if (string.IsNullOrWhiteSpace(emp.CustID)) missing.Add("CustID");
+                if (string.IsNullOrWhiteSpace(emp.CustName)) missing.Add("CustName");
+                if (string.IsNullOrWhiteSpace(emp.OrganisationType)) missing.Add("OrganisationType");
+                if (string.IsNullOrWhiteSpace(emp.Address)) missing.Add("Address");
+                if (string.IsNullOrWhiteSpace(emp.City)) missing.Add("City");
+                if (string.IsNullOrWhiteSpace(emp.EmailID)) missing.Add("Email");
+                if (string.IsNullOrWhiteSpace(emp.MobileNo)) missing.Add("MobileNo");
+                if (string.IsNullOrWhiteSpace(emp.IndustryType)) missing.Add("LocationName");
+                if (string.IsNullOrWhiteSpace(emp.LocationName)) missing.Add("ContactPerson");
+                if (string.IsNullOrWhiteSpace(emp.ContactPerson)) missing.Add("ContactPerson");
+
+                if (missing.Any())
+                {
+                    missingFields.Add((emp.CustID ?? "UNKNOWN", missing));
+                    continue;
+                }
+
+                // Duplicate check (CustName + EmailID)
+                string key = $"{emp.CustName.Trim().ToLower()}|{emp.EmailID.Trim().ToLower()}";
+
+                if (!seen.Add(key))
+                {
+                    duplicates.Add(new SuperMasterValidateClientDetailsDto
+                    {
+                        CustID = emp.CustID,
+                        CustName = emp.CustName,
+                        EmailID = emp.EmailID
+                    });
+                }
+            }
+            return new
+            {
+                Duplicates = duplicates,
+                MissingFields = missingFields.Select(x => new
+                {
+                    CustID = x.CustID,
+                    MissingFields = x.MissingFields
+                }).ToList()
+            };
+        }
+
         //SaveClientDetails
         public async Task<int[]> SuperMasterSaveCustomerDetailsAsync(int CompId, SuperMasterSaveClientDetailsDto objCust)
         {
@@ -300,8 +332,8 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
-        //SaveClientUser
-        public async Task<int[]> SaveClientUserAsync(int CompId, SuperMasterSaveClientUserDto objCust)
+        //SaveClientMaster
+        public async Task<int[]> SuperMasterSaveClientUserAsync(int CompId, SuperMasterSaveClientUserDto objEmp)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -321,43 +353,56 @@ namespace TracePca.Service.SuperMaster
             {
                 int updateOrSave, oper;
 
-                using var command = new SqlCommand("spSAD_CUSTOMER_DETAILS", connection, transaction)
-                {
-                    CommandType = CommandType.StoredProcedure
-                };
+                using var command = new SqlCommand("spEmployeeMaster", connection, transaction);
+                command.CommandType = CommandType.StoredProcedure;
 
-                command.Parameters.AddWithValue("@CDET_ID", objCust.CDET_ID);
-                command.Parameters.AddWithValue("@CDET_CUSTID", objCust.CDET_CUSTID);
-                command.Parameters.AddWithValue("@CDET_STANDINGININDUSTRY", objCust.CDET_STANDINGININDUSTRY ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_PUBLICPERCEPTION", objCust.CDET_PUBLICPERCEPTION ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_GOVTPERCEPTION", objCust.CDET_GOVTPERCEPTION ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_LITIGATIONISSUES", objCust.CDET_LITIGATIONISSUES ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_PRODUCTSMANUFACTURED", objCust.CDET_PRODUCTSMANUFACTURED ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_SERVICESOFFERED", objCust.CDET_SERVICESOFFERED ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_TURNOVER", objCust.CDET_TURNOVER ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_PROFITABILITY", objCust.CDET_PROFITABILITY ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_FOREIGNCOLLABORATIONS", objCust.CDET_FOREIGNCOLLABORATIONS ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_EMPLOYEESTRENGTH", objCust.CDET_EMPLOYEESTRENGTH ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_PROFESSIONALSERVICES", objCust.CDET_PROFESSIONALSERVICES ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_GATHEREDBYAUDITFIRM", objCust.CDET_GATHEREDBYAUDITFIRM ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_LEGALADVISORS", objCust.CDET_LEGALADVISORS ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_AUDITINCHARGE", objCust.CDET_AUDITINCHARGE ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_FileNo", objCust.CDET_FileNo ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_CRBY", objCust.CDET_CRBY);
-                command.Parameters.AddWithValue("@CDET_UpdatedBy", objCust.CDET_UpdatedBy);
-                command.Parameters.AddWithValue("@CDET_STATUS", objCust.CDET_STATUS ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_IPAddress", objCust.CDET_IPAddress ?? string.Empty);
-                command.Parameters.AddWithValue("@CDET_CompID", objCust.CDET_CompID);
+                command.Parameters.AddWithValue("@Usr_ID", objEmp.iUserID);
+                command.Parameters.AddWithValue("@Usr_Node", objEmp.iUsrNode);
+                command.Parameters.AddWithValue("@Usr_Code", objEmp.sUsrCode ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_FullName", objEmp.sUsrFullName ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_LoginName", objEmp.sUsrLoginName ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_Password", objEmp.sUsrPassword ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_Email", objEmp.sUsrEmail ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_Category", objEmp.iUsrSentMail);
+                command.Parameters.AddWithValue("@Usr_Suggetions", objEmp.iUsrSuggetions);
+                command.Parameters.AddWithValue("@usr_partner", objEmp.iUsrPartner);
+                command.Parameters.AddWithValue("@Usr_LevelGrp", objEmp.iUsrLevelGrp);
+                command.Parameters.AddWithValue("@Usr_DutyStatus", objEmp.sUsrDutyStatus ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_PhoneNo", objEmp.sUsrPhoneNo ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_MobileNo", objEmp.sUsrMobileNo ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_OfficePhone", objEmp.sUsrOfficePhone ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_OffPhExtn", objEmp.sUsrOffPhExtn ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_Designation", objEmp.iUsrDesignation);
+                command.Parameters.AddWithValue("@Usr_CompanyID", objEmp.iUsrCompanyID);
+                command.Parameters.AddWithValue("@Usr_OrgnID", objEmp.iUsrOrgID);
+                command.Parameters.AddWithValue("@Usr_GrpOrUserLvlPerm", objEmp.iUsrGrpOrUserLvlPerm);
+                command.Parameters.AddWithValue("@Usr_Role", objEmp.iUsrRole);
+                command.Parameters.AddWithValue("@Usr_MasterModule", objEmp.iUsrMasterModule);
+                command.Parameters.AddWithValue("@Usr_AuditModule", objEmp.iUsrAuditModule);
+                command.Parameters.AddWithValue("@Usr_RiskModule", objEmp.iUsrRiskModule);
+                command.Parameters.AddWithValue("@Usr_ComplianceModule", objEmp.iUsrComplianceModule);
+                command.Parameters.AddWithValue("@Usr_BCMModule", objEmp.iUsrBCMmodule);
+                command.Parameters.AddWithValue("@Usr_DigitalOfficeModule", objEmp.iUsrDigitalOfficeModule);
+                command.Parameters.AddWithValue("@Usr_MasterRole", objEmp.iUsrMasterRole);
+                command.Parameters.AddWithValue("@Usr_AuditRole", objEmp.iUsrAuditRole);
+                command.Parameters.AddWithValue("@Usr_RiskRole", objEmp.iUsrRiskRole);
+                command.Parameters.AddWithValue("@Usr_ComplianceRole", objEmp.iUsrComplianceRole);
+                command.Parameters.AddWithValue("@Usr_BCMRole", objEmp.iUsrBCMRole);
+                command.Parameters.AddWithValue("@Usr_DigitalOfficeRole", objEmp.iUsrDigitalOfficeRole);
+                command.Parameters.AddWithValue("@Usr_CreatedBy", objEmp.iUsrCreatedBy);
+                command.Parameters.AddWithValue("@Usr_UpdatedBy", objEmp.iUsrCreatedBy);
+                command.Parameters.AddWithValue("@Usr_DelFlag", objEmp.sUsrFlag ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_Status", objEmp.sUsrStatus ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_IPAddress", objEmp.Usr_IPAdress ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_CompId", objEmp.iUsrCompID);
+                command.Parameters.AddWithValue("@Usr_Type", objEmp.sUsrType ?? string.Empty);
+                command.Parameters.AddWithValue("@usr_IsSuperuser", objEmp.iusr_IsSuperuser);
+                command.Parameters.AddWithValue("@USR_DeptID", objEmp.iUSR_DeptID);
+                command.Parameters.AddWithValue("@USR_MemberType", objEmp.iUSR_MemberType);
+                command.Parameters.AddWithValue("@USR_Levelcode", objEmp.iUSR_Levelcode);
 
-                // Output Parameters
-                var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
-                {
-                    Direction = ParameterDirection.Output
-                };
-                var operParam = new SqlParameter("@iOper", SqlDbType.Int)
-                {
-                    Direction = ParameterDirection.Output
-                };
+                var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
 
                 command.Parameters.Add(updateOrSaveParam);
                 command.Parameters.Add(operParam);

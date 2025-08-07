@@ -26,6 +26,7 @@ using TracePca.Interface.LedgerReview;
 using TracePca.Interface.Master;
 using TracePca.Interface.Middleware;
 using TracePca.Interface.ProfileSetting;
+using TracePca.Interface.SuperMaster;
 using TracePca.Service;
 using TracePca.Service.AssetService;
 using TracePca.Service.Audit;
@@ -37,6 +38,7 @@ using TracePca.Service.LedgerReview;
 using TracePca.Service.Master;
 using TracePca.Service.Miidleware;
 using TracePca.Service.ProfileSetting;
+using TracePca.Service.SuperMaster;
 // Change this in CustomerContextMiddleware.cs
 
 
@@ -157,7 +159,7 @@ builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAd
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
 builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
-builder.Services.AddScoped<UploadExcelInterface, UploadExcelService>();
+builder.Services.AddScoped<ExcelInformationInterfaces, ExcelInformationService>();
 
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();

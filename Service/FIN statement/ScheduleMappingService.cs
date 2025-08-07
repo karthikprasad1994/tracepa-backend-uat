@@ -46,7 +46,7 @@ namespace TracePca.Service.FIN_statement
             _configuration = configuration;
             _env = env;
             _httpContextAccessor = httpContextAccessor;
-        }  
+        }
 
         //GetScheduleHeading
         public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int CompId, int CustId, int ScheduleTypeId)
@@ -170,11 +170,11 @@ namespace TracePca.Service.FIN_statement
             AND b.ASSI_Name IS NOT NULL 
             AND b.ASSI_ID IS NOT NULL";
 
-            return await connection.QueryAsync<ScheduleSubItemDto>(query, new {CompId, CustId, ScheduleTypeId });
+            return await connection.QueryAsync<ScheduleSubItemDto>(query, new { CompId, CustId, ScheduleTypeId });
         }
 
         //GetTotalAmount
-        public async Task<IEnumerable<CustCOASummaryDto>>  GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId)
+        public async Task<IEnumerable<CustCOASummaryDto>> GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -231,7 +231,7 @@ WHERE
     AND a.ATBU_QuarterId = @durationId
     AND a.ATBU_Description <> 'Net income';";
 
-            return await connection.QueryAsync<CustCOASummaryDto>(query, new{ CompId, CustId, YearId, BranchId, DurationId});
+            return await connection.QueryAsync<CustCOASummaryDto>(query, new { CompId, CustId, YearId, BranchId, DurationId });
         }
 
         //GetTrailBalance(Grid)
@@ -332,7 +332,7 @@ GROUP BY b.ATBUD_ID, a.ATBU_ID, a.ATBU_Code, a.ATBU_CustId, a.ATBU_Description, 
 ORDER BY ATBU_ID;";
 
             return await connection.QueryAsync<CustCOADetailsDto>(query, new
-            {CompId, CustId, YearId, ScheduleTypeId, Unmapped, BranchId, DurationId });
+            { CompId, CustId, YearId, ScheduleTypeId, Unmapped, BranchId, DurationId });
         }
 
         //FreezeForPreviousDuration
@@ -590,7 +590,7 @@ WHERE ATBUD_Description = @AtbudDescription
                     detailParams.Add("@ATBUD_Description", item.AtbudDescription ?? string.Empty);
                     detailParams.Add("@ATBUD_CustId", item.AtbudCustId);
                     detailParams.Add("@ATBUD_SChedule_Type", item.AtbudScheduleType);
-                    detailParams.Add("@ATBUD_Branchid", item.AtbudBranchId); 
+                    detailParams.Add("@ATBUD_Branchid", item.AtbudBranchId);
                     detailParams.Add("@ATBUD_QuarterId", item.AtbudQuarterId);
                     detailParams.Add("@ATBUD_Company_Type", item.AtbudCompanyType);
                     detailParams.Add("@ATBUD_Headingid", item.AtbudHeadingId);
@@ -871,7 +871,7 @@ WHERE ATBUD_Description = @AtbudDescription
                         firstDto.ATBUD_CRBY,
                         firstDto.ATBUD_YEARId,
                         firstDto.ATBUD_Branchid,
-                        firstDto.ATBUD_QuarterId // Assuming durationId = schedule type
+                        firstDto.ATBUD_QuarterId 
                     );
                 }
                 return insertedIds.ToArray();
@@ -1259,7 +1259,7 @@ WHERE ATBUD_Description = @AtbudDescription
                     }
                 }
 
-            
+
                 transaction.Commit();
                 return resultIds;
             }
@@ -1432,8 +1432,8 @@ WHERE ASSI_ItemsID = @ItemId
             }
         }
 
-        //UploadTrialBalance
-        public async Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, int branchId, int durationId)
+        //UploadNetIncome
+        public async Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, string branchId, int durationId)
         {
             // Step 1: Get DB name from session
             var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1549,9 +1549,5 @@ WHERE ASSI_ItemsID = @ItemId
 
             return true;
         }
-
     }
 }
-
-
-
