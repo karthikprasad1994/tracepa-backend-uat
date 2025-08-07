@@ -157,8 +157,8 @@ namespace TracePca.Controllers.SuperMaster
         }
 
         //SaveClientUser
-        [HttpPost("SuperMasterSaveEmployee")]
-        public async Task<IActionResult> SuperMasterSaveClientUser([FromQuery] int CompId, [FromBody] SuperMasterSaveClientUserDto objEmp)
+        [HttpPost("SaveClientUser")]
+        public async Task<IActionResult> SuperMasterSaveClientUser([FromQuery] int CompId, [FromBody] SaveClientUserDto objEmp)
         {
             if (objEmp == null)
             {

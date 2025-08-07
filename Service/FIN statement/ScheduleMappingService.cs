@@ -870,7 +870,7 @@ WHERE ATBUD_Description = @AtbudDescription
                         firstDto.ATBUD_CustId,
                         firstDto.ATBUD_CRBY,
                         firstDto.ATBUD_YEARId,
-                        firstDto.ATBUD_Branchid,
+                        firstDto.ATBUD_Branchid.ToString(),
                         firstDto.ATBUD_QuarterId 
                     );
                 }
