@@ -787,6 +787,21 @@ namespace TracePca.Controllers.Audit
             return Ok(new { formattedDate });
         }
 
+
+
+        [HttpPost("ChatBotAIResponse")]
+        public async Task<IActionResult> Ask([FromBody] DiscoveryRequestDto request)
+        {
+            try
+            {
+                var result = await _DashboardAndScheduleInterface.GetAnswerAsync(request.Question);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
     }
 
 }

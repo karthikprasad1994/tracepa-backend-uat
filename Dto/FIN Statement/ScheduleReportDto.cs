@@ -200,5 +200,17 @@ namespace TracePca.Dto.FIN_Statement
             public string Company_Name { get; set; }
         }
 
+        //UpdatePnL
+        public class UpdatePnlRequestDto
+        {
+            public string PnLAmount { get; set; }
+            public int CompId { get; set; }
+            public int CustId { get; set; }
+            public int UserId { get; set; }
+            public int YearId { get; set; }
+            public string BranchId { get; set; }
+            public int DurationId { get; set; }
+        }
+
     }
 }

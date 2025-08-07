@@ -59,6 +59,7 @@ namespace TracePca.Interface.Audit
 
         Task<IEnumerable<CustomerDto1>> GetCustomersAsync(int companyId);
 
+        Task<DiscoveryResponseDto> GetAnswerAsync(string question);
 
 
     }

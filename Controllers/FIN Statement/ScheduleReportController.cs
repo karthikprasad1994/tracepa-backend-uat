@@ -368,5 +368,33 @@ namespace TracePca.Controllers.FIN_Statement
             var result = await _ScheduleReportService.LoadCompanyDetailsAsync(compId);
             return Ok(result);
         }
+
+        //UpdatePnL
+        [HttpPost("UpdatePnL")]
+        public async Task<IActionResult> UpdatePnLAsync([FromBody] UpdatePnlRequestDto request)
+        {
+            try
+            {
+
+                var result = await _ScheduleReportService.UpdatePnLAsync(request.PnLAmount, request.CompId, request.CustId, request.UserId, request.YearId, request.BranchId, request.DurationId);
+
+                return Ok(new
+                {
+                    statusCode = result ? 200 : 400,
+                    message = result ? "PnL updated successfully." : "Failed to update PnL.",
+                    success = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while updating PnL.",
+                    error = ex.Message
+                });
+            }
+        }
+
     }
 }

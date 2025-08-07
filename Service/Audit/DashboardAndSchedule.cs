@@ -1,10 +1,14 @@
 ﻿using Dapper;
+using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 using System.Data;
 using System.Data.Common;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -22,14 +26,17 @@ namespace TracePca.Service.Audit
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
 
-        public DashboardAndSchedule(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public DashboardAndSchedule(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IHttpClientFactory httpClientFactory)
         {
             _httpContextAccessor = httpContextAccessor;
             _dbcontext = dbcontext;
             _configuration = configuration;
+            _httpClientFactory = httpClientFactory;
+
         }
 
 
@@ -2225,6 +2232,91 @@ ORDER BY SrNo";
         //        IPAddress = ipAddress
         //    });
         //}
+
+
+        public async Task<DiscoveryResponseDto> GetAnswerAsync(string question)
+        {
+            string answerUrl = _configuration["DiscoveryEngine:AnswerUrl"];
+            string serviceAccountPath = _configuration["DiscoveryEngine:ServiceAccountPath"];
+
+            GoogleCredential credential = GoogleCredential.FromFile(serviceAccountPath)
+                .CreateScoped("https://www.googleapis.com/auth/cloud-platform");
+
+            string token = await credential.UnderlyingCredential.GetAccessTokenForRequestAsync();
+
+            var client = _httpClientFactory.CreateClient();
+
+            var answerBody = new
+            {
+                query = new { text = question, queryId = "" },
+                session = "",
+                relatedQuestionsSpec = new { enable = true },
+                answerGenerationSpec = new
+                {
+                    ignoreAdversarialQuery = true,
+                    ignoreNonAnswerSeekingQuery = true,
+                    ignoreLowRelevantContent = true,
+                    includeCitations = true,
+                    modelSpec = new { modelVersion = "stable" }
+                }
+            };
+
+            string content = JsonConvert.SerializeObject(answerBody);
+            var request = new HttpRequestMessage(HttpMethod.Post, answerUrl)
+            {
+                Content = new StringContent(content, Encoding.UTF8, "application/json")
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await client.SendAsync(request);
+            var jsonResult = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception("Token expired or invalid: " + jsonResult);
+            }
+
+            JObject json = JObject.Parse(jsonResult);
+            string answerText = json["answer"]?["answerText"]?.ToString() ?? "No answer found";
+
+            //string redirectLinkText = FeatureMapper.GetFeatureLink(question);
+            if (answerText == "No results could be found. Try rephrasing the search query.")
+            {
+                answerText = "";
+            }
+            return new DiscoveryResponseDto
+            {
+                Answer = answerText,
+                RedirectLinkText = ""
+            };
+        }
+
+        public static class FeatureMapper
+        {
+            public static string GetFeatureLink(string input)
+            {
+                string q = input.ToLower();
+
+                if (q.Contains("cabinet") || q.Contains("subcabinet")) return "Cabinet";
+                if (q.Contains("folder")) return "Folder";
+                if (q.Contains("descriptor")) return "Descriptor";
+                if (q.Contains("document type")) return "Document Type";
+                if (q.Contains("document search") || q.Contains("search")) return "Document Search";
+                if (q.Contains("index") || q.Contains("indexing") || q.Contains("file upload")) return "Index";
+                if (q.Contains("digital vouching") || q.Contains("vouching")) return "Digital Vouching";
+                if (q.Contains("digital filling") || q.Contains("digital") || q.Contains("filling")) return "Digital Filling";
+                if (q.Contains("digital office") || q.Contains("office")) return "Digital Office";
+
+                // Add more conditions as needed...
+
+                if (q.Contains("audit report")) return "Audit Report";
+                if (q.Contains("audit")) return "Audit";
+                if (q.Contains("finalization")) return "Finalization of Account";
+
+                return string.Empty;
+            }
+        }
+
     }
 }
 

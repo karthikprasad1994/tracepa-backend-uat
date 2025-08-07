@@ -2891,6 +2891,86 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
 
             return companies;
         }
+
+        //UpdatePnL
+        public async Task<bool> UpdatePnLAsync(string pnlAmount, int compId, int custId, int userId, int yearId, string branchId, int durationId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (string.IsNullOrWhiteSpace(pnlAmount))
+                return false;
+
+            var selectQuery = @"
+  SELECT ATBU_ID 
+  FROM Acc_TrailBalance_Upload
+  WHERE ATBU_Description = 'Net income'
+    AND ATBU_CustId = @CustId
+    AND ATBU_YearId = @YearId
+    AND ATBU_Branchid = @BranchId
+    AND ATBU_QuarterId = @DurationId";
+
+            var record = await connection.QueryFirstOrDefaultAsync<dynamic>(selectQuery, new
+            {
+                CustId = custId,
+                YearId = yearId,
+                BranchId = branchId,
+                DurationId = durationId
+            });
+
+            if (record == null)
+                return false;
+
+            string updateQuery;
+
+            if (decimal.TryParse(pnlAmount, out var pnlDecimal))
+            {
+                if (pnlDecimal < 0)
+                {
+                    pnlDecimal = Math.Abs(pnlDecimal);
+
+                    updateQuery = @"
+          UPDATE Acc_TrailBalance_Upload 
+          SET 
+              ATBU_Closing_Debit_Amount = @PnlAmount,
+              ATBU_Closing_TotalDebit_Amount = @PnlAmount,
+              ATBU_Closing_Credit_Amount = '0.00',
+              ATBU_Closing_TotalCredit_Amount = '0.00'
+          WHERE ATBU_ID = @Id";
+                }
+                else
+                {
+                    updateQuery = @"
+          UPDATE Acc_TrailBalance_Upload 
+          SET 
+              ATBU_Closing_Credit_Amount = @PnlAmount,
+              ATBU_Closing_TotalCredit_Amount = @PnlAmount,
+              ATBU_Closing_Debit_Amount = '0.00',
+              ATBU_Closing_TotalDebit_Amount = '0.00'
+          WHERE ATBU_ID = @Id";
+                }
+
+                var affected = await connection.ExecuteAsync(updateQuery, new
+                {
+                    PnlAmount = pnlDecimal.ToString("F2"),
+                    Id = (int)record.ATBU_ID
+                });
+
+                return affected > 0;
+            }
+
+            return false;
+        }
+
     }
 }
 
