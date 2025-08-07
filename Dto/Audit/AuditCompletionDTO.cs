@@ -118,6 +118,17 @@ namespace TracePca.Dto.Audit
         public string Observations { get; set; }
     }
 
+    public class ConductAuditRemarksReportDTO
+    {
+        public string SrNo { get; set; }
+        public string CheckPoint { get; set; }
+        public string Observations { get; set; }
+        public DateTime? Date { get; set; }
+        public string RemarksBy { get; set; }
+        public string RemarksByRole { get; set; }
+        public string ClientRemarks { get; set; }
+    }
+
     public class CommunicationWithClientTemplateReportDetailsDTO
     {
         public string? LTD_Heading { get; set; }
