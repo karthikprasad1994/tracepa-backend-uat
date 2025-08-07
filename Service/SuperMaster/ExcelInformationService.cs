@@ -332,7 +332,7 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
-        //SaveClientMaster
+        //SaveClientUser
         public async Task<int[]> SuperMasterSaveClientUserAsync(int CompId, SuperMasterSaveClientUserDto objEmp)
         {
             // ✅ Step 1: Get DB name from session

@@ -200,7 +200,7 @@ namespace TracePca.Dto.FIN_Statement
             public string ATBU_IPAddress { get; set; }
             public int ATBU_CompId { get; set; }
             public int ATBU_YEARId { get; set; }
-            public int ATBU_Branchid { get; set; }
+            public string ATBU_Branchid { get; set; }
             public int ATBU_QuarterId { get; set; }
 
             // UploadDetails properties (from TrailBalanceUploadDetailsDto)

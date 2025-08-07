@@ -54,7 +54,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new FlexibleDateTimeConverter());
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());                                    
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
 builder.Services.AddEndpointsApiExplorer();
