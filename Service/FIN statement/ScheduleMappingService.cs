@@ -871,7 +871,7 @@ WHERE ATBUD_Description = @AtbudDescription
                         firstDto.ATBUD_CRBY,
                         firstDto.ATBUD_YEARId,
                         firstDto.ATBUD_Branchid,
-                        firstDto.ATBUD_QuarterId // Assuming durationId = schedule type
+                        firstDto.ATBUD_QuarterId 
                     );
                 }
                 return insertedIds.ToArray();
@@ -1432,8 +1432,8 @@ WHERE ASSI_ItemsID = @ItemId
             }
         }
 
-        //UploadTrialBalance
-        public async Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, int branchId, int durationId)
+        //UploadNetIncome
+        public async Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, string branchId, int durationId)
         {
             // Step 1: Get DB name from session
             var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1549,9 +1549,5 @@ WHERE ASSI_ItemsID = @ItemId
 
             return true;
         }
-
     }
 }
-
-
-
