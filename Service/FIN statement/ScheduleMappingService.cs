@@ -860,6 +860,20 @@ WHERE ATBUD_Description = @AtbudDescription
                     }
                 }
                 transaction.Commit();
+
+                // ✅ Call UpdateNetIncomeAsync once with common values (from first dto)
+                var firstDto = dtos.FirstOrDefault();
+                if (firstDto != null)
+                {
+                    await UpdateNetIncomeAsync(
+                        firstDto.ATBUD_CompId,
+                        firstDto.ATBUD_CustId,
+                        firstDto.ATBUD_CRBY,
+                        firstDto.ATBUD_YEARId,
+                        firstDto.ATBUD_Branchid,
+                        firstDto.ATBUD_QuarterId // Assuming durationId = schedule type
+                    );
+                }
                 return insertedIds.ToArray();
             }
             catch
@@ -1245,19 +1259,7 @@ WHERE ATBUD_Description = @AtbudDescription
                     }
                 }
 
-                // ✅ Call UpdateNetIncomeAsync once with common values (from first dto)
-                var firstDto = dtos.FirstOrDefault();
-                if (firstDto != null)
-                {
-                    await UpdateNetIncomeAsync(
-                        firstDto.ATBUD_CompId,
-                        firstDto.ATBUD_CustId,
-                        firstDto.ATBUD_CRBY,
-                        firstDto.ATBUD_YEARId,
-                        firstDto.ATBUD_Branchid,
-                        firstDto.ATBUD_QuarterId // Assuming durationId = schedule type
-                    );
-                }
+            
                 transaction.Commit();
                 return resultIds;
             }
