@@ -156,5 +156,44 @@ namespace TracePca.Controllers.SuperMaster
             }
         }
 
+        //SaveClientUser
+        [HttpPost("SuperMasterSaveEmployee")]
+        public async Task<IActionResult> SuperMasterSaveClientUser([FromQuery] int CompId, [FromBody] SuperMasterSaveClientUserDto objEmp)
+        {
+            if (objEmp == null)
+            {
+                return BadRequest(new
+                {
+                    StatusCode = 400,
+                    Message = "No employee data provided."
+                });
+            }
+
+            try
+            {
+                var result = await _ExcelInformationService.SuperMasterSaveClientUserAsync(CompId, objEmp);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = result[0] == 1 ? "Employee saved successfully." : "Employee updated successfully.",
+                    Data = new
+                    {
+                        Status = result[0],
+                        EmployeeId = result[1]
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving employee data.",
+                    Error = ex.Message
+                });
+            }
+        }
+
     }
 }

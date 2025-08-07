@@ -375,10 +375,8 @@ namespace TracePca.Controllers.FIN_Statement
         {
             try
             {
-<<<<<<< HEAD
 
-=======
->>>>>>> 93971e0 (Dafney)
+
                 var result = await _ScheduleReportService.UpdatePnLAsync(request.PnLAmount, request.CompId, request.CustId, request.UserId, request.YearId, request.BranchId, request.DurationId);
 
                 return Ok(new

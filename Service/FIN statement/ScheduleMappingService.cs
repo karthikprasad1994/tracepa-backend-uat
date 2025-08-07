@@ -46,7 +46,7 @@ namespace TracePca.Service.FIN_statement
             _configuration = configuration;
             _env = env;
             _httpContextAccessor = httpContextAccessor;
-        }  
+        }
 
         //GetScheduleHeading
         public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int CompId, int CustId, int ScheduleTypeId)
@@ -170,11 +170,11 @@ namespace TracePca.Service.FIN_statement
             AND b.ASSI_Name IS NOT NULL 
             AND b.ASSI_ID IS NOT NULL";
 
-            return await connection.QueryAsync<ScheduleSubItemDto>(query, new {CompId, CustId, ScheduleTypeId });
+            return await connection.QueryAsync<ScheduleSubItemDto>(query, new { CompId, CustId, ScheduleTypeId });
         }
 
         //GetTotalAmount
-        public async Task<IEnumerable<CustCOASummaryDto>>  GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId)
+        public async Task<IEnumerable<CustCOASummaryDto>> GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -231,7 +231,7 @@ WHERE
     AND a.ATBU_QuarterId = @durationId
     AND a.ATBU_Description <> 'Net income';";
 
-            return await connection.QueryAsync<CustCOASummaryDto>(query, new{ CompId, CustId, YearId, BranchId, DurationId});
+            return await connection.QueryAsync<CustCOASummaryDto>(query, new { CompId, CustId, YearId, BranchId, DurationId });
         }
 
         //GetTrailBalance(Grid)
@@ -332,7 +332,7 @@ GROUP BY b.ATBUD_ID, a.ATBU_ID, a.ATBU_Code, a.ATBU_CustId, a.ATBU_Description, 
 ORDER BY ATBU_ID;";
 
             return await connection.QueryAsync<CustCOADetailsDto>(query, new
-            {CompId, CustId, YearId, ScheduleTypeId, Unmapped, BranchId, DurationId });
+            { CompId, CustId, YearId, ScheduleTypeId, Unmapped, BranchId, DurationId });
         }
 
         //FreezeForPreviousDuration
@@ -590,7 +590,7 @@ WHERE ATBUD_Description = @AtbudDescription
                     detailParams.Add("@ATBUD_Description", item.AtbudDescription ?? string.Empty);
                     detailParams.Add("@ATBUD_CustId", item.AtbudCustId);
                     detailParams.Add("@ATBUD_SChedule_Type", item.AtbudScheduleType);
-                    detailParams.Add("@ATBUD_Branchid", item.AtbudBranchId); 
+                    detailParams.Add("@ATBUD_Branchid", item.AtbudBranchId);
                     detailParams.Add("@ATBUD_QuarterId", item.AtbudQuarterId);
                     detailParams.Add("@ATBUD_Company_Type", item.AtbudCompanyType);
                     detailParams.Add("@ATBUD_Headingid", item.AtbudHeadingId);
@@ -679,33 +679,7 @@ WHERE ATBUD_Description = @AtbudDescription
                 //                });
                 foreach (var dto in dtos)
                 {
-<<<<<<< HEAD
                     if (dto.ATBU_Description != "")
-=======
-                    int updateOrSave = 0, oper = 0;
-
-                    // Step 1: Resolve schedule mapping IDs from names
-                    int subItemId = 0, itemId = 0, subHeadingId = 0, headingId = 0, scheduleType = 0, scheduleIDs = 0;
-
-                    if (!string.IsNullOrWhiteSpace(dto.Excel_SubItem))
-                        subItemId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleSubItems", "ASSI_ID", dto.Excel_SubItem, dto.ATBU_CustId);
-
-                    if (!string.IsNullOrWhiteSpace(dto.Excel_Item))
-                        itemId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleItems", "ASI_ID", dto.Excel_Item, dto.ATBU_CustId);
-
-                    if (!string.IsNullOrWhiteSpace(dto.Excel_SubHeading))
-                        subHeadingId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleSubHeading", "ASSH_ID", dto.Excel_SubHeading, dto.ATBU_CustId);
-
-                    if (!string.IsNullOrWhiteSpace(dto.Excel_Heading))
-                        headingId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleHeading", "ASH_ID", dto.Excel_Heading, dto.ATBU_CustId);
-
-                    // Optional: Fetch ScheduleType from template
-                    scheduleType = await GetScheduleTypeFromTemplateAsync(connection, transaction, subItemId, itemId, subHeadingId, headingId, dto.ATBUD_Company_Type);
-                    //scheduleIDs = await GetScheduleIDs(connection, transaction, subItemId, itemId, subHeadingId, headingId, orgType);
-
-                    // --- Master Insert ---
-                    using (var cmdMaster = new SqlCommand("spAcc_TrailBalance_Upload", connection, transaction))
->>>>>>> 93971e0 (Dafney)
                     {
                         int updateOrSave = 0, oper = 0;
                         int subItemId = 0, itemId = 0, subHeadingId = 0, headingId = 0, scheduleType = 0;
@@ -886,6 +860,20 @@ WHERE ATBUD_Description = @AtbudDescription
                     }
                 }
                 transaction.Commit();
+
+                // ✅ Call UpdateNetIncomeAsync once with common values (from first dto)
+                var firstDto = dtos.FirstOrDefault();
+                if (firstDto != null)
+                {
+                    await UpdateNetIncomeAsync(
+                        firstDto.ATBUD_CompId,
+                        firstDto.ATBUD_CustId,
+                        firstDto.ATBUD_CRBY,
+                        firstDto.ATBUD_YEARId,
+                        firstDto.ATBUD_Branchid,
+                        firstDto.ATBUD_QuarterId // Assuming durationId = schedule type
+                    );
+                }
                 return insertedIds.ToArray();
             }
             catch
@@ -894,7 +882,6 @@ WHERE ATBUD_Description = @AtbudDescription
                 throw;
             }
         }
-<<<<<<< HEAD
         private async Task<DataTable> GetScheduleIDs(SqlConnection conn, SqlTransaction tran, int subItemId, int itemId, int subHeadingId, int headingId, int orgType)
         {
             string query = string.Empty;
@@ -1099,13 +1086,6 @@ WHERE ATBUD_Description = @AtbudDescription
         //    {
         //        sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
 
-=======
-        //private async Task<DataTable> GetScheduleIDs(SqlConnection conn, SqlTransaction tran, int subItemId, int itemId, int subHeadingId, int headingId, int orgType)
-        //{
-        //    string sSql = "";
-        //    if (subItemId > 0)
-        //    {
->>>>>>> 93971e0 (Dafney)
         //            sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
         //            ISNULL(b.ASSH_ID,0) AS ASSH_ID, ISNULL(b.ASSH_Name,'') AS ASSH_Name, 
         //            ISNULL(c.ASI_ID,0) AS ASI_ID, ISNULL(c.ASI_Name,'') AS ASI_Name,
@@ -1116,15 +1096,12 @@ WHERE ATBUD_Description = @AtbudDescription
         //            LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID=AST_SubHeadingID
         //            LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID=AST_HeadingID
         //            WHERE AST_SubItemID={subItemId} AND AST_Companytype={orgType}";
-<<<<<<< HEAD
 
         //    }
         //    else if (itemId > 0)
         //    {
         //        sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
 
-=======
->>>>>>> 93971e0 (Dafney)
         //        }
         //    else if (itemId > 0)
         //    {
@@ -1138,23 +1115,17 @@ WHERE ATBUD_Description = @AtbudDescription
         //            LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID=AST_SubHeadingID
         //            LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID=AST_HeadingID
         //            WHERE AST_ItemID={itemId} AND AST_Companytype={orgType} AND AST_SubItemID=0";
-<<<<<<< HEAD
 
         //    }
         //    else if (subHeadingId > 0)
         //    {
         //        sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
 
-=======
->>>>>>> 93971e0 (Dafney)
         //        }
         //    else if (subHeadingId > 0)
         //    {
         //            sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
-<<<<<<< HEAD
 
-=======
->>>>>>> 93971e0 (Dafney)
         //            ISNULL(b.ASSH_ID,0) AS ASSH_ID, ISNULL(b.ASSH_Name,'') AS ASSH_Name,
         //            0 AS ASI_ID, '' AS ASI_Name,
         //            0 AS ASSi_ID, '' AS ASSI_Name 
@@ -1164,23 +1135,17 @@ WHERE ATBUD_Description = @AtbudDescription
         //            LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID=AST_SubHeadingID
         //            LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID=AST_HeadingID
         //            WHERE AST_SubHeadingID={subHeadingId} AND AST_Companytype={orgType}";
-<<<<<<< HEAD
 
         //    }
         //    else if (headingId > 0)
         //    {
         //        sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
 
-=======
->>>>>>> 93971e0 (Dafney)
         //        }
         //    else if (headingId > 0)
         //    {
         //            sSql = $@"SELECT AST_HeadingID,a.ASH_ID,a.ASH_Name,ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
-<<<<<<< HEAD
 
-=======
->>>>>>> 93971e0 (Dafney)
         //            0 AS ASSH_ID, '' AS ASSH_Name,
         //            0 AS ASI_ID, '' AS ASI_Name,
         //            0 AS ASSi_ID, '' AS ASSI_Name 
@@ -1190,17 +1155,12 @@ WHERE ATBUD_Description = @AtbudDescription
         //            LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID=AST_SubHeadingID
         //            LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID=AST_HeadingID
         //            WHERE AST_HeadingID={headingId} AND AST_Companytype={orgType}";
-<<<<<<< HEAD
         //    }
         //    return await ExecuteSqlToAsync(conn, sSql);
 
         //        }  
         //    return await ExecuteSqlToDataTableAsync(conn, sSql);
 
-=======
-        //        }  
-        //    return await ExecuteSqlToDataTableAsync(conn, sSql);
->>>>>>> 93971e0 (Dafney)
         //}
 
         private async Task<int> GetIdFromNameAsync(SqlConnection conn, SqlTransaction tran, string table, string column, string name, int orgType)
@@ -1299,19 +1259,7 @@ WHERE ATBUD_Description = @AtbudDescription
                     }
                 }
 
-                // ✅ Call UpdateNetIncomeAsync once with common values (from first dto)
-                var firstDto = dtos.FirstOrDefault();
-                if (firstDto != null)
-                {
-                    await UpdateNetIncomeAsync(
-                        firstDto.ATBUD_CompId,
-                        firstDto.ATBUD_CustId,
-                        firstDto.ATBUD_CRBY,
-                        firstDto.ATBUD_YEARId,
-                        firstDto.ATBUD_Branchid,
-                        firstDto.ATBUD_QuarterId // Assuming durationId = schedule type
-                    );
-                }
+
                 transaction.Commit();
                 return resultIds;
             }
@@ -1485,11 +1433,7 @@ WHERE ASSI_ItemsID = @ItemId
         }
 
         //UploadTrialBalance
-<<<<<<< HEAD
         public async Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, int branchId, int durationId)
-=======
-        public async Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, string branchId, int durationId)
->>>>>>> 93971e0 (Dafney)
         {
             // Step 1: Get DB name from session
             var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1505,7 +1449,6 @@ WHERE ASSI_ItemsID = @ItemId
 
             // Step 3: Check if 'Net income' record already exists
             var checkQuery = @"
-<<<<<<< HEAD
       SELECT * 
       FROM Acc_TrailBalance_Upload 
       WHERE ATBU_Description = 'Net income' 
@@ -1513,15 +1456,6 @@ WHERE ASSI_ItemsID = @ItemId
         AND ATBU_YEARId = @YearId 
         AND ATBU_Branchid = @BranchId 
         AND ATBU_QuarterId = @DurationId";
-=======
-        SELECT * 
-        FROM Acc_TrailBalance_Upload 
-        WHERE ATBU_Description = 'Net income' 
-          AND ATBU_CustId = @CustId 
-          AND ATBU_YEARId = @YearId 
-          AND ATBU_Branchid = @BranchId 
-          AND ATBU_QuarterId = @DurationId";
->>>>>>> 93971e0 (Dafney)
 
             var existingRecord = await connection.QueryFirstOrDefaultAsync(checkQuery, new
             {
@@ -1539,17 +1473,8 @@ WHERE ASSI_ItemsID = @ItemId
 
             // Step 4: Get new ID
             var maxIdQuery = @"
-<<<<<<< HEAD
       SELECT ISNULL(MAX(ATBU_ID), 0) + 1 
       FROM Acc_TrailBalance_Upload ";
-=======
-        SELECT ISNULL(MAX(ATBU_ID), 0) + 1 
-        FROM Acc_TrailBalance_Upload 
-        WHERE ATBU_CustId = @CustId 
-          AND ATBU_YEARId = @YearId 
-          AND ATBU_Branchid = @BranchId 
-          AND ATBU_QuarterId = @DurationId";
->>>>>>> 93971e0 (Dafney)
 
             int newId = await connection.ExecuteScalarAsync<int>(maxIdQuery, new
             {
@@ -1561,7 +1486,6 @@ WHERE ASSI_ItemsID = @ItemId
 
             // Step 5: Insert into Acc_TrailBalance_Upload
             var insertUploadQuery = @"
-<<<<<<< HEAD
       INSERT INTO Acc_TrailBalance_Upload
       (
           ATBU_ID, ATBU_Description, ATBU_CODE, ATBU_CustId, ATBU_Branchid, ATBU_QuarterId, ATBU_YEARId,
@@ -1575,21 +1499,6 @@ WHERE ASSI_ItemsID = @ItemId
           0, 0, 0, 0, 0, 0, 0, 0,
           @UserId, GETDATE(), @CompId
       );";
-=======
-        INSERT INTO Acc_TrailBalance_Upload
-        (
-            ATBU_ID, ATBU_Description, ATBU_CODE, ATBU_CustId, ATBU_Branchid, ATBU_QuarterId, ATBU_YEARId,
-            ATBU_Opening_Debit_Amount, ATBU_Opening_Credit_Amount, ATBU_TR_Debit_Amount, ATBU_TR_Credit_Amount,
-            ATBU_Closing_Debit_Amount, ATBU_Closing_Credit_Amount, ATBU_Closing_TotalDebit_Amount, ATBU_Closing_TotalCredit_Amount,
-            ATBU_CRBY, Atbu_CrOn, ATBU_CompId
-        )
-        VALUES
-        (
-            @NewId, 'Net Income', @NewId, @CustId, @BranchId, @DurationId, @YearId,
-            0, 0, 0, 0, 0, 0, 0, 0,
-            @UserId, GETDATE(), @CompId
-        );";
->>>>>>> 93971e0 (Dafney)
 
             await connection.ExecuteAsync(insertUploadQuery, new
             {
@@ -1602,7 +1511,6 @@ WHERE ASSI_ItemsID = @ItemId
                 CompId = compId
             });
 
-<<<<<<< HEAD
             maxIdQuery = @"
       SELECT ISNULL(MAX(ATBUD_ID), 0) + 1 
       FROM Acc_TrailBalance_Upload_Details ";
@@ -1627,20 +1535,6 @@ WHERE ASSI_ItemsID = @ItemId
           @NewId, @NewId, 'Net Income', @NewId, @CustId, @BranchId,
           @DurationId, @YearId, @UserId, GETDATE(), @CompId
       );";
-=======
-            // Step 6: Insert into Acc_TrailBalance_Upload_details
-            var insertDetailQuery = @"
-        INSERT INTO Acc_TrailBalance_Upload_details
-        (
-            ATBUD_ID, ATBUD_Masid, ATBUD_Description, ATBUD_CODE, ATBUD_CustId, Atbud_Branchnameid,
-            ATBUD_QuarterId, ATBUD_YEARId, ATBUD_CRBY, AtbuD_CrOn, ATBUD_CompId
-        )
-        VALUES
-        (
-            @NewId, @NewId, 'Net Income', @NewId, @CustId, @BranchId,
-            @DurationId, @YearId, @UserId, GETDATE(), @CompId
-        );";
->>>>>>> 93971e0 (Dafney)
 
             await connection.ExecuteAsync(insertDetailQuery, new
             {

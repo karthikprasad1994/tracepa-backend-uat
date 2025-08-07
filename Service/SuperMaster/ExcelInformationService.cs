@@ -331,6 +331,97 @@ namespace TracePca.Service.SuperMaster
                 throw;
             }
         }
+
+        //SaveClientMaster
+        public async Task<int[]> SuperMasterSaveClientUserAsync(int CompId, SuperMasterSaveClientUserDto objEmp)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Setup Excel
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                int updateOrSave, oper;
+
+                using var command = new SqlCommand("spEmployeeMaster", connection, transaction);
+                command.CommandType = CommandType.StoredProcedure;
+
+                command.Parameters.AddWithValue("@Usr_ID", objEmp.iUserID);
+                command.Parameters.AddWithValue("@Usr_Node", objEmp.iUsrNode);
+                command.Parameters.AddWithValue("@Usr_Code", objEmp.sUsrCode ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_FullName", objEmp.sUsrFullName ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_LoginName", objEmp.sUsrLoginName ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_Password", objEmp.sUsrPassword ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_Email", objEmp.sUsrEmail ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_Category", objEmp.iUsrSentMail);
+                command.Parameters.AddWithValue("@Usr_Suggetions", objEmp.iUsrSuggetions);
+                command.Parameters.AddWithValue("@usr_partner", objEmp.iUsrPartner);
+                command.Parameters.AddWithValue("@Usr_LevelGrp", objEmp.iUsrLevelGrp);
+                command.Parameters.AddWithValue("@Usr_DutyStatus", objEmp.sUsrDutyStatus ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_PhoneNo", objEmp.sUsrPhoneNo ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_MobileNo", objEmp.sUsrMobileNo ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_OfficePhone", objEmp.sUsrOfficePhone ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_OffPhExtn", objEmp.sUsrOffPhExtn ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_Designation", objEmp.iUsrDesignation);
+                command.Parameters.AddWithValue("@Usr_CompanyID", objEmp.iUsrCompanyID);
+                command.Parameters.AddWithValue("@Usr_OrgnID", objEmp.iUsrOrgID);
+                command.Parameters.AddWithValue("@Usr_GrpOrUserLvlPerm", objEmp.iUsrGrpOrUserLvlPerm);
+                command.Parameters.AddWithValue("@Usr_Role", objEmp.iUsrRole);
+                command.Parameters.AddWithValue("@Usr_MasterModule", objEmp.iUsrMasterModule);
+                command.Parameters.AddWithValue("@Usr_AuditModule", objEmp.iUsrAuditModule);
+                command.Parameters.AddWithValue("@Usr_RiskModule", objEmp.iUsrRiskModule);
+                command.Parameters.AddWithValue("@Usr_ComplianceModule", objEmp.iUsrComplianceModule);
+                command.Parameters.AddWithValue("@Usr_BCMModule", objEmp.iUsrBCMmodule);
+                command.Parameters.AddWithValue("@Usr_DigitalOfficeModule", objEmp.iUsrDigitalOfficeModule);
+                command.Parameters.AddWithValue("@Usr_MasterRole", objEmp.iUsrMasterRole);
+                command.Parameters.AddWithValue("@Usr_AuditRole", objEmp.iUsrAuditRole);
+                command.Parameters.AddWithValue("@Usr_RiskRole", objEmp.iUsrRiskRole);
+                command.Parameters.AddWithValue("@Usr_ComplianceRole", objEmp.iUsrComplianceRole);
+                command.Parameters.AddWithValue("@Usr_BCMRole", objEmp.iUsrBCMRole);
+                command.Parameters.AddWithValue("@Usr_DigitalOfficeRole", objEmp.iUsrDigitalOfficeRole);
+                command.Parameters.AddWithValue("@Usr_CreatedBy", objEmp.iUsrCreatedBy);
+                command.Parameters.AddWithValue("@Usr_UpdatedBy", objEmp.iUsrCreatedBy);
+                command.Parameters.AddWithValue("@Usr_DelFlag", objEmp.sUsrFlag ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_Status", objEmp.sUsrStatus ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_IPAddress", objEmp.Usr_IPAdress ?? string.Empty);
+                command.Parameters.AddWithValue("@Usr_CompId", objEmp.iUsrCompID);
+                command.Parameters.AddWithValue("@Usr_Type", objEmp.sUsrType ?? string.Empty);
+                command.Parameters.AddWithValue("@usr_IsSuperuser", objEmp.iusr_IsSuperuser);
+                command.Parameters.AddWithValue("@USR_DeptID", objEmp.iUSR_DeptID);
+                command.Parameters.AddWithValue("@USR_MemberType", objEmp.iUSR_MemberType);
+                command.Parameters.AddWithValue("@USR_Levelcode", objEmp.iUSR_Levelcode);
+
+                var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+
+                command.Parameters.Add(updateOrSaveParam);
+                command.Parameters.Add(operParam);
+
+                await command.ExecuteNonQueryAsync();
+
+                updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+                oper = (int)(operParam.Value ?? 0);
+
+                transaction.Commit();
+
+                return new[] { updateOrSave, oper };
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
     }
 }
 

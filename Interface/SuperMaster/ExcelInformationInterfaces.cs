@@ -18,6 +18,7 @@ namespace TracePca.Interface.SuperMaster
         //SaveClientDetails
         Task<int[]> SuperMasterSaveCustomerDetailsAsync(int CompId, SuperMasterSaveClientDetailsDto objCust);
 
-       
+        //SaveClientUser
+        Task<int[]> SuperMasterSaveClientUserAsync(int CompId, SuperMasterSaveClientUserDto objEmp);
     }
 }

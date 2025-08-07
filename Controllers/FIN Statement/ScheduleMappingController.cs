@@ -520,10 +520,7 @@ namespace TracePca.Controllers.FIN_Statement
             return Ok(response);
         }
 
-        //UploadTrialBalance
-<<<<<<< HEAD
-        }
-=======
+        //UpdateNetIncome
         [HttpPost("UpdateNetIncome")]
         public async Task<IActionResult> UpdateNetIncome([FromBody] UpdateNetIncomeRequestDto request)
         {
@@ -556,7 +553,6 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
     }
->>>>>>> 93971e0 (Dafney)
 }
 
 
