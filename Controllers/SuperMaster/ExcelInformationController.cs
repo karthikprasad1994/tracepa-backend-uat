@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using TracePca.Dto.Audit;
 using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
@@ -20,9 +21,9 @@ namespace TracePca.Controllers.SuperMaster
             //_ExcelInformationService = ExcelInformationInterface;
         }
 
-        //ValidateClientDetails
-        [HttpPost("SuperMasterValidateCustomerExcel")]
-        public async Task<IActionResult> SuperMasterValidateClientDetailsExcel([FromForm] SuperMasterValidateClientDetailsResult file)
+        //ValidateEmployeeMasters
+        [HttpPost("ValidateEmployeeMasters")]
+        public async Task<IActionResult> ValidateEmployees([FromQuery] int CompId, [FromBody] List<SuperMasterValidateEmployeeDto> employees)
         {
             //if (file == null || file.Length == 0)
             //{
@@ -34,8 +35,7 @@ namespace TracePca.Controllers.SuperMaster
             //}
             try
             {
-                var result = await _ExcelInformationService.SuperMasterValidateClientDetailsExcelAsync(file);
-
+                var result = await _ExcelInformationService.ValidateExcelDataAsync(CompId, employees);
                 return Ok(new
                 {
                     StatusCode = 200,
@@ -93,6 +93,31 @@ namespace TracePca.Controllers.SuperMaster
             }
         }
 
+        //ValidateClientDetails
+        [HttpPost("ValidateClientDetails")]
+        public async Task<IActionResult> ValidateClients([FromQuery] int CompId, [FromBody] List<SuperMasterValidateClientDetailsDto> employees)
+        {
+            try
+            {
+                var result = await _ExcelInformationService.ValidateClientDetailsAsync(CompId, employees);
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "Client data processed successfully.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while validating the client data.",
+                    Error = ex.Message
+                });
+            }
+        }
+
         //SaveClientDetails
         [HttpPost("SaveClientDetails")]
         public async Task<IActionResult> SuperMasterSaveCustomer([FromQuery] int CompId, [FromBody] SuperMasterSaveClientDetailsDto objCust)
@@ -130,47 +155,6 @@ namespace TracePca.Controllers.SuperMaster
                 });
             }
         }
-
-        //SaveClientUser
-        [HttpPost("SaveClientUser")]
-        public async Task<IActionResult> SaveClientUser([FromQuery] int CompId, [FromBody] SuperMasterSaveClientUserDto objCust)
-        {
-            if (objCust == null)
-            {
-                return BadRequest(new
-                {
-                    StatusCode = 400,
-                    Message = "No customer data provided."
-                });
-            }
-
-            try
-            {
-                var result = await _ExcelInformationService.SaveClientUserAsync(CompId, objCust);
-
-                return Ok(new
-                {
-                    StatusCode = 200,
-                    Message = result[0] == 1 ? "Customer detail saved successfully." : "Customer detail updated successfully.",
-                    Data = new
-                    {
-                        Status = result[0],
-                        CustomerDetailId = result[1]
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    StatusCode = 500,
-                    Message = "An error occurred while saving customer detail.",
-                    Error = ex.Message
-                });
-            }
-        }
-
-
 
     }
 }

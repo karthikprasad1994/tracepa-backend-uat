@@ -53,5 +53,9 @@ namespace TracePca.Interface.FIN_Statement
         Task<(int? HeadingId, int? SubHeadingId, int? ItemId)> GetPreviousLoadIdAsync(int? subItemId = null, int? itemId = null, int? subHeadingId = null);
 
         //UploadTrialBalance
+<<<<<<< HEAD
+=======
+        Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, string branchId, int durationId);
+>>>>>>> 93971e0 (Dafney)
     }
 }

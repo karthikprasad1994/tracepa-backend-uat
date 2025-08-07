@@ -2,18 +2,16 @@
 {
     public class ExcelInformationDto
     {
-        //ValidateClientDetails
-        public class SuperMasterValidateClientDetailsResult
+        //ValidateEmployeeMasters
+        public class SuperMasterValidateEmployeeDto
         {
-
-            public int RowNumber { get; set; }
-            public string? CustomerName { get; set; }
-            public string? Email { get; set; }
-            public List<string> MissingFields { get; set; } = new();
-            public bool IsDuplicate { get; set; }
-            public string? GeneratedCustomerId { get; set; }
-            public Dictionary<string, string> Data { get; set; } = new();
-            public bool IsValid => !IsDuplicate && MissingFields.Count == 0;
+            public string CustID { get; set; }
+            public string CustName { get; set; }
+            public string EmailID { get; set; }
+            public string LoginName { get; set; }
+            public string OfficePhoneNo { get; set; }
+            public string Designation { get; set; }
+            public string Partner { get; set; } 
         }
 
         //SaveEmployeeMaster
@@ -64,6 +62,22 @@
             public int iUSR_Levelcode { get; set; }
         }
 
+        //ValidateClientDetails
+        public class SuperMasterValidateClientDetailsDto
+        {
+            public string CustID { get; set; }
+            public string CustName { get; set; }
+            public string OrganisationType { get; set; }
+            public string Address { get; set; }
+            public string City { get; set; }
+            public string EmailID { get; set; }
+            public string MobileNo { get; set; }
+            public string IndustryType { get; set; }
+            public string LocationName { get; set; }
+            public string ContactPerson { get; set; }
+
+        }
+
         //SaveClientDetails
         public class SuperMasterSaveClientDetailsDto
         {
@@ -110,33 +124,7 @@
             public decimal Cust_FY { get; set; }
         }
 
-        //SaveCleintUser
-        public class SuperMasterSaveClientUserDto
-        {
-            public int CDET_ID { get; set; }
-            public int CDET_CUSTID { get; set; }
-            public string? CDET_STANDINGININDUSTRY { get; set; }
-            public string? CDET_PUBLICPERCEPTION { get; set; }
-            public string? CDET_GOVTPERCEPTION { get; set; }
-            public string? CDET_LITIGATIONISSUES { get; set; }
-            public string? CDET_PRODUCTSMANUFACTURED { get; set; }
-            public string? CDET_SERVICESOFFERED { get; set; }
-            public string? CDET_TURNOVER { get; set; }
-            public string? CDET_PROFITABILITY { get; set; }
-            public string? CDET_FOREIGNCOLLABORATIONS { get; set; }
-            public string? CDET_EMPLOYEESTRENGTH { get; set; }
-            public string? CDET_PROFESSIONALSERVICES { get; set; }
-            public string? CDET_GATHEREDBYAUDITFIRM { get; set; }
-            public string? CDET_LEGALADVISORS { get; set; }
-            public string? CDET_AUDITINCHARGE { get; set; }
-            public string? CDET_FileNo { get; set; }
-            public int CDET_CRBY { get; set; }
-            public int CDET_UpdatedBy { get; set; }
-            public string? CDET_STATUS { get; set; }
-            public string? CDET_IPAddress { get; set; }
-            public int CDET_CompID { get; set; }
-        }
-
+      
     }
 }
 

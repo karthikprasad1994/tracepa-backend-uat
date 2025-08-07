@@ -2911,6 +2911,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 return false;
 
             var selectQuery = @"
+<<<<<<< HEAD
   SELECT ATBU_ID 
   FROM Acc_TrailBalance_Upload
   WHERE ATBU_Description = 'Net income'
@@ -2918,6 +2919,15 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
     AND ATBU_YearId = @YearId
     AND ATBU_Branchid = @BranchId
     AND ATBU_QuarterId = @DurationId";
+=======
+        SELECT ATBU_ID 
+        FROM Acc_TrailBalance_Upload
+        WHERE ATBU_Description = 'Net income'
+          AND ATBU_CustId = @CustId
+          AND ATBU_YearId = @YearId
+          AND ATBU_Branchid = @BranchId
+          AND ATBU_QuarterId = @DurationId";
+>>>>>>> 93971e0 (Dafney)
 
             var record = await connection.QueryFirstOrDefaultAsync<dynamic>(selectQuery, new
             {
@@ -2939,6 +2949,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                     pnlDecimal = Math.Abs(pnlDecimal);
 
                     updateQuery = @"
+<<<<<<< HEAD
           UPDATE Acc_TrailBalance_Upload 
           SET 
               ATBU_Closing_Debit_Amount = @PnlAmount,
@@ -2946,10 +2957,20 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
               ATBU_Closing_Credit_Amount = '0.00',
               ATBU_Closing_TotalCredit_Amount = '0.00'
           WHERE ATBU_ID = @Id";
+=======
+                UPDATE Acc_TrailBalance_Upload 
+                SET 
+                    ATBU_Closing_Debit_Amount = @PnlAmount,
+                    ATBU_Closing_TotalDebit_Amount = @PnlAmount,
+                    ATBU_Closing_Credit_Amount = '0.00',
+                    ATBU_Closing_TotalCredit_Amount = '0.00'
+                WHERE ATBU_ID = @Id";
+>>>>>>> 93971e0 (Dafney)
                 }
                 else
                 {
                     updateQuery = @"
+<<<<<<< HEAD
           UPDATE Acc_TrailBalance_Upload 
           SET 
               ATBU_Closing_Credit_Amount = @PnlAmount,
@@ -2957,6 +2978,15 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
               ATBU_Closing_Debit_Amount = '0.00',
               ATBU_Closing_TotalDebit_Amount = '0.00'
           WHERE ATBU_ID = @Id";
+=======
+                UPDATE Acc_TrailBalance_Upload 
+                SET 
+                    ATBU_Closing_Credit_Amount = @PnlAmount,
+                    ATBU_Closing_TotalCredit_Amount = @PnlAmount,
+                    ATBU_Closing_Debit_Amount = '0.00',
+                    ATBU_Closing_TotalDebit_Amount = '0.00'
+                WHERE ATBU_ID = @Id";
+>>>>>>> 93971e0 (Dafney)
                 }
 
                 var affected = await connection.ExecuteAsync(updateQuery, new
