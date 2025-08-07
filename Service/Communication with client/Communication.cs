@@ -56,6 +56,7 @@ using WorkpaperDto = TracePca.Dto.Audit.WorkpaperDto;
 using TracePca.Models;
 using DocumentFormat.OpenXml.Office2010.Word;
 using Microsoft.Playwright;
+using Alignment = Xceed.Document.NET.Alignment;
 
 
 
@@ -4206,27 +4207,16 @@ ORDER BY RCM_Id";
 
 
 
-        public byte[] GeneratePdfByFormName(
-       string formName,
-       string title,
-       List<LOEHeadingDto> headings,
-       int reportTypeId,
-       int loeTemplateId,
-       int customerId)
+        public byte[] GenerateWordByFormName(string formName, string title, List<LOEHeadingDto> headings, int reportTypeId, int loeTemplateId, int customerId)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
-
             using var connection = new SqlConnection(connectionString);
-            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            using var ms = new MemoryStream();
 
-            // Fetch report, audit, and customer names
+            // Fetch report metadata
             var reportName = connection.QueryFirstOrDefault<string>(
                 "SELECT RTM_ReportTypeName FROM SAD_ReportTypeMaster WHERE RTM_Id = @ReportTypeId",
                 new { ReportTypeId = reportTypeId });
@@ -4239,130 +4229,87 @@ ORDER BY RCM_Id";
                 "SELECT CUST_Name FROM SAD_Customer_Master WHERE CUST_ID = @Id",
                 new { Id = customerId });
 
-            // Create the document
-            var document = Document.Create(container =>
+            using var ms = new MemoryStream();
+            using var document = Xceed.Words.NET.DocX.Create(ms);
+
+            // Title
+            document.InsertParagraph(reportName ?? "Report")
+                    .FontSize(16)
+                    .Bold()
+                    .Alignment = Alignment.center;
+
+            document.InsertParagraph(); // spacing
+
+            // Info table
+            var infoTable = document.AddTable(3, 2);
+            infoTable.Design = TableDesign.LightListAccent1;
+
+            infoTable.Rows[0].Cells[0].Paragraphs[0].Append("Client:").Bold();
+            infoTable.Rows[0].Cells[1].Paragraphs[0].Append(customerName ?? "N/A");
+
+            infoTable.Rows[1].Cells[0].Paragraphs[0].Append("Audit No:").Bold();
+            infoTable.Rows[1].Cells[1].Paragraphs[0].Append(auditName ?? "N/A");
+
+            infoTable.Rows[2].Cells[0].Paragraphs[0].Append("Date:").Bold();
+            infoTable.Rows[2].Cells[1].Paragraphs[0].Append(DateTime.Now.ToString("dd-MMM-yy"));
+
+            document.InsertTable(infoTable);
+            document.InsertParagraph(); // spacing
+
+            // Insert headings and descriptions
+            for (int i = 0; i < headings.Count; i++)
             {
-                container.Page(page =>
+                var heading = headings[i];
+
+                // Heading
+                document.InsertParagraph((heading.LOEHeading ?? "N/A")
+                    .Replace("\r", "").Replace("\n", " "))
+                    .Bold()
+                    .FontSize(12)
+                    .SpacingAfter(5);
+
+                // Description
+                if (!string.IsNullOrWhiteSpace(heading.LOEDesc))
                 {
-                    page.Size(PageSizes.A4);
-                    page.Margin(30);
-                    page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Helvetica"));
-
-                    // Header
-                    page.Header().Element(header =>
+                    var lines = heading.LOEDesc.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var line in lines)
                     {
-                        header.Column(column =>
-                        {
-                            column.Item().AlignCenter().Text(text =>
-                            {
-                                text.Span(reportName ?? "Report")
-                                    .FontSize(16)
-                                    .Bold()
-                                    .FontColor(QuestPDF.Helpers.Colors.Black);
-                            });
+                        document.InsertParagraph(line.Trim())
+                                .FontSize(11)
+                                .SpacingAfter(2);
+                    }
+                }
+                else
+                {
+                    document.InsertParagraph("No description available.")
+                            .Italic()
+                            .FontSize(11);
+                }
 
-                            // Add some spacing between header and content
-                            column.Item().PaddingBottom(10);
-                        });
-                    });
+                // Divider
+                if (i != headings.Count - 1)
+                {
+                    document.InsertParagraph(new string('_', 80))
+                            .SpacingBefore(5)
+                            .SpacingAfter(5);
+                }
 
-                    // Content
-                    page.Content().Element(content =>
-                    {
-                        content.Column(col =>
-                        {
-                            // Client and Audit information (shown once at the top)
-                            col.Item().Background(QuestPDF.Helpers.Colors.Grey.Lighten4).Padding(10).Column(infoCol =>
-                            {
-                                infoCol.Item().Text(text =>
-                                {
-                                    text.Span("Client: ").SemiBold();
-                                    text.Span(customerName ?? "N/A");
-                                });
+                document.InsertParagraph(); // spacing
+            }
 
-                                infoCol.Item().PaddingTop(5).Text(text =>
-                                {
-                                    text.Span("Audit No: ").SemiBold();
-                                    text.Span(auditName ?? "N/A");
-                                });
+            // Footer
+            document.AddFooters();
+            document.DifferentFirstPage = true;
+            var footer = document.Footers.First;
+            footer.InsertParagraph($"Generated on {DateTime.Now:dd-MMM-yyyy HH:mm}")
+                  .FontSize(9)
+                  .Alignment = Alignment.center;
 
-                                // Add current date after Audit No
-                                infoCol.Item().PaddingTop(5).Text(text =>
-                                {
-                                    text.Span("Date: ").SemiBold();
-                                    text.Span(DateTime.Now.ToString("dd-MMM-yy"));
-                                });
-                            });
-
-                            col.Item().PaddingVertical(10);
-
-                            // Headings section
-                            foreach (var heading in headings)
-                            {
-                                // Heading section
-                                col.Item().Background(QuestPDF.Helpers.Colors.Grey.Lighten4).Padding(10).Column(headingCol =>
-                                {
-                                    headingCol.Item().Text(text =>
-                                    {
-                                        text.Span((heading.LOEHeading ?? "N/A").Replace("\r", "").Replace("\n", " "));
-                                    });
-                                });
-
-                                // Description section
-                                col.Item().PaddingVertical(10).Column(descCol =>
-                                {
-                                    if (!string.IsNullOrWhiteSpace(heading.LOEDesc))
-                                    {
-                                        var lines = heading.LOEDesc
-                                            .Replace("\r", "")
-                                            .Split('\n', StringSplitOptions.RemoveEmptyEntries);
-
-                                        foreach (var line in lines)
-                                        {
-                                            descCol.Item().PaddingBottom(5).Text(line.Trim())
-                                                .FontSize(11)
-                                                .FontColor(QuestPDF.Helpers.Colors.Grey.Darken2);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        descCol.Item().Text("No description available.")
-                                            .Italic()
-                                            .FontSize(11)
-                                            .FontColor(QuestPDF.Helpers.Colors.Grey.Lighten1);
-                                    }
-                                });
-
-                                // Divider between headings (only if not last item)
-                                if (headings.IndexOf(heading) != headings.Count - 1)
-                                {
-                                    col.Item()
-                                       .PaddingVertical(5)
-                                       .LineHorizontal(1)
-                                       .LineColor(QuestPDF.Helpers.Colors.Grey.Lighten3);
-                                }
-                            }
-                        });
-                    });
-
-                    // Footer
-                    page.Footer().Element(footer =>
-                    {
-                        footer.AlignCenter().Text(text =>
-                        {
-                            text.DefaultTextStyle(x => x.FontSize(9).FontColor(QuestPDF.Helpers.Colors.Grey.Medium));
-                            text.Span("Generated on ").SemiBold();
-                            text.Span(DateTime.Now.ToString("dd-MMM-yyyy HH:mm"));
-                            text.Span(" | Page ");
-                            text.CurrentPageNumber();
-                        });
-                    });
-                });
-            });
-
-            document.GeneratePdf(ms);
+            document.Save();
             return ms.ToArray();
         }
+
+
         //public async Task<List<LOEHeadingDto>> LoadLOEHeadingAsync(string sFormName, int compId, int reportTypeId, int loeTemplateId)
         //{
         //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));

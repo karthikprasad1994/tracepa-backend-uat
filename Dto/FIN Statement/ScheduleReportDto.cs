@@ -51,6 +51,16 @@ namespace TracePca.Dto.FIN_Statement
             public string PrevYearTotal { get; set; }
             public string Notes { get; set; }
             public string status { get; set; }
+            public decimal? HeadingId { get; set; }
+            public decimal? SubHeadingID { get; set; }
+            public decimal? ItemID { get; set; }
+            public decimal? subItemID { get; set; }
+            public decimal? CrTotal { get; set; }
+            public decimal? DbTotal { get; set; }
+            public decimal? CrTotalPrev { get; set; }
+            public decimal? DbTotalPrev { get; set; }
+            public decimal? PrevCrTotal { get; set; }
+            public decimal? PrevDbTotal { get; set; }
         }
 
         //GetSummaryReportForBalanceSheet
@@ -188,6 +198,18 @@ namespace TracePca.Dto.FIN_Statement
         {
             public int Company_ID { get; set; }
             public string Company_Name { get; set; }
+        }
+
+        //UpdatePnL
+        public class UpdatePnlRequestDto
+        {
+            public string PnLAmount { get; set; }
+            public int CompId { get; set; }
+            public int CustId { get; set; }
+            public int UserId { get; set; }
+            public int YearId { get; set; }
+            public string BranchId { get; set; }
+            public int DurationId { get; set; }
         }
 
     }

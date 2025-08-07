@@ -887,6 +887,70 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<List<ConductAuditRemarksReportDTO>> GetConductAuditRemarksReportAsync(int compId, int auditId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var query = @"SELECT a.SCR_CheckPointID,ISNULL(x.ACM_Checkpoint, '') AS ACM_Checkpoint,a.SCR_Date,a.SCR_Remarks As SCR_Remarks,
+                    c.USr_FullName As SCR_RemarksByName,e.Mas_Description As SCR_RemarksByRole,ISNULL(d.USr_FullName,'') + ' - ' + ISNULL(b.SCR_Remarks,'') As SCR_ClientRemarks
+                    FROM StandardAudit_ConductAudit_RemarksHistory a 
+					JOIN AuditType_Checklist_Master x ON x.ACM_ID = a.SCR_CheckPointID
+                    Left Join sad_userdetails c on c.Usr_ID = a.SCR_RemarksBy 
+                    Left Join StandardAudit_ConductAudit_RemarksHistory b on a.SCR_ID=b.SCR_IsIssueRaised And b.SCR_RemarksType = 3 And b.SCR_IsIssueRaised > 1
+                    Left Join sad_userdetails d on d.Usr_ID=b.SCR_RemarksBy 
+                    Left Join SAD_GrpOrLvl_General_Master e on e.Mas_ID=c.Usr_Role 
+                    Where a.SCR_SA_ID = @AuditID And a.SCR_CompID = @CompID And a.SCR_IsIssueRaised <= 1
+                    Order by a.SCR_CheckPointID,a.SCR_ID Desc";
+                var parameters = new { AuditID = auditId, CompID = compId };
+
+                var rawData = (await connection.QueryAsync(query, parameters)).ToList();
+
+                var result = new List<ConductAuditRemarksReportDTO>();
+                int srNo = 0;
+                int? lastCheckpointId = null;
+
+                foreach (var row in rawData)
+                {
+                    int currentCheckpointId = row.SCR_CheckPointID;
+                    string checkpointText = row.ACM_Checkpoint?.ToString();
+                    string remarkText = row.SCR_Remarks?.ToString();
+
+                    var dto = new ConductAuditRemarksReportDTO();
+
+                    if (lastCheckpointId != currentCheckpointId)
+                    {
+                        srNo++;
+                        dto.SrNo = srNo.ToString();
+                        dto.CheckPoint = checkpointText;
+                        dto.Observations = $"{remarkText}";
+                    }
+                    else
+                    {
+                        dto.SrNo = "";
+                        dto.CheckPoint = "";
+                        dto.Observations = $"{remarkText}";
+                    }
+
+                    dto.Date = row.SCR_Date;
+                    dto.RemarksBy = row.SCR_RemarksByName;
+                    dto.RemarksByRole = row.SCR_RemarksByRole;
+                    dto.ClientRemarks = row.SCR_ClientRemarks;
+
+                    lastCheckpointId = currentCheckpointId;
+                    result.Add(dto);
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error loading Conduct Audit remarks report", ex);
+            }
+        }
+
         public async Task<List<ConductAuditObservationDTO>> GetConductAuditObservationsAsync(int compId, int auditId)
         {
             try
@@ -990,7 +1054,7 @@ namespace TracePca.Service.Audit
             List<AuditReportCustInfoAuditeeDetailDTO> dtoAD = await GetAuditeeDetails(compId, result.CustID, result.YearName);
             List<ConductAuditWorkPaperDTO> dtoCAWP = await LoadConductAuditWorkPapersAsync(compId, auditId);
             List<ConductAuditReportDetailDTO> dtoCA = await GetConductAuditReportAsync(compId, auditId);
-            List<ConductAuditObservationDTO> dtoCAO = await GetConductAuditObservationsAsync(compId, auditId);
+            List<ConductAuditRemarksReportDTO> dtoCAO = await GetConductAuditRemarksReportAsync(compId, auditId);
             IEnumerable<CMADto> CAMresult = await _auditSummaryInterface.GetCAMDetailsAsync(compId, auditId);
             List<CMADto> dtoCAM = CAMresult.ToList();
 
@@ -1293,6 +1357,8 @@ namespace TracePca.Service.Audit
                                         columns.RelativeColumn(0.5f);
                                         columns.RelativeColumn(2);
                                         columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
                                     });
 
                                     table.Header(header =>
@@ -1300,15 +1366,17 @@ namespace TracePca.Service.Audit
                                         header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Check Point").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Observations").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Remarks By").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Client Remarks").FontSize(10).Bold();
                                     });
 
-                                    int slNo = 1;
                                     foreach (var details in dtoCAO)
                                     {
-                                        table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.SrNo.ToString()).FontSize(10);
                                         table.Cell().Element(CellStyle).Text(details.CheckPoint.ToString()).FontSize(10);
                                         table.Cell().Element(CellStyle).Text(details.Observations.ToString()).FontSize(10);
-                                        slNo++;
+                                        table.Cell().Element(CellStyle).Text(details.RemarksBy.ToString() + "(" + details.RemarksByRole + ")").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ClientRemarks.ToString()).FontSize(10);
                                     }
                                     static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
                                 });

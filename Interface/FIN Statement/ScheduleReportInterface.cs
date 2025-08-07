@@ -33,6 +33,9 @@ namespace TracePca.Interface.FIN_Statement
         Task<ScheduleReportResponseDto> GetScheduleReportDetailsAsync(ScheduleReportRequestDto request);
         Task<OrgTypeResponseDto> GetOrgTypeAndMembersAsync(int customerId, int companyId);
         Task<List<CompanyDto>> LoadCompanyDetailsAsync(int compId);
+
+        //UpdatePnL
+        Task<bool> UpdatePnLAsync(string pnlAmount, int compId, int custId, int userId, int yearId, string branchId, int durationId);
     }
 }
                          

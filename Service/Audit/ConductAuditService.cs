@@ -990,7 +990,7 @@ namespace TracePca.Service.Audit
                   WHERE LOE.LOE_CompID = @CompId AND SA.SA_ID = @AuditId;", new { CompId = compId, AuditId = auditId });
 
             List<ConductAuditReportDetailDTO> dtoCA = await _auditCompletionInterface.GetConductAuditReportAsync(compId, auditId);
-            List<ConductAuditObservationDTO> dtoCAO = await _auditCompletionInterface.GetConductAuditObservationsAsync(compId, auditId);
+            List<ConductAuditRemarksReportDTO> dtoCAO = await _auditCompletionInterface.GetConductAuditRemarksReportAsync(compId, auditId);
 
             var reportTypeList = await connection.QueryAsync<DropDownListData>(@"SELECT RTM_Id AS ID, RTM_ReportTypeName As Name FROM SAD_ReportTypeMaster
                     WHERE RTM_TemplateId = 4 And RTM_DelFlag = 'A' AND RTM_CompID = @CompId ORDER BY RTM_ReportTypeName", new { CompId = compId }); //RTM_TemplateId = 4 And RTM_AudrptType = 3
@@ -1086,6 +1086,8 @@ namespace TracePca.Service.Audit
                                         columns.RelativeColumn(0.5f);
                                         columns.RelativeColumn(2);
                                         columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
                                     });
 
                                     table.Header(header =>
@@ -1093,15 +1095,17 @@ namespace TracePca.Service.Audit
                                         header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Check Point").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Observations").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Remarks By").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Client Remarks").FontSize(10).Bold();
                                     });
 
-                                    int slNo = 1;
                                     foreach (var details in dtoCAO)
                                     {
-                                        table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.SrNo.ToString()).FontSize(10);
                                         table.Cell().Element(CellStyle).Text(details.CheckPoint.ToString()).FontSize(10);
                                         table.Cell().Element(CellStyle).Text(details.Observations.ToString()).FontSize(10);
-                                        slNo++;
+                                        table.Cell().Element(CellStyle).Text(details.RemarksBy.ToString() + "(" + details.RemarksByRole + ")").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ClientRemarks.ToString()).FontSize(10);
                                     }
                                     static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
                                 });
