@@ -56,7 +56,7 @@ namespace TracePca.Controllers.SuperMaster
         }
 
         //SaveEmployeeMaster
-        [HttpPost("save-multiple")]
+        [HttpPost("SaveEmployeeMaster")]
         public async Task<IActionResult> SaveMultipleEmployees(int compId, [FromBody] List<SuperMasterSaveEmployeeMasterDto> employees)
         {
             if (employees == null || employees.Count == 0)
@@ -149,42 +149,31 @@ namespace TracePca.Controllers.SuperMaster
 
         //SaveClientUser
         [HttpPost("SaveClientUser")]
-        public async Task<IActionResult> SuperMasterSaveClientUser([FromQuery] int CompId, [FromBody] SaveClientUserDto objEmp)
+        public async Task<IActionResult> SuperMasterSaveClientUser(int compId, [FromBody] List<SaveClientUserDto> employees)
         {
-            if (objEmp == null)
+            if (employees == null || employees.Count == 0)
             {
-                return BadRequest(new
-                {
-                    StatusCode = 400,
-                    Message = "No employee data provided."
-                });
+                return BadRequest(new { message = "No employee data provided." });
             }
 
             try
             {
-                var result = await _ExcelInformationService.SuperMasterSaveClientUserAsync(CompId, objEmp);
+                var results = await _ExcelInformationService.SuperMasterSaveClientUserAsync(compId, employees);
 
                 return Ok(new
                 {
-                    StatusCode = 200,
-                    Message = result[0] == 1 ? "Employee saved successfully." : "Employee updated successfully.",
-                    Data = new
-                    {
-                        Status = result[0],
-                        EmployeeId = result[1]
-                    }
+                    message = "Employees processed successfully.",
+                    results // This will contain a List<int[]> from service
                 });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new
                 {
-                    StatusCode = 500,
-                    Message = "An error occurred while saving employee data.",
-                    Error = ex.Message
+                    message = "An error occurred while saving employees.",
+                    error = ex.Message
                 });
             }
         }
-
     }
 }
