@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using Dapper;
 using Microsoft.Data.SqlClient;
 using OfficeOpenXml;
 using OpenAI;
@@ -91,22 +92,35 @@ namespace TracePca.Service.SuperMaster
         //SaveEmployeeMaster
         public async Task<int[]> SuperMasterSaveEmployeeDetailsAsync(int CompId, SuperMasterSaveEmployeeMasterDto objEmp)
         {
-            // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Setup Excel
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
             try
             {
+                // ✅ Correct query using @DesignationID
+                string checkQuery = @"
+SELECT COUNT(1)
+FROM SAD_GRPDESGN_General_Master
+WHERE Mas_ID = @DesignationID AND Mas_CompID = @CompId";
+
+                // ✅ Parameters must match the SQL query names exactly
+                int exists = await connection.ExecuteScalarAsync<int>(
+                    checkQuery,
+                    new { DesignationID = objEmp.iUsrDesignation, CompId = CompId },
+                    transaction: transaction
+                );
+
+                if (exists == 0)
+                    throw new Exception("Invalid designation ID.");
+
                 int updateOrSave, oper;
 
                 using var command = new SqlCommand("spEmployeeMaster", connection, transaction);
@@ -128,7 +142,10 @@ namespace TracePca.Service.SuperMaster
                 command.Parameters.AddWithValue("@Usr_MobileNo", objEmp.sUsrMobileNo ?? string.Empty);
                 command.Parameters.AddWithValue("@Usr_OfficePhone", objEmp.sUsrOfficePhone ?? string.Empty);
                 command.Parameters.AddWithValue("@Usr_OffPhExtn", objEmp.sUsrOffPhExtn ?? string.Empty);
+
+                // ✅ Designation as resolved ID
                 command.Parameters.AddWithValue("@Usr_Designation", objEmp.iUsrDesignation);
+
                 command.Parameters.AddWithValue("@Usr_CompanyID", objEmp.iUsrCompanyID);
                 command.Parameters.AddWithValue("@Usr_OrgnID", objEmp.iUsrOrgID);
                 command.Parameters.AddWithValue("@Usr_GrpOrUserLvlPerm", objEmp.iUsrGrpOrUserLvlPerm);
@@ -178,6 +195,7 @@ namespace TracePca.Service.SuperMaster
                 throw;
             }
         }
+
 
         //ValidateClientDetails
         public async Task<object> ValidateClientDetailsAsync(int CompId, List<SuperMasterValidateClientDetailsDto> employees)
@@ -333,7 +351,9 @@ namespace TracePca.Service.SuperMaster
         }
 
         //SaveClientUser
-        public async Task<int[]> SuperMasterSaveClientUserAsync(int CompId, SuperMasterSaveClientUserDto objEmp)
+      
+        public async Task<int[]> SuperMasterSaveClientUserAsync(int CompId, SaveClientUserDto objEmp)
+
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");

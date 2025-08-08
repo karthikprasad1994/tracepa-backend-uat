@@ -19,48 +19,55 @@
         {
             public int iUserID { get; set; }
             public int iUsrNode { get; set; }
-            public string sUsrCode { get; set; }
-            public string sUsrFullName { get; set; }
-            public string sUsrLoginName { get; set; }
-            public string sUsrPassword { get; set; }
-            public string sUsrEmail { get; set; }
+            public string? sUsrCode { get; set; }
+            public string? sUsrFullName { get; set; }
+            public string? sUsrLoginName { get; set; }
+            public string? sUsrPassword { get; set; }
+            public string? sUsrEmail { get; set; }
             public int iUsrSentMail { get; set; }
             public int iUsrSuggetions { get; set; }
             public int iUsrPartner { get; set; }
             public int iUsrLevelGrp { get; set; }
-            public string sUsrDutyStatus { get; set; }
-            public string sUsrPhoneNo { get; set; }
-            public string sUsrMobileNo { get; set; }
-            public string sUsrOfficePhone { get; set; }
-            public string sUsrOffPhExtn { get; set; }
-            public int iUsrDesignation { get; set; }
+            public string? sUsrDutyStatus { get; set; }
+            public string? sUsrPhoneNo { get; set; }
+            public string? sUsrMobileNo { get; set; }
+            public string? sUsrOfficePhone { get; set; }
+            public string? sUsrOffPhExtn { get; set; }
+
+            public int iUsrDesignation { get; set; } // If known ID
+            public string? sUsrDesignationName { get; set; } // If designation is passed as name
+
             public int iUsrCompanyID { get; set; }
             public int iUsrOrgID { get; set; }
             public int iUsrGrpOrUserLvlPerm { get; set; }
             public int iUsrRole { get; set; }
+
             public int iUsrMasterModule { get; set; }
             public int iUsrAuditModule { get; set; }
             public int iUsrRiskModule { get; set; }
             public int iUsrComplianceModule { get; set; }
             public int iUsrBCMmodule { get; set; }
             public int iUsrDigitalOfficeModule { get; set; }
+
             public int iUsrMasterRole { get; set; }
             public int iUsrAuditRole { get; set; }
             public int iUsrRiskRole { get; set; }
             public int iUsrComplianceRole { get; set; }
             public int iUsrBCMRole { get; set; }
             public int iUsrDigitalOfficeRole { get; set; }
+
             public int iUsrCreatedBy { get; set; }
-            public string sUsrFlag { get; set; }
-            public string sUsrStatus { get; set; }
-            public string Usr_IPAdress { get; set; }
+            public string? sUsrFlag { get; set; }
+            public string? sUsrStatus { get; set; }
+            public string? Usr_IPAdress { get; set; }
             public int iUsrCompID { get; set; }
-            public string sUsrType { get; set; }
+            public string? sUsrType { get; set; }
             public int iusr_IsSuperuser { get; set; }
             public int iUSR_DeptID { get; set; }
             public int iUSR_MemberType { get; set; }
             public int iUSR_Levelcode { get; set; }
         }
+
 
         //ValidateClientDetails
         public class SuperMasterValidateClientDetailsDto
@@ -125,7 +132,7 @@
         }
 
         //SaveCleintUser
-        public class SuperMasterSaveClientUserDto
+        public class SaveClientUserDto
         {
             public int iUserID { get; set; }
             public int iUsrNode { get; set; }
