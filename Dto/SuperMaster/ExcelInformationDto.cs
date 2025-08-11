@@ -134,6 +134,7 @@
         //SaveCleintUser
         public class SaveClientUserDto
         {
+            public string VendorName { get; set; }
             public int iUserID { get; set; }
             public int iUsrNode { get; set; }
             public string sUsrCode { get; set; }
@@ -178,8 +179,6 @@
             public int iUSR_MemberType { get; set; }
             public int iUSR_Levelcode { get; set; }
         }
-
-
     }
 }
 

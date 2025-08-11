@@ -398,10 +398,6 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
-
-
-
-
         //SaveClientMaster
         public async Task<List<int[]>> SuperMasterSaveClientUserAsync(int CompId, List<SaveClientUserDto> employees)
         {
@@ -422,6 +418,29 @@ namespace TracePca.Service.SuperMaster
 
                 foreach (var objEmp in employees)
                 {
+                    // ✅ Check Customer/Vender ID validity
+                    const string checkVendorQuery = @"
+                SELECT CUST_ID
+                FROM SAD_CUSTOMER_MASTER
+                WHERE UPPER(CUST_NAME) = UPPER(@VendorName)
+                  AND CUST_CompID = @CompanyId
+                ORDER BY CUST_NAME";
+
+                    var vendorId = await connection.ExecuteScalarAsync<int>(
+                        checkVendorQuery,
+                        new
+                        {
+                            VendorName = objEmp.VendorName,  // Ensure SaveClientUserDto has VendorName property
+                            CompanyId = CompId
+                        },
+                        transaction: transaction
+                    );
+
+                    if (vendorId == 0)
+                        throw new Exception($"Vendor '{objEmp.VendorName}' not found for company ID {CompId}.");
+
+                    objEmp.iUsrCompanyID = vendorId; // assign found Vendor ID
+
                     // ✅ Check Designation ID validity
                     string checkQuery = @"
                 SELECT COUNT(1)
@@ -466,7 +485,7 @@ namespace TracePca.Service.SuperMaster
                     command.Parameters.AddWithValue("@Usr_CompanyID", objEmp.iUsrCompanyID);
                     command.Parameters.AddWithValue("@Usr_OrgnID", objEmp.iUsrOrgID);
                     command.Parameters.AddWithValue("@Usr_GrpOrUserLvlPerm", objEmp.iUsrGrpOrUserLvlPerm);
-                    command.Parameters.AddWithValue("@Usr_Role", objEmp.iUsrRole);
+                    command.Parameters.AddWithValue("@Usr_Role", objEmp.iUsrDesignation);
                     command.Parameters.AddWithValue("@Usr_MasterModule", objEmp.iUsrMasterModule);
                     command.Parameters.AddWithValue("@Usr_AuditModule", objEmp.iUsrAuditModule);
                     command.Parameters.AddWithValue("@Usr_RiskModule", objEmp.iUsrRiskModule);
