@@ -1,4 +1,5 @@
 ﻿using Dapper;
+using DocumentFormat.OpenXml.Bibliography;
 using DocumentFormat.OpenXml.Drawing.Charts;
 using DocumentFormat.OpenXml.Office2010.Word;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -260,11 +261,12 @@ namespace TracePca.Service.Audit
             using var transaction = connection.BeginTransaction();
             try
             {
+                dto.LOE_AuditFrameworkId = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT RTM_AuditFrameworkId FROM SAD_ReportTypeMaster WHERE RTM_ID = @ReportTypeID", new { ReportTypeID = dto.EngagementTemplateDetails.FirstOrDefault()?.LTD_ReportTypeID });
                 bool isUpdate = dto.LOE_Id > 0;
                 if (isUpdate)
                 {
                     await connection.ExecuteAsync(
-                        @"UPDATE SAD_CUST_LOE SET LOE_NatureOfService = @LOE_NatureOfService, LOE_Total = @LOE_Total, LOE_Frequency = @LOE_Frequency, LOE_UpdatedBy = @LOE_UpdatedBy, LOE_UpdatedOn = GETDATE(),
+                        @"UPDATE SAD_CUST_LOE SET LOE_AuditFrameworkId = @LOE_AuditFrameworkId, LOE_NatureOfService = @LOE_NatureOfService, LOE_Total = @LOE_Total, LOE_Frequency = @LOE_Frequency, LOE_UpdatedBy = @LOE_UpdatedBy, LOE_UpdatedOn = GETDATE(),
                           LOE_IPAddress = @LOE_IPAddress WHERE LOE_Id = @LOE_Id;", dto, transaction);
 
                     await connection.ExecuteAsync("DELETE FROM LOE_Template_Details WHERE LTD_FormName = 'LOE' And LTD_LOE_ID = @LOE_Id;", dto, transaction);
@@ -276,9 +278,9 @@ namespace TracePca.Service.Audit
                     dto.LOE_Id = await connection.ExecuteScalarAsync<int>(
                         @"DECLARE @NewId INT; SELECT @NewId = ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE;
                           INSERT INTO SAD_CUST_LOE (LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId, LOE_NatureOfService, LOE_LocationIds, LOE_TimeSchedule, LOE_ReportDueDate, LOE_ProfessionalFees, LOE_OtherFees,
-                          LOE_ServiceTax, LOE_RembFilingFee, LOE_CrBy, LOE_CrOn, LOE_Total, LOE_Name, LOE_Frequency, LOE_FunctionId, LOE_SubFunctionId, LOE_STATUS, LOE_Delflag, LOE_IPAddress, LOE_CompID)
+                          LOE_ServiceTax, LOE_RembFilingFee, LOE_CrBy, LOE_CrOn, LOE_Total, LOE_Name, LOE_Frequency, LOE_FunctionId, LOE_SubFunctionId, LOE_STATUS, LOE_Delflag, LOE_IPAddress, LOE_CompID, LOE_AuditFrameworkId)
                           VALUES (@NewId, @LOE_YearId, @LOE_CustomerId, @LOE_ServiceTypeId, @LOE_NatureOfService, '0', NULL, NULL, 0, 0, 0, 0,
-                          @LOE_CrBy, GETDATE(), @LOE_Total, @LOE_Name, @LOE_Frequency, @LOE_ServiceTypeId, 0, 'C', 'A', @LOE_IPAddress, @LOE_CompID); 
+                          @LOE_CrBy, GETDATE(), @LOE_Total, @LOE_Name, @LOE_Frequency, @LOE_ServiceTypeId, 0, 'C', 'A', @LOE_IPAddress, @LOE_CompID, @LOE_AuditFrameworkId); 
                           SELECT @NewId;", dto, transaction);
                 }
 
