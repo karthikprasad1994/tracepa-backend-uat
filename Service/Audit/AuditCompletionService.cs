@@ -7,6 +7,7 @@ using iText.Layout.Element;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Data.SqlClient;
+using Microsoft.ReportingServices.ReportProcessing.ReportObjectModel;
 using OfficeOpenXml.Table.PivotTable;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -149,7 +150,7 @@ namespace TracePca.Service.Audit
                 var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
                     CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
                     CASE WHEN ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isReviewer,
-                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, SA_Status As Status 
+                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, SA_Status As Status, SA_AuditFrameworkId As AuditFrameworkId
                     FROM StandardAudit_Schedule SA LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
                     WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId ";
 
@@ -618,6 +619,198 @@ namespace TracePca.Service.Audit
             catch (Exception ex)
             {
                 throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        public async Task<string> GenerateACSubPointsReportAndGetURLPathAsync(int compId, int auditId, int userId, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Audit_Completion_SubPoints_Report_{timestamp}";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GenerateACSubPointsPdfAsync(compId, auditId, userId);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                var filePath = Path.Combine(tempFolder, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+
+                string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
+                string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{fileName}";
+
+                return downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        private async Task<byte[]> GenerateACSubPointsPdfAsync(int compId, int auditId, int userId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            string companyName = await connection.ExecuteScalarAsync<string>(@"SELECT STUFF((SELECT DISTINCT '; ' + CAST(Company_Name AS VARCHAR(MAX)) FROM Trace_CompanyDetails WHERE Company_CompID = @CompId FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '')", new { CompId = compId });
+            string userName = await connection.ExecuteScalarAsync<string>(@"SELECT Usr_FullName FROM Sad_Userdetails WHERE Usr_ID = @UserId And Usr_CompId = @CompId", new { CompId = compId, UserId = userId });
+
+            var templateDetails = await connection.QueryAsync<EngagementPlanTemplateReportDetailsDTO>(
+                @"SELECT LTD_ReportTypeID, LTD_Heading, LTD_Decription FROM LOE_Template_Details WHERE LTD_FormName = 'AC' AND LTD_LOE_ID = @LOEId AND LTD_CompID = @CompId;", new { CompId = compId, LOEId = auditId });
+
+            var checkpoints = await GetAuditCompletionCheckPointDetailsForReportAsync("", compId, auditId);
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().PaddingBottom(10).AlignCenter().PaddingBottom(10).Text("PCA-CX-14.3: Engagement Completion Document").FontSize(16).Bold();
+                            column.Item().Text($"Company Name: {companyName}").FontSize(10);
+                            column.Item().Text($"Balance Sheet Date: {DateTime.Now.ToString("dd MMM yyyy")}").FontSize(10);
+                            column.Item().Text($"Completed By: {userName}").FontSize(10);
+                            column.Item().PaddingBottom(10).Text($"Date: {DateTime.Now.ToString("dd MMM yyyy")}").FontSize(10);
+
+                            if (templateDetails?.Any() == true)
+                            {
+                                var firstItem = templateDetails.First();
+                                if (!string.IsNullOrWhiteSpace(firstItem.LTD_Heading) && !firstItem.LTD_Heading.ToString().StartsWith("NH", StringComparison.OrdinalIgnoreCase))
+                                    column.Item().Text(firstItem.LTD_Heading).FontSize(11).Bold();
+                                if (!string.IsNullOrWhiteSpace(firstItem.LTD_Decription))
+                                    column.Item().Text(firstItem.LTD_Decription).FontSize(10);
+                                column.Item().PaddingBottom(5);
+                            }
+
+                            if (checkpoints?.Rows.Count > 0)
+                            {
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(3);
+                                        columns.RelativeColumn(1.5f);
+                                        columns.RelativeColumn(1.5f);
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Element(CellStyle).Text("SubPoint").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Remarks").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("WorkpaperRef").FontSize(10).Bold();
+                                    });
+
+                                    foreach (DataRow row in checkpoints.Rows)
+                                    {
+                                        table.Cell().Element(CellStyle).Text(row["SubPoint"]?.ToString() ?? "");
+                                        table.Cell().Element(CellStyle).Text(row["Remarks"]?.ToString() ?? "");
+                                        table.Cell().Element(CellStyle).Text(row["WorkpaperRef"]?.ToString() ?? "");
+                                    }
+
+                                    static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                                });
+                            }
+
+                            if (templateDetails?.Any() == true)
+                            {                                
+                                foreach (var item in templateDetails.Skip(1))
+                                {
+                                    column.Item().PaddingTop(5);
+                                    //column.Item().Text(item.LTD_Heading).FontSize(11).Bold();
+                                    if (!string.IsNullOrWhiteSpace(item.LTD_Decription))
+                                        column.Item().Text(item.LTD_Decription).FontSize(10);
+                                }
+                            }
+                        });
+                    });
+                });
+
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
+
+        public async Task<DataTable> GetAuditCompletionCheckPointDetailsForReportAsync(string sAc, int iAcID, int iAuditID)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var dt = new DataTable();
+                dt.Columns.Add("SubPoint");
+                dt.Columns.Add("Remarks");
+                dt.Columns.Add("WorkpaperRef");
+
+                string queryHeading = $@"SELECT CMM_ID, CMM_Desc AS Name FROM Content_Management_Master WHERE CMM_Category='ASF' AND CMM_CompID={iAcID} AND CMM_Delflag='A' AND CMS_KeyComponent=0 ORDER BY CMM_ID ASC";
+                var dtTab = await GetDataTableAsync(connection, queryHeading);
+
+                foreach (DataRow row in dtTab.Rows)
+                {
+                    int checkpointId = Convert.ToInt32(row["CMM_ID"]);
+
+                    var headingRow = dt.NewRow();
+                    headingRow["SubPoint"] = row["Name"].ToString();
+                    headingRow["Remarks"] = "";
+                    headingRow["WorkpaperRef"] = "";
+                    dt.Rows.Add(headingRow);
+
+                    string querySubPoint = $@"SELECT ASM_SubPoint, SAC_Remarks, SSW_WorkpaperRef FROM AuditCompletion_SubPoint_Master 
+                                      LEFT JOIN StandardAudit_Audit_Completion ON SAC_CheckPointId=ASM_CheckpointID AND SAC_SubPointId=ASM_ID AND SAC_AuditID={iAuditID} AND SAC_CheckPointId={checkpointId} 
+                                      LEFT JOIN Content_Management_Master ON CMM_ID=ASM_CheckpointID AND CMM_ID={checkpointId} 
+                                      LEFT JOIN StandardAudit_ScheduleConduct_WorkPaper ON SAC_WorkPaperId=SSW_ID 
+                                      WHERE ASM_CheckpointID={checkpointId} AND ASM_CompId={iAcID} 
+                                      ORDER BY ASM_ID";
+
+                    var dtAC = await GetDataTableAsync(connection, querySubPoint);
+                    foreach (DataRow subRow in dtAC.Rows)
+                    {
+                        var detailRow = dt.NewRow();
+                        detailRow["SubPoint"] = subRow["ASM_SubPoint"].ToString();
+                        detailRow["Remarks"] = subRow["SAC_Remarks"].ToString();
+                        detailRow["WorkpaperRef"] = subRow["SSW_WorkpaperRef"].ToString();
+                        dt.Rows.Add(detailRow);
+                    }
+
+                    var emptyRow = dt.NewRow();
+                    emptyRow["SubPoint"] = "";
+                    emptyRow["Remarks"] = "";
+                    emptyRow["WorkpaperRef"] = "";
+                    dt.Rows.Add(emptyRow);
+                }
+                return dt;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting Audit Completion CheckPoint Details", ex);
             }
         }
 
@@ -1416,7 +1609,9 @@ namespace TracePca.Service.Audit
                                     int count = 1;
                                     foreach (var item in dtoCAE)
                                     {
-                                        column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
+                                        //column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
+                                        if (!string.IsNullOrWhiteSpace(item.LTD_Heading) && !item.LTD_Heading.ToString().StartsWith("NH", StringComparison.OrdinalIgnoreCase))
+                                            column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
                                         if (!string.IsNullOrWhiteSpace(item.LTD_Decription))
                                             column.Item().Text(item.LTD_Decription).FontSize(10);
 
@@ -1724,7 +1919,6 @@ namespace TracePca.Service.Audit
                     "WHERE SAC_SA_ID = " + auditId + " AND SAC_CheckPointID = cp.SAC_CheckPointID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM StandardAudit_ScheduleCheckPointList cp " +
                     "INNER JOIN AuditType_Checklist_Master ON ACM_ID = cp.SAC_CheckPointID WHERE cp.SAC_SA_ID = " + auditId + "";
 
-
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, auditPlanTypes);
                 //@"SELECT DISTINCT ISNULL(CAST(SAR_AttchId AS VARCHAR), '0') AS SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = " + compId + " And RTM_TemplateId = 2)",
                 //folderNameField: null, attachIdField: "SAR_AttchId");
@@ -1829,6 +2023,57 @@ namespace TracePca.Service.Audit
                         }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to Process folder & attachment.", ex);
+            }
+        }
+
+        public async Task ProcessReportAttachmentsAsync(SqlConnection connection, int compId, string downloadDirectoryPath, string mainFolder, int userId, int cabinetId, int subCabinetId, string folderName, string fileName, string savedFilePath)
+        {
+            try
+            {
+                bool folderExists = true;
+                string folderPath = System.IO.Path.Combine(downloadDirectoryPath, mainFolder, SanitizeName(folderName));
+
+                if (!Directory.Exists(folderPath))
+                    Directory.CreateDirectory(folderPath);
+
+                int folderId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(FOL_FOLID, 0) FROM edt_folder WHERE FOL_NAME = @Name AND FOL_CABINET = @SubCabinetId AND FOL_CompID = @CompId", new { Name = folderName, SubCabinetId = subCabinetId, CompId = compId });
+                if (folderId == 0)
+                {
+                    folderExists = false;
+
+                    folderId = await connection.ExecuteScalarAsync<int>(@"DECLARE @NewFolId INT = (SELECT ISNULL(MAX(FOL_FOLID), 0) + 1 FROM edt_folder);
+                          INSERT INTO edt_folder (FOL_FOLID, FOL_NAME, FOL_NOTE, FOL_CABINET, FOL_CREATEDBY, FOL_CREATEDON, FOL_STATUS, FOL_DELFLAG, FOL_COMPID)
+                          VALUES (@NewFolId, @Name, @Name, @SubCabinet, @UserId, GETDATE(), 'A', 'A', @CompId);
+
+                          UPDATE edt_cabinet SET CBN_FolderCount = (SELECT COUNT(FOL_FOLID) FROM edt_folder WHERE FOL_CABINET IN (SELECT CBN_ID FROM edt_cabinet WHERE CBN_PARENT = @Cabinet AND CBN_DELFLAG = 'A')) 
+                          WHERE CBN_ID = @Cabinet AND CBN_CompID = @CompId;
+
+                          UPDATE edt_cabinet SET CBN_FolderCount = (SELECT COUNT(FOL_FOLID) FROM edt_folder WHERE FOL_CABINET = @SubCabinet AND FOL_DELFLAG = 'A') 
+                          WHERE CBN_ID = @SubCabinet AND CBN_CompID = @CompId;
+
+                          SELECT @NewFolId;", new { Name = folderName, Cabinet = cabinetId, SubCabinet = subCabinetId, UserId = userId, CompId = compId });
+                }
+
+                string destFilePath = System.IO.Path.Combine(folderPath, fileName);
+
+                if (File.Exists(savedFilePath))
+                {
+                    try
+                    {
+                        FileDecrypt(savedFilePath, destFilePath);
+                    }
+                    catch
+                    {
+                        File.Copy(savedFilePath, destFilePath, true);
+                    }
+                }
+
+                if (!folderExists)
+                    IndexingFileAsync(connection, cabinetId, subCabinetId, folderId, userId, compId, destFilePath, "FALSE");
             }
             catch (Exception ex)
             {
