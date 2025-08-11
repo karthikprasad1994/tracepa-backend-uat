@@ -61,6 +61,9 @@ namespace TracePca.Interface.Audit
 
         Task<DiscoveryResponseDto> GetAnswerAsync(string question);
 
+            Task<LoeAuditFrameworkResponse> GetLoeAuditFrameworkIdAsync(LoeAuditFrameworkRequest request);
+
+
 
     }
 }

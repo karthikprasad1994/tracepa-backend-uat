@@ -714,6 +714,8 @@ ORDER BY SrNo";
                 command.Parameters.AddWithValue("@SA_IPAddress", dto.SA_IPAddress ?? (object)DBNull.Value);
                 command.Parameters.AddWithValue("@SA_CompID", dto.SA_CompID != null ? (object)dto.SA_CompID : DBNull.Value);
 
+                command.Parameters.AddWithValue("@SA_AuditFrameworkId", dto.SA_AuditFrameworkId != null ? (object)dto.SA_AuditFrameworkId : DBNull.Value);
+
                 // Output Parameters
                 command.Parameters.Add("@Out_Message", SqlDbType.VarChar, 100).Direction = ParameterDirection.Output;
                 command.Parameters.Add("@Out_AuditScheduleID", SqlDbType.Int).Direction = ParameterDirection.Output;
@@ -1249,9 +1251,9 @@ ORDER BY SrNo";
                         parameters.Add("@SA_RptRvDate", dto.ReportReviewDate);         // MISSING
                         parameters.Add("@SA_RptFilDate", dto.ReportFilingDate);         // MISSING
                         parameters.Add("@SA_MRSDate", dto.DateForMRS);                  // MISSING
-                        parameters.Add("@SA_AuditOpinionDate", dto.ReportReviewDate);
-                        parameters.Add("@SA_FilingDateSEC", dto.ReportFilingDate);
-                        parameters.Add("@SA_MRLDate", dto.DateForMRS);
+                        parameters.Add("@SA_AuditOpinionDate", dto.SA_AuditOpinionDate);
+                        parameters.Add("@SA_FilingDateSEC", dto.SA_FilingDateSEC);
+                        parameters.Add("@SA_MRLDate", dto.SA_MRLDate);
                         parameters.Add("@SA_FilingDatePCAOB", dto.ReportFilingDatePCAOB);
                         parameters.Add("@SA_BinderCompletedDate", dto.BinderCompletedDate);
                         parameters.Add("@SA_IntervalId", dto.IntervalId);
@@ -1259,6 +1261,7 @@ ORDER BY SrNo";
                         parameters.Add("@SA_UpdatedBy", dto.UserID);
                         parameters.Add("@SA_IPAddress", dto.IPAddress);
                         parameters.Add("@SA_CompID", dto.CompID);
+                        parameters.Add("@SA_AuditFrameworkId", dto.SA_AuditFrameworkId != null ? (object)dto.SA_AuditFrameworkId : DBNull.Value);
 
                         // OUTPUT parameters
                         parameters.Add("@iUpdateOrSave", 2, direction: ParameterDirection.InputOutput);
@@ -2316,6 +2319,41 @@ ORDER BY SrNo";
                 return string.Empty;
             }
         }
+
+        public async Task<LoeAuditFrameworkResponse> GetLoeAuditFrameworkIdAsync(LoeAuditFrameworkRequest request)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Build full connection string using appsettings pattern
+            string baseConnectionString = _configuration.GetConnectionString(dbName);
+            string connectionString = string.Format(baseConnectionString, dbName);
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                string sql = @"SELECT LOE_AuditFrameworkId 
+                       FROM SAD_CUST_LOE 
+                       WHERE LOE_CustomerId = @CustomerId 
+                         AND LOE_YearId = @YearId 
+                         AND LOE_ServiceTypeId = @ServiceTypeId";
+
+                var result = await connection.QueryFirstOrDefaultAsync<int?>(sql, new
+                {
+                    CustomerId = request.CustomerId,
+                    YearId = request.YearId,
+                    ServiceTypeId = request.ServiceTypeId
+                });
+
+                return new LoeAuditFrameworkResponse
+                {
+                    LoeAuditFrameworkId = result ?? 0
+                };
+            }
+        }
+       
 
     }
 }
