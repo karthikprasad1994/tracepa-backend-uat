@@ -2939,6 +2939,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                     pnlDecimal = Math.Abs(pnlDecimal);
 
                     updateQuery = @"
+
           UPDATE Acc_TrailBalance_Upload 
           SET 
               ATBU_Closing_Debit_Amount = @PnlAmount,
@@ -2950,6 +2951,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 else
                 {
                     updateQuery = @"
+
           UPDATE Acc_TrailBalance_Upload 
           SET 
               ATBU_Closing_Credit_Amount = @PnlAmount,
@@ -2957,6 +2959,8 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
               ATBU_Closing_Debit_Amount = '0.00',
               ATBU_Closing_TotalDebit_Amount = '0.00'
           WHERE ATBU_ID = @Id";
+
+
                 }
 
                 var affected = await connection.ExecuteAsync(updateQuery, new

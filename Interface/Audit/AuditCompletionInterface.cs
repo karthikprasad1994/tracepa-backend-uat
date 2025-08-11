@@ -21,6 +21,7 @@ namespace TracePca.Interface.Audit
         Task<AuditSignedByUDINRequestDTO> GetSignedByUDINInAuditAsync(int compId, int auditId);
         Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadReportAsync(int compId, int auditId, string format);
         Task<string> GenerateReportAndGetURLPathAsync(int compId, int auditId, string format);
+        Task<string> GenerateACSubPointsReportAndGetURLPathAsync(int compId, int auditId, int userId, string format);
         Task<List<ConductAuditReportDetailDTO>> GetConductAuditReportAsync(int compId, int auditId);
         Task<List<ConductAuditRemarksReportDTO>> GetConductAuditRemarksReportAsync(int compId, int auditId);        
         Task<List<ConductAuditObservationDTO>> GetConductAuditObservationsAsync(int compId, int auditId);

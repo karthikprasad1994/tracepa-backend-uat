@@ -25,6 +25,7 @@ namespace TracePca.Dto.Audit
         public string? LOE_Status { get; set; } = "C";
         public string LOE_IPAddress { get; set; }
         public int LOE_CompID { get; set; }
+        public int? LOE_AuditFrameworkId { get; set; } = 0;
 
         public int? LOET_Id { get; set; } = 0;
         public string? LOET_ScopeOfWork { get; set; }
