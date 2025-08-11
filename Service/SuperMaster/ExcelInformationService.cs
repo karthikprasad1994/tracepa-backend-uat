@@ -381,6 +381,10 @@ namespace TracePca.Service.SuperMaster
                     updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
                     oper = (int)(operParam.Value ?? 0);
 
+
+
+
+
                     results.Add(new[] { updateOrSave, oper });
                 }
 
