@@ -56,7 +56,7 @@ namespace TracePca.Controllers.SuperMaster
         }
 
         //SaveEmployeeMaster
-        [HttpPost("save-multiple")]
+        [HttpPost("SaveEmployeeMaster")]
         public async Task<IActionResult> SaveMultipleEmployees(int compId, [FromBody] List<SuperMasterSaveEmployeeMasterDto> employees)
         {
             if (employees == null || employees.Count == 0)
@@ -110,82 +110,71 @@ namespace TracePca.Controllers.SuperMaster
         }
 
         //SaveClientDetails
-        [HttpPost("SaveClientDetails")]
-        public async Task<IActionResult> SuperMasterSaveCustomer([FromQuery] int CompId, [FromBody] SuperMasterSaveClientDetailsDto objCust)
-        {
-            if (objCust == null)
-            {
-                return BadRequest(new
-                {
-                    StatusCode = 400,
-                    Message = "No customer data provided."
-                });
-            }
-            try
-            {
-                var result = await _ExcelInformationService.SuperMasterSaveCustomerDetailsAsync(CompId, objCust);
+        //[HttpPost("SaveClientDetails")]
+        //public async Task<IActionResult> SuperMasterSaveCustomer([FromQuery] int CompId, [FromBody] SuperMasterSaveClientDetailsDto objCust)
+        //{
+        //    if (objCust == null)
+        //    {
+        //        return BadRequest(new
+        //        {
+        //            StatusCode = 400,
+        //            Message = "No customer data provided."
+        //        });
+        //    }
+        //    try
+        //    {
+        //        var result = await _ExcelInformationService.SuperMasterSaveCustomerDetailsAsync(CompId, objCust);
 
-                return Ok(new
-                {
-                    StatusCode = 200,
-                    Message = result[0] == 1 ? "Customer saved successfully." : "Customer updated successfully.",
-                    Data = new
-                    {
-                        Status = result[0],
-                        CustomerId = result[1]
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    StatusCode = 500,
-                    Message = "An error occurred while saving customer data.",
-                    Error = ex.Message
-                });
-            }
-        }
+        //        return Ok(new
+        //        {
+        //            StatusCode = 200,
+        //            Message = result[0] == 1 ? "Customer saved successfully." : "Customer updated successfully.",
+        //            Data = new
+        //            {
+        //                Status = result[0],
+        //                CustomerId = result[1]
+        //            }
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            StatusCode = 500,
+        //            Message = "An error occurred while saving customer data.",
+        //            Error = ex.Message
+        //        });
+        //    }
+        //}
 
         //SaveClientUser
         [HttpPost("SaveClientUser")]
-        public async Task<IActionResult> SuperMasterSaveClientUser([FromQuery] int CompId, [FromBody] SaveClientUserDto objEmp)
+        public async Task<IActionResult> SuperMasterSaveClientUser(int compId, [FromBody] List<SaveClientUserDto> employees)
 
         {
-            if (objEmp == null)
+            if (employees == null || employees.Count == 0)
             {
-                return BadRequest(new
-                {
-                    StatusCode = 400,
-                    Message = "No employee data provided."
-                });
+                return BadRequest(new { message = "No employee data provided." });
             }
 
             try
             {
-                var result = await _ExcelInformationService.SuperMasterSaveClientUserAsync(CompId, objEmp);
+                var results = await _ExcelInformationService.SuperMasterSaveClientUserAsync(compId, employees);
 
                 return Ok(new
                 {
-                    StatusCode = 200,
-                    Message = result[0] == 1 ? "Employee saved successfully." : "Employee updated successfully.",
-                    Data = new
-                    {
-                        Status = result[0],
-                        EmployeeId = result[1]
-                    }
+                    message = "Employees processed successfully.",
+                    results // This will contain a List<int[]> from service
                 });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new
                 {
-                    StatusCode = 500,
-                    Message = "An error occurred while saving employee data.",
-                    Error = ex.Message
+                    message = "An error occurred while saving employees.",
+                    error = ex.Message
                 });
             }
         }
-
     }
 }
