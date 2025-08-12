@@ -545,7 +545,7 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var url = await _AuditSummaryInterface.GenerateCAMReportAndGetURLPathAsync(compId, auditId, format);
-                return Ok(new { statusCode = 200, message = "Audit CAM report generated successfully. Download URL is available.", fileUrl = url });
+                return Ok(new { statusCode = 200, message = "Audit Issues and Closure report generated successfully. Download URL is available.", fileUrl = url });
             }
             catch
             {

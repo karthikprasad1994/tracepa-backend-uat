@@ -46,8 +46,14 @@ namespace TracePca.Service.Audit
 			_dbcontext = dbcontext;
 			_configuration = configuration;
 			_httpContextAccessor = httpContextAccessor;
+<<<<<<< HEAD
         }
  
+=======
+
+
+		}
+>>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
 
 		public async Task<List<ReportTypeDto>> GetReportTypesAsync(int compId, int templateId)
 		{
@@ -498,12 +504,17 @@ namespace TracePca.Service.Audit
 		}
 
 
+<<<<<<< HEAD
  
         public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
         {
             //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
  
 
+=======
+        public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
+        {
+>>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -528,7 +539,11 @@ namespace TracePca.Service.Audit
 			return rowsAffected > 0;
 		}
 
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
         public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
         {
             if (!Directory.Exists(accessCodeDirectory))
@@ -565,6 +580,7 @@ namespace TracePca.Service.Audit
 		//	var connectionString = _configuration.GetConnectionString(dbName);
              
 		//	using var connection = new SqlConnection(connectionString);
+<<<<<<< HEAD
 
 		//	{
 		//		Directory.CreateDirectory(accessCodeDirectory);
@@ -572,6 +588,14 @@ namespace TracePca.Service.Audit
 
 		//	var sFoldersToCreate = new List<string> { "Tempfolder", sFolderName, imgDocType };
 
+=======
+		//	{
+		//		Directory.CreateDirectory(accessCodeDirectory);
+		//	}
+
+		//	var sFoldersToCreate = new List<string> { "Tempfolder", sFolderName, imgDocType };
+
+>>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
 		//	foreach (var sFolder in sFoldersToCreate)
 		//	{
 		//		if (!string.IsNullOrEmpty(sFolder))
@@ -706,10 +730,17 @@ namespace TracePca.Service.Audit
 
 		//         sFileName = sFileName.Replace("&", " and").Substring(0, Math.Min(sFileName.Length, 95));
 
+<<<<<<< HEAD
  
 		//         iAttachID = await GenerateNextAttachmentIdAsync(CompId);
 		//         iDocID = await GetDocumentIdAsync(CompId);
  
+=======
+		//         iAttachID = await GenerateNextAttachmentIdAsync(CompId);
+		//         iDocID = await GetDocumentIdAsync(CompId);
+            //iAttachID = iAttachID == 0 ? await GenerateNextAttachmentIdAsync(CompId) : iAttachID;
+            //iDocID = await GetDocumentIdAsync(CompId);
+>>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
 
 		//         if (iDocID == 0)
 		//         {
@@ -991,6 +1022,7 @@ namespace TracePca.Service.Audit
 					await dto.File.CopyToAsync(stream);
 				}
 
+<<<<<<< HEAD
  
 				int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
 				//2.SaveAttachmentsModulewise
@@ -1005,6 +1037,19 @@ namespace TracePca.Service.Audit
 
 				UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
  
+=======
+				int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
+				//2.SaveAttachmentsModulewise
+				attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
+                //string UserLoginName = await GetUserName(dto.CompId, dto.UserId);
+
+                //1. Generate Filepath
+                 sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, dto.UserId.ToString(), "Upload");
+
+
+				UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
+
+>>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
 				return "Successs";
 			}
 			catch (Exception ex)
@@ -1013,7 +1058,22 @@ namespace TracePca.Service.Audit
 				return $"Error: {ex.Message}";
 			}
 		}
+<<<<<<< HEAD
   
+=======
+                //var sSelectedFileName = Path.GetFileName(dto.File.FileName);
+                //var fileExt = Path.GetExtension(sSelectedFileName)?.TrimStart('.');
+                //var sFullFilePath = Path.Combine(sFileSavingPath, sSelectedFileName);
+
+                //using (var stream = new FileStream(sFullFilePath, FileMode.Create))
+                //{
+                //    await dto.File.CopyToAsync(stream);
+                //}
+
+                //int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
+                ////2.SaveAttachmentsModulewise
+                //attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
+>>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
 
 
 		//public async Task<string> UploadCMAAttachmentsAsync(CMADtoAttachment dto)
@@ -1099,7 +1159,7 @@ namespace TracePca.Service.Audit
                 byte[] fileBytes;
                 string contentType;
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string fileName = $"Audit_CAM_{timestamp}";
+                string fileName = $"Audit_Issues_{timestamp}";
 
                 if (format.ToLower() == "pdf")
                 {
@@ -1177,7 +1237,7 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit CAM Report").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit Issues and Closure Report").FontSize(16).Bold();
                             column.Item().Text(text =>
                             {
                                 text.Span("Client Name: ").FontSize(10).Bold();

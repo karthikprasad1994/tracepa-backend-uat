@@ -61,6 +61,20 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpGet("LoadWorkpaperCheckListDDL")]
+        public async Task<IActionResult> LoadWorkpaperCheckListDDL(int compId, int auditId)
+        {
+            try
+            {
+                var result = await _conductAuditInterface.LoadWorkpaperCheckListDDLAsync(compId, auditId);
+                return Ok(new { statusCode = 200, message = "WorkpaperCheckList dropdown data fetched successfully.", data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load WorkpaperCheckList dropdown data.", error = ex.Message });
+            }
+        }
+
         [HttpGet("LoadDRLWithAttachmentsDDL")]
         public async Task<IActionResult> LoadDRLWithAttachmentsDDL(int compId, int auditId)
         {
