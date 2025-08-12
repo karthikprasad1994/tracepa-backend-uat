@@ -16895,85 +16895,87 @@ SET QUOTED_IDENTIFIER ON
 GO
 
  
-CREATE Procedure [dbo].[spEmployeeMaster]              
-(                
-@Usr_ID  int,               
-@Usr_Node int,              
-@Usr_Code  varchar(50),                
-@Usr_FullName  varchar(500),                
-@Usr_LoginName varchar(50),                
-@Usr_Password varchar(500),                
-@Usr_Email varchar(500),       
-@Usr_Category int,
-@Usr_Suggetions int,
-@usr_partner int,           
-@Usr_LevelGrp  int,                
-@Usr_DutyStatus  varchar(1),                 
-@Usr_PhoneNo  varchar(50),                
-@Usr_MobileNo  varchar(50),                
-@Usr_OfficePhone  varchar(50),               
-@Usr_OffPhExtn varchar(50),              
-@Usr_Designation int,              
-@Usr_CompanyID int,              
-@Usr_OrgnID  int,              
-@Usr_GrpOrUserLvlPerm int,              
-@Usr_Role int,              
-@Usr_MasterModule int,              
-@Usr_AuditModule int,              
-@Usr_RiskModule int,              
-@Usr_ComplianceModule int,              
-@Usr_BCMModule int,    
-@Usr_DigitalOfficeModule int,    
-@Usr_MasterRole int,              
-@Usr_AuditRole int,              
-@Usr_RiskRole int,              
-@Usr_ComplianceRole int,              
-@Usr_BCMRole int,    
-@Usr_DigitalOfficeRole int,    
-@Usr_CreatedBy int,            
-@Usr_UpdatedBy int,            
-@Usr_DelFlag varchar(1),              
-@Usr_Status Varchar(3),        
-@Usr_IPAddress Varchar(500),         
-@Usr_CompId int,   
-@Usr_Type Varchar(5),       
-@usr_IsSuperuser int,    
-@USR_DeptID int,    
-@iUpdateOrSave int Output,            
-@iOper int Output                 
-)                  
- As                     
-  If exists(select Usr_ID from Sad_UserDetails where Usr_ID=@Usr_ID and Usr_CompId = @Usr_CompId)        
-   Begin        
-   Set @Usr_Status ='U'        
-   Update Sad_UserDetails set Usr_Node=@Usr_Node,Usr_Code=@Usr_Code,Usr_FullName=@Usr_FullName,Usr_LoginName=@Usr_LoginName,Usr_Password=@Usr_Password,Usr_Email=@Usr_Email,        
-   usr_partner=@usr_partner,Usr_LevelGrp=@Usr_LevelGrp,Usr_PhoneNo=@Usr_PhoneNo,Usr_MobileNo=@Usr_MobileNo,Usr_OfficePhone=@Usr_OfficePhone,Usr_OffPhExtn=@Usr_OffPhExtn,        
-   Usr_Designation=@Usr_Designation,Usr_CompanyID=@Usr_CompanyID,Usr_OrgnID=@Usr_OrgnID,Usr_GrpOrUserLvlPerm=@Usr_GrpOrUserLvlPerm,Usr_Role=@Usr_Role,        
-   Usr_MasterModule=@Usr_MasterModule,Usr_AuditModule=@Usr_AuditModule,Usr_RiskModule=@Usr_RiskModule,Usr_ComplianceModule=@Usr_ComplianceModule,Usr_BCMModule=@Usr_BCMModule,      
-   Usr_DigitalOfficeModule = @Usr_DigitalOfficeModule,  
-   Usr_MasterRole=@Usr_MasterRole,Usr_AuditRole=@Usr_AuditRole,Usr_RiskRole=@Usr_RiskRole,Usr_ComplianceRole=@Usr_ComplianceRole,Usr_BCMRole=@Usr_BCMRole,   
-   Usr_DigitalOfficeRole = @Usr_DigitalOfficeRole,     
-   Usr_Status=@Usr_Status,Usr_UpdatedBy=@Usr_UpdatedBy,Usr_UpdatedOn=GetDate(),Usr_IPAddress=@Usr_IPAddress,Usr_Category=@Usr_Category,Usr_Suggetions=@Usr_Suggetions,Usr_Type = @Usr_Type,  
-   usr_IsSuperuser =@usr_IsSuperuser, USR_DeptID=@USR_DeptID   
-   Where Usr_ID=@Usr_ID  and Usr_CompId = @Usr_CompId        
-   Set @iUpdateOrSave=2        
-   Set @iOper = @Usr_ID                  
- End                  
-Else                 
- Begin        
- Set @Usr_ID=(select isnull(max(Usr_ID)+1,1) from Sad_UserDetails)        
- Insert into Sad_UserDetails (Usr_ID,Usr_Node,Usr_Code,Usr_FullName,Usr_LoginName,Usr_Password,Usr_Email,usr_partner,Usr_LevelGrp,Usr_DutyStatus,Usr_PhoneNo,Usr_MobileNo,        
- Usr_OfficePhone,Usr_OffPhExtn,Usr_Designation,Usr_CompanyID,Usr_OrgnID,Usr_GrpOrUserLvlPerm,Usr_Role,Usr_MasterModule,Usr_AuditModule,Usr_RiskModule,        
- Usr_ComplianceModule,Usr_BCMModule,Usr_DigitalOfficeModule,Usr_MasterRole,Usr_AuditRole,Usr_RiskRole,Usr_ComplianceRole,Usr_BCMRole,Usr_DigitalOfficeRole,  
- Usr_DelFlag,Usr_Status,Usr_CompId,Usr_CreatedBy,Usr_CreatedOn,Usr_IPAddress,Usr_Category,Usr_Suggetions,Usr_Type,usr_IsSuperuser,USR_DeptID)        
- Values        
- (@Usr_ID,@Usr_Node,@Usr_Code,@Usr_FullName,@Usr_LoginName,@Usr_Password,@Usr_Email,@usr_partner,@Usr_LevelGrp,@Usr_DutyStatus,@Usr_PhoneNo,@Usr_MobileNo,@Usr_OfficePhone,        
- @Usr_OffPhExtn,@Usr_Designation,@Usr_CompanyID,@Usr_OrgnID,@Usr_GrpOrUserLvlPerm,@Usr_Role,@Usr_MasterModule,@Usr_AuditModule,@Usr_RiskModule,        
- @Usr_ComplianceModule,@Usr_BCMModule,@Usr_DigitalOfficeModule,@Usr_MasterRole,@Usr_AuditRole,@Usr_RiskRole,@Usr_ComplianceRole,@Usr_BCMRole,@Usr_DigitalOfficeRole,  
- @Usr_DelFlag,@Usr_Status,@Usr_CompId,@Usr_CreatedBy,GetDate(),@Usr_IPAddress,@Usr_Category,@Usr_Suggetions,@Usr_Type,@usr_IsSuperuser,@USR_DeptID)        
- Set @iUpdateOrSave=3        
- Set @iOper = @Usr_ID               
- End  
+CREATE Procedure [dbo].[spEmployeeMaster]                  
+(                    
+@Usr_ID  int,                  
+@Usr_Node int,                  
+@Usr_Code  varchar(50),                    
+@Usr_FullName  varchar(500),                    
+@Usr_LoginName varchar(50),                    
+@Usr_Password varchar(500),                    
+@Usr_Email varchar(500),          
+@Usr_Category int,    
+@Usr_Suggetions int,    
+@usr_partner int,              
+@Usr_LevelGrp  int,                    
+@Usr_DutyStatus  varchar(1),                    
+@Usr_PhoneNo  varchar(50),                    
+@Usr_MobileNo  varchar(50),                    
+@Usr_OfficePhone  varchar(50),                  
+@Usr_OffPhExtn varchar(50),                  
+@Usr_Designation int,                  
+@Usr_CompanyID int,                  
+@Usr_OrgnID  int,                  
+@Usr_GrpOrUserLvlPerm int,                  
+@Usr_Role int,                  
+@Usr_MasterModule int,                  
+@Usr_AuditModule int,                  
+@Usr_RiskModule int,                  
+@Usr_ComplianceModule int,                  
+@Usr_BCMModule int,        
+@Usr_DigitalOfficeModule int,        
+@Usr_MasterRole int,                  
+@Usr_AuditRole int,                  
+@Usr_RiskRole int,                  
+@Usr_ComplianceRole int,                  
+@Usr_BCMRole int,        
+@Usr_DigitalOfficeRole int,        
+@Usr_CreatedBy int,                
+@Usr_UpdatedBy int,                
+@Usr_DelFlag varchar(1),                  
+@Usr_Status Varchar(3),            
+@Usr_IPAddress Varchar(500),            
+@Usr_CompId int,      
+@Usr_Type Varchar(5),          
+@usr_IsSuperuser int,        
+@USR_DeptID int,   
+@USR_MemberType int,  
+@USR_Levelcode int,  
+@iUpdateOrSave int Output,                
+@iOper int Output                    
+)                      
+ As                        
+  If exists(select Usr_ID from Sad_UserDetails where Usr_ID=@Usr_ID and Usr_CompId = @Usr_CompId)            
+   Begin            
+   Set @Usr_Status ='U'            
+   Update Sad_UserDetails set Usr_Node=@Usr_Node,Usr_Code=@Usr_Code,Usr_FullName=@Usr_FullName,Usr_LoginName=@Usr_LoginName,Usr_Password=@Usr_Password,Usr_Email=@Usr_Email,            
+   usr_partner=@usr_partner,Usr_LevelGrp=@Usr_LevelGrp,Usr_PhoneNo=@Usr_PhoneNo,Usr_MobileNo=@Usr_MobileNo,Usr_OfficePhone=@Usr_OfficePhone,Usr_OffPhExtn=@Usr_OffPhExtn,            
+   Usr_Designation=@Usr_Designation,Usr_CompanyID=@Usr_CompanyID,Usr_OrgnID=@Usr_OrgnID,Usr_GrpOrUserLvlPerm=@Usr_GrpOrUserLvlPerm,Usr_Role=@Usr_Role,            
+   Usr_MasterModule=@Usr_MasterModule,Usr_AuditModule=@Usr_AuditModule,Usr_RiskModule=@Usr_RiskModule,Usr_ComplianceModule=@Usr_ComplianceModule,Usr_BCMModule=@Usr_BCMModule,          
+   Usr_DigitalOfficeModule = @Usr_DigitalOfficeModule,      
+   Usr_MasterRole=@Usr_MasterRole,Usr_AuditRole=@Usr_AuditRole,Usr_RiskRole=@Usr_RiskRole,Usr_ComplianceRole=@Usr_ComplianceRole,Usr_BCMRole=@Usr_BCMRole,      
+   Usr_DigitalOfficeRole = @Usr_DigitalOfficeRole,        
+   Usr_Status=@Usr_Status,Usr_UpdatedBy=@Usr_UpdatedBy,Usr_UpdatedOn=GetDate(),Usr_IPAddress=@Usr_IPAddress,Usr_Category=@Usr_Category,Usr_Suggetions=@Usr_Suggetions,Usr_Type = @Usr_Type,      
+   usr_IsSuperuser =@usr_IsSuperuser, USR_DeptID=@USR_DeptID, USR_MemberType=@USR_MemberType,USR_Levelcode=@USR_Levelcode  
+   Where Usr_ID=@Usr_ID  and Usr_CompId = @Usr_CompId            
+   Set @iUpdateOrSave=2            
+   Set @iOper = @Usr_ID                      
+ End                      
+Else                    
+ Begin            
+ Set @Usr_ID=(select isnull(max(Usr_ID)+1,1) from Sad_UserDetails)            
+ Insert into Sad_UserDetails (Usr_ID,Usr_Node,Usr_Code,Usr_FullName,Usr_LoginName,Usr_Password,Usr_Email,usr_partner,Usr_LevelGrp,Usr_DutyStatus,Usr_PhoneNo,Usr_MobileNo,            
+ Usr_OfficePhone,Usr_OffPhExtn,Usr_Designation,Usr_CompanyID,Usr_OrgnID,Usr_GrpOrUserLvlPerm,Usr_Role,Usr_MasterModule,Usr_AuditModule,Usr_RiskModule,            
+ Usr_ComplianceModule,Usr_BCMModule,Usr_DigitalOfficeModule,Usr_MasterRole,Usr_AuditRole,Usr_RiskRole,Usr_ComplianceRole,Usr_BCMRole,Usr_DigitalOfficeRole,      
+ Usr_DelFlag,Usr_Status,Usr_CompId,Usr_CreatedBy,Usr_CreatedOn,Usr_IPAddress,Usr_Category,Usr_Suggetions,Usr_Type,usr_IsSuperuser,USR_DeptID,USR_MemberType,USR_Levelcode)            
+ Values            
+ (@Usr_ID,@Usr_Node,@Usr_Code,@Usr_FullName,@Usr_LoginName,@Usr_Password,@Usr_Email,@usr_partner,@Usr_LevelGrp,@Usr_DutyStatus,@Usr_PhoneNo,@Usr_MobileNo,@Usr_OfficePhone,            
+ @Usr_OffPhExtn,@Usr_Designation,@Usr_CompanyID,@Usr_OrgnID,@Usr_GrpOrUserLvlPerm,@Usr_Role,@Usr_MasterModule,@Usr_AuditModule,@Usr_RiskModule,            
+ @Usr_ComplianceModule,@Usr_BCMModule,@Usr_DigitalOfficeModule,@Usr_MasterRole,@Usr_AuditRole,@Usr_RiskRole,@Usr_ComplianceRole,@Usr_BCMRole,@Usr_DigitalOfficeRole,      
+ @Usr_DelFlag,@Usr_Status,@Usr_CompId,@Usr_CreatedBy,GetDate(),@Usr_IPAddress,@Usr_Category,@Usr_Suggetions,@Usr_Type,@usr_IsSuperuser,@USR_DeptID,@USR_MemberType,@USR_Levelcode)            
+ Set @iUpdateOrSave=3            
+ Set @iOper = @Usr_ID                  
+ End 
   
 GO
 /****** Object:  StoredProcedure [dbo].[spFinancial_AddAssign]    Script Date: 20-03-2025 15:55:34 ******/
