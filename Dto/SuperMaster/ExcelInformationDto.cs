@@ -134,7 +134,14 @@
         //SaveCleintUser
         public class SaveClientUserDto
         {
-            public string EmailId { get; set; }
+            //Vendor Related
+            public string VendorName { get; set; }       
+            public string EmailId { get; set; }        
+
+            //Designation Related 
+            public string DesignationName { get; set; }   
+
+            //User Master Fields
             public int iUserID { get; set; }
             public int iUsrNode { get; set; }
             public string sUsrCode { get; set; }
@@ -151,8 +158,8 @@
             public string sUsrMobileNo { get; set; }
             public string sUsrOfficePhone { get; set; }
             public string sUsrOffPhExtn { get; set; }
-            public int iUsrDesignation { get; set; }
-            public int iUsrCompanyID { get; set; }
+            public int iUsrDesignation { get; set; }  
+            public int iUsrCompanyID { get; set; }   
             public int iUsrOrgID { get; set; }
             public int iUsrGrpOrUserLvlPerm { get; set; }
             public int iUsrRole { get; set; }
@@ -168,6 +175,7 @@
             public int iUsrComplianceRole { get; set; }
             public int iUsrBCMRole { get; set; }
             public int iUsrDigitalOfficeRole { get; set; }
+
             public int iUsrCreatedBy { get; set; }
             public string sUsrFlag { get; set; }
             public string sUsrStatus { get; set; }
@@ -179,6 +187,7 @@
             public int iUSR_MemberType { get; set; }
             public int iUSR_Levelcode { get; set; }
         }
+
     }
 }
 
