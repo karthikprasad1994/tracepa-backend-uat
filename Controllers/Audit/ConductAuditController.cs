@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.SignalR.Protocol;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
+using TracePca.Service.Audit;
 
 namespace TracePca.Controllers.Audit
 {
@@ -235,6 +236,28 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpPost("UploadAndSaveWorkPaperAttachment")]
+        public async Task<IActionResult> UploadAndSaveWorkPaperAttachment([FromForm] FileAttachmentDTO dto, int auditId, int workPaperId)
+        {
+            try
+            {
+                var (attachmentId, relativeFilePath) = await _conductAuditInterface.UploadAndSaveWorkPaperAttachmentAsync(dto, auditId, workPaperId, "StandardAudit");
+                if (attachmentId > 0)
+                {
+                    return Ok(new { success = true, message = "File uploaded and saved successfully.", data = attachmentId });
+                }
+                else
+                {
+                    return StatusCode(500, new { success = false, message = "File upload failed. No attachment record was saved." });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while uploading the file: {ex.Message}" });
+            }
+        }
+
+
         [HttpPost("RemoveAttachmentDoc")]
         public async Task<IActionResult> RemoveAttachmentDoc(int compId, int attachId, int docId, int userId)
         {
@@ -404,20 +427,37 @@ namespace TracePca.Controllers.Audit
                 int count = await _conductAuditInterface.CheckAuditMandatoryCheckpointsAsync(compId, auditId);
                 if (count == 0)
                 {
-                    return Ok(new { statusCode = 200, message = "No checkpoints exist for this audit." });
+                    return Ok(new { success = false, statusCode = 200, message = "No checkpoints exist for this audit." });
                 }
                 else if (count == 1)
                 {
-                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before submitting." });
+                    return Ok(new { success = false, statusCode = 200, message = "Please complete all mandatory checkpoints before submitting." });
                 }
                 else
                 {
-                    return Ok(new { statusCode = 200, message = "All mandatory checkpoints are completed." });
+                    return Ok(new { success = true, statusCode = 200, message = "All mandatory checkpoints are completed & Successfully Submitted." });
                 }
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { statusCode = 500, message = "An error occurred while checking audit checkpoints.", error = ex.Message });
+            }
+        }
+
+        [HttpPost("SaveConductAuditCheckpointObservation")]
+        public async Task<IActionResult> SaveConductAuditCheckpointObservation([FromBody] List<ConductAuditCheckpointObservationsDTO> dtos)
+        {
+            try
+            {
+                bool success = await _conductAuditInterface.SaveConductAuditCheckpointObservationAsync(dtos);
+                if (success)
+                    return Ok(new { Message = "Conduct Audit Checkpoint Observation saved successfully." });
+                else
+                    return StatusCode(500, "Failed to save Conduct Audit Checkpoint Observation.");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to save Audit Observation.", error = ex.Message });
             }
         }
     }

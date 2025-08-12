@@ -185,8 +185,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetTotalAmount
         [HttpGet("GetTotalAmount")]
-        public async Task<IActionResult> GetCustCOAMasterDetails(
-        int CompId, int CustId, int YearId, int BranchId, int DurationId)
+        public async Task<IActionResult> GetCustCOAMasterDetails(int CompId, int CustId, int YearId, int BranchId, int DurationId)
         {
             try
             {
@@ -224,8 +223,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetTrialBalance(Grid)
         [HttpGet("GetTrailBalance(Grid)")]
-        public async Task<IActionResult> GetCustCOADetails(
-    int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
+        public async Task<IActionResult> GetCustCOADetails(int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
         {
             try
             {
@@ -511,8 +509,7 @@ namespace TracePca.Controllers.FIN_Statement
             if (request.SubItemId is null && request.ItemId is null && request.SubHeadingId is null)
                 return BadRequest("At least one of SubItemId, ItemId, or SubHeadingId must be provided.");
 
-            var (headingId, subHeadingId, itemId) = await _ScheduleMappingService.GetPreviousLoadIdAsync(
-                request.SubItemId, request.ItemId, request.SubHeadingId);
+            var (headingId, subHeadingId, itemId) = await _ScheduleMappingService.GetPreviousLoadIdAsync(request.SubItemId, request.ItemId, request.SubHeadingId);
 
             var response = new HierarchyResponseDto
             {
@@ -521,6 +518,39 @@ namespace TracePca.Controllers.FIN_Statement
                 ItemId = itemId
             };
             return Ok(response);
+        }
+
+        //UpdateNetIncome
+        [HttpPost("UpdateNetIncome")]
+        public async Task<IActionResult> UpdateNetIncome([FromBody] UpdateNetIncomeRequestDto request)
+        {
+            try
+            {
+                var result = await _ScheduleMappingService.UpdateNetIncomeAsync(
+                    request.CompId,
+                    request.CustId,
+                    request.UserId,
+                    request.YearId,
+                    request.BranchId,
+                    request.DurationId
+                );
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = result ? "Net Income inserted successfully." : "Net Income already exists.",
+                    success = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while processing Net Income.",
+                    error = ex.Message
+                });
+            }
         }
     }
 }

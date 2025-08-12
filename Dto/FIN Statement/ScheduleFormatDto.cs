@@ -202,16 +202,6 @@
             public int AST_Company_limit { get; set; }
         }
 
-        //DeleteScheduleTemplate
-        public class DeleteScheduleTemplateRequestDto
-        {
-            public int CompanyId { get; set; }
-            public int ScheduleType { get; set; }
-            public int CustomerId { get; set; }
-            public int SelectedValue { get; set; } 
-            public int MainId { get; set; } 
-        }
-
         //SaveOrUpdateScheduleHeadingAlias
         public class ScheduleHeadingAliasDto
         {
@@ -402,6 +392,13 @@
 
             // === Extra / Derived Property ===
             public string AST_AccountHeadName { get; set; }
+        }
+
+        //GetGridViewAlias
+        public class AliasDto
+        {
+            public int HeadingId { get; set; }
+            public string Alias { get; set; }
         }
     }
 }

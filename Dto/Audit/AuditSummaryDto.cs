@@ -98,6 +98,7 @@ namespace TracePca.Dto.Audit
     {
         public int SACAM_PKID { get; set; }
         public int SACAM_SA_ID { get; set; }
+        public int? SACAM_UpdatedBy { get; set; }
         public string? SACAM_DescriptionOrReasonForSelectionAsCAM { get; set; }
         public string? SACAM_AuditProcedureUndertakenToAddressTheCAM { get; set; }
     }
@@ -114,6 +115,8 @@ namespace TracePca.Dto.Audit
         //public string UserLoginName { get; set; }
          
         public int CAMDPKID { get; set; }
+
+        public int? AttachPKID { get; set; }
     }
 
 

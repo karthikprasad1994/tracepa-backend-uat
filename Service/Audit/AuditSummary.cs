@@ -15,8 +15,19 @@ using TracePca.Dto.Audit;
 using TracePca.Interface;
 using TracePca.Interface.Audit;
 using static TracePca.Interface.Audit.AuditSummaryInterface;
-
-
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
+using TracePca.Dto;
+using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
+using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
+using Colors = QuestPDF.Helpers.Colors;
+using Document = DocumentFormat.OpenXml.Wordprocessing.Document;
+using Paragraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
+using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
+using RunProperties = DocumentFormat.OpenXml.Wordprocessing.RunProperties;
+using WordDoc = DocumentFormat.OpenXml.Wordprocessing.Document;
+using WordprocessingDocument = DocumentFormat.OpenXml.Packaging.WordprocessingDocument;
 
 namespace TracePca.Service.Audit
 {
@@ -31,10 +42,19 @@ namespace TracePca.Service.Audit
 		private readonly DbConnectionProvider _dbConnectionProvider;
 
 		public AuditSummary(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider)
+<<<<<<< HEAD
 		{
 			_dbcontext = dbcontext;
 			_configuration = configuration;
 			_httpContextAccessor = httpContextAccessor;
+=======
+        {
+            _dbcontext = dbcontext;
+            _configuration = configuration;
+            _httpContextAccessor = httpContextAccessor;
+
+        }
+>>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
 
 		}
 
@@ -425,7 +445,7 @@ namespace TracePca.Service.Audit
 			string query = @"SELECT A.PKID,A.WorkpaperChecklist,A.WorkpaperNo,A.WorkpaperRef,A.Observation,A.Conclusion,A.ReviewerComments,
                      STUFF((SELECT ', ' + cmm_Desc FROM Content_Management_Master
                      WHERE CHARINDEX(',' + CAST(cmm_ID AS VARCHAR) + ',', ',' + REPLACE(A.TypeOfTest, ' ', '') + ',') > 0
-                     FOR XML PATH('')), 1, 2, '') AS TypeOfTest,
+                     FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS TypeOfTest,
                      A.Status,A.AttachID,A.CreatedBy,A.CreatedOn,A.ReviewedBy,A.ReviewedOn
                      FROM (SELECT ISNULL(cm.cmm_ID, a.SSW_ID) As PKID,IsNull(cm.cmm_Desc,'NA') As WorkpaperChecklist,
                      SSW_WorkpaperNo As WorkpaperNo,SSW_WorkpaperRef As WorkpaperRef,SSW_Observation As Observation,SSW_Conclusion As Conclusion,
@@ -468,8 +488,8 @@ namespace TracePca.Service.Audit
 			string query = @"
             Select DENSE_RANK() OVER (ORDER BY SACAM_PKID) As SrNo,SACAM_PKID As DBpkId,SACAM_SSW_WorkpaperNo As WorkpaperNo,
             SACAM_SSW_WorkpaperRef As WorkpaperRef,SACAM_SSW_Observation As Observation,SACAM_SSW_Conclusion As Conclusion, 
-            Case When a.SACAM_SSW_TypeOfTest=1 then 'Inquiry' When a.SACAM_SSW_TypeOfTest=2 then 'Observation' When a.SACAM_SSW_TypeOfTest=3 
-            then 'Examination' When a.SACAM_SSW_TypeOfTest=4 then 'Inspection' When a.SACAM_SSW_TypeOfTest=5 then 'Substantive Testing' End TypeOfTest, 
+            ISNULL(STUFF((SELECT ', ' + cmm.CMM_Desc FROM STRING_SPLIT(CAST(a.SACAM_SSW_TypeOfTest AS VARCHAR(MAX)), ',') AS s JOIN Content_Management_Master cmm ON TRY_CAST(s.value AS INT) = cmm.CMM_ID
+            WHERE cmm.CMM_Category = 'TOT' FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, ''),'') AS TypeOfTest,
             Case When a.SACAM_SSW_Status=1 then 'Open' When a.SACAM_SSW_Status=2 then 'WIP' When a.SACAM_SSW_Status=3 then 'Closed' End 
             Status,SACAM_SSW_CriticalAuditMatter As CAM,ISNULL(SACAM_AttachID,0) As AttachmentID, Case When a.SACAM_SSW_ExceededMateriality=1 then 'Yes' 
             When a.SACAM_SSW_ExceededMateriality=2 then 'No' When a.SACAM_SSW_ExceededMateriality=3 then 'NA' End ExceededMateriality, 
@@ -487,24 +507,30 @@ namespace TracePca.Service.Audit
 		}
 
 
+<<<<<<< HEAD
 		public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
 		{
 			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+=======
+        public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
+        {
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+>>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
 
-			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-			if (string.IsNullOrEmpty(dbName))
-				throw new Exception("CustomerCode is missing in session. Please log in again.");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-			// ✅ Step 2: Get the connection string
-			var connectionString = _configuration.GetConnectionString(dbName);
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
 
-			using var connection = new SqlConnection(connectionString);
+            using var connection = new SqlConnection(connectionString);
 
-			var query = @"
-            Update StandardAudit_AuditSummary_CAMDetails set SACAM_DescriptionOrReasonForSelectionAsCAM=@SACAM_DescriptionOrReasonForSelectionAsCAM,
-            SACAM_AuditProcedureUndertakenToAddressTheCAM=@SACAM_AuditProcedureUndertakenToAddressTheCAM  
-            Where SACAM_PKID=@SACAM_PKID and SACAM_SA_ID=@SACAM_SA_ID";
+            var query = @"
+     Update StandardAudit_AuditSummary_CAMDetails set SACAM_DescriptionOrReasonForSelectionAsCAM=@SACAM_DescriptionOrReasonForSelectionAsCAM,
+     SACAM_AuditProcedureUndertakenToAddressTheCAM=@SACAM_AuditProcedureUndertakenToAddressTheCAM  
+     Where SACAM_PKID=@SACAM_PKID and SACAM_SA_ID=@SACAM_SA_ID";
 
 			var parameters = new DynamicParameters(dto);
 			parameters.Add("SACAM_PKID", sacm_pkid);
@@ -516,9 +542,49 @@ namespace TracePca.Service.Audit
 		}
 
 
+<<<<<<< HEAD
 		public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
 		{
 			if (!Directory.Exists(accessCodeDirectory))
+=======
+
+        public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
+        {
+            if (!Directory.Exists(accessCodeDirectory))
+            {
+                Directory.CreateDirectory(accessCodeDirectory);
+            }
+
+            var sFoldersToCreate = new List<string> { "Tempfolder", sFolderName, imgDocType };
+
+            foreach (var sFolder in sFoldersToCreate)
+            {
+                if (!string.IsNullOrEmpty(sFolder))
+                {
+                    accessCodeDirectory = Path.Combine(accessCodeDirectory.TrimEnd('\\'), sFolder);
+                    if (!Directory.Exists(accessCodeDirectory))
+                    {
+                        Directory.CreateDirectory(accessCodeDirectory);
+                    }
+                }
+            }
+            return accessCodeDirectory;
+        }
+
+
+        private async Task<int> GenerateNextAttachmentIdAsync(int compId)
+        {
+
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+             
+			using var connection = new SqlConnection(connectionString);
+>>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
 			{
 				Directory.CreateDirectory(accessCodeDirectory);
 			}
@@ -659,8 +725,13 @@ namespace TracePca.Service.Audit
 
 		//         sFileName = sFileName.Replace("&", " and").Substring(0, Math.Min(sFileName.Length, 95));
 
+<<<<<<< HEAD
 		//         iAttachID = await GenerateNextAttachmentIdAsync(CompId);
 		//         iDocID = await GetDocumentIdAsync(CompId);
+=======
+            iAttachID = iAttachID == 0 ? await GenerateNextAttachmentIdAsync(CompId) : iAttachID;
+            iDocID = await GetDocumentIdAsync(CompId);
+>>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
 
 		//         if (iDocID == 0)
 		//         {
@@ -942,13 +1013,21 @@ namespace TracePca.Service.Audit
 					await dto.File.CopyToAsync(stream);
 				}
 
+<<<<<<< HEAD
 				int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
 				//2.SaveAttachmentsModulewise
 				attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
+=======
+                //string UserLoginName = await GetUserName(dto.CompId, dto.UserId);
+
+                //1. Generate Filepath
+                String sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, dto.UserId.ToString(), "Upload");
+>>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
 
 
 				UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
 
+<<<<<<< HEAD
 				return "Successs";
 			}
 			catch (Exception ex)
@@ -957,6 +1036,20 @@ namespace TracePca.Service.Audit
 				return $"Error: {ex.Message}";
 			}
 		}
+=======
+                var sSelectedFileName = Path.GetFileName(dto.File.FileName);
+                var fileExt = Path.GetExtension(sSelectedFileName)?.TrimStart('.');
+                var sFullFilePath = Path.Combine(sFileSavingPath, sSelectedFileName);
+
+                using (var stream = new FileStream(sFullFilePath, FileMode.Create))
+                {
+                    await dto.File.CopyToAsync(stream);
+                }
+
+                int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
+                //2.SaveAttachmentsModulewise
+                attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
+>>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
 
 
 		//public async Task<string> UploadCMAAttachmentsAsync(CMADtoAttachment dto)
@@ -1034,6 +1127,167 @@ namespace TracePca.Service.Audit
 
 			return result;
 		}
+
+        public async Task<string> GenerateCAMReportAndGetURLPathAsync(int compId, int auditId, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Audit_CAM_{timestamp}";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GenerateCAMPdfAsync(compId, auditId);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                var filePath = Path.Combine(tempFolder, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+
+                string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
+                string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{fileName}";
+
+                return downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        private async Task<byte[]> GenerateCAMPdfAsync(int compId, int auditId)
+        {
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //await connection.OpenAsync();
+
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var result = await connection.QueryFirstOrDefaultAsync<(int EpPkId, int CustID, string CustName, string YearName, string AuditNo)>(
+                @"SELECT LOE.LOE_ID AS EpPkId, SA.SA_CustID As CustID, CUST.CUST_NAME As CustName, YMS.YMS_ID AS YearName, SA_AuditNo + ' - ' + CMA.CMM_Desc As AuditNo FROM StandardAudit_Schedule AS SA
+                  LEFT JOIN SAD_CUST_LOE AS LOE ON LOE.LOE_CustomerId = SA.SA_CustID AND LOE.LOE_YearId = SA.SA_YearID AND LOE.LOE_ServiceTypeId = SA.SA_AuditTyPeId
+                  LEFT JOIN SAD_CUSTOMER_MASTER AS CUST ON SA.SA_CustID = CUST_ID 
+                  LEFT JOIN YEAR_MASTER AS YMS ON YMS.YMS_YEARID = SA.SA_YearID
+                  LEFT JOIN Content_Management_Master CMA On CMA.cmm_ID = SA.SA_AuditTypeID
+                  WHERE LOE.LOE_CompID = @CompId AND SA.SA_ID = @AuditId;", new { CompId = compId, AuditId = auditId });
+
+            IEnumerable<CMADto> CAMresult = await GetCAMDetailsAsync(compId, auditId);
+            List<CMADto> dtoCAM = CAMresult.ToList();
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4.Landscape());
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit CAM Report").FontSize(16).Bold();
+                            column.Item().Text(text =>
+                            {
+                                text.Span("Client Name: ").FontSize(10).Bold();
+                                text.Span(result.CustName).FontSize(10);
+                            });
+                            column.Item().Text(text =>
+                            {
+                                text.Span("Audit No: ").FontSize(10).Bold();
+                                text.Span(result.AuditNo).FontSize(10);
+                            });
+
+
+                            column.Item().PaddingBottom(10);
+
+                            if (dtoCAM.Any() == true)
+                            {
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(0.5f);
+                                        columns.RelativeColumn(1.5f);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(1.5f);
+                                        columns.RelativeColumn(1);
+                                        columns.RelativeColumn(1);
+                                        columns.RelativeColumn(1.5f);
+                                        columns.RelativeColumn(3);
+                                        columns.RelativeColumn(3);
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Workpaper Ref").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("CAM").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Exceeded Materiality").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Deviations/Exceptions Noted").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Conclusion").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Type of Test").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Status").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Description & Reason for selection as CAM").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Audit Procedure undertaken to address the CAM").FontSize(10).Bold();
+                                    });
+
+                                    int slNo = 1;
+                                    foreach (var details in dtoCAM)
+                                    {
+                                        table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.WorkpaperRef ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.CAM ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ExceededMateriality ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Observation ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Conclusion ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.TypeOfTest ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Status ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.DescriptionOrReasonForSelectionAsCAM ?? "").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.AuditProcedureUndertakenToAddressTheCAM ?? "").FontSize(10);
+                                        slNo++;
+                                    }
+
+                                    static IContainer CellStyle(IContainer container) =>
+                                        container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                                });
+                            }
+                        });
+                    });
+                });
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
 
 
 		//public async Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID, CAMAttachmentDetailsDto dto)

@@ -23,8 +23,7 @@ namespace TracePca.Interface.FIN_Statement
         Task<IEnumerable<CustCOASummaryDto>> GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId);
 
         //GetTrialBalance(Grid)
-        Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(
-        int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId);
+        Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId);
 
         //FreezeForPreviousDuration
         Task<int[]> FreezePreviousYearTrialBalanceAsync(FreezePreviousDurationRequestDto input);
@@ -51,7 +50,10 @@ namespace TracePca.Interface.FIN_Statement
         Task<IEnumerable<LoadSubItemByItemDto>> GetSubItemsByItemIdAsync(int itemId, int orgType);
 
         //GetPreviousLoadId
-        Task<(int? HeadingId, int? SubHeadingId, int? ItemId)> GetPreviousLoadIdAsync(
-  int? subItemId = null, int? itemId = null, int? subHeadingId = null);
+        Task<(int? HeadingId, int? SubHeadingId, int? ItemId)> GetPreviousLoadIdAsync(int? subItemId = null, int? itemId = null, int? subHeadingId = null);
+
+        //UpdateNetIncome
+        Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, string branchId, int durationId);
+
     }
 }

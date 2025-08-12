@@ -13,6 +13,7 @@ namespace TracePca.Controllers.FIN_Statement
     {
         private ScheduleFormatInterface _ScheduleFormatInterface;
         private ScheduleFormatInterface _ScheduleFormatService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public ScheduleFormatController(ScheduleFormatInterface ScheduleFormatInterface)
         {
@@ -72,8 +73,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var result = await _ScheduleFormatService.GetScheduleFormatSubHeadingAsync(
-                    CompId, ScheduleId, CustId, HeadingId);
+                var result = await _ScheduleFormatService.GetScheduleFormatSubHeadingAsync(CompId, ScheduleId, CustId, HeadingId);
 
                 if (result == null || !result.Any())
                 {
@@ -105,14 +105,12 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleItem
         [HttpGet("GetScheduleItem")]
-        public async Task<IActionResult> GetScheduleFormatItemsAsync(
-        [FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId, [FromQuery] int SubHeadId)
+        public async Task<IActionResult> GetScheduleFormatItemsAsync([FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId, [FromQuery] int SubHeadId)
         {
             try
             {
                 // Call service method
-                var result = await _ScheduleFormatService.GetScheduleFormatItemsAsync(
-                    CompId, ScheduleId, CustId, HeadingId, SubHeadId);
+                var result = await _ScheduleFormatService.GetScheduleFormatItemsAsync(CompId, ScheduleId, CustId, HeadingId, SubHeadId);
 
                 // Check for no data
                 if (result == null || !result.Any())
@@ -147,13 +145,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleSubitems
         [HttpGet("GetScheduleSubItem")]
-        public async Task<IActionResult> GetScheduleFormatSubItemsAsync(
-       [FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId, [FromQuery] int SubHeadId, [FromQuery] int ItemId)
+        public async Task<IActionResult> GetScheduleFormatSubItemsAsync([FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int HeadingId, [FromQuery] int SubHeadId, [FromQuery] int ItemId)
         {
             try
             {
-                var result = await _ScheduleFormatService.GetScheduleFormatSubItemsAsync(
-                    CompId, ScheduleId, CustId, HeadingId, SubHeadId, ItemId);
+                var result = await _ScheduleFormatService.GetScheduleFormatSubItemsAsync(CompId, ScheduleId, CustId, HeadingId, SubHeadId, ItemId);
 
                 if (result == null || !result.Any())
                 {
@@ -185,11 +181,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetScheduleTemplate
         [HttpGet("GetScheduleTemplate")]
-        public async Task<IActionResult> GetScheduleTemplateAsync(
-    [FromQuery] int CompId,
-    [FromQuery] int ScheduleId,
-    [FromQuery] int CustId,
-    [FromQuery] int AccHead)
+        public async Task<IActionResult> GetScheduleTemplateAsync([FromQuery] int CompId, [FromQuery] int ScheduleId, [FromQuery] int CustId, [FromQuery] int AccHead)
         {
             try
             {
@@ -277,7 +269,6 @@ namespace TracePca.Controllers.FIN_Statement
             try
             {
                 bool isUpdate = dto.ASH_ID > 0;
-
                 var result = await _ScheduleFormatService.SaveScheduleHeadingAndTemplateAsync(CompId, dto);
 
                 string successMessage = isUpdate
@@ -449,36 +440,9 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //DeleteScheduleTemplate
-        [HttpDelete("DeleteScheduleTemplate")]
-        public async Task<IActionResult> DeleteInformation([FromBody] DeleteScheduleTemplateRequestDto request)
-        {
-            if (request == null)
-                return BadRequest("Invalid request.");
-
-            try
-            {
-                var result = await _ScheduleFormatService.DeleteInformationAsync(
-                    request.CompanyId,
-                    request.ScheduleType,
-                    request.CustomerId,
-                    request.SelectedValue,
-                    request.MainId);
-
-                if (result)
-                    return Ok(new { Success = true, Message = "Deleted successfully." });
-                else
-                    return StatusCode(500, new { Success = false, Message = "Deletion failed." });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Success = false, Message = $"An error occurred: {ex.Message}" });
-            }
-        }
-
         //SaveOrUpdateScheduleHeadingAlias
         [HttpPost("SaveOrUpdateScheduleHeadingAlias")]
-        public async Task<IActionResult> SaveOrUpdateScheduleHeadingAlias([FromBody] ScheduleHeadingAliasDto dto)
+        public async Task<IActionResult> SaveOrUpdateScheduleHeadingAlias([FromQuery] int CompId, [FromBody] ScheduleHeadingAliasDto dto)
         {
             if (dto == null)
             {
@@ -494,7 +458,7 @@ namespace TracePca.Controllers.FIN_Statement
             {
                 bool isUpdate = dto.AGA_ID > 0;
 
-                var result = await _ScheduleFormatService.SaveScheduleHeadingAliasAsync(dto);
+                var result = await _ScheduleFormatService.SaveScheduleHeadingAliasAsync(CompId, dto);
 
                 string successMessage = isUpdate
                     ? "Schedule Heading Alias successfully updated."
@@ -550,6 +514,27 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
+        [HttpGet("GetSystemGenExcelFile")]
+        public IActionResult GetExcelFilePathOnly(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+                return BadRequest("File name is required.");
+
+            // Optional: validate file exists if needed (on the server side)
+            string physicalPath = Path.Combine(
+                "C:\\inetpub\\vhosts\\multimedia.interactivedns.com\\tracelites.multimedia.interactivedns.com\\public\\SampleExcels",
+                fileName
+            );
+
+            if (!System.IO.File.Exists(physicalPath))
+                return NotFound($"File not found: {fileName}");
+
+            // ✅ Return public URL instead of local path
+            string publicUrl = $"https://tracelites.multimedia.interactivedns.com/SampleExcels/{fileName}";
+
+            return Ok(publicUrl);
+        }
+
         //SaveScheduleTemplate
         [HttpPost("SaveScheduleTemplate")]
         public async Task<IActionResult> SaveScheduleTemplate([FromQuery] int CompId, [FromBody] List<ScheduleTemplate> dtos)
@@ -580,6 +565,42 @@ namespace TracePca.Controllers.FIN_Statement
                     StatusCode = 500,
                     Message = "An error occurred while saving schedule data.",
                     Error = ex.Message
+                });
+            }
+        }
+
+        //GetGridViewAlias
+        [HttpGet("GetGridView1")]
+        public async Task<IActionResult> LoadGridView1gridAsync([FromQuery] int CompId, [FromQuery] int CustId, [FromQuery] string lblText, [FromQuery] int SelectedVal)
+        {
+            try
+            {
+                var result = await _ScheduleFormatService.LoadGridView1gridAsync(CompId, CustId, lblText, SelectedVal);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No heading records found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Heading records fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving heading records.",
+                    error = ex.Message
                 });
             }
         }

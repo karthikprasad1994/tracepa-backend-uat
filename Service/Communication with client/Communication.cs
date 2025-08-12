@@ -36,6 +36,7 @@ using TracePca.Models.UserModels;
 using Xceed.Document.NET;
 using Xceed.Words.NET;
 //using static Org.BouncyCastle.Math.EC.ECCurve;
+
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
 using Document = QuestPDF.Fluent.Document;
@@ -51,9 +52,11 @@ using WorkpaperDto = TracePca.Dto.Audit.WorkpaperDto;
 
 
 
+
 using TracePca.Models;
 using DocumentFormat.OpenXml.Office2010.Word;
 using Microsoft.Playwright;
+using Alignment = Xceed.Document.NET.Alignment;
 
 
 
@@ -90,9 +93,9 @@ namespace TracePca.Service.Communication_with_client
 
         }
 
-     
 
-      
+
+
 
         public async Task<string> GetDateFormatAsync(string connectionKey, int companyId, string configKey)
         {
@@ -214,10 +217,20 @@ JOIN SAD_CUSTOMER_MASTER CM ON SA.SA_CustID = CM.Cust_ID
 WHERE SA.SA_ID = @AuditId AND SA.SA_CustID = @CustomerId;
 ";
 
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
+            //  var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+            //  using var connection = new SqlConnection(connectionString);
+            //   await connection.OpenAsync();
 
             var partialResult = await connection.QueryFirstOrDefaultAsync<dynamic>(query, new
             {
@@ -324,9 +337,9 @@ WHERE LOET_CustomerId = @CustomerId
         {
 
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-          
 
-          //  using var connection = _dbConnectionProvider.GetConnection();
+
+            //  using var connection = _dbConnectionProvider.GetConnection();
 
             string query = @"SELECT LOE_ID as CustomerID, LOE_Name as CustomerName
                      FROM SAD_CUST_LOE
@@ -335,7 +348,7 @@ WHERE LOET_CustomerId = @CustomerId
             return await connection.QueryAsync<Dto.Audit.CustomerDto>(query, new { CompanyId = companyId });
         }
 
-        public async Task<IEnumerable<ReportData>> GetReportTypesAsync(string connectionKey, int companyId)
+        public async Task<IEnumerable<ReportData>> GetReportTypesAsync(int companyId)
         {
             const string query = @"
         SELECT RTM_Id AS ReportId , RTM_ReportTypeName AS  ReportName
@@ -345,7 +358,17 @@ WHERE LOET_CustomerId = @CustomerId
           AND RTM_CompID = @CompId
         ORDER BY RTM_ReportTypeName";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+
+            //using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
 
 
 
@@ -358,8 +381,18 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<AuditTypeDto>> GetAuditTypesAsync(int companyId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-           
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+
+
 
 
             string query = @"
@@ -376,8 +409,17 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<CustomerAuditDropdownDto> GetCustomerAuditDropdownAsync(int companyId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-           
+            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+
 
             await connection.OpenAsync();
 
@@ -430,9 +472,16 @@ WHERE LOET_CustomerId = @CustomerId
 
 
         public async Task<IEnumerable<AuditScheduleDto>> LoadScheduledAuditNosAsync(
-    string connectionStringName, int companyId, int financialYearId, int customerId)
+         int companyId, int financialYearId, int customerId)
         {
-            var connectionString = _configuration.GetConnectionString(connectionStringName);
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
@@ -491,9 +540,16 @@ WHERE LOET_CustomerId = @CustomerId
 
 
         public async Task<IEnumerable<ReportTypeDto>> LoadAllReportTypeDetailsDRLAsync(
-      string connectionStringName, int companyId, int templateId, string auditNo)
+           int companyId, int templateId, string auditNo)
         {
-            var connectionString = _configuration.GetConnectionString(connectionStringName);
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
@@ -507,13 +563,16 @@ WHERE LOET_CustomerId = @CustomerId
 
             var audRptType = await connection.ExecuteScalarAsync<int>(auditTypeQuery, new { AuditNo = auditNo });
 
+
+           var FremWorkId = await GetAuditFrameworkIdAsync(Convert.ToInt32(auditNo), companyId);
+
             // Step 2: Get Report Types
             var sql = @"
         SELECT RTM_Id, RTM_ReportTypeName
         FROM SAD_ReportTypeMaster
         WHERE RTM_CompID = @CompanyId
           AND RTM_DelFlag = 'A'
-          AND RTM_AudrptType IN (3, @AudRptType)";
+          AND RTM_AudrptType IN (3, @AudRptType) and RTM_AuditFrameworkId = @RTM_AuditFrameworkId";
 
             if (templateId > 0)
                 sql += " AND RTM_TemplateId = @TemplateId";
@@ -525,7 +584,8 @@ WHERE LOET_CustomerId = @CustomerId
             {
                 CompanyId = companyId,
                 AudRptType = audRptType,
-                TemplateId = templateId
+                TemplateId = templateId,
+                RTM_AuditFrameworkId = FremWorkId
             };
 
             return await connection.QueryAsync<ReportTypeDto>(sql, parameters);
@@ -533,7 +593,18 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<DropDownListDto>> LoadDRLClientSideAsync(int compId, string type, string auditNo)
         {
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            //var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+
+            // using var connection = new SqlConnection(connectionString);
+            //await connection.OpenAsync();
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
@@ -573,11 +644,23 @@ WHERE LOET_CustomerId = @CustomerId
         }
 
         public async Task<IEnumerable<CustomerUserEmailDto>> GetCustAllUserEmailsAsync(
-    string connectionStringName, int companyId, int customerId)
+     int companyId, int customerId)
         {
-            var connectionString = _configuration.GetConnectionString(connectionStringName);
+
+            //  var connectionString = _configuration.GetConnectionString(connectionStringName);
+            //    using var connection = new SqlConnection(connectionString);
+            //    await connection.OpenAsync();
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
+
 
             var sql = @"
         SELECT Usr_ID, Usr_Email
@@ -659,7 +742,7 @@ WHERE LOET_CustomerId = @CustomerId
             return result ?? 0; // Return 0 if no value is found
         }
 
-        public async Task<IEnumerable<DrlDescListDto>> LoadAllDRLDescriptionsAsync(string connectionStringName, int companyId)
+        public async Task<IEnumerable<DrlDescListDto>> LoadAllDRLDescriptionsAsync(int companyId)
         {
             var sQuery = @"
     SELECT 
@@ -667,20 +750,38 @@ WHERE LOET_CustomerId = @CustomerId
         ISNULL(Cms_Remarks, '') AS Cms_Remarks
     FROM Content_Management_Master
     WHERE CMM_CompID = @CompanyId";
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            var connectionString = _configuration.GetConnectionString(connectionStringName);
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
             using var connection = new SqlConnection(connectionString);
+
+            // var connectionString = _configuration.GetConnectionString(connectionStringName);
+            //using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
             var result = await connection.QueryAsync<DrlDescListDto>(sQuery, new { CompanyId = companyId });
             return result;
         }
         public async Task<List<(int Id, string Action)>> SaveOrUpdateLOETemplateDetailsAsync(
-    string connectionKey, List<LoETemplateDetailInputDto> dtos)
+     List<LoETemplateDetailInputDto> dtos)
         {
             var result = new List<(int Id, string Action)>();
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+
+            // using var connection = new SqlConnection(_configuration.GetConnectionString(connectionKey));
             await connection.OpenAsync();
 
             foreach (var dto in dtos)
@@ -968,15 +1069,24 @@ WHERE LOET_CustomerId = @CustomerId
 
 
 
-        public async Task<DrlDescReqDto> LoadDRLDescriptionAsync(string connectionStringName, int companyId, int drlId)
+        public async Task<DrlDescReqDto> LoadDRLDescriptionAsync(int companyId, int drlId)
         {
             var sQuery = @"
         SELECT ISNULL(Cms_Remarks, '') AS Cms_Remarks 
         FROM Content_Management_Master 
         WHERE CMM_CompID = @CompanyId AND CMM_ID = @DrlId";
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            var connectionString = _configuration.GetConnectionString(connectionStringName);
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
             using var connection = new SqlConnection(connectionString);
+
+            //var connectionString = _configuration.GetConnectionString(connectionStringName);
+
             await connection.OpenAsync();
 
             var result = await connection.QueryFirstOrDefaultAsync<DrlDescReqDto>(sQuery, new
@@ -988,10 +1098,19 @@ WHERE LOET_CustomerId = @CustomerId
             return result ?? new DrlDescReqDto { Cms_Remarks = string.Empty };
         }
 
-        public async Task<string> GetUserFullNameAsync(string connectionStringName, int companyId, int userId)
+        public async Task<string> GetUserFullNameAsync(int companyId, int userId)
         {
-            var connectionString = _configuration.GetConnectionString(connectionStringName);
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
             using var connection = new SqlConnection(connectionString);
+
+
             await connection.OpenAsync();
 
             var query = @"
@@ -1020,12 +1139,12 @@ WHERE LOET_CustomerId = @CustomerId
                 ? "Beginning of the Audit"
                 : "Nearing completion of the Audit";
 
-           var connectionString = _configuration.GetConnectionString(customerCode);
+            var connectionString = _configuration.GetConnectionString(customerCode);
             using var connection = new SqlConnection(connectionString);
-           
+
             await connection.OpenAsync();
 
-            
+
 
             var result = await connection.QueryFirstOrDefaultAsync<int>(query, new { Desc = cmmDesc });
             return result;
@@ -1065,8 +1184,8 @@ WHERE LOET_CustomerId = @CustomerId
 
 
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
-             using var connection = new SqlConnection(connectionString);
-         //   using var connection = _dbConnectionProvider.GetConnection();
+            using var connection = new SqlConnection(connectionString);
+            //   using var connection = _dbConnectionProvider.GetConnection();
             await connection.OpenAsync();
 
             var result = await connection.ExecuteScalarAsync<string>(query, new
@@ -1152,7 +1271,13 @@ WHERE LOET_CustomerId = @CustomerId
         }
         public async Task<CustomerInvoiceDto> GetCustomerDetailsForInvoiceAsync(int companyId, int customerId)
         {
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
@@ -1346,9 +1471,18 @@ WHERE LOET_CustomerId = @CustomerId
         // Existing method reused
         public async Task<CustomerDataDto> GetCustomerDetailsWithTemplatesAsync(int companyId, int customerId, int reportTypeId)
         {
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            //var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
+
+
             await connection.OpenAsync();
 
             var customerQuery = @"
@@ -2433,9 +2567,18 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<DRLAttachmentInfoDto>> GetDRLAttachmentInfoAsync(int compId, int customerId, int drlId)
         {
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
+            //var connectionString = _configuration.GetConnectionString("DefaultConnection");
+
+            //using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
             var query = @"
@@ -2534,7 +2677,7 @@ ORDER BY Atch_DocID desc";
                     ReportName = row.ReportName?.ToString() ?? "",
                     FDescription = row.ATCH_Desc?.ToString() ?? "",
                     CreatedById = Convert.ToInt32(row.ATCH_CreatedBy),
-                    CreatedBy = await GetUserFullNameAsync(connectionStringName, companyId, Convert.ToInt32(row.ATCH_CreatedBy)),
+                    CreatedBy = await GetUserFullNameAsync(companyId, Convert.ToInt32(row.ATCH_CreatedBy)),
                     CreatedOn = row.ATCH_CREATEDON?.ToString() ?? "",
                     FileSize = $"{(Convert.ToDouble(row.ATCH_SIZE) / 1024):0.00} KB",
                     Extention = row.ATCH_EXT?.ToString(),
@@ -2974,7 +3117,7 @@ VALUES (
 
 
         public async Task<IEnumerable<DRLDetailsDto>> LoadPostAndPreAuditAsync(
-      string connectionString, int customerId, int auditId, int reportType)
+       int customerId, int auditId, int reportType)
         {
             var query = @"
 WITH RecentRecords AS (
@@ -3033,8 +3176,17 @@ FROM RecentRecords
 WHERE RowNum = 1 AND COALESCE(SAR_Remarks, '') <> ''
 ORDER BY SAR_Date DESC;";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
+            // await connection.OpenAsync();
 
             var results = await connection.QueryAsync<DRLDetailsDto>(query, new
             {
@@ -3101,8 +3253,15 @@ WHERE
 ORDER BY 
     SAR_Date DESC;
 ";
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
             var result = await connection.QueryAsync(sql, new
@@ -3363,7 +3522,16 @@ ORDER BY
 
         private async Task<int> GenerateNextAttachmentIdAsync(int auditId)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            //using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 await connection.OpenAsync();
 
@@ -3392,7 +3560,16 @@ ORDER BY
 
         private async Task<int> GetRequestedIdByDocumentNameAsync(string documentName)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            //using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
@@ -3409,7 +3586,16 @@ ORDER BY
 
         private async Task<int> GetLatestDocIdAsync(int customerId, int auditId)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            // using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
@@ -3423,7 +3609,16 @@ ORDER BY
 
         private async Task<int> GenerateNextRemarkIdAsync(int customerId, int auditId)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            //using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
@@ -3437,7 +3632,16 @@ ORDER BY
 
         private async Task InsertIntoAuditDocRemarksLogAsync(AddFileDto dto, int requestedId, int remarkId, int attachId, int docId, int adrlId)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            //  using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 await connection.OpenAsync();
                 await connection.ExecuteAsync(
@@ -3479,7 +3683,16 @@ ORDER BY
 
         private async Task<int> GetDrlPkIdAsync(int customerId, int auditId, int attachId)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            // using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
@@ -3493,7 +3706,16 @@ ORDER BY
 
         private async Task UpdateDrlAttachIdAndDocIdAsync(int customerId, int auditId, int attachId, int docId, int pkId)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            //  using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 await connection.OpenAsync();
                 await connection.ExecuteAsync(
@@ -3506,7 +3728,16 @@ ORDER BY
 
         public async Task<(bool IsSuccess, string Message)> UpdateDrlStatusAsync(UpdateDrlStatusDto dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
 
             var emailCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
@@ -3583,8 +3814,16 @@ WHERE ADRL_ReportType IN @Reporttype
 SELECT TOP 1 SA_AuditNo,  SA_ScopeOfAudit 
 FROM StandardAudit_Schedule 
 WHERE SA_ID = @AuditId";
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
 
             var result = await connection.QueryFirstOrDefaultAsync(query, new { AuditId = auditId });
@@ -3894,7 +4133,15 @@ WHERE SA_ID = @AuditId";
 
         public async Task<List<LOEHeadingDto>> LoadLOEHeadingAsync(string sFormName, int compId, int reportTypeId, int loeTemplateId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
             var primaryQuery = @"
@@ -3960,18 +4207,20 @@ ORDER BY RCM_Id";
         }
 
 
-        public byte[] GeneratePdfByFormName(
-       string formName,
-       string title,
-       List<LOEHeadingDto> headings,
-       int reportTypeId,
-       int loeTemplateId,
-       int customerId)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            using var ms = new MemoryStream();
 
-            // Fetch report, audit, and customer names
+
+
+
+        public byte[] GenerateWordByFormName(string formName, string title, List<LOEHeadingDto> headings, int reportTypeId, int loeTemplateId, int customerId)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+            using var connection = new SqlConnection(connectionString);
+
+            // Fetch report metadata
             var reportName = connection.QueryFirstOrDefault<string>(
                 "SELECT RTM_ReportTypeName FROM SAD_ReportTypeMaster WHERE RTM_Id = @ReportTypeId",
                 new { ReportTypeId = reportTypeId });
@@ -3984,130 +4233,87 @@ ORDER BY RCM_Id";
                 "SELECT CUST_Name FROM SAD_Customer_Master WHERE CUST_ID = @Id",
                 new { Id = customerId });
 
-            // Create the document
-            var document = Document.Create(container =>
+            using var ms = new MemoryStream();
+            using var document = Xceed.Words.NET.DocX.Create(ms);
+
+            // Title
+            document.InsertParagraph(reportName ?? "Report")
+                    .FontSize(16)
+                    .Bold()
+                    .Alignment = Alignment.center;
+
+            document.InsertParagraph(); // spacing
+
+            // Info table
+            var infoTable = document.AddTable(3, 2);
+            infoTable.Design = TableDesign.LightListAccent1;
+
+            infoTable.Rows[0].Cells[0].Paragraphs[0].Append("Client:").Bold();
+            infoTable.Rows[0].Cells[1].Paragraphs[0].Append(customerName ?? "N/A");
+
+            infoTable.Rows[1].Cells[0].Paragraphs[0].Append("Audit No:").Bold();
+            infoTable.Rows[1].Cells[1].Paragraphs[0].Append(auditName ?? "N/A");
+
+            infoTable.Rows[2].Cells[0].Paragraphs[0].Append("Date:").Bold();
+            infoTable.Rows[2].Cells[1].Paragraphs[0].Append(DateTime.Now.ToString("dd-MMM-yy"));
+
+            document.InsertTable(infoTable);
+            document.InsertParagraph(); // spacing
+
+            // Insert headings and descriptions
+            for (int i = 0; i < headings.Count; i++)
             {
-                container.Page(page =>
+                var heading = headings[i];
+
+                // Heading
+                document.InsertParagraph((heading.LOEHeading ?? "N/A")
+                    .Replace("\r", "").Replace("\n", " "))
+                    .Bold()
+                    .FontSize(12)
+                    .SpacingAfter(5);
+
+                // Description
+                if (!string.IsNullOrWhiteSpace(heading.LOEDesc))
                 {
-                    page.Size(PageSizes.A4);
-                    page.Margin(30);
-                    page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Helvetica"));
-
-                    // Header
-                    page.Header().Element(header =>
+                    var lines = heading.LOEDesc.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var line in lines)
                     {
-                        header.Column(column =>
-                        {
-                            column.Item().AlignCenter().Text(text =>
-                            {
-                                text.Span(reportName ?? "Report")
-                                    .FontSize(16)
-                                    .Bold()
-                                    .FontColor(QuestPDF.Helpers.Colors.Black);
-                            });
+                        document.InsertParagraph(line.Trim())
+                                .FontSize(11)
+                                .SpacingAfter(2);
+                    }
+                }
+                else
+                {
+                    document.InsertParagraph("No description available.")
+                            .Italic()
+                            .FontSize(11);
+                }
 
-                            // Add some spacing between header and content
-                            column.Item().PaddingBottom(10);
-                        });
-                    });
+                // Divider
+                if (i != headings.Count - 1)
+                {
+                    document.InsertParagraph(new string('_', 80))
+                            .SpacingBefore(5)
+                            .SpacingAfter(5);
+                }
 
-                    // Content
-                    page.Content().Element(content =>
-                    {
-                        content.Column(col =>
-                        {
-                            // Client and Audit information (shown once at the top)
-                            col.Item().Background(QuestPDF.Helpers.Colors.Grey.Lighten4).Padding(10).Column(infoCol =>
-                            {
-                                infoCol.Item().Text(text =>
-                                {
-                                    text.Span("Client: ").SemiBold();
-                                    text.Span(customerName ?? "N/A");
-                                });
+                document.InsertParagraph(); // spacing
+            }
 
-                                infoCol.Item().PaddingTop(5).Text(text =>
-                                {
-                                    text.Span("Audit No: ").SemiBold();
-                                    text.Span(auditName ?? "N/A");
-                                });
+            // Footer
+            document.AddFooters();
+            document.DifferentFirstPage = true;
+            var footer = document.Footers.First;
+            footer.InsertParagraph($"Generated on {DateTime.Now:dd-MMM-yyyy HH:mm}")
+                  .FontSize(9)
+                  .Alignment = Alignment.center;
 
-                                // Add current date after Audit No
-                                infoCol.Item().PaddingTop(5).Text(text =>
-                                {
-                                    text.Span("Date: ").SemiBold();
-                                    text.Span(DateTime.Now.ToString("dd-MMM-yy"));
-                                });
-                            });
-
-                            col.Item().PaddingVertical(10);
-
-                            // Headings section
-                            foreach (var heading in headings)
-                            {
-                                // Heading section
-                                col.Item().Background(QuestPDF.Helpers.Colors.Grey.Lighten4).Padding(10).Column(headingCol =>
-                                {
-                                    headingCol.Item().Text(text =>
-                                    {
-                                        text.Span((heading.LOEHeading ?? "N/A").Replace("\r", "").Replace("\n", " "));
-                                    });
-                                });
-
-                                // Description section
-                                col.Item().PaddingVertical(10).Column(descCol =>
-                                {
-                                    if (!string.IsNullOrWhiteSpace(heading.LOEDesc))
-                                    {
-                                        var lines = heading.LOEDesc
-                                            .Replace("\r", "")
-                                            .Split('\n', StringSplitOptions.RemoveEmptyEntries);
-
-                                        foreach (var line in lines)
-                                        {
-                                            descCol.Item().PaddingBottom(5).Text(line.Trim())
-                                                .FontSize(11)
-                                                .FontColor(QuestPDF.Helpers.Colors.Grey.Darken2);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        descCol.Item().Text("No description available.")
-                                            .Italic()
-                                            .FontSize(11)
-                                            .FontColor(QuestPDF.Helpers.Colors.Grey.Lighten1);
-                                    }
-                                });
-
-                                // Divider between headings (only if not last item)
-                                if (headings.IndexOf(heading) != headings.Count - 1)
-                                {
-                                    col.Item()
-                                       .PaddingVertical(5)
-                                       .LineHorizontal(1)
-                                       .LineColor(QuestPDF.Helpers.Colors.Grey.Lighten3);
-                                }
-                            }
-                        });
-                    });
-
-                    // Footer
-                    page.Footer().Element(footer =>
-                    {
-                        footer.AlignCenter().Text(text =>
-                        {
-                            text.DefaultTextStyle(x => x.FontSize(9).FontColor(QuestPDF.Helpers.Colors.Grey.Medium));
-                            text.Span("Generated on ").SemiBold();
-                            text.Span(DateTime.Now.ToString("dd-MMM-yyyy HH:mm"));
-                            text.Span(" | Page ");
-                            text.CurrentPageNumber();
-                        });
-                    });
-                });
-            });
-
-            document.GeneratePdf(ms);
+            document.Save();
             return ms.ToArray();
         }
+
+
         //public async Task<List<LOEHeadingDto>> LoadLOEHeadingAsync(string sFormName, int compId, int reportTypeId, int loeTemplateId)
         //{
         //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -5025,7 +5231,16 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
         public async Task<(int DrlId, bool IsInsert)> SaveOrUpdateAuditDrlLogAsync(InsertAuditRemarksDto dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
             var emailCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
 
@@ -5135,10 +5350,19 @@ VALUES (
     @UserId, GETDATE(), @IpAddress, @CompId, @EmailId, GETDATE(),
     @YearId, 'W', @MasId, @AttachId, @DrlId);";
 
-            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             var emailCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
 
-            await conn.ExecuteAsync(sql, new
+            await connection.ExecuteAsync(sql, new
             {
                 dto.AuditId,
                 dto.CustomerId,
@@ -5233,8 +5457,18 @@ VALUES (
 
         public async Task<List<DRLDetailDto>> LoadDRLdgAsync(int compId, int auditNo)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
+           
 
             int iBA = await GetDRLBeginningoftheAuditIDAsync(compId);
             int iCA = await GetDRLNearingCompletionoftheAuditIDAsync(compId);
@@ -5332,7 +5566,16 @@ WHERE ADRL_CompID = @CompId
 
         public async Task<int> GetDRLBeginningoftheAuditIDAsync(int compId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
             const string query = @"
@@ -5347,7 +5590,16 @@ WHERE CMM_CompID = @CompId
 
         public async Task<int> GetDRLNearingCompletionoftheAuditIDAsync(int compId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
             const string query = @"
@@ -5363,7 +5615,15 @@ WHERE CMM_CompID = @CompId
 
         public async Task<int> GetRequestedIdByExportTypeAsync(int exportType)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
             string description = exportType switch
@@ -5395,7 +5655,16 @@ WHERE CMM_CompID = @CompId
 
         public async Task<int> GetMaxAttachmentIdAsync(int customerId, int auditId, int yearId, int exportType)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
             const string query = @"
@@ -5430,14 +5699,32 @@ WHERE CMM_CompID = @CompId
           
           AND ATCH_ReportType = @ReportTypeId";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             return await connection.ExecuteScalarAsync<int?>(query, request);
         }
 
 
         public async Task<IEnumerable<CustomerUserDto>> GetAllCustomerUsersAsync(int customerId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
 
             string query = @"
         SELECT usr_FullName AS UsrFullName,  usr_Email AS Email,
@@ -5722,7 +6009,16 @@ WHERE
 
         public async Task<bool> UpdateAttachmentDescriptionOnlyAsync(UpdateAttachmentDescriptionDto dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             await connection.OpenAsync();
             using var transaction = await connection.BeginTransactionAsync();
 
@@ -5751,7 +6047,19 @@ WHERE
         }
         public string GetConfigValue(string key)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            // using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+
+
+
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             {
                 var query = "SELECT SAD_Config_Value FROM [dbo].[Sad_Config_Settings] WHERE SAD_Config_Key = @Key";
                 return connection.QueryFirstOrDefault<string>(query, new { Key = key });
@@ -5813,7 +6121,16 @@ WHERE
                 if (IsFileStoredInDatabase(request.CompanyId))
                 {
                     byte[] fileData = await File.ReadAllBytesAsync(tempFilePath);
-                    using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                    if (string.IsNullOrEmpty(dbName))
+                        throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                    // ✅ Step 2: Get the connection string
+                    var connectionString = _configuration.GetConnectionString(dbName);
+
+                    using var connection = new SqlConnection(connectionString);
+                    // using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                     string sql = @"INSERT INTO EDT_ATTACHMENTS 
                           (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, 
                            ATCH_VERSION, ATCH_FLAG, ATCH_OLE, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
@@ -5821,7 +6138,7 @@ WHERE
                           VALUES (@ATCH_ID, @ATCH_DOCID, @ATCH_FNAME, @ATCH_EXT, @CREATEDBY, @MODIFIEDBY, 1, 0, @ATCH_OLE, 
                           @SIZE, 0, 0, GETDATE(), 'X', @COMPID)";
 
-                    await conn.ExecuteAsync(sql, new
+                    await connection.ExecuteAsync(sql, new
                     {
                         ATCH_ID = attachmentId,
                         ATCH_DOCID = documentId,
@@ -5836,7 +6153,16 @@ WHERE
                 }
                 else
                 {
-                    using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                    if (string.IsNullOrEmpty(dbName))
+                        throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                    // ✅ Step 2: Get the connection string
+                    var connectionString = _configuration.GetConnectionString(dbName);
+
+                    using var connection = new SqlConnection(connectionString);
+                    //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                     string sql = @"INSERT INTO EDT_ATTACHMENTS 
                           (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, 
                            ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
@@ -5844,7 +6170,7 @@ WHERE
                           VALUES (@ATCH_ID, @ATCH_DOCID, @ATCH_FNAME, @ATCH_EXT, @CREATEDBY, @MODIFIEDBY, 1, 0, 
                                   @SIZE, 0, 0, GETDATE(), 'X', @COMPID, 'A')";
 
-                    await conn.ExecuteAsync(sql, new
+                    await connection.ExecuteAsync(sql, new
                     {
                         ATCH_ID = attachmentId,
                         ATCH_DOCID = documentId,
@@ -5875,8 +6201,17 @@ WHERE
 
         private async Task SaveDRLLogDetailsAsync(LocalAttachmentDto req, int attachmentId, int documentId)
         {
-            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await conn.OpenAsync();
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
 
             var parameters = new DynamicParameters();
             req.ADRLId = await GetExistingADRLIdAsync(req) ?? 0;
@@ -5886,8 +6221,10 @@ SELECT TOP 1 SA_AuditNo,  SA_ScopeOfAudit
 FROM StandardAudit_Schedule 
 WHERE SA_ID = @AuditId";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await connection.OpenAsync();
+
+
+           // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //await connection.OpenAsync();
 
             var result = await connection.QueryFirstOrDefaultAsync(query, new { AuditId = req.AuditNo });
             if (result != null)
@@ -5932,7 +6269,7 @@ WHERE SA_ID = @AuditId";
             parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
             parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-            await conn.ExecuteAsync("spAudit_DRLLog", parameters, commandType: CommandType.StoredProcedure);
+            await connection.ExecuteAsync("spAudit_DRLLog", parameters, commandType: CommandType.StoredProcedure);
 
             // ✅ Get ADRL_ID returned through @iOper
             var iOper = parameters.Get<int>("@iOper");
@@ -5965,7 +6302,7 @@ WHERE SA_ID = @AuditId";
         );
     ";
 
-            await conn.ExecuteAsync(remarkInsertSql, new
+            await connection.ExecuteAsync(remarkInsertSql, new
             {
                 AuditID = req.AuditNo,
                 CustID = req.CustomerId,
@@ -5997,8 +6334,18 @@ WHERE SA_ID = @AuditId";
           AND ADRL_CompID = @CompanyId
           AND ADRL_YearID = @YearId";
 
-            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            return await conn.QueryFirstOrDefaultAsync<int?>(sql, new
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+
+            //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            return await connection.QueryFirstOrDefaultAsync<int?>(sql, new
             {
                 req.AuditNo,
                 req.CustomerId,
@@ -6011,10 +6358,19 @@ WHERE SA_ID = @AuditId";
 
         public async Task UpdateReportTypeAsync(int companyId, int DRLpkId, int reportType, string comments, int attachmentId, int auditId, int drl_RequestId, int DocId)
         {
-            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await conn.OpenAsync();
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            using var transaction = conn.BeginTransaction();
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            using var transaction = connection.BeginTransaction();
 
             try
             {
@@ -6035,7 +6391,7 @@ WHERE SA_ID = @AuditId";
                     CompanyId = companyId
                 };
 
-                await conn.ExecuteAsync(sql1, parameters1, transaction);
+                await connection.ExecuteAsync(sql1, parameters1, transaction);
 
                 // 2. Update EDT_Attachments
                 string sql2 = @"
@@ -6053,7 +6409,7 @@ WHERE SA_ID = @AuditId";
                     AttachmentId = DocId
                 };
 
-                await conn.ExecuteAsync(sql2, parameters2, transaction);
+                await connection.ExecuteAsync(sql2, parameters2, transaction);
 
                 transaction.Commit();
             }
@@ -6093,23 +6449,50 @@ WHERE SA_ID = @AuditId";
 
         private int GetNextId(string column, int companyId)
         {
-            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             string sql = $"SELECT ISNULL(MAX({column}), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompID";
-            return conn.ExecuteScalar<int>(sql, new { CompID = companyId });
+            return connection.ExecuteScalar<int>(sql, new { CompID = companyId });
         }
 
         private bool DocumentIdExists(int companyId, int attachId)
         {
-            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            // using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             string sql = "SELECT 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompID AND ATCH_ID = @AttachID";
-            return conn.ExecuteScalar<int?>(sql, new { CompID = companyId, AttachID = attachId }) == 1;
+            return connection.ExecuteScalar<int?>(sql, new { CompID = companyId, AttachID = attachId }) == 1;
         }
 
         private bool IsFileStoredInDatabase(int companyId)
         {
-            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             string sql = "SELECT Sad_Config_Value FROM Sad_Config_Settings WHERE Sad_Config_Key = 'FilesInDB' AND Sad_CompID = @CompID";
-            var result = conn.ExecuteScalar<string>(sql, new { CompID = companyId });
+            var result = connection.ExecuteScalar<string>(sql, new { CompID = companyId });
             return result?.ToUpper() == "TRUE";
         }
 
@@ -6231,16 +6614,25 @@ WHERE SA_ID = @AuditId";
             if (dto.AttachDocId == 0) return string.Empty;
 
             string fileDownloadUrl = string.Empty;
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            await conn.OpenAsync();
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+
+            //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
 
             string sql = @"
         SELECT ATCH_DocId, ATCH_FNAME, atch_ext, atch_ole 
         FROM EDT_ATTACHMENTS 
         WHERE ATCH_CompID = @CompanyId AND ATCH_ID = @AttachId AND ATCH_DOCID = @AttachDocId";
 
-            using var reader = await conn.ExecuteReaderAsync(sql, new
+            using var reader = await connection.ExecuteReaderAsync(sql, new
             {
                 dto.CompanyId,
                 dto.AttachId,
@@ -6264,7 +6656,7 @@ WHERE SA_ID = @AuditId";
                     File.Delete(downloadFilePath);
 
                 // Get FilesInDB setting
-                string filesInDb = conn.ExecuteScalar<string>(
+                string filesInDb = connection.ExecuteScalar<string>(
                     @"SELECT Sad_Config_Value FROM Sad_Config_Settings 
               WHERE Sad_Config_Key = 'FilesInDB' AND Sad_CompID = @CompanyId",
                     new { dto.CompanyId })?.ToUpper();
@@ -6295,7 +6687,7 @@ WHERE SA_ID = @AuditId";
 
                 if (File.Exists(downloadFilePath))
                 {
-                    string displayPath = conn.ExecuteScalar<string>(
+                    string displayPath = connection.ExecuteScalar<string>(
                         @"SELECT Sad_Config_Value FROM Sad_Config_Settings 
                   WHERE Sad_Config_Key = 'DisplayPath' AND Sad_CompID = @CompanyId",
                         new { dto.CompanyId });
@@ -6354,6 +6746,38 @@ WHERE SA_ID = @AuditId";
                 }
             }
         }
+
+        public async Task<int?> GetAuditFrameworkIdAsync(int saId, int compId)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            string baseConnectionString = _configuration.GetConnectionString(dbName);
+            string connectionString = string.Format(baseConnectionString, dbName);
+
+            await using var conn = new SqlConnection(connectionString);
+            await using var cmd = new SqlCommand(@"
+        SELECT SA_AuditFrameworkId 
+        FROM StandardAudit_Schedule 
+        WHERE SA_ID = @SA_ID AND SA_Compid = @SA_Compid", conn);
+
+            cmd.Parameters.Add("@SA_ID", SqlDbType.Int).Value = saId;
+            cmd.Parameters.Add("@SA_Compid", SqlDbType.Int).Value = compId;
+
+            await conn.OpenAsync();
+
+            var result = await cmd.ExecuteScalarAsync();
+
+            if (result == null || result == DBNull.Value)
+                return null;
+
+            return Convert.ToInt32(result);
+        }
+
+
+
     }
 }
 

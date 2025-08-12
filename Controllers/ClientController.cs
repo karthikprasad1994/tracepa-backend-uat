@@ -117,11 +117,11 @@ namespace TracePca.Controllers
 
 
         [HttpGet("GetReportTypes")]
-        public async Task<IActionResult> GetReportTypes(string connectionKey, int companyId)
+        public async Task<IActionResult> GetReportTypes(int companyId)
         {
             try
             {
-                var reportTypes = await _AuditInterface.GetReportTypesAsync(connectionKey, companyId);
+                var reportTypes = await _AuditInterface.GetReportTypesAsync(companyId);
 
                 return Ok(new
                 {
@@ -216,7 +216,7 @@ namespace TracePca.Controllers
 
         [HttpGet("LoadScheduledAuditNos")]
         public async Task<IActionResult> GetScheduledAuditNos(
-     [FromQuery] string connectionStringName,
+     
      [FromQuery] int companyId,
      [FromQuery] int financialYearId,
      [FromQuery] int customerId)
@@ -224,7 +224,7 @@ namespace TracePca.Controllers
             try
             {
                 var result = await _AuditInterface.LoadScheduledAuditNosAsync(
-                    connectionStringName, companyId, financialYearId, customerId);
+                     companyId, financialYearId, customerId);
 
                 if (!result.Any())
                     return NotFound(new { StatusCode = 404, Message = "No scheduled audits found." });
@@ -249,7 +249,7 @@ namespace TracePca.Controllers
 
         [HttpGet("LoadAllReportTypeDetailsDRL")]
         public async Task<IActionResult> GetReportTypeDetails(
-        [FromQuery] string connectionStringName,
+       
         [FromQuery] int companyId,
         [FromQuery] int templateId,
         [FromQuery] string auditNo)
@@ -257,7 +257,7 @@ namespace TracePca.Controllers
             try
             {
                 var result = await _AuditInterface.LoadAllReportTypeDetailsDRLAsync(
-                    connectionStringName, companyId, templateId, auditNo);
+                     companyId, templateId, auditNo);
 
                 if (!result.Any())
                     return NotFound(new { StatusCode = 404, Message = "No report types found." });
@@ -312,13 +312,11 @@ namespace TracePca.Controllers
 
         [HttpGet("GetCustomerUserEmails")]
         public async Task<IActionResult> GetCustomerUserEmails(
-    [FromQuery] string connectionStringName,
-    [FromQuery] int companyId,
-    [FromQuery] int customerId)
+    [FromQuery] int companyId, [FromQuery] int customerId)
         {
             try
             {
-                var result = await _AuditInterface.GetCustAllUserEmailsAsync(connectionStringName, companyId, customerId);
+                var result = await _AuditInterface.GetCustAllUserEmailsAsync(companyId, customerId);
 
                 if (!result.Any())
                     return NotFound(new { StatusCode = 404, Message = "No emails found." });
@@ -395,11 +393,11 @@ namespace TracePca.Controllers
         }
 
         [HttpGet("GetAllDRLDescriptions")]
-        public async Task<IActionResult> GetAllDRLDescriptions(string connectionStringName, int companyId)
+        public async Task<IActionResult> GetAllDRLDescriptions(int companyId)
         {
             try
             {
-                var result = await _AuditInterface.LoadAllDRLDescriptionsAsync(connectionStringName, companyId);
+                var result = await _AuditInterface.LoadAllDRLDescriptionsAsync(companyId);
 
                 return Ok(new
                 {
@@ -453,11 +451,11 @@ namespace TracePca.Controllers
 
 
         [HttpGet("LoadDRLDescription")]
-        public async Task<IActionResult> LoadDRLDescription(string connectionStringName, int companyId, int drlId)
+        public async Task<IActionResult> LoadDRLDescription(int companyId, int drlId)
         {
             try
             {
-                var result = await _AuditInterface.LoadDRLDescriptionAsync(connectionStringName, companyId, drlId);
+                var result = await _AuditInterface.LoadDRLDescriptionAsync(companyId, drlId);
 
                 return Ok(new
                 {
@@ -479,12 +477,12 @@ namespace TracePca.Controllers
         }
         [HttpPost("insert-update-template")]
         public async Task<IActionResult> SaveOrUpdateMultiple(
-    [FromQuery] string connectionKey,
+    
     [FromBody] LoETemplateDetailBatchDto batchDto)
         {
             try
             {
-                var result = await _AuditInterface.SaveOrUpdateLOETemplateDetailsAsync(connectionKey, batchDto.Items);
+                var result = await _AuditInterface.SaveOrUpdateLOETemplateDetailsAsync(batchDto.Items);
 
                 return Ok(new
                 {
@@ -735,7 +733,7 @@ namespace TracePca.Controllers
 
         [HttpGet("GetDrlInfo")]
         public async Task<IActionResult> LoadPostAndPreAuditRemarks(
-      [FromQuery] string connectionStringName,
+     
       [FromQuery] int customerId,
       [FromQuery] int auditId,
       [FromQuery] int reportType)
@@ -744,7 +742,7 @@ namespace TracePca.Controllers
             {
                 //var connectionString = _configuration.GetConnectionString(connectionStringName);
 
-                var results = await _AuditInterface.LoadPostAndPreAuditAsync(connectionStringName, customerId, auditId, reportType);
+                var results = await _AuditInterface.LoadPostAndPreAuditAsync(customerId, auditId, reportType);
 
                 return Ok(new
                 {
@@ -851,12 +849,18 @@ namespace TracePca.Controllers
                 if (headings == null || !headings.Any())
                     return NotFound("No LOE headings found.");
 
-                var pdfBytes = _AuditInterface.GeneratePdfByFormName(sFormName, $"LOE - {sFormName}", headings, reportTypeId, loeTemplateId, customerId);
-
+                var wordBytes = _AuditInterface.GenerateWordByFormName(
+                            sFormName,
+                            $"LOE - {sFormName}",
+                            headings,
+                            reportTypeId,
+                            loeTemplateId,
+                            customerId
+                        );
                 var response = new
                 {
                     headings,
-                    pdfBase64 = Convert.ToBase64String(pdfBytes)
+                    pdfBase64 = Convert.ToBase64String(wordBytes)
                 };
 
                 return Ok(response);
@@ -1595,7 +1599,6 @@ namespace TracePca.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-
 
     }
 

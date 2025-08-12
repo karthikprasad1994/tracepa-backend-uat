@@ -1,4 +1,5 @@
 ﻿using Dapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Data.Common;
@@ -14,11 +15,13 @@ namespace TracePca.Service.FIN_statement
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public ScheduleExcelUploadService(Trdmyus1Context dbcontext, IConfiguration configuration)
+        public ScheduleExcelUploadService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration;
             _dbcontext = dbcontext;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         //DownloadUploadableExcelAndTemplate
@@ -46,7 +49,18 @@ namespace TracePca.Service.FIN_statement
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -93,8 +107,6 @@ namespace TracePca.Service.FIN_statement
                         itemName = "";
                         subItemName = "";
                     }
-
-
                     var checkHeadingSql = @"
            SELECT ISNULL(ASH_ID, 0)
            FROM ACC_ScheduleHeading
@@ -260,7 +272,7 @@ namespace TracePca.Service.FIN_statement
                     // === 4. Check SubItem ===
 
                     if (dto.ASSI_Name != "")
-                    { 
+                    {
                         subItemName = dto.ASSI_Name.Trim();
                     }
 
@@ -393,7 +405,17 @@ namespace TracePca.Service.FIN_statement
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -440,8 +462,6 @@ namespace TracePca.Service.FIN_statement
                         itemName = "";
                         subItemName = "";
                     }
-
-
                     var checkHeadingSql = @"
            SELECT ISNULL(ASH_ID, 0)
            FROM ACC_ScheduleHeading
@@ -734,13 +754,24 @@ namespace TracePca.Service.FIN_statement
                 throw new Exception("Error while saving Schedule data: " + ex.Message, ex);
             }
         }
-        
+
         //SaveScheduleTemplate
         public async Task<List<int>> SaveScheduleTemplateAsync(int CompId, List<ScheduleTemplateDto> dtos)
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1080,10 +1111,8 @@ namespace TracePca.Service.FIN_statement
                             templateId = (int)(operParam.Value ?? 0);
                         }
                     }
-
                     resultIds.Add(templateId);
                 }
-
                 transaction.Commit();
                 return resultIds;
             }
@@ -1099,7 +1128,18 @@ namespace TracePca.Service.FIN_statement
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1186,7 +1226,6 @@ namespace TracePca.Service.FIN_statement
                         }
                     }
                 }
-
                 transaction.Commit();
                 return resultIds;
             }
@@ -1200,7 +1239,18 @@ namespace TracePca.Service.FIN_statement
         //SaveTrailBalnce
         public async Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDto> dtos)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1304,6 +1354,19 @@ namespace TracePca.Service.FIN_statement
                 }
 
                 transaction.Commit();
+                // ✅ Call UpdateNetIncomeAsync once with common values (from first dto)
+                var firstDto = dtos.FirstOrDefault();
+                if (firstDto != null)
+                {
+                    await UpdateNetIncomeAsync(
+                        firstDto.ATBUD_CompId,
+                        firstDto.ATBUD_CustId,
+                        firstDto.ATBUD_CRBY,
+                        firstDto.ATBUD_YEARId,
+                        firstDto.ATBUD_Branchid,
+                        firstDto.ATBUD_QuarterId // Assuming durationId = schedule type
+                    );
+                }
                 return insertedIds.ToArray();
             }
             catch
@@ -1353,7 +1416,18 @@ namespace TracePca.Service.FIN_statement
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1417,7 +1491,18 @@ namespace TracePca.Service.FIN_statement
         {
             var resultIds = new List<int>();
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -1610,6 +1695,123 @@ namespace TracePca.Service.FIN_statement
                 transaction.Rollback();
                 throw new Exception("Error while saving or updating trail balance: " + ex.Message, ex);
             }
+        }
+
+        public async Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, int branchId, int durationId)
+        {
+            // Step 1: Get DB name from session
+            var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // Step 3: Check if 'Net income' record already exists
+            var checkQuery = @"
+      SELECT * 
+      FROM Acc_TrailBalance_Upload 
+      WHERE ATBU_Description = 'Net income' 
+        AND ATBU_CustId = @CustId 
+        AND ATBU_YEARId = @YearId 
+        AND ATBU_Branchid = @BranchId 
+        AND ATBU_QuarterId = @DurationId";
+
+            var existingRecord = await connection.QueryFirstOrDefaultAsync(checkQuery, new
+            {
+                CustId = custId,
+                YearId = yearId,
+                BranchId = branchId,
+                DurationId = durationId
+            });
+
+            if (existingRecord != null)
+            {
+                // Record already exists; no insert required
+                return false;
+            }
+
+            // Step 4: Get new ID
+            var maxIdQuery = @"
+      SELECT ISNULL(MAX(ATBU_ID), 0) + 1 
+      FROM Acc_TrailBalance_Upload ";
+
+            int newId = await connection.ExecuteScalarAsync<int>(maxIdQuery, new
+            {
+                CustId = custId,
+                YearId = yearId,
+                BranchId = branchId,
+                DurationId = durationId
+            });
+
+            // Step 5: Insert into Acc_TrailBalance_Upload
+            var insertUploadQuery = @"
+      INSERT INTO Acc_TrailBalance_Upload
+      (
+          ATBU_ID, ATBU_Description, ATBU_CODE, ATBU_CustId, ATBU_Branchid, ATBU_QuarterId, ATBU_YEARId,
+          ATBU_Opening_Debit_Amount, ATBU_Opening_Credit_Amount, ATBU_TR_Debit_Amount, ATBU_TR_Credit_Amount,
+          ATBU_Closing_Debit_Amount, ATBU_Closing_Credit_Amount, ATBU_Closing_TotalDebit_Amount, ATBU_Closing_TotalCredit_Amount,
+          ATBU_CRBY, Atbu_CrOn, ATBU_CompId
+      )
+      VALUES
+      (
+          @NewId, 'Net Income', @NewId, @CustId, @BranchId, @DurationId, @YearId,
+          0, 0, 0, 0, 0, 0, 0, 0,
+          @UserId, GETDATE(), @CompId
+      );";
+
+            await connection.ExecuteAsync(insertUploadQuery, new
+            {
+                NewId = newId,
+                CustId = custId,
+                BranchId = branchId,
+                DurationId = durationId,
+                YearId = yearId,
+                UserId = userId,
+                CompId = compId
+            });
+
+            maxIdQuery = @"
+      SELECT ISNULL(MAX(ATBUD_ID), 0) + 1 
+      FROM Acc_TrailBalance_Upload_Details ";
+
+            newId = await connection.ExecuteScalarAsync<int>(maxIdQuery, new
+            {
+                CustId = custId,
+                YearId = yearId,
+                BranchId = branchId,
+                DurationId = durationId
+            });
+
+            // Step 6: Insert into Acc_TrailBalance_Upload_details
+            var insertDetailQuery = @"
+      INSERT INTO Acc_TrailBalance_Upload_details
+      (
+          ATBUD_ID, ATBUD_Masid, ATBUD_Description, ATBUD_CODE, ATBUD_CustId, Atbud_Branchnameid,
+          ATBUD_QuarterId, ATBUD_YEARId, ATBUD_CRBY, AtbuD_CrOn, ATBUD_CompId
+      )
+      VALUES
+      (
+          @NewId, @NewId, 'Net Income', @NewId, @CustId, @BranchId,
+          @DurationId, @YearId, @UserId, GETDATE(), @CompId
+      );";
+
+            await connection.ExecuteAsync(insertDetailQuery, new
+            {
+                NewId = newId,
+                CustId = custId,
+                BranchId = branchId,
+                DurationId = durationId,
+                YearId = yearId,
+                UserId = userId,
+                CompId = compId
+            });
+
+            return true;
         }
     }
 }

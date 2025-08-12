@@ -1,4 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using System.Data;
+using System.Text;
+using TracePca.Data;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleMastersDto;
@@ -12,11 +17,18 @@ namespace TracePca.Controllers.FIN_Statement
     public class ScheduleMastersController : ControllerBase
     {
         private ScheduleMastersInterface _ScheduleMastersService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly Trdmyus1Context _dbcontext;
+        private readonly IConfiguration _configuration;
 
-        public ScheduleMastersController(ScheduleMastersInterface ScheduleMastersInterface)
+        public ScheduleMastersController(Trdmyus1Context dbcontext, IConfiguration configuration,ScheduleMastersInterface ScheduleMastersInterface, IHttpContextAccessor httpContextAccessor)
         {
             
             _ScheduleMastersService = ScheduleMastersInterface;
+            _httpContextAccessor = httpContextAccessor;
+            _configuration = configuration;
+            _dbcontext = dbcontext;
+
         }
 
         //GetCustomersName
@@ -359,5 +371,120 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+
+        [HttpPost("save-location")]
+        public async Task<IActionResult> SaveCustomerLocation([FromBody] CustomerLocationDto dto)
+        {
+            if (dto.MasCustID == 0)
+                return BadRequest("Customer must be selected");
+
+            string resultMessage;
+            string dbName;
+
+            try
+            {
+                // ✅ Step 1: Get DB name from session
+                 dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                if (string.IsNullOrEmpty(dbName))
+                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                // ✅ Step 2: Get the connection string
+                var connectionString = _configuration.GetConnectionString(dbName);
+                using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                using var cmd = new SqlCommand("spSAD_CUST_LOCATION", connection)
+                {
+                    CommandType = CommandType.StoredProcedure
+                };
+                string sCodeSave = dto.MasDescription.Substring(0, 2).ToUpper();
+
+                // Add input parameters
+                cmd.Parameters.AddWithValue("@Mas_Id", dto.MasId);
+                cmd.Parameters.AddWithValue("@Mas_code", sCodeSave ?? "");
+                cmd.Parameters.AddWithValue("@Mas_Description", dto.MasDescription ?? "");
+                cmd.Parameters.AddWithValue("@Mas_DelFlag", dto.MasDelFlag ?? "A");
+                cmd.Parameters.AddWithValue("@Mas_CustID", dto.MasCustID);
+                cmd.Parameters.AddWithValue("@Mas_Loc_Address", dto.MasLocAddress ?? "");
+                cmd.Parameters.AddWithValue("@Mas_Contact_Person", dto.MasContactPerson ?? "");
+                cmd.Parameters.AddWithValue("@Mas_Contact_MobileNo", dto.MasContactMobileNo ?? "");
+                cmd.Parameters.AddWithValue("@Mas_Contact_LandLineNo", dto.MasContactLandLineNo ?? "");
+                cmd.Parameters.AddWithValue("@Mas_Contact_Email", dto.MasContactEmail ?? "");
+                cmd.Parameters.AddWithValue("@mas_Designation", dto.MasDesignation ?? "");
+                cmd.Parameters.AddWithValue("@Mas_CRBY", dto.MasCRBY);
+                cmd.Parameters.AddWithValue("@Mas_UpdatedBy", dto.MasUpdatedBy);
+                cmd.Parameters.AddWithValue("@Mas_STATUS", dto.MasStatus ?? "A");
+                cmd.Parameters.AddWithValue("@Mas_IPAddress", dto.MasIPAddress ?? "");
+                cmd.Parameters.AddWithValue("@Mas_CompID", dto.MasCompID);
+
+                // Add output parameters
+                var outputSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
+                {
+                    Direction = ParameterDirection.Output
+                };
+                var outputOper = new SqlParameter("@iOper", SqlDbType.Int)
+                {
+                    Direction = ParameterDirection.Output
+                };
+                cmd.Parameters.Add(outputSave);
+                cmd.Parameters.Add(outputOper);
+
+                await cmd.ExecuteNonQueryAsync();
+                await connection.CloseAsync();
+
+                int resultCode = Convert.ToInt32(outputSave.Value);
+                resultMessage = resultCode switch
+                {
+                    3 => "Successfully Saved",
+                    2 => "Successfully Updated",
+                    _ => "Unknown Result"
+                };
+
+                // Call logic to update location IDs
+                await UpdateCustomerLocationIds(dbName, dto.MasCompID, dto.MasCustID);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal Server Error: {ex.Message}");
+            }
+
+            return Ok(new { status = resultMessage });
+        }
+
+        private async Task UpdateCustomerLocationIds(string dbName, int compId, int custId)
+        {
+            var connString = _configuration.GetConnectionString(dbName);
+            var locationIds = new StringBuilder();
+
+            using var con = new SqlConnection(connString);
+
+            // Fetch location IDs
+            using var getCmd = new SqlCommand("SELECT Mas_Id FROM SAD_CUST_LOCATION WHERE Mas_CustID = @custId AND Mas_CompID = @compId", con);
+            getCmd.Parameters.AddWithValue("@custId", custId);
+            getCmd.Parameters.AddWithValue("@compId", compId);
+
+            await con.OpenAsync();
+            using var reader = await getCmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                locationIds.Append(reader["Mas_Id"].ToString()).Append(',');
+            }
+            await con.CloseAsync();
+
+            string locationIdString = locationIds.ToString().TrimEnd(',');
+
+            // Update master table with CSV of IDs
+            using var updateCmd = new SqlCommand("UPDATE SAD_CUSTOMER_MASTER SET Cust_LocationID = @locIds WHERE Cust_ID = @custId", con);
+            updateCmd.Parameters.AddWithValue("@locIds", locationIdString);
+            updateCmd.Parameters.AddWithValue("@custId", custId);
+
+            await con.OpenAsync();
+            await updateCmd.ExecuteNonQueryAsync();
+            await con.CloseAsync();
+        }
+
+
     }
 }

@@ -1,10 +1,14 @@
 ﻿using Dapper;
+using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 using System.Data;
 using System.Data.Common;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -22,14 +26,17 @@ namespace TracePca.Service.Audit
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
 
-        public DashboardAndSchedule(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public DashboardAndSchedule(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IHttpClientFactory httpClientFactory)
         {
             _httpContextAccessor = httpContextAccessor;
             _dbcontext = dbcontext;
             _configuration = configuration;
+            _httpClientFactory = httpClientFactory;
+
         }
 
 
@@ -225,7 +232,7 @@ ORDER BY SrNo";
             WHERE Usr_CompID = @CompId
               AND Usr_Node > 0
               AND Usr_OrgnID > 0
-              AND usr_DelFlag IN ('A', 'B', 'L')
+              AND usr_DelFlag IN ('A', 'B', 'L') and Usr_Role = 3
             ORDER BY FullName";
 
                 parameters = new { CompId = compId };
@@ -622,6 +629,8 @@ ORDER BY SrNo";
          string sModule, string sForm, string sEvent, int iMasterID, string sMasterName, int iSubMasterID, string sSubMasterName)
         {
             int insertedId = 0;
+            DateTime startdate = dto.SA_StartDate ?? new DateTime(1753, 1, 1);
+            DateTime EndDate = dto.SA_ExpCompDate ?? new DateTime(1753, 1, 1);
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -689,7 +698,6 @@ ORDER BY SrNo";
                 command.Parameters.AddWithValue("@SA_AttachID", dto.SA_AttachID != null ? (object)dto.SA_AttachID : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_StartDate", dto.SA_StartDate != null ? (object)dto.SA_StartDate : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_ExpCompDate", dto.SA_ExpCompDate != null ? (object)dto.SA_ExpCompDate : DBNull.Value);
-
                 // Newly added parameters
                 command.Parameters.AddWithValue("@SA_RptRvDate", dto.SA_RptRvDate != null ? (object)dto.SA_RptRvDate : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_RptFilDate", dto.SA_RptFilDate != null ? (object)dto.SA_RptFilDate : DBNull.Value);
@@ -705,6 +713,8 @@ ORDER BY SrNo";
                 command.Parameters.AddWithValue("@SA_UpdatedBy", dto.SA_UpdatedBy != null ? (object)dto.SA_UpdatedBy : DBNull.Value);
                 command.Parameters.AddWithValue("@SA_IPAddress", dto.SA_IPAddress ?? (object)DBNull.Value);
                 command.Parameters.AddWithValue("@SA_CompID", dto.SA_CompID != null ? (object)dto.SA_CompID : DBNull.Value);
+
+                command.Parameters.AddWithValue("@SA_AuditFrameworkId", dto.SA_AuditFrameworkId != null ? (object)dto.SA_AuditFrameworkId : DBNull.Value);
 
                 // Output Parameters
                 command.Parameters.Add("@Out_Message", SqlDbType.VarChar, 100).Direction = ParameterDirection.Output;
@@ -749,7 +759,7 @@ ORDER BY SrNo";
             // Process quarters after transaction commit
             foreach (var quarter in dto.Quarters ?? Enumerable.Empty<QuarterAuditDto>())
             {
-                await UpdateStandardAuditStartEndDate(sAC, dto.SA_CompID, insertedId, quarter.StartDate, quarter.EndDate, custRegAccessCodeId);
+                await UpdateStandardAuditStartEndDate(sAC, dto.SA_CompID, insertedId, startdate, EndDate, custRegAccessCodeId);
                 await SaveUpdateAuditScheduleIntervalForCust(sAC, dto.SA_CompID, insertedId, quarter.IntervalID, quarter.SubIntervalID, quarter.StartDate, quarter.EndDate, iUserID, sIPAddress);
             }
 
@@ -1002,6 +1012,7 @@ ORDER BY SrNo";
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
+
             using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
@@ -1053,7 +1064,7 @@ ORDER BY SrNo";
                     command.Parameters.AddWithValue("@Cust_FY", dto.Cust_FY);
                     command.Parameters.AddWithValue("@Cust_DurtnId", dto.Cust_DurtnId);
 
-                    // Add output parameters
+                    // Output parameters
                     var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
                     {
                         Direction = ParameterDirection.Output
@@ -1065,29 +1076,34 @@ ORDER BY SrNo";
 
                     command.Parameters.Add(updateOrSaveParam);
                     command.Parameters.Add(operParam);
-                    var query = @"UPDATE SAD_CUSTOMER_MASTER 
-      SET CUST_DelFlg = 'A'
-      WHERE CUST_CompID = @CompId AND CUST_ID = @Cust_Id";
-
-                    await connection.ExecuteAsync(query, new { CompId = iCompId, Cust_Id = dto.CUST_ID }); // assuming custId is defined
 
                     try
                     {
+                        // Execute stored procedure first
                         await command.ExecuteNonQueryAsync();
 
-                        int updateOrSave = (int)updateOrSaveParam.Value;
-                        int oper = (int)operParam.Value;
+                        // Now you can safely read output values
+                        int updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+                        int oper = (int)(operParam.Value ?? 0);
+
+                        // Only after getting oper value, run your update query
+                        var query = @"UPDATE SAD_CUSTOMER_MASTER 
+                              SET CUST_DelFlg = 'A'
+                              WHERE CUST_CompID = @CompId AND CUST_ID = @Cust_Id";
+
+                        await connection.ExecuteAsync(query, new { CompId = iCompId, Cust_Id = oper });
 
                         return new int[] { updateOrSave, oper };
                     }
                     catch (Exception ex)
                     {
-                        // Handle or log the error
+                        // Log or rethrow as needed
                         throw;
                     }
                 }
             }
         }
+
         public async Task<IEnumerable<AuditChecklistDto>> LoadAuditTypeCheckListAsync(
        int compId,
        int auditId,
@@ -1235,9 +1251,9 @@ ORDER BY SrNo";
                         parameters.Add("@SA_RptRvDate", dto.ReportReviewDate);         // MISSING
                         parameters.Add("@SA_RptFilDate", dto.ReportFilingDate);         // MISSING
                         parameters.Add("@SA_MRSDate", dto.DateForMRS);                  // MISSING
-                        parameters.Add("@SA_AuditOpinionDate", dto.ReportReviewDate);
-                        parameters.Add("@SA_FilingDateSEC", dto.ReportFilingDate);
-                        parameters.Add("@SA_MRLDate", dto.DateForMRS);
+                        parameters.Add("@SA_AuditOpinionDate", dto.SA_AuditOpinionDate);
+                        parameters.Add("@SA_FilingDateSEC", dto.SA_FilingDateSEC);
+                        parameters.Add("@SA_MRLDate", dto.SA_MRLDate);
                         parameters.Add("@SA_FilingDatePCAOB", dto.ReportFilingDatePCAOB);
                         parameters.Add("@SA_BinderCompletedDate", dto.BinderCompletedDate);
                         parameters.Add("@SA_IntervalId", dto.IntervalId);
@@ -1245,6 +1261,7 @@ ORDER BY SrNo";
                         parameters.Add("@SA_UpdatedBy", dto.UserID);
                         parameters.Add("@SA_IPAddress", dto.IPAddress);
                         parameters.Add("@SA_CompID", dto.CompID);
+                        parameters.Add("@SA_AuditFrameworkId", dto.SA_AuditFrameworkId != null ? (object)dto.SA_AuditFrameworkId : DBNull.Value);
 
                         // OUTPUT parameters
                         parameters.Add("@iUpdateOrSave", 2, direction: ParameterDirection.InputOutput);
@@ -1718,7 +1735,7 @@ ORDER BY SrNo";
             parameters.Add("@Usr_Code", emp.UsrCode);
             parameters.Add("@Usr_FullName", emp.UsrFullName);
             parameters.Add("@Usr_LoginName", emp.UsrEmail);
-            parameters.Add("@Usr_Password", emp.UsrPassword);
+            parameters.Add("@Usr_Password", EncryptPassword(emp.UsrPassword));
             parameters.Add("@Usr_Email", emp.UsrEmail);
             parameters.Add("@Usr_Category", emp.UsrSentMail);
             parameters.Add("@Usr_Suggetions", emp.UsrSuggetions);
@@ -1790,6 +1807,27 @@ ORDER BY SrNo";
         parameters.Get<int>("@iUpdateOrSave").ToString(),
         parameters.Get<int>("@iOper").ToString()
             };
+        }
+        private string EncryptPassword(string plainText)
+        {
+            string encryptionKey = "ML736@mmcs";
+            byte[] salt = new byte[] { 0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D,
+                               0x65, 0x64, 0x76, 0x65, 0x64, 0x65,
+                               0x76 };
+
+            byte[] plainBytes = Encoding.Unicode.GetBytes(plainText);
+
+            using var aes = Aes.Create();
+            var pdb = new Rfc2898DeriveBytes(encryptionKey, salt);
+            aes.Key = pdb.GetBytes(32);
+            aes.IV = pdb.GetBytes(16);
+
+            using var ms = new MemoryStream();
+            using var cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write);
+            cs.Write(plainBytes, 0, plainBytes.Length);
+            cs.Close();
+
+            return Convert.ToBase64String(ms.ToArray());
         }
 
         public async Task<string> GetMaxEmployeeCodeAsync(string connectionString, int companyId)
@@ -2169,7 +2207,7 @@ ORDER BY SrNo";
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
-            string query = "SELECT CUST_ID AS CustId, CUST_NAME AS CustName, CUST_CompID AS CompanyId FROM SAD_CUSTOMER_MASTER WHERE CUST_STATUS <> 'D' AND CUST_CompID = @CompanyId";
+            string query = "SELECT CUST_ID AS CustId, CUST_NAME AS CustName, CUST_CompID AS CompanyId FROM SAD_CUSTOMER_MASTER WHERE CUST_STATUS <> 'D' and CUST_DELFLG <>'W' AND CUST_CompID = @CompanyId";
 
             return await connection.QueryAsync<CustomerDto1>(query, new { CompanyId = companyId });
         }
@@ -2197,6 +2235,126 @@ ORDER BY SrNo";
         //        IPAddress = ipAddress
         //    });
         //}
+
+
+        public async Task<DiscoveryResponseDto> GetAnswerAsync(string question)
+        {
+            string answerUrl = _configuration["DiscoveryEngine:AnswerUrl"];
+            string serviceAccountPath = _configuration["DiscoveryEngine:ServiceAccountPath"];
+
+            GoogleCredential credential = GoogleCredential.FromFile(serviceAccountPath)
+                .CreateScoped("https://www.googleapis.com/auth/cloud-platform");
+
+            string token = await credential.UnderlyingCredential.GetAccessTokenForRequestAsync();
+
+            var client = _httpClientFactory.CreateClient();
+
+            var answerBody = new
+            {
+                query = new { text = question, queryId = "" },
+                session = "",
+                relatedQuestionsSpec = new { enable = true },
+                answerGenerationSpec = new
+                {
+                    ignoreAdversarialQuery = true,
+                    ignoreNonAnswerSeekingQuery = true,
+                    ignoreLowRelevantContent = true,
+                    includeCitations = true,
+                    modelSpec = new { modelVersion = "stable" }
+                }
+            };
+
+            string content = JsonConvert.SerializeObject(answerBody);
+            var request = new HttpRequestMessage(HttpMethod.Post, answerUrl)
+            {
+                Content = new StringContent(content, Encoding.UTF8, "application/json")
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await client.SendAsync(request);
+            var jsonResult = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception("Token expired or invalid: " + jsonResult);
+            }
+
+            JObject json = JObject.Parse(jsonResult);
+            string answerText = json["answer"]?["answerText"]?.ToString() ?? "No answer found";
+
+            //string redirectLinkText = FeatureMapper.GetFeatureLink(question);
+            if (answerText == "No results could be found. Try rephrasing the search query.")
+            {
+                answerText = "";
+            }
+            return new DiscoveryResponseDto
+            {
+                Answer = answerText,
+                RedirectLinkText = ""
+            };
+        }
+
+        public static class FeatureMapper
+        {
+            public static string GetFeatureLink(string input)
+            {
+                string q = input.ToLower();
+
+                if (q.Contains("cabinet") || q.Contains("subcabinet")) return "Cabinet";
+                if (q.Contains("folder")) return "Folder";
+                if (q.Contains("descriptor")) return "Descriptor";
+                if (q.Contains("document type")) return "Document Type";
+                if (q.Contains("document search") || q.Contains("search")) return "Document Search";
+                if (q.Contains("index") || q.Contains("indexing") || q.Contains("file upload")) return "Index";
+                if (q.Contains("digital vouching") || q.Contains("vouching")) return "Digital Vouching";
+                if (q.Contains("digital filling") || q.Contains("digital") || q.Contains("filling")) return "Digital Filling";
+                if (q.Contains("digital office") || q.Contains("office")) return "Digital Office";
+
+                // Add more conditions as needed...
+
+                if (q.Contains("audit report")) return "Audit Report";
+                if (q.Contains("audit")) return "Audit";
+                if (q.Contains("finalization")) return "Finalization of Account";
+
+                return string.Empty;
+            }
+        }
+
+        public async Task<LoeAuditFrameworkResponse> GetLoeAuditFrameworkIdAsync(LoeAuditFrameworkRequest request)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Build full connection string using appsettings pattern
+            string baseConnectionString = _configuration.GetConnectionString(dbName);
+            string connectionString = string.Format(baseConnectionString, dbName);
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                string sql = @"SELECT LOE_AuditFrameworkId 
+                       FROM SAD_CUST_LOE 
+                       WHERE LOE_CustomerId = @CustomerId 
+                         AND LOE_YearId = @YearId 
+                         AND LOE_ServiceTypeId = @ServiceTypeId";
+
+                var result = await connection.QueryFirstOrDefaultAsync<int?>(sql, new
+                {
+                    CustomerId = request.CustomerId,
+                    YearId = request.YearId,
+                    ServiceTypeId = request.ServiceTypeId
+                });
+
+                return new LoeAuditFrameworkResponse
+                {
+                    LoeAuditFrameworkId = result ?? 0
+                };
+            }
+        }
+       
+
     }
 }
 
