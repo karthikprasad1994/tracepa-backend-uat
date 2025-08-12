@@ -398,7 +398,7 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
-        //SaveClientMaster
+        //SaveClientUser
         public async Task<List<int[]>> SuperMasterSaveClientUserAsync(int CompId, List<SaveClientUserDto> employees)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -422,7 +422,7 @@ namespace TracePca.Service.SuperMaster
                     const string checkVendorQuery = @"
                 SELECT CUST_ID
                 FROM SAD_CUSTOMER_MASTER
-                WHERE UPPER(CUST_NAME) = UPPER(@VendorName)
+                WHERE CUST_EMAIL = @EmailId
                   AND CUST_CompID = @CompanyId
                 ORDER BY CUST_NAME";
 
@@ -430,14 +430,14 @@ namespace TracePca.Service.SuperMaster
                         checkVendorQuery,
                         new
                         {
-                            VendorName = objEmp.VendorName,  // Ensure SaveClientUserDto has VendorName property
+                            EmailId = objEmp.EmailId,  // Ensure SaveClientUserDto has VendorName property
                             CompanyId = CompId
                         },
                         transaction: transaction
                     );
 
                     if (vendorId == 0)
-                        throw new Exception($"Vendor '{objEmp.VendorName}' not found for company ID {CompId}.");
+                        throw new Exception($"Vendor '{objEmp.EmailId}' not found for company ID {CompId}.");
 
                     objEmp.iUsrCompanyID = vendorId; // assign found Vendor ID
 

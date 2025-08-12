@@ -134,7 +134,7 @@
         //SaveCleintUser
         public class SaveClientUserDto
         {
-            public string VendorName { get; set; }
+            public string EmailId { get; set; }
             public int iUserID { get; set; }
             public int iUsrNode { get; set; }
             public string sUsrCode { get; set; }
