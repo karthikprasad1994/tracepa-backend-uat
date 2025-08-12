@@ -42,21 +42,12 @@ namespace TracePca.Service.Audit
 		private readonly DbConnectionProvider _dbConnectionProvider;
 
 		public AuditSummary(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider)
-<<<<<<< HEAD
 		{
 			_dbcontext = dbcontext;
 			_configuration = configuration;
 			_httpContextAccessor = httpContextAccessor;
-=======
-        {
-            _dbcontext = dbcontext;
-            _configuration = configuration;
-            _httpContextAccessor = httpContextAccessor;
-
         }
->>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
-
-		}
+ 
 
 		public async Task<List<ReportTypeDto>> GetReportTypesAsync(int compId, int templateId)
 		{
@@ -507,15 +498,11 @@ namespace TracePca.Service.Audit
 		}
 
 
-<<<<<<< HEAD
-		public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
-		{
-			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-=======
+ 
         public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
         {
             //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
->>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
+ 
 
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -541,13 +528,7 @@ namespace TracePca.Service.Audit
 			return rowsAffected > 0;
 		}
 
-
-<<<<<<< HEAD
-		public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
-		{
-			if (!Directory.Exists(accessCodeDirectory))
-=======
-
+ 
         public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
         {
             if (!Directory.Exists(accessCodeDirectory))
@@ -572,38 +553,38 @@ namespace TracePca.Service.Audit
         }
 
 
-        private async Task<int> GenerateNextAttachmentIdAsync(int compId)
-        {
+  //      private async Task<int> GenerateNextAttachmentIdAsync(int compId)
+  //      {
 
-			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+		//	string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-			if (string.IsNullOrEmpty(dbName))
-				throw new Exception("CustomerCode is missing in session. Please log in again.");
+		//	if (string.IsNullOrEmpty(dbName))
+		//		throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-			// ✅ Step 2: Get the connection string
-			var connectionString = _configuration.GetConnectionString(dbName);
+		//	// ✅ Step 2: Get the connection string
+		//	var connectionString = _configuration.GetConnectionString(dbName);
              
-			using var connection = new SqlConnection(connectionString);
->>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
-			{
-				Directory.CreateDirectory(accessCodeDirectory);
-			}
+		//	using var connection = new SqlConnection(connectionString);
 
-			var sFoldersToCreate = new List<string> { "Tempfolder", sFolderName, imgDocType };
+		//	{
+		//		Directory.CreateDirectory(accessCodeDirectory);
+		//	}
 
-			foreach (var sFolder in sFoldersToCreate)
-			{
-				if (!string.IsNullOrEmpty(sFolder))
-				{
-					accessCodeDirectory = Path.Combine(accessCodeDirectory.TrimEnd('\\'), sFolder);
-					if (!Directory.Exists(accessCodeDirectory))
-					{
-						Directory.CreateDirectory(accessCodeDirectory);
-					}
-				}
-			}
-			return accessCodeDirectory;
-		}
+		//	var sFoldersToCreate = new List<string> { "Tempfolder", sFolderName, imgDocType };
+
+		//	foreach (var sFolder in sFoldersToCreate)
+		//	{
+		//		if (!string.IsNullOrEmpty(sFolder))
+		//		{
+		//			accessCodeDirectory = Path.Combine(accessCodeDirectory.TrimEnd('\\'), sFolder);
+		//			if (!Directory.Exists(accessCodeDirectory))
+		//			{
+		//				Directory.CreateDirectory(accessCodeDirectory);
+		//			}
+		//		}
+		//	}
+		//	return accessCodeDirectory;
+		//}
 
 
 		private async Task<int> GenerateNextAttachmentIdAsync(int compId)
@@ -725,13 +706,10 @@ namespace TracePca.Service.Audit
 
 		//         sFileName = sFileName.Replace("&", " and").Substring(0, Math.Min(sFileName.Length, 95));
 
-<<<<<<< HEAD
+ 
 		//         iAttachID = await GenerateNextAttachmentIdAsync(CompId);
 		//         iDocID = await GetDocumentIdAsync(CompId);
-=======
-            iAttachID = iAttachID == 0 ? await GenerateNextAttachmentIdAsync(CompId) : iAttachID;
-            iDocID = await GetDocumentIdAsync(CompId);
->>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
+ 
 
 		//         if (iDocID == 0)
 		//         {
@@ -1013,21 +991,20 @@ namespace TracePca.Service.Audit
 					await dto.File.CopyToAsync(stream);
 				}
 
-<<<<<<< HEAD
+ 
 				int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
 				//2.SaveAttachmentsModulewise
 				attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
-=======
+ 
                 //string UserLoginName = await GetUserName(dto.CompId, dto.UserId);
 
                 //1. Generate Filepath
-                String sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, dto.UserId.ToString(), "Upload");
->>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
+               // String sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, dto.UserId.ToString(), "Upload");
+ 
 
 
 				UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
-
-<<<<<<< HEAD
+ 
 				return "Successs";
 			}
 			catch (Exception ex)
@@ -1036,20 +1013,7 @@ namespace TracePca.Service.Audit
 				return $"Error: {ex.Message}";
 			}
 		}
-=======
-                var sSelectedFileName = Path.GetFileName(dto.File.FileName);
-                var fileExt = Path.GetExtension(sSelectedFileName)?.TrimStart('.');
-                var sFullFilePath = Path.Combine(sFileSavingPath, sSelectedFileName);
-
-                using (var stream = new FileStream(sFullFilePath, FileMode.Create))
-                {
-                    await dto.File.CopyToAsync(stream);
-                }
-
-                int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
-                //2.SaveAttachmentsModulewise
-                attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
->>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
+  
 
 
 		//public async Task<string> UploadCMAAttachmentsAsync(CMADtoAttachment dto)

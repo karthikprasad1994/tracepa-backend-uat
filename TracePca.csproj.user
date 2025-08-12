@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-<<<<<<< HEAD
   <PropertyGroup>
     <ActiveDebugProfile>https</ActiveDebugProfile>
     <WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
@@ -12,22 +11,4 @@
     <WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
     <NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
   </PropertyGroup>
-=======
-	<PropertyGroup>
-		<ActiveDebugProfile>https</ActiveDebugProfile>
-		<Controller_SelectedScaffolderID>ApiControllerWithActionsScaffolder</Controller_SelectedScaffolderID>
-		<Controller_SelectedScaffolderCategoryPath>root/Common/Api</Controller_SelectedScaffolderCategoryPath>
-		<WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
-
-
-
-	</PropertyGroup>
-	<PropertyGroup>
-		<ActiveDebugProfile>https</ActiveDebugProfile>
-		<Controller_SelectedScaffolderID>ApiControllerWithActionsScaffolder</Controller_SelectedScaffolderID>
-		<Controller_SelectedScaffolderCategoryPath>root/Common/Api</Controller_SelectedScaffolderCategoryPath>
-		<WebStackScaffolding_ControllerDialogWidth>650</WebStackScaffolding_ControllerDialogWidth>
-		<NameOfLastUsedPublishProfile>C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Properties\PublishProfiles\FolderProfile.pubxml</NameOfLastUsedPublishProfile>
-	</PropertyGroup>
->>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
 </Project>

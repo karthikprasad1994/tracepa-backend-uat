@@ -32,15 +32,9 @@ namespace TracePca.Interface.Audit
 
         Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID);
 
-<<<<<<< HEAD
-		//Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID, CAMAttachmentDetailsDto dto);
-
-		
+		Task<string> GenerateCAMReportAndGetURLPathAsync(int compId, int auditId, string format);
 	}
-=======
-        Task<string> GenerateCAMReportAndGetURLPathAsync(int compId, int auditId, string format);
-
-        //Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID, CAMAttachmentDetailsDto dto);
+ 
     }
->>>>>>> 3aae901bbf8cce4109544881a22f68016f6f3818
-}
+
+ 
