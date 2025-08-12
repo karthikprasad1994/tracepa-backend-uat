@@ -802,6 +802,26 @@ namespace TracePca.Controllers.Audit
                 return BadRequest(new { error = ex.Message });
             }
         }
+
+        [HttpGet("Auditframeworkid")]
+        public async Task<IActionResult> GetLoeAuditFrameworkId(
+       [FromQuery] int customerId,
+       [FromQuery] int yearId,
+       [FromQuery] int serviceTypeId)
+        {
+            var request = new LoeAuditFrameworkRequest
+            {
+                CustomerId = customerId,
+                YearId = yearId,
+                ServiceTypeId = serviceTypeId,
+            };
+
+            var response = await _service.GetLoeAuditFrameworkIdAsync(request);
+
+            return Ok(response);
+        }
+ 
+
     }
 
 }

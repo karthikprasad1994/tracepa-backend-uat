@@ -563,13 +563,16 @@ WHERE LOET_CustomerId = @CustomerId
 
             var audRptType = await connection.ExecuteScalarAsync<int>(auditTypeQuery, new { AuditNo = auditNo });
 
+
+           var FremWorkId = await GetAuditFrameworkIdAsync(Convert.ToInt32(auditNo), companyId);
+
             // Step 2: Get Report Types
             var sql = @"
         SELECT RTM_Id, RTM_ReportTypeName
         FROM SAD_ReportTypeMaster
         WHERE RTM_CompID = @CompanyId
           AND RTM_DelFlag = 'A'
-          AND RTM_AudrptType IN (3, @AudRptType)";
+          AND RTM_AudrptType IN (3, @AudRptType) and RTM_AuditFrameworkId = @RTM_AuditFrameworkId";
 
             if (templateId > 0)
                 sql += " AND RTM_TemplateId = @TemplateId";
@@ -581,7 +584,8 @@ WHERE LOET_CustomerId = @CustomerId
             {
                 CompanyId = companyId,
                 AudRptType = audRptType,
-                TemplateId = templateId
+                TemplateId = templateId,
+                RTM_AuditFrameworkId = FremWorkId
             };
 
             return await connection.QueryAsync<ReportTypeDto>(sql, parameters);
@@ -6742,6 +6746,38 @@ WHERE SA_ID = @AuditId";
                 }
             }
         }
+
+        public async Task<int?> GetAuditFrameworkIdAsync(int saId, int compId)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            string baseConnectionString = _configuration.GetConnectionString(dbName);
+            string connectionString = string.Format(baseConnectionString, dbName);
+
+            await using var conn = new SqlConnection(connectionString);
+            await using var cmd = new SqlCommand(@"
+        SELECT SA_AuditFrameworkId 
+        FROM StandardAudit_Schedule 
+        WHERE SA_ID = @SA_ID AND SA_Compid = @SA_Compid", conn);
+
+            cmd.Parameters.Add("@SA_ID", SqlDbType.Int).Value = saId;
+            cmd.Parameters.Add("@SA_Compid", SqlDbType.Int).Value = compId;
+
+            await conn.OpenAsync();
+
+            var result = await cmd.ExecuteScalarAsync();
+
+            if (result == null || result == DBNull.Value)
+                return null;
+
+            return Convert.ToInt32(result);
+        }
+
+
+
     }
 }
 

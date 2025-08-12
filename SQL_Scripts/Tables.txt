@@ -21273,51 +21273,101 @@ SET QUOTED_IDENTIFIER ON
 GO
 
 
- CREATE Procedure [dbo].[spStandardAudit_Schedule](             
- @SA_ID int,            
- @SA_AuditNo varchar(50),            
- @SA_CustID int,               
- @SA_YearID int,            
- @SA_AuditTypeID int,               
- @SA_PartnerID varchar(500),        
- @SA_ReviewPartnerID varchar(500),        
- @SA_AdditionalSupportEmployeeID varchar(500),          
- @SA_ScopeOfAudit varchar(5000),              
- @SA_Status int,            
- @SA_AttachID int,    
- @SA_StartDate datetime,    
-@SA_ExpCompDate datetime,    
-@SA_RptRvDate datetime,    
-@SA_RptFilDate datetime,    
-@SA_MRSDate datetime,    
- @SA_CrBy int,            
- @SA_UpdatedBy int,            
- @SA_IPAddress varchar(25),            
- @SA_CompID int,            
- @iUpdateOrSave int Output,            
- @iOper int Output            
-)            
-as          
-if (@SA_ID>0)          
- begin                        
- Delete StandardAudit_ScheduleCheckPointList Where SAC_SA_ID=@SA_ID And SAC_CompID=@SA_CompID          
- update StandardAudit_Schedule set SA_AuditTypeID=@SA_AuditTypeID,SA_PartnerID=@SA_PartnerID,SA_ReviewPartnerID=@SA_ReviewPartnerID,SA_AdditionalSupportEmployeeID=@SA_AdditionalSupportEmployeeID,
- SA_ScopeOfAudit=@SA_ScopeOfAudit,SA_AttachID=@SA_AttachID,SA_StartDate=@SA_StartDate,SA_ExpCompDate=@SA_ExpCompDate,SA_RptRvDate=@SA_RptRvDate,SA_RptFilDate=@SA_RptFilDate,SA_MRSDate=@SA_MRSDate,    
- SA_UpdatedBy=@SA_UpdatedBy,SA_UpdatedOn=Getdate()                   
- where SA_ID=@SA_ID And SA_CustID=@SA_CustID And SA_YearID=@SA_YearID                       
- set @iUpdateOrSave=2                        
- set @iOper=@SA_ID          
- end          
-else                 
- begin            
- set @SA_ID=(select isnull(max(SA_ID)+1,1) from StandardAudit_Schedule)            
- insert into StandardAudit_Schedule (SA_ID,SA_AuditNo,SA_CustID,SA_YearID,SA_AuditTypeID,SA_PartnerID,SA_ReviewPartnerID,SA_AdditionalSupportEmployeeID,SA_ScopeOfAudit,SA_Status,SA_AttachID,
- SA_StartDate,SA_ExpCompDate,SA_RptRvDate,SA_RptFilDate,SA_MRSDate,SA_CrBy,SA_CrOn,SA_IPAddress,SA_CompID)               
- values(@SA_ID,@SA_AuditNo,@SA_CustID,@SA_YearID,@SA_AuditTypeID,@SA_PartnerID,@SA_ReviewPartnerID,@SA_AdditionalSupportEmployeeID,@SA_ScopeOfAudit,@SA_Status,@SA_AttachID,
- @SA_StartDate,@SA_ExpCompDate,@SA_RptRvDate,@SA_RptFilDate,@SA_MRSDate,@SA_CrBy,GetDate(),@SA_IPAddress,@SA_CompID)            
- set @iUpdateOrSave=3            
- set @iOper = @SA_ID            
-end   
+ CREATE PROCEDURE [dbo].[spStandardAudit_Schedule]                                  
+    @SA_ID INT OUTPUT,                                    
+    @SA_AuditNo VARCHAR(50),                                    
+    @SA_CustID INT,                                       
+    @SA_YearID INT,                                    
+    @SA_AuditTypeID INT,                                       
+    @SA_EngagementPartnerID VARCHAR(500),                              
+    @SA_ReviewPartnerID VARCHAR(500),                                
+    @SA_PartnerID VARCHAR(500),                                
+    @SA_AdditionalSupportEmployeeID VARCHAR(500),                                   
+    @SA_ScopeOfAudit VARCHAR(5000),                                       
+    @SA_Status INT,                                    
+    @SA_AttachID INT,                            
+    @SA_StartDate DATETIME,                            
+    @SA_ExpCompDate DATETIME,                            
+    @SA_RptRvDate DATETIME,            
+    @SA_RptFilDate DATETIME,            
+    @SA_MRSDate DATETIME,            
+    @SA_AuditOpinionDate DATETIME,                            
+    @SA_FilingDateSEC DATETIME,                            
+    @SA_MRLDate DATETIME,                            
+    @SA_FilingDatePCAOB DATETIME,                            
+    @SA_BinderCompletedDate DATETIME,                            
+    @SA_IntervalId INT,                            
+    @SA_CrBy INT,                                    
+    @SA_UpdatedBy INT,                                    
+    @SA_IPAddress VARCHAR(25),                                    
+    @SA_CompID INT,
+	@SA_AuditFrameworkId INT,
+    @iUpdateOrSave INT OUTPUT,                                    
+    @iOper INT OUTPUT,                                    
+    @Out_Message VARCHAR(200) OUTPUT,      
+    @Out_AuditScheduleID INT OUTPUT      
+AS                                  
+BEGIN                               
+    
+    IF (@SA_ID > 0)                               
+    BEGIN                                            
+        UPDATE StandardAudit_Schedule       
+        SET       
+            SA_AuditTypeID = @SA_AuditTypeID,      
+            SA_EngagementPartnerID = @SA_EngagementPartnerID,      
+            SA_PartnerID = @SA_PartnerID,      
+            SA_ReviewPartnerID = @SA_ReviewPartnerID,      
+            SA_AdditionalSupportEmployeeID = @SA_AdditionalSupportEmployeeID,      
+            SA_ScopeOfAudit = @SA_ScopeOfAudit,      
+            SA_AttachID = @SA_AttachID,      
+            SA_StartDate = @SA_StartDate,      
+            SA_ExpCompDate = @SA_ExpCompDate,      
+            SA_RptRvDate = @SA_RptRvDate,      
+            SA_RptFilDate = @SA_RptFilDate,      
+            SA_MRSDate = @SA_MRSDate,      
+            SA_AuditOpinionDate = @SA_AuditOpinionDate,      
+            SA_FilingDateSEC = @SA_FilingDateSEC,      
+            SA_MRLDate = @SA_MRLDate,      
+            SA_FilingDatePCAOB = @SA_FilingDatePCAOB,      
+            SA_BinderCompletedDate = @SA_BinderCompletedDate,      
+            SA_IntervalId = @SA_IntervalId,      
+            SA_UpdatedBy = @SA_UpdatedBy,      
+            SA_UpdatedOn = GETDATE()      
+        WHERE       
+            SA_ID = @SA_ID       
+            AND SA_CustID = @SA_CustID;          
+      
+        SET @iUpdateOrSave = 2                                            
+        SET @iOper = @SA_ID             
+        SET @Out_Message = 'Audit Schedule updated successfully.'           
+        SET @Out_AuditScheduleID = @SA_ID      
+    END                               
+    ELSE                                    
+    BEGIN                                
+        SET @SA_ID = (SELECT ISNULL(MAX(SA_ID) + 1, 1) FROM StandardAudit_Schedule);                                
+              
+        INSERT INTO StandardAudit_Schedule (      
+            SA_ID, SA_AuditNo, SA_CustID, SA_YearID, SA_AuditTypeID, SA_EngagementPartnerID,       
+            SA_PartnerID, SA_ReviewPartnerID, SA_AdditionalSupportEmployeeID, SA_ScopeOfAudit,       
+            SA_Status, SA_AttachID, SA_StartDate, SA_ExpCompDate, SA_RptRvDate, SA_RptFilDate,       
+            SA_MRSDate, SA_AuditOpinionDate, SA_FilingDateSEC, SA_MRLDate, SA_FilingDatePCAOB,       
+            SA_BinderCompletedDate, SA_IntervalId, SA_CrBy, SA_CrOn, SA_IPAddress, SA_CompID ,SA_AuditFrameworkId     
+        )       
+        VALUES (      
+            @SA_ID, @SA_AuditNo, @SA_CustID, @SA_YearID, @SA_AuditTypeID, @SA_EngagementPartnerID,       
+            @SA_PartnerID, @SA_ReviewPartnerID, @SA_AdditionalSupportEmployeeID, @SA_ScopeOfAudit,       
+            @SA_Status, @SA_AttachID, @SA_StartDate, @SA_ExpCompDate, @SA_RptRvDate, @SA_RptFilDate,       
+            @SA_MRSDate, @SA_AuditOpinionDate, @SA_FilingDateSEC, @SA_MRLDate, @SA_FilingDatePCAOB,       
+            @SA_BinderCompletedDate, @SA_IntervalId, @SA_CrBy, GETDATE(), @SA_IPAddress, @SA_CompID,@SA_AuditFrameworkId      
+        );                                
+      
+        SET @iUpdateOrSave = 3                                
+        SET @iOper = @SA_ID      
+        SET @Out_Message = 'Audit Schedule inserted successfully.'           
+        SET @Out_AuditScheduleID = @SA_ID      
+    END      
+END 
+
 
 GO
 /****** Object:  StoredProcedure [dbo].[spStandardAudit_ScheduleCheckPointList]    Script Date: 20-03-2025 15:55:34 ******/

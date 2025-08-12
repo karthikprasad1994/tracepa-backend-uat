@@ -31,4 +31,9 @@
         public int AttachDocId { get; set; }
     }
 
+    public class AuditFrameworkIdDto
+    {
+        public int SA_AuditFrameworkId { get; set; }
+    }
+
 }

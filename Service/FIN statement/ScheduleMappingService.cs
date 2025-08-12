@@ -235,20 +235,19 @@ WHERE
         }
 
         //GetTrailBalance(Grid)
-        public async Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
+        public async Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(
+      int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
         {
-            // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
+
             var query = @"
 SELECT 
     ROW_NUMBER() OVER (ORDER BY ATBU_ID ASC) AS SrNo,
@@ -322,7 +321,12 @@ WHERE a.ATBU_CustId = @custId
     AND a.ATBU_YEARId = @yearId
     AND a.ATBU_BranchId = @branchId
     AND a.ATBU_QuarterId = @durationId
-    " + (Unmapped != 0 ? "AND ATBUD_Headingid = 0 AND ATBUD_Subheading = 0 AND ATBUD_itemid = 0 AND ATBUD_SubItemId = 0" : "") + @"
+" + (Unmapped == 1 ? @"AND (
+        ISNULL(ATBUD_Headingid, 0) = 0 and  
+        ISNULL(ATBUD_Subheading, 0) = 0 and  
+        ISNULL(ATBUD_itemid, 0) = 0 and 
+        ISNULL(ATBUD_SubItemId, 0) = 0
+    )" : "") + @"
 GROUP BY b.ATBUD_ID, a.ATBU_ID, a.ATBU_Code, a.ATBU_CustId, a.ATBU_Description, a.ATBU_Opening_Debit_Amount,
          a.ATBU_Opening_Credit_Amount, a.ATBU_TR_Debit_Amount, a.ATBU_TR_Credit_Amount,
          a.ATBU_Closing_TotalDebit_Amount, a.ATBU_Closing_TotalCredit_Amount,
@@ -332,8 +336,18 @@ GROUP BY b.ATBUD_ID, a.ATBU_ID, a.ATBU_Code, a.ATBU_CustId, a.ATBU_Description, 
 ORDER BY ATBU_ID;";
 
             return await connection.QueryAsync<CustCOADetailsDto>(query, new
-            { CompId, CustId, YearId, ScheduleTypeId, Unmapped, BranchId, DurationId });
+            {
+                CompId,
+                CustId,
+                YearId,
+                ScheduleTypeId,
+                Unmapped,
+                BranchId,
+                DurationId
+            });
+
         }
+
 
         //FreezeForPreviousDuration
         public async Task<int[]> FreezePreviousYearTrialBalanceAsync(FreezePreviousDurationRequestDto input)
@@ -660,7 +674,7 @@ WHERE ATBUD_Description = @AtbudDescription
             var connectionString = _configuration.GetConnectionString(dbName);
 
             // ✅ Step 3: Use SqlConnection
-            using var connection = new SqlConnection(connectionString);
+             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
             var insertedIds = new List<int>();
@@ -668,20 +682,22 @@ WHERE ATBUD_Description = @AtbudDescription
             try
             {
 
-                //                var query = @"
-                //select CUST_ORGTYPEID as OrgId 
-                //from SAD_CUSTOMER_MASTER 
-                //where CUST_ID = @CompanyId and CUST_DELFLG = 'A'";
-                //                int OrgId = await connection.QueryFirstOrDefaultAsync<int>(query, new
-                //                {
+                var query = @"
+                select CUST_ORGTYPEID as OrgId 
+                from SAD_CUSTOMER_MASTER 
+                where CUST_ID = @CompanyId and CUST_DELFLG = 'A'";
+                int OrgId = await connection.QueryFirstOrDefaultAsync<int>(query, new
+                {
+                    CompanyId = dtos[0].ATBU_CustId
+                }, transaction);
 
-                //                    CompanyId = dtos[0].ATBU_CustId
-                //                });
                 foreach (var dto in dtos)
                 {
                     if (dto.ATBU_Description != "")
                     {
-                        int updateOrSave = 0, oper = 0;
+                        if (dto.ATBU_Opening_Debit_Amount != 0 || dto.ATBU_Opening_Credit_Amount != 0 || dto.ATBU_TR_Debit_Amount != 0 || dto.ATBU_TR_Credit_Amount != 0 || dto.ATBU_Closing_Debit_Amount != 0 || dto.ATBU_Closing_Credit_Amount != 0)
+                        {
+                            int updateOrSave = 0, oper = 0;
                         int subItemId = 0, itemId = 0, subHeadingId = 0, headingId = 0, scheduleType = 0;
                         DataTable templateIds;
 
@@ -724,7 +740,7 @@ WHERE ATBUD_Description = @AtbudDescription
                             subItemId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleSubItems", "ASSI_ID", dto.Excel_SubItem, dto.ATBU_CustId);
                             if (subItemId == 0)
                             {
-                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_SubItem, dto.ATBU_CompId, dto.ATBU_CustId, 4, dto.ATBUD_Company_Type);
+                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_SubItem, dto.ATBU_CompId, dto.ATBU_CustId, 4, OrgId);
                                 if (subIds.Rows.Count > 0)
                                 {
                                     DataRow row = subIds.Rows[0];
@@ -737,7 +753,7 @@ WHERE ATBUD_Description = @AtbudDescription
                             itemId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleItems", "ASI_ID", dto.Excel_Item, dto.ATBU_CustId);
                             if (itemId == 0)
                             {
-                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_Item, dto.ATBU_CompId, dto.ATBU_CustId, 3, dto.ATBU_CustId);
+                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_Item, dto.ATBU_CompId, dto.ATBU_CustId, 3, OrgId);
                                 if (subIds.Rows.Count > 0)
                                 {
                                     DataRow row = subIds.Rows[0];
@@ -750,7 +766,7 @@ WHERE ATBUD_Description = @AtbudDescription
                             subHeadingId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleSubHeading", "ASSH_ID", dto.Excel_SubHeading, dto.ATBU_CustId);
                             if (subHeadingId == 0)
                             {
-                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_SubHeading, dto.ATBU_CompId, dto.ATBU_CustId, 2, dto.ATBU_CustId);
+                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_SubHeading, dto.ATBU_CompId, dto.ATBU_CustId, 2, OrgId);
                                 if (subIds.Rows.Count > 0)
                                 {
                                     DataRow row = subIds.Rows[0];
@@ -763,7 +779,7 @@ WHERE ATBUD_Description = @AtbudDescription
                             headingId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleHeading", "ASH_ID", dto.Excel_Heading, dto.ATBU_CustId);
                             if (headingId == 0)
                             {
-                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_Heading, dto.ATBU_CompId, dto.ATBU_CustId, 1, dto.ATBU_CustId);
+                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_Heading, dto.ATBU_CompId, dto.ATBU_CustId, 1, OrgId);
                                 if (subIds.Rows.Count > 0)
                                 {
                                     DataRow row = subIds.Rows[0];
@@ -857,6 +873,7 @@ WHERE ATBUD_Description = @AtbudDescription
                             await cmdDetail.ExecuteNonQueryAsync();
                             insertedIds.Add((int)(output2.Value ?? 0));
                         }
+                    }
                     }
                 }
                 transaction.Commit();
