@@ -398,7 +398,7 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
-        //SaveClientMaster
+        // SaveClientUser 
         public async Task<List<int[]>> SuperMasterSaveClientUserAsync(int CompId, List<SaveClientUserDto> employees)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -418,50 +418,76 @@ namespace TracePca.Service.SuperMaster
 
                 foreach (var objEmp in employees)
                 {
-                    // ✅ Check Customer/Vender ID validity
+                    // ✅ 1. Vendor check or create
                     const string checkVendorQuery = @"
                 SELECT CUST_ID
                 FROM SAD_CUSTOMER_MASTER
-                WHERE UPPER(CUST_NAME) = UPPER(@VendorName)
-                  AND CUST_CompID = @CompanyId
-                ORDER BY CUST_NAME";
+                WHERE CUST_EMAIL = @EmailId
+                  AND CUST_CompID = @CompanyId";
 
                     var vendorId = await connection.ExecuteScalarAsync<int>(
                         checkVendorQuery,
-                        new
-                        {
-                            VendorName = objEmp.VendorName,  // Ensure SaveClientUserDto has VendorName property
-                            CompanyId = CompId
-                        },
+                        new { EmailId = objEmp.EmailId, CompanyId = CompId },
                         transaction: transaction
                     );
 
                     if (vendorId == 0)
-                        throw new Exception($"Vendor '{objEmp.VendorName}' not found for company ID {CompId}.");
+                    {
+                        const string insertVendorQuery = @"
+                    INSERT INTO SAD_CUSTOMER_MASTER (CUST_NAME, CUST_EMAIL, CUST_CompID)
+                    OUTPUT INSERTED.CUST_ID
+                    VALUES (@VendorName, @EmailId, @CompanyId)";
 
-                    objEmp.iUsrCompanyID = vendorId; // assign found Vendor ID
+                        vendorId = await connection.ExecuteScalarAsync<int>(
+                            insertVendorQuery,
+                            new
+                            {
+                                VendorName = objEmp.VendorName ?? objEmp.EmailId,
+                                EmailId = objEmp.EmailId,
+                                CompanyId = CompId
+                            },
+                            transaction: transaction
+                        );
+                    }
+                    objEmp.iUsrCompanyID = vendorId;
 
-                    // ✅ Check Designation ID validity
-                    string checkQuery = @"
-                SELECT COUNT(1)
+                    // ✅ 2. Designation check or create
+                    const string checkDesignationQuery = @"
+                SELECT Mas_ID
                 FROM SAD_GRPDESGN_General_Master
-                WHERE Mas_ID = @DesignationID AND Mas_CompID = @CompId";
+                WHERE Mas_ID = @DesignationID
+                  AND Mas_CompID = @CompId";
 
-                    int exists = await connection.ExecuteScalarAsync<int>(
-                        checkQuery,
+                    var designationId = await connection.ExecuteScalarAsync<int>(
+                        checkDesignationQuery,
                         new { DesignationID = objEmp.iUsrDesignation, CompId = CompId },
                         transaction: transaction
                     );
 
-                    if (exists == 0)
-                        throw new Exception($"Invalid designation ID for employee: {objEmp.sUsrFullName}");
+                    if (designationId == 0)
+                    {
+                        const string insertDesignationQuery = @"
+                    INSERT INTO SAD_GRPDESGN_General_Master (Mas_Description, Mas_CompID)
+                    OUTPUT INSERTED.Mas_ID
+                    VALUES (@DesignationName, @CompId)";
 
+                        designationId = await connection.ExecuteScalarAsync<int>(
+                            insertDesignationQuery,
+                            new
+                            {
+                                DesignationName = objEmp.DesignationName ?? "New Designation",
+                                CompId = CompId
+                            },
+                            transaction: transaction
+                        );
+                    }
+                    objEmp.iUsrDesignation = designationId;
+
+                    // ✅ 3. Save/Update Employee using stored procedure
                     int updateOrSave, oper;
-
                     using var command = new SqlCommand("spEmployeeMaster", connection, transaction);
                     command.CommandType = CommandType.StoredProcedure;
 
-                    // Add parameters (same as your existing code)
                     command.Parameters.AddWithValue("@Usr_ID", objEmp.iUserID);
                     command.Parameters.AddWithValue("@Usr_Node", objEmp.iUsrNode);
                     command.Parameters.AddWithValue("@Usr_Code", objEmp.sUsrCode ?? string.Empty);
@@ -478,10 +504,7 @@ namespace TracePca.Service.SuperMaster
                     command.Parameters.AddWithValue("@Usr_MobileNo", objEmp.sUsrMobileNo ?? string.Empty);
                     command.Parameters.AddWithValue("@Usr_OfficePhone", objEmp.sUsrOfficePhone ?? string.Empty);
                     command.Parameters.AddWithValue("@Usr_OffPhExtn", objEmp.sUsrOffPhExtn ?? string.Empty);
-
-                    // ✅ Designation as ID
                     command.Parameters.AddWithValue("@Usr_Designation", objEmp.iUsrDesignation);
-
                     command.Parameters.AddWithValue("@Usr_CompanyID", objEmp.iUsrCompanyID);
                     command.Parameters.AddWithValue("@Usr_OrgnID", objEmp.iUsrOrgID);
                     command.Parameters.AddWithValue("@Usr_GrpOrUserLvlPerm", objEmp.iUsrGrpOrUserLvlPerm);
@@ -512,7 +535,6 @@ namespace TracePca.Service.SuperMaster
 
                     var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
                     var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
-
                     command.Parameters.Add(updateOrSaveParam);
                     command.Parameters.Add(operParam);
 

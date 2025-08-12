@@ -178,7 +178,7 @@ namespace TracePca.Service.Audit
             {
                 throw new ApplicationException("An error occurred while loading audit no DDL data", ex);
             }
-        }
+        }       
 
         public async Task<AuditDropDownListDataDTO> LoadAuditWorkPaperDDLAsync(int compId, int auditId)
         {
@@ -1636,7 +1636,7 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit CAM Report").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit Issues and Closure").FontSize(16).Bold();
                             column.Item().Text(text =>
                             {
                                 text.Span("Client Name: ").FontSize(10).Bold();
@@ -1825,7 +1825,12 @@ namespace TracePca.Service.Audit
             {
                 name = name.Replace(ch, '_');
             }
-            return name.TrimEnd(' ', '.');
+            name = name.TrimEnd(' ', '.');
+            if (name.Length > 200)
+            {
+                name = name.Substring(0, 200);
+            }
+            return name;
         }
 
         public async Task<(bool, string)> DownloadAllAuditAttachmentsByAuditIdAsync(int compId, int auditId, int userId, string ipAddress)
@@ -1915,7 +1920,7 @@ namespace TracePca.Service.Audit
                     "WHERE SSW_SA_ID = " + auditId + " AND SSW_ID = wp.SSW_ID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM StandardAudit_ScheduleConduct_WorkPaper wp WHERE SSW_SA_ID = " + auditId + "";
 
                 // 5. Conduct Audit (Checkpoints)
-                var conductTypes = "SELECT DISTINCT ACM_ID AS TypeId, 'CheckPoint - ' + ACM_CheckPoint AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAC_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList " +
+                var conductTypes = "SELECT DISTINCT ACM_ID AS TypeId, CAST('CheckPoint_' + CAST(ACM_ID AS VARCHAR(10)) + ' - ' + CAST(ACM_Heading AS VARCHAR(Max)) AS VARCHAR(Max)) AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAC_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList " +
                     "WHERE SAC_SA_ID = " + auditId + " AND SAC_CheckPointID = cp.SAC_CheckPointID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM StandardAudit_ScheduleCheckPointList cp " +
                     "INNER JOIN AuditType_Checklist_Master ON ACM_ID = cp.SAC_CheckPointID WHERE cp.SAC_SA_ID = " + auditId + "";
 

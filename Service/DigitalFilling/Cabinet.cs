@@ -43,6 +43,8 @@ namespace TracePca.Service.DigitalFilling
 			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 			//await connection.OpenAsync();
 
+			
+
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
 			if (string.IsNullOrEmpty(dbName))
@@ -83,6 +85,8 @@ namespace TracePca.Service.DigitalFilling
         {
 			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 			//await connection.OpenAsync();
+
+			//string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
 
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 

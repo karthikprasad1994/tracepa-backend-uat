@@ -7,6 +7,7 @@ namespace TracePca.Interface.Audit
         Task<AuditDropDownListDataDTO> LoadAllAuditDDLDataAsync(int compId);
         Task<string> GetCustomerFinancialYearAsync(int compId, int custId);
         Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId);
+        Task<AuditDropDownListDataDTO> LoadWorkpaperCheckListDDLAsync(int compId, int auditId);
         Task<AuditDropDownListDataDTO> LoadDRLWithAttachmentsDDLAsync(int compId, int auditId);
         Task<bool> IsDuplicateWorkpaperRefAsync(int auditId, string workpaperRef, int? workpaperId);
         Task<List<ConductAuditWorkPaperDetailsDTO>> GetConductAuditWorkPapersByAuditIdAsync(int compId, int auditId);
