@@ -1,4 +1,5 @@
-﻿using System.Net.Mail;
+﻿using Microsoft.AspNetCore.Mvc;
+using System.Net.Mail;
 using TracePca.Dto.AssetRegister;
 using TracePca.Dto.Audit;
 using TracePca.Service.Audit;
@@ -31,6 +32,8 @@ namespace TracePca.Interface.Audit
 
         Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID);
 
-        //Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID, CAMAttachmentDetailsDto dto);
-    }
+		//Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID, CAMAttachmentDetailsDto dto);
+
+		
+	}
 }

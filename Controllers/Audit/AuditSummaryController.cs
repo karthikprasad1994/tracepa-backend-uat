@@ -486,50 +486,88 @@ namespace TracePca.Controllers.Audit
 
 
 
-        //[HttpPost("GetCAMAttachmentDetails")]
-        //public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID, [FromBody] CAMAttachmentDetailsDto dto)
-        //{
-        //	try
-        //	{
-        //		var camDetails = await _AuditSummaryInterface.GetCAMAttachmentDetailsAsync(AttachID, dto);
+		//[HttpPost("GetCAMAttachmentDetails")]
+		//public async Task<IActionResult> GetCAMAttachmentDetails(int AttachID, [FromBody] CAMAttachmentDetailsDto dto)
+		//{
+		//	try
+		//	{
+		//		var camDetails = await _AuditSummaryInterface.GetCAMAttachmentDetailsAsync(AttachID, dto);
 
-        //		if (camDetails != null && camDetails.Any())
-        //		{
-        //			return Ok(new
-        //			{
-        //				statusCode = 200,
-        //				message = "Critical Audit Matter Attachment details fetched successfully.",
-        //				data = new
-        //				{
-        //					camDetails = camDetails
-        //				}
-        //			});
-        //		}
-        //		else
-        //		{
-        //			return NotFound(new
-        //			{
-        //				statusCode = 404,
-        //				message = "No Critical Audit Matter Attachment details found for the selected filters.",
-        //				data = new
-        //				{
-        //					camDetails = new List<object>()
-        //				}
-        //			});
-        //		}
-        //	}
-        //	catch (Exception ex)
-        //	{
-        //		return StatusCode(500, new
-        //		{
-        //			statusCode = 500,
-        //			message = $"Internal server error: {ex.Message}",
-        //			data = new
-        //			{
-        //				camDetails = new List<object>()
-        //			}
-        //		});
-        //	}
-        //}
-    }
+		//		if (camDetails != null && camDetails.Any())
+		//		{
+		//			return Ok(new
+		//			{
+		//				statusCode = 200,
+		//				message = "Critical Audit Matter Attachment details fetched successfully.",
+		//				data = new
+		//				{
+		//					camDetails = camDetails
+		//				}
+		//			});
+		//		}
+		//		else
+		//		{
+		//			return NotFound(new
+		//			{
+		//				statusCode = 404,
+		//				message = "No Critical Audit Matter Attachment details found for the selected filters.",
+		//				data = new
+		//				{
+		//					camDetails = new List<object>()
+		//				}
+		//			});
+		//		}
+		//	}
+		//	catch (Exception ex)
+		//	{
+		//		return StatusCode(500, new
+		//		{
+		//			statusCode = 500,
+		//			message = $"Internal server error: {ex.Message}",
+		//			data = new
+		//			{
+		//				camDetails = new List<object>()
+		//			}
+		//		});
+		//	}
+		//}
+
+		 
+		//private readonly HttpClient _httpClient;
+
+		//[HttpGet]
+		//public async Task<IActionResult> CallExternalApi()
+		//{
+		//	try
+		//	{
+		//		string apiUrl = "https://localhost:7090/api/Cabinet/LoadCabinet?deptId=5&userId=1&compID=1";
+
+		//		//var response = await _AuditSummaryInterface.TrackPerformanceAsync(
+		//		//	() => _httpClient.GetAsync(apiUrl),
+		//		//	apiUrl,
+		//		//	"GET"
+		//		//);
+
+		//		var response = await _AuditSummaryInterface.TrackPerformanceAsync(async () => await _httpClient.GetAsync(apiUrl),   
+		//                        apiUrl,"GET");
+
+
+		//		if (response is HttpResponseMessage httpResponse)
+		//		{
+		//			if (!httpResponse.IsSuccessStatusCode)
+		//				return StatusCode((int)httpResponse.StatusCode);
+
+		//			var content = await httpResponse.Content.ReadAsStringAsync();
+		//			return Ok(content);
+		//		}
+
+		//		// Handle other return types if needed
+		//		return BadRequest("Unexpected response type");
+		//	}
+		//	catch (HttpRequestException ex)
+		//	{
+		//		return StatusCode(500, $"External API call failed: {ex.Message}");
+		//	}
+		//}
+	}
 }

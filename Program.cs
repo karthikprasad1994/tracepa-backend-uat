@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -31,7 +32,7 @@ using TracePca.Service.FixedAssetsService;
 using TracePca.Service.LedgerReview;
 using TracePca.Service.Master;
 using TracePca.Service.ProfileSetting;
-// Change this in CustomerContextMiddleware.cs
+//Change this in CustomerContextMiddleware.cs
 
 
 //using TracePca.Interface.AssetMaserInterface;
@@ -108,6 +109,10 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+builder.Services.AddHttpClient();
+ 
+
+
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<LoginInterface, Login>();
@@ -154,13 +159,16 @@ builder.Services.AddScoped<DbConnectionProvider, DbConnectionProvider>();
 builder.Services.AddScoped<ICustomerContext, CustomerContext>();
 builder.Services.AddScoped<ErrorLogInterface, TracePca.Service.Master.ErrorLog>();
 
+builder.Services.AddScoped<ApiPerformanceTracker>();
+ 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp", policy =>
+	//AllowReactApp
+	options.AddPolicy("AllowReactApp", policy =>
     {
         policy.WithOrigins(
 
@@ -185,8 +193,7 @@ builder.Services.AddDbContext<Trdmyus1Context>(options =>
 builder.Services.AddDbContext<Trdmyus1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection2")));
 
-
-
+ 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"]);
 
