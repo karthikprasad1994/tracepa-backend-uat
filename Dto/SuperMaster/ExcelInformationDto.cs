@@ -86,8 +86,16 @@
         }
 
         //SaveClientDetails
-        public class SuperMasterSaveClientDetailsDto
+        public class SuperMasterSaveCustomerDto
         {
+            // ===== CONTENT_MANAGEMENT_MASTER related =====
+            public int Cmm_ID { get; set; }            
+            public string Cmm_Code { get; set; }       
+            public string Cmm_Category { get; set; }  
+            public string OrgTypeName { get; set; }   
+            public string DelFlg { get; set; }        
+
+            // ===== CUSTOMER MASTER FIELDS (SAD_CUSTOMER_MASTER) =====
             public int CUST_ID { get; set; }
             public string CUST_NAME { get; set; }
             public string CUST_CODE { get; set; }
@@ -98,7 +106,7 @@
             public int CUST_ORGTYPEID { get; set; }
             public int CUST_INDTYPEID { get; set; }
             public int CUST_MGMTTYPEID { get; set; }
-            public DateTime CUST_CommitmentDate { get; set; }
+            public DateTime? CUST_CommitmentDate { get; set; }
             public string CUSt_BranchId { get; set; }
             public string CUST_COMM_ADDRESS { get; set; }
             public string CUST_COMM_CITY { get; set; }
@@ -127,9 +135,29 @@
             public int CUST_CompID { get; set; }
             public int CUST_Amount_Type { get; set; }
             public decimal CUST_RoundOff { get; set; }
-            public decimal Cust_DurtnId { get; set; }
-            public decimal Cust_FY { get; set; }
+            public int Cust_DurtnId { get; set; }
+            public int Cust_FY { get; set; }
+
+            // ===== LOCATION FIELDS (SAD_CUST_LOCATION) =====
+            public int Mas_Id { get; set; }
+            public string Mas_code { get; set; }
+            public string LocationName { get; set; }
+            public string DelFlag { get; set; }
+            public string Address { get; set; }
+            public string ContactPerson { get; set; }
+            public string Mobile { get; set; }
+            public string Landline { get; set; }
+            public string Email { get; set; }
+            public string Designation { get; set; }
+
+            // ===== STATUTORY REFS (SAD_CUST_Accounting_Template) =====
+            public string CIN { get; set; }
+            public string TAN { get; set; }
+            public string GST { get; set; }
         }
+
+
+
 
         //SaveCleintUser
         public class SaveClientUserDto
@@ -175,7 +203,6 @@
             public int iUsrComplianceRole { get; set; }
             public int iUsrBCMRole { get; set; }
             public int iUsrDigitalOfficeRole { get; set; }
-
             public int iUsrCreatedBy { get; set; }
             public string sUsrFlag { get; set; }
             public string sUsrStatus { get; set; }
