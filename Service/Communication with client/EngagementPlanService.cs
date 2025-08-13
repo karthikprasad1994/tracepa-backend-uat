@@ -241,7 +241,7 @@ namespace TracePca.Service.Audit
                     FROM SAD_CUSTOMER_MASTER cust, YEAR_MASTER yms WHERE cust.CUST_ID = @CustomerId AND yms.YMS_YEARID = @YearId",
                     new
                     {
-                        CustomerId = 2,
+                        CustomerId = customerId,
                         YearId = yearId,
                         SerialNo = nextSerialNo
                     });
@@ -261,7 +261,8 @@ namespace TracePca.Service.Audit
             using var transaction = connection.BeginTransaction();
             try
             {
-                dto.LOE_AuditFrameworkId = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT RTM_AuditFrameworkId FROM SAD_ReportTypeMaster WHERE RTM_ID = @ReportTypeID", new { ReportTypeID = dto.EngagementTemplateDetails.FirstOrDefault()?.LTD_ReportTypeID });
+                var reportTypeId = dto.EngagementTemplateDetails?.FirstOrDefault()?.LTD_ReportTypeID;
+                dto.LOE_AuditFrameworkId = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT RTM_AuditFrameworkId FROM SAD_ReportTypeMaster WHERE RTM_ID = @ReportTypeID", new { ReportTypeID = reportTypeId }, transaction);
                 bool isUpdate = dto.LOE_Id > 0;
                 if (isUpdate)
                 {
