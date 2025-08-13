@@ -110,42 +110,30 @@ namespace TracePca.Controllers.SuperMaster
         }
 
         //SaveClientDetails
-        //[HttpPost("SaveClientDetails")]
-        //public async Task<IActionResult> SuperMasterSaveCustomer([FromQuery] int CompId, [FromBody] SuperMasterSaveClientDetailsDto objCust)
-        //{
-        //    if (objCust == null)
-        //    {
-        //        return BadRequest(new
-        //        {
-        //            StatusCode = 400,
-        //            Message = "No customer data provided."
-        //        });
-        //    }
-        //    try
-        //    {
-        //        var result = await _ExcelInformationService.SuperMasterSaveCustomerDetailsAsync(CompId, objCust);
+        [HttpPost("SaveClientDetails")]
+        public async Task<IActionResult> SaveCustomerDetails([FromQuery] int compId, [FromBody] List<SuperMasterSaveCustomerDto> customers)
+        {
+            if (customers == null || !customers.Any())
+                return BadRequest("No customer data provided.");
 
-        //        return Ok(new
-        //        {
-        //            StatusCode = 200,
-        //            Message = result[0] == 1 ? "Customer saved successfully." : "Customer updated successfully.",
-        //            Data = new
-        //            {
-        //                Status = result[0],
-        //                CustomerId = result[1]
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "An error occurred while saving customer data.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
+            try
+            {
+                var result = await _ExcelInformationService.SuperMasterSaveCustomerDetailsAsync(compId, customers);
+                return Ok(new
+                {
+                    Message = "Customer(s) saved successfully",
+                    Result = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Message = "An error occurred while saving customer(s)",
+                    Error = ex.Message
+                });
+            }
+        }
 
         //SaveClientUser
         [HttpPost("SaveClientUser")]

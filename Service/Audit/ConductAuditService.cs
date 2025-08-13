@@ -167,6 +167,35 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<AuditDropDownListDataDTO> LoadWorkpaperCheckListDDLAsync(int compId, int auditId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var parameters = new
+                {
+                    CompId = compId,
+                    AuditId = auditId
+                };
+
+                var sql = @"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master WHERE cmm_Delflag = 'A' AND cmm_Category = 'WCM' AND cmm_CompID = @CompId AND 
+            cms_KeyComponent IN (SELECT SA_AuditFrameworkId FROM StandardAudit_Schedule WHERE SA_ID = @AuditId AND SA_CompID = @CompId) ORDER BY cmm_Desc ASC";
+
+                var workpaperCheckList = await connection.QueryAsync<DropDownListData>(sql, parameters);
+
+                return new AuditDropDownListDataDTO
+                {
+                    WorkpaperCheckList = workpaperCheckList.ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while loading Workpaper CheckList DDL data", ex);
+            }
+        }
+
         public async Task<string> GetCustomerFinancialYearAsync(int compId, int custId)
         {
             try
