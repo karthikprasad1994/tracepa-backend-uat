@@ -94,6 +94,84 @@ namespace TracePca.Service
                 };
             }
         }
+
+        // Track users for whom we have already shown the "please login again" message
+        //private static readonly HashSet<string> _shownOnceEmails = new HashSet<string>();
+
+        //public async Task<IActionResult> SignUpUserViaGoogleAsync(GoogleAuthDto dto)
+        //{
+        //    try
+        //    {
+        //        var email = dto.Email?.Trim().ToLower();
+
+        //        if (string.IsNullOrWhiteSpace(email))
+        //        {
+        //            return new ObjectResult(new
+        //            {
+        //                statuscode = 400,
+        //                message = "Email is required."
+        //            })
+        //            { StatusCode = 400 };
+        //        }
+
+        //        using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+        //        await connection.OpenAsync();
+
+        //        var existingCustomerCode = await connection.QueryFirstOrDefaultAsync<string>(
+        //            @"SELECT TOP 1 MCR_CustomerCode
+        //      FROM MMCS_CustomerRegistration
+        //      CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
+        //      WHERE LTRIM(RTRIM(Emails.value)) = @Email", new { Email = email });
+
+        //        if (!string.IsNullOrEmpty(existingCustomerCode))
+        //        {
+        //            // ✅ Existing user
+        //            // First time → return message only
+        //            if (!_shownOnceEmails.Contains(email))
+        //            {
+        //                _shownOnceEmails.Add(email);
+        //                return new OkObjectResult(new
+        //                {
+        //                    statuscode = 200,
+        //                    message = "User already exists. Please login again."
+        //                });
+        //            }
+        //            // Second time → login and return login response
+        //            var loginResult = await LoginUserAsync(email, "sa");  // use your login logic
+        //            return loginResult.StatusCode == 200
+        //                ? new OkObjectResult(loginResult)
+        //                : new ObjectResult(loginResult) { StatusCode = loginResult.StatusCode };
+        //        }
+        //        else
+        //        {
+        //            // ✅ New user → register only
+        //            var registrationDto = new RegistrationDto
+        //            {
+        //                McrCustomerEmail = email,
+        //                McrCustomerTelephoneNo = dto.PhoneNumber?.Trim(),
+        //                McrCustomerName = dto.CompanyName?.Trim()
+        //            };
+
+        //            return await SignUpUserAsync(registrationDto);
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return new ObjectResult(new
+        //        {
+        //            statuscode = 500,
+        //            message = "Internal server error",
+        //            error = ex.Message
+        //        })
+        //        { StatusCode = 500 };
+        //    }
+        //}
+
+
+
+
+
+
         public async Task<IActionResult> SignUpUserViaGoogleAsync(GoogleAuthDto dto)
         {
             try

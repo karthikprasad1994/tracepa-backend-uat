@@ -115,9 +115,6 @@ builder.Services.AddSession(options =>
 
 
 
-
-
-
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
@@ -194,6 +191,8 @@ builder.Services.AddScoped<ICustomerContext, CustomerContext>();
 builder.Services.AddScoped<ErrorLoggerInterface, ErrorLoggerService>();
 builder.Services.AddScoped<ApplicationMetricInterface, ApplicationMetric>();
 builder.Services.AddScoped<ErrorLogInterface, TracePca.Service.Master.ErrorLog>();
+builder.Services.AddScoped<PerformanceInterface, PerformanceService>();
+
 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -317,6 +316,9 @@ app.UseAuthorization();
 app.UseSession();
 app.UseMiddleware<TracePca.Middleware.CustomerContextMiddleware>();
 app.UseMiddleware<TracePca.Middleware.ErrorLogMiddleware>();
+app.UseMiddleware<TracePca.Middleware.ResponseTime>();
+//app.MapControllers();
+
 //app.UseMiddleware<TracePca.Middleware.SessionTimeout>();
 
 app.UseEndpoints(endpoints =>
