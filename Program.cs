@@ -39,15 +39,12 @@ using TracePca.Service.LedgerReview;
 using TracePca.Service.Master;
 using TracePca.Service.Miidleware;
 using TracePca.Service.ProfileSetting;
-<<<<<<< HEAD
  
 using TracePca.Service.SuperMaster;
  
-=======
 //Change this in CustomerContextMiddleware.cs
 using TracePca.Service.SuperMaster;
 // Change this in CustomerContextMiddleware.cs
->>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
 
 
 //using TracePca.Interface.AssetMaserInterface;

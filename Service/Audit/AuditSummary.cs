@@ -46,15 +46,9 @@ namespace TracePca.Service.Audit
 			_dbcontext = dbcontext;
 			_configuration = configuration;
 			_httpContextAccessor = httpContextAccessor;
-<<<<<<< HEAD
         }
  
-=======
-
-
-		}
->>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
-
+	
 		public async Task<List<ReportTypeDto>> GetReportTypesAsync(int compId, int templateId)
 		{
 			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -504,17 +498,9 @@ namespace TracePca.Service.Audit
 		}
 
 
-<<<<<<< HEAD
  
         public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
         {
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
- 
-
-=======
-        public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
-        {
->>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -539,11 +525,6 @@ namespace TracePca.Service.Audit
 			return rowsAffected > 0;
 		}
 
-<<<<<<< HEAD
- 
-=======
-
->>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
         public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
         {
             if (!Directory.Exists(accessCodeDirectory))
@@ -580,7 +561,6 @@ namespace TracePca.Service.Audit
 		//	var connectionString = _configuration.GetConnectionString(dbName);
              
 		//	using var connection = new SqlConnection(connectionString);
-<<<<<<< HEAD
 
 		//	{
 		//		Directory.CreateDirectory(accessCodeDirectory);
@@ -588,14 +568,12 @@ namespace TracePca.Service.Audit
 
 		//	var sFoldersToCreate = new List<string> { "Tempfolder", sFolderName, imgDocType };
 
-=======
 		//	{
 		//		Directory.CreateDirectory(accessCodeDirectory);
 		//	}
 
 		//	var sFoldersToCreate = new List<string> { "Tempfolder", sFolderName, imgDocType };
 
->>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
 		//	foreach (var sFolder in sFoldersToCreate)
 		//	{
 		//		if (!string.IsNullOrEmpty(sFolder))
@@ -730,17 +708,14 @@ namespace TracePca.Service.Audit
 
 		//         sFileName = sFileName.Replace("&", " and").Substring(0, Math.Min(sFileName.Length, 95));
 
-<<<<<<< HEAD
  
 		//         iAttachID = await GenerateNextAttachmentIdAsync(CompId);
 		//         iDocID = await GetDocumentIdAsync(CompId);
  
-=======
 		//         iAttachID = await GenerateNextAttachmentIdAsync(CompId);
 		//         iDocID = await GetDocumentIdAsync(CompId);
             //iAttachID = iAttachID == 0 ? await GenerateNextAttachmentIdAsync(CompId) : iAttachID;
             //iDocID = await GetDocumentIdAsync(CompId);
->>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
 
 		//         if (iDocID == 0)
 		//         {
@@ -997,129 +972,102 @@ namespace TracePca.Service.Audit
 			}
 		}
 
-		public async Task<string> UploadCMAAttachmentsAsync(CMADtoAttachment dto)
-		{
-			try
-			{
+        public async Task<string> UploadCMAAttachmentsAsync(CMADtoAttachment dto)
+        {
+            try
+            {
+                string accessCodeDirectory = await GetAccessCodeDirectory(dto.CompId);
 
-				string AccessCodeDirectory = await GetAccessCodeDirectory(dto.CompId);
+                // 1. Validate file
+                if (dto.File == null || dto.File.Length == 0)
+                    throw new ArgumentException("Invalid file.");
 
-				//string UserLoginName = await GetUserName(dto.CompId, dto.UserId);
+                // 2. Generate file path
+                string fileSavingPath = await CheckOrCreateCustomDirectory(accessCodeDirectory, dto.UserId.ToString(), "Upload");
 
-				//1. Generate Filepath
-				String sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, dto.UserId.ToString(), "Upload");
+                var selectedFileName = Path.GetFileName(dto.File.FileName);
+                var fullFilePath = Path.Combine(fileSavingPath, selectedFileName);
 
+                using (var stream = new FileStream(fullFilePath, FileMode.Create))
+                {
+                    await dto.File.CopyToAsync(stream);
+                }
 
-				if (dto.File == null || dto.File.Length == 0)
-					throw new ArgumentException("Invalid file.");
+                // 3. Save attachment
+                int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
+                attachId = await SaveAttachmentsModulewise(dto, dto.CompId, accessCodeDirectory, "MRIssue", fullFilePath, dto.UserId, attachId);
 
-				var sSelectedFileName = Path.GetFileName(dto.File.FileName);
-				var fileExt = Path.GetExtension(sSelectedFileName)?.TrimStart('.');
-				var sFullFilePath = Path.Combine(sFileSavingPath, sSelectedFileName);
+                // 4. Update audit details
+                UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
 
-				using (var stream = new FileStream(sFullFilePath, FileMode.Create))
-				{
-					await dto.File.CopyToAsync(stream);
-				}
-
-<<<<<<< HEAD
- 
-				int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
-				//2.SaveAttachmentsModulewise
-				attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
- 
-                //string UserLoginName = await GetUserName(dto.CompId, dto.UserId);
-
-                //1. Generate Filepath
-               // String sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, dto.UserId.ToString(), "Upload");
- 
-
-
-				UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
- 
-=======
-				int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
-				//2.SaveAttachmentsModulewise
-				attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
-                //string UserLoginName = await GetUserName(dto.CompId, dto.UserId);
-
-                //1. Generate Filepath
-                 sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, dto.UserId.ToString(), "Upload");
+                return "Success";
+            }
+            catch (Exception ex)
+            {
+                // Log the exception for better error handling
+                return $"Error: {ex.Message}";
+            }
+        }
 
 
-				UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
+        //var sSelectedFileName = Path.GetFileName(dto.File.FileName);
+        //var fileExt = Path.GetExtension(sSelectedFileName)?.TrimStart('.');
+        //var sFullFilePath = Path.Combine(sFileSavingPath, sSelectedFileName);
 
->>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
-				return "Successs";
-			}
-			catch (Exception ex)
-			{
-				// Log the exception for better error handling
-				return $"Error: {ex.Message}";
-			}
-		}
-<<<<<<< HEAD
-  
-=======
-                //var sSelectedFileName = Path.GetFileName(dto.File.FileName);
-                //var fileExt = Path.GetExtension(sSelectedFileName)?.TrimStart('.');
-                //var sFullFilePath = Path.Combine(sFileSavingPath, sSelectedFileName);
+        //using (var stream = new FileStream(sFullFilePath, FileMode.Create))
+        //{
+        //    await dto.File.CopyToAsync(stream);
+        //}
 
-                //using (var stream = new FileStream(sFullFilePath, FileMode.Create))
-                //{
-                //    await dto.File.CopyToAsync(stream);
-                //}
-
-                //int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
-                ////2.SaveAttachmentsModulewise
-                //attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
->>>>>>> e3fc4b1b243c85fc7268843b749d5574a13fd3d0
+        //int attachId = dto.CAMDPKID > 0 ? dto.CAMDPKID : 0;
+        ////2.SaveAttachmentsModulewise
+        //attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
 
 
-		//public async Task<string> UploadCMAAttachmentsAsync(CMADtoAttachment dto)
-		//{
-		//    try
-		//    {
+        //public async Task<string> UploadCMAAttachmentsAsync(CMADtoAttachment dto)
+        //{
+        //    try
+        //    {
 
-		//        string AccessCodeDirectory = await GetAccessCodeDirectory(dto.CompId);
+        //        string AccessCodeDirectory = await GetAccessCodeDirectory(dto.CompId);
 
-		//        string UserLoginName = await GetUserName(dto.CompId, dto.UserId);
+        //        string UserLoginName = await GetUserName(dto.CompId, dto.UserId);
 
-		//        //1. Generate Filepath
-		//        String sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
-
-
-		//        if (dto.File == null || dto.File.Length == 0)
-		//            throw new ArgumentException("Invalid file.");
-
-		//        var sSelectedFileName = Path.GetFileName(dto.File.FileName);
-		//        var fileExt = Path.GetExtension(sSelectedFileName)?.TrimStart('.');
-		//        var sFullFilePath = Path.Combine(sFileSavingPath, sSelectedFileName);
-
-		//        using (var stream = new FileStream(sFullFilePath, FileMode.Create))
-		//        {
-		//            await dto.File.CopyToAsync(stream);
-		//        }
-
-		//        int attachId = 0;
-		//        //2.SaveAttachmentsModulewise
-
-		//        attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
+        //        //1. Generate Filepath
+        //        String sFileSavingPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
 
 
-		//        UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
+        //        if (dto.File == null || dto.File.Length == 0)
+        //            throw new ArgumentException("Invalid file.");
 
-		//        return "Successs";
-		//    }
-		//    catch (Exception ex)
-		//    {
-		//        // Log the exception for better error handling
-		//        return $"Error: {ex.Message}";
-		//    }
-		//}
+        //        var sSelectedFileName = Path.GetFileName(dto.File.FileName);
+        //        var fileExt = Path.GetExtension(sSelectedFileName)?.TrimStart('.');
+        //        var sFullFilePath = Path.Combine(sFileSavingPath, sSelectedFileName);
+
+        //        using (var stream = new FileStream(sFullFilePath, FileMode.Create))
+        //        {
+        //            await dto.File.CopyToAsync(stream);
+        //        }
+
+        //        int attachId = 0;
+        //        //2.SaveAttachmentsModulewise
+
+        //        attachId = await SaveAttachmentsModulewise(dto, dto.CompId, AccessCodeDirectory, "MRIssue", sFullFilePath, dto.UserId, attachId);
 
 
-		public async Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID)
+        //        UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
+
+        //        return "Successs";
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        // Log the exception for better error handling
+        //        return $"Error: {ex.Message}";
+        //    }
+        //}
+
+
+        public async Task<IEnumerable<CAMAttachmentDetailsDto>> GetCAMAttachmentDetailsAsync(int AttachID)
 		{
 			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 			//await connection.OpenAsync();

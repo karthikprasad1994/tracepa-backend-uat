@@ -39,10 +39,9 @@ namespace TracePca.Controllers.Audit
 			{
 				 
 				string apiUrl = "https://localhost:7090/api/Cabinet/LoadCabinet?deptId=5&userId=1&compID=1";
+				await _httpClient.GetAsync(apiUrl);
 
-				_httpClient.DefaultRequestHeaders.Add("CustomerCode", "");
-
-				var response = await _performanceTracker.TrackPerformanceAsync(
+                var response = await _performanceTracker.TrackPerformanceAsync(
 					async () => await _httpClient.GetAsync(apiUrl),
 					apiUrl,
 					"GET"
