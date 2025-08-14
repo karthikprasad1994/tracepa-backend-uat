@@ -291,43 +291,56 @@ namespace TracePca.Service.SuperMaster
                 {
 
                     //Checks OrgType Fisrt
-                    int orgTypeId = await connection.ExecuteScalarAsync<int?>(
-                        @"SELECT TOP 1 Cmm_ID 
-                  FROM Content_Management_Master 
-                  WHERE cmm_Category = 'ORG' 
-                    AND Cmm_CompID = @CompId 
-                    AND cmm_Desc = @OrgType",
-                        new { CompId, OrgType = objCust.OrgTypeName }, transaction
-                    ) ?? 0;
+                    // If OrgTypeName is provided (string from frontend), resolve or insert
+                    if (!string.IsNullOrWhiteSpace(objCust.OrgTypeName) && objCust.CUST_ORGTYPEID == 0)
+                    {
+                        int orgTypeId = await connection.ExecuteScalarAsync<int?>(
+                            @"SELECT TOP 1 Cmm_ID 
+          FROM Content_Management_Master 
+          WHERE cmm_Category = 'ORG' 
+            AND Cmm_CompID = @CompId 
+            AND UPPER(cmm_Desc) = UPPER(@OrgType)",
+                            new { CompId, OrgType = objCust.OrgTypeName }, transaction
+                        ) ?? 0;
 
-                    if (orgTypeId == 0)
-                    {
-                        // Get next cmm_ID before inserting
-                        int nextCmmId = await connection.ExecuteScalarAsync<int>(
-                            "SELECT ISNULL(MAX(cmm_ID) + 1, 1) FROM Content_Management_Master",
-                            transaction: transaction
-                        );
-                        //Doesn't exist → Insert new OrgType
-                        orgTypeId = await connection.ExecuteScalarAsync<int>(
-    @"INSERT INTO Content_Management_Master 
-      (cmm_ID, cmm_Code, cmm_Category, Cmm_CompID, cmm_Desc, cmm_DelFlag)
-      VALUES (@Cmm_ID, @cmm_Code, 'ORG', @CompId, @OrgType, 'A');
-      SELECT @Cmm_ID;",
-    new { Cmm_ID = nextCmmId, cmm_Code = objCust.Cmm_Code, CompId, OrgType = objCust.OrgTypeName },
-    transaction
-                        );
+                        if (orgTypeId == 0)
+                        {
+                            // Get next cmm_ID before inserting
+                            int nextCmmId = await connection.ExecuteScalarAsync<int>(
+                                "SELECT ISNULL(MAX(cmm_ID) + 1, 1) FROM Content_Management_Master",
+                                transaction: transaction
+                            );
+
+                            // Insert new OrgType
+                            orgTypeId = await connection.ExecuteScalarAsync<int>(
+                                @"INSERT INTO Content_Management_Master 
+              (cmm_ID, cmm_Code, cmm_Category, Cmm_CompID, cmm_Desc, cmm_DelFlag)
+              VALUES (@Cmm_ID, @cmm_Code, 'ORG', @CompId, @OrgType, 'A');
+              SELECT @Cmm_ID;",
+                                new
+                                {
+                                    Cmm_ID = nextCmmId,
+                                    cmm_Code = objCust.Cmm_Code,
+                                    CompId,
+                                    OrgType = objCust.OrgTypeName
+                                },
+                                transaction
+                            );
+                        }
+                        else
+                        {
+                            // Ensure it's active
+                            await connection.ExecuteAsync(
+                                @"UPDATE Content_Management_Master
+              SET cmm_DelFlag = 'A'
+              WHERE Cmm_ID = @OrgTypeId",
+                                new { OrgTypeId = orgTypeId }, transaction
+                            );
+                        }
+
+                        objCust.CUST_ORGTYPEID = orgTypeId;
                     }
-                    else
-                    {
-                        //Exists but ensure it's active
-                        await connection.ExecuteAsync(
-                            @"UPDATE Content_Management_Master
-                      SET cmm_DelFlag = 'A'
-                      WHERE Cmm_ID = @OrgTypeId",
-                            new { OrgTypeId = orgTypeId }, transaction
-                        );
-                    }
-                    objCust.CUST_ORGTYPEID = orgTypeId;
+
 
                     //Ensure Customer Code exists or activate it
                     var custRecord = await connection.QueryFirstOrDefaultAsync<(int Id, string DelFlag)>(
@@ -498,7 +511,7 @@ namespace TracePca.Service.SuperMaster
         }
 
         // SaveClientUser 
-        public async Task<List<int[]>> SuperMasterSaveClientUserAsync(int CompId, List<SaveClientUserDto> employees)
+        public async Task<List<int[]>> SuperMasterSaveClientUserAsync(int CompId, List<SaveClientUserDto> clientUser)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -515,7 +528,7 @@ namespace TracePca.Service.SuperMaster
             {
                 var results = new List<int[]>();
 
-                foreach (var objEmp in employees)
+                foreach (var objEmp in clientUser)
                 {
                     // ✅ 1. Vendor check or create
                     const string checkVendorQuery = @"
@@ -586,7 +599,7 @@ namespace TracePca.Service.SuperMaster
                     int updateOrSave, oper;
                     using var command = new SqlCommand("spEmployeeMaster", connection, transaction);
                     command.CommandType = CommandType.StoredProcedure;
-
+                           
                     command.Parameters.AddWithValue("@Usr_ID", objEmp.iUserID);
                     command.Parameters.AddWithValue("@Usr_Node", objEmp.iUsrNode);
                     command.Parameters.AddWithValue("@Usr_Code", objEmp.sUsrCode ?? string.Empty);
