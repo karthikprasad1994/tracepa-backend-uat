@@ -433,7 +433,7 @@ namespace TracePca.Service.Audit
                 dto.CurrentDate = DateTime.Now;
 
                 var templateDetails = await connection.QueryAsync<EngagementPlanTemplateReportDetailsDTO>(
-                    @"SELECT LTD_ReportTypeID, LTD_Heading, LTD_Decription FROM LOE_Template_Details WHERE LTD_FormName = 'LOE' AND LTD_LOE_ID = @LOEId AND LTD_CompID = @CompId;",
+                    @"SELECT LTD_ReportTypeID, LTD_Heading, LTD_Decription FROM LOE_Template_Details WHERE LTD_FormName = 'LOE' AND LTD_LOE_ID = @LOEId AND LTD_CompID = @CompId Order By LTD_ID;",
                     new { CompId = compId, LOEId = epPKid });
 
                 dto.EngagementTemplateDetails = templateDetails.ToList();
