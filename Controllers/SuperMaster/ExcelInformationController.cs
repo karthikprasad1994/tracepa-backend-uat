@@ -113,7 +113,7 @@ namespace TracePca.Controllers.SuperMaster
         [HttpPost("SaveClientDetails")]
         public async Task<IActionResult> SaveCustomerDetails([FromQuery] int compId, [FromBody] List<SuperMasterSaveCustomerDto> customers)
         {
-            if (customers == null || !customers.Any())
+            if (customers == null || customers.Count == 0)
                 return BadRequest("No customer data provided.");
 
             try
@@ -137,17 +137,17 @@ namespace TracePca.Controllers.SuperMaster
 
         //SaveClientUser
         [HttpPost("SaveClientUser")]
-        public async Task<IActionResult> SuperMasterSaveClientUser(int compId, [FromBody] List<SaveClientUserDto> employees)
+        public async Task<IActionResult> SuperMasterSaveClientUser(int compId, [FromBody] List<SaveClientUserDto> clientUser)
 
         {
-            if (employees == null || employees.Count == 0)
+            if (clientUser == null || clientUser.Count == 0)
             {
                 return BadRequest(new { message = "No employee data provided." });
             }
 
             try
             {
-                var results = await _ExcelInformationService.SuperMasterSaveClientUserAsync(compId, employees);
+                var results = await _ExcelInformationService.SuperMasterSaveClientUserAsync(compId, clientUser);
 
                 return Ok(new
                 {
