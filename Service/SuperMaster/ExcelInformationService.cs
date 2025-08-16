@@ -26,68 +26,7 @@ namespace TracePca.Service.SuperMaster
         }
 
         //ValidateEmployeeMasters
-        public async Task<object> ValidateExcelDataAsync(int CompId, List<SuperMasterValidateEmployeeDto> employees)
-        {
-            // ✅ Step 1: Get DB name from session
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
-            if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-            // ✅ Step 2: Get the connection string
-            var connectionString = _configuration.GetConnectionString(dbName);
-
-            // ✅ Step 3: Setup Excel
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-            var duplicates = new List<SuperMasterValidateEmployeeDto>();
-            var missingFields = new List<(string CustID, List<string> MissingFields)>();
-
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var emp in employees)
-            {
-                var missing = new List<string>();
-                emp.Partner = string.IsNullOrWhiteSpace(emp.Partner) ? "No" : emp.Partner;
-
-                if (string.IsNullOrWhiteSpace(emp.CustID)) missing.Add("CustID");
-                if (string.IsNullOrWhiteSpace(emp.CustName)) missing.Add("CustName");
-                if (string.IsNullOrWhiteSpace(emp.EmailID)) missing.Add("EmailID");
-                if (string.IsNullOrWhiteSpace(emp.LoginName)) missing.Add("LoginName");
-                if (string.IsNullOrWhiteSpace(emp.OfficePhoneNo)) missing.Add("OfficePhoneNo");
-                if (string.IsNullOrWhiteSpace(emp.Designation)) missing.Add("Designation");
-                if (string.IsNullOrWhiteSpace(emp.Partner)) missing.Add("Partner");
-
-                if (missing.Any())
-                {
-                    missingFields.Add((emp.CustID ?? "UNKNOWN", missing));
-                    continue;
-                }
-
-                // Duplicate check (CustName + EmailID)
-                string key = $"{emp.CustName.Trim().ToLower()}|{emp.EmailID.Trim().ToLower()}";
-
-                if (!seen.Add(key))
-                {
-                    duplicates.Add(new SuperMasterValidateEmployeeDto
-                    {
-                        CustID = emp.CustID,
-                        CustName = emp.CustName,
-                        EmailID = emp.EmailID
-                    });
-                }
-            }
-            return new
-            {
-                Duplicates = duplicates,
-                MissingFields = missingFields.Select(x => new
-                {
-                    CustID = x.CustID,
-                    MissingFields = x.MissingFields
-                }).ToList()
-            };
-        }
-
+       
 
         //SaveEmployeeMaster
         public async Task<List<int[]>> SuperMasterSaveEmployeeDetailsAsync(int CompId, List<SuperMasterSaveEmployeeMasterDto> employees)
@@ -202,70 +141,120 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
-        //ValidateClientDetails
-        public async Task<object> ValidateClientDetailsAsync(int CompId, List<SuperMasterValidateClientDetailsDto> employees)
+        //UploadClientDetails
+        public async Task<List<int>> UploadClientDetailsAsync( int CompId, IFormFile excelFile, string sheetName)
         {
+            var customers = new List<SuperMasterSaveCustomerDto>();
+
+            // ✅ Step 0: If Excel file is provided, parse into DTO list
+            if (excelFile != null && excelFile.Length > 0)
+            {
+                using var stream = new MemoryStream();
+                await excelFile.CopyToAsync(stream);
+                stream.Position = 0;
+
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial; // EPPlus license requirement
+                using var package = new ExcelPackage(stream);
+
+                var worksheet = package.Workbook.Worksheets[sheetName];
+                if (worksheet == null)
+                    throw new Exception($"Sheet '{sheetName}' not found in Excel file.");
+
+                int rowCount = worksheet.Dimension.Rows;
+                for (int row = 2; row <= rowCount; row++) // Skip header
+                {
+                    var dto = new SuperMasterSaveCustomerDto
+                    {
+                        CUST_ID = int.Parse(worksheet.Cells[row, 1].Text ?? "0"),
+                        CUST_NAME = worksheet.Cells[row, 2].Text,
+                        CUST_CODE = worksheet.Cells[row, 3].Text,
+                        CUST_WEBSITE = worksheet.Cells[row, 4].Text,
+                        CUST_EMAIL = worksheet.Cells[row, 5].Text,
+                        OrgTypeName = worksheet.Cells[row, 6].Text,
+                        CUST_ORGTYPEID = int.Parse(worksheet.Cells[row, 7].Text ?? "0"),
+                        LocationName = worksheet.Cells[row, 8].Text,
+                        Address = worksheet.Cells[row, 9].Text,
+                        ContactPerson = worksheet.Cells[row, 10].Text,
+                        Mobile = worksheet.Cells[row, 11].Text,
+                        Landline = worksheet.Cells[row, 12].Text,
+                        Email = worksheet.Cells[row, 13].Text,
+                        CIN = worksheet.Cells[row, 14].Text,
+                        TAN = worksheet.Cells[row, 15].Text,
+                        GST = worksheet.Cells[row, 16].Text,
+                        CUST_CRBY = int.Parse(worksheet.Cells[row, 17].Text ?? "0"),
+                        CUST_UpdatedBy = int.Parse(worksheet.Cells[row, 18].Text ?? "0"),
+                        CUST_CompID = CompId
+                    };
+
+                    customers.Add(dto);
+                }
+            }
+
+            if (customers == null || !customers.Any())
+                throw new Exception("No valid customer data found to save.");
+
+            var resultIds = new List<int>();
+
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
+            // ✅ Step 2: Get connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Setup Excel
+            // ✅ Step 3: Save to DB
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            var duplicates = new List<SuperMasterValidateClientDetailsDto>();
-            var missingFields = new List<(string CustID, List<string> MissingFields)>();
+            using var transaction = connection.BeginTransaction();
 
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var emp in employees)
+            try
             {
-                var missing = new List<string>();
-
-                if (string.IsNullOrWhiteSpace(emp.CustID)) missing.Add("CustID");
-                if (string.IsNullOrWhiteSpace(emp.CustName)) missing.Add("CustName");
-                if (string.IsNullOrWhiteSpace(emp.OrganisationType)) missing.Add("OrganisationType");
-                if (string.IsNullOrWhiteSpace(emp.Address)) missing.Add("Address");
-                if (string.IsNullOrWhiteSpace(emp.City)) missing.Add("City");
-                if (string.IsNullOrWhiteSpace(emp.EmailID)) missing.Add("Email");
-                if (string.IsNullOrWhiteSpace(emp.MobileNo)) missing.Add("MobileNo");
-                if (string.IsNullOrWhiteSpace(emp.IndustryType)) missing.Add("LocationName");
-                if (string.IsNullOrWhiteSpace(emp.LocationName)) missing.Add("ContactPerson");
-                if (string.IsNullOrWhiteSpace(emp.ContactPerson)) missing.Add("ContactPerson");
-
-                if (missing.Any())
+                foreach (var dto in customers)
                 {
-                    missingFields.Add((emp.CustID ?? "UNKNOWN", missing));
-                    continue;
-                }
-
-                // Duplicate check (CustName + EmailID)
-                string key = $"{emp.CustName.Trim().ToLower()}|{emp.EmailID.Trim().ToLower()}";
-
-                if (!seen.Add(key))
-                {
-                    duplicates.Add(new SuperMasterValidateClientDetailsDto
+                    using (var cmd = new SqlCommand("spSuperMaster_SaveCustomer", connection, transaction))
                     {
-                        CustID = emp.CustID,
-                        CustName = emp.CustName,
-                        EmailID = emp.EmailID
-                    });
+                        cmd.CommandType = CommandType.StoredProcedure;
+
+                        cmd.Parameters.AddWithValue("@CUST_ID", dto.CUST_ID);
+                        cmd.Parameters.AddWithValue("@CUST_NAME", dto.CUST_NAME ?? "");
+                        cmd.Parameters.AddWithValue("@CUST_CODE", dto.CUST_CODE ?? "");
+                        cmd.Parameters.AddWithValue("@CUST_WEBSITE", dto.CUST_WEBSITE ?? "");
+                        cmd.Parameters.AddWithValue("@CUST_EMAIL", dto.CUST_EMAIL ?? "");
+                        cmd.Parameters.AddWithValue("@OrgTypeName", dto.OrgTypeName ?? "");
+                        cmd.Parameters.AddWithValue("@CUST_ORGTYPEID", dto.CUST_ORGTYPEID);
+                        cmd.Parameters.AddWithValue("@LocationName", dto.LocationName ?? "");
+                        cmd.Parameters.AddWithValue("@Address", dto.Address ?? "");
+                        cmd.Parameters.AddWithValue("@ContactPerson", dto.ContactPerson ?? "");
+                        cmd.Parameters.AddWithValue("@Mobile", dto.Mobile ?? "");
+                        cmd.Parameters.AddWithValue("@Landline", dto.Landline ?? "");
+                        cmd.Parameters.AddWithValue("@Email", dto.Email ?? "");
+                        cmd.Parameters.AddWithValue("@CIN", dto.CIN ?? "");
+                        cmd.Parameters.AddWithValue("@TAN", dto.TAN ?? "");
+                        cmd.Parameters.AddWithValue("@GST", dto.GST ?? "");
+                        cmd.Parameters.AddWithValue("@CUST_CRBY", dto.CUST_CRBY);
+                        cmd.Parameters.AddWithValue("@CUST_UpdatedBy", dto.CUST_UpdatedBy);
+                        cmd.Parameters.AddWithValue("@CUST_CompID", dto.CUST_CompID);
+
+                        var outParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        cmd.Parameters.Add(outParam);
+
+                        await cmd.ExecuteNonQueryAsync();
+
+                        resultIds.Add((int)(outParam.Value ?? 0));
+                    }
                 }
+
+                transaction.Commit();
+                return resultIds;
             }
-            return new
+            catch (Exception ex)
             {
-                Duplicates = duplicates,
-                MissingFields = missingFields.Select(x => new
-                {
-                    CustID = x.CustID,
-                    MissingFields = x.MissingFields
-                }).ToList()
-            };
+                transaction.Rollback();
+                throw new Exception("Error while saving or updating customers: " + ex.Message, ex);
+            }
         }
+
 
         //SaveClientDetails
         public async Task<List<int[]>> SuperMasterSaveCustomerDetailsAsync(int CompId, List<SuperMasterSaveCustomerDto> customers)

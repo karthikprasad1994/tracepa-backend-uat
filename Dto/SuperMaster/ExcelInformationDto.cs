@@ -3,16 +3,7 @@
     public class ExcelInformationDto
     {
         //ValidateEmployeeMasters
-        public class SuperMasterValidateEmployeeDto
-        {
-            public string CustID { get; set; }
-            public string CustName { get; set; }
-            public string EmailID { get; set; }
-            public string LoginName { get; set; }
-            public string OfficePhoneNo { get; set; }
-            public string Designation { get; set; }
-            public string Partner { get; set; } 
-        }
+       
 
         //SaveEmployeeMaster
         public class SuperMasterSaveEmployeeMasterDto
@@ -69,21 +60,30 @@
         }
 
 
-        //ValidateClientDetails
-        public class SuperMasterValidateClientDetailsDto
+        //UploadClientDetails
+        public class UploadClientDetailsDto
         {
-            public string CustID { get; set; }
-            public string CustName { get; set; }
-            public string OrganisationType { get; set; }
-            public string Address { get; set; }
-            public string City { get; set; }
-            public string EmailID { get; set; }
-            public string MobileNo { get; set; }
-            public string IndustryType { get; set; }
+            public int CUST_ID { get; set; }
+            public string CUST_NAME { get; set; }
+            public string CUST_CODE { get; set; }
+            public string CUST_WEBSITE { get; set; }
+            public string CUST_EMAIL { get; set; }
+            public string OrgTypeName { get; set; }
+            public int CUST_ORGTYPEID { get; set; }
             public string LocationName { get; set; }
+            public string Address { get; set; }
             public string ContactPerson { get; set; }
-
+            public string Mobile { get; set; }
+            public string Landline { get; set; }
+            public string Email { get; set; }
+            public string CIN { get; set; }
+            public string TAN { get; set; }
+            public string GST { get; set; }
+            public int CUST_CRBY { get; set; }
+            public int CUST_UpdatedBy { get; set; }
+            public int CUST_CompID { get; set; }
         }
+
 
         //SaveClientDetails
         public class SuperMasterSaveCustomerDto
