@@ -22,8 +22,33 @@ namespace TracePca.Controllers.SuperMaster
             //_ExcelInformationService = ExcelInformationInterface;
         }
 
-        //ValidateEmployeeMasters
-       
+        //UploadEmployeeMasters
+        [HttpPost("UploadEmployeeMasters")]
+        public async Task<IActionResult> UploadEmployeeMaster([FromQuery] int compId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No file uploaded.");
+
+            try
+            {
+                var results = await _ExcelInformationService.SaveEmployeeDetailsAsync(compId, file);
+                return Ok(new
+                {
+                    Success = true,
+                    Message = "Employee master processed successfully",
+                    Details = results
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    Success = false,
+                    Message = "Error processing employee master",
+                    Error = ex.Message
+                });
+            }
+        }
        
 
         //SaveEmployeeMaster

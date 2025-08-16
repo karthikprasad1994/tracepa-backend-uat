@@ -2,11 +2,71 @@
 {
     public class ExcelInformationDto
     {
-        //ValidateEmployeeMasters
-       
+        //UploadEmployeeMasters
+        public class UploadEmployeeMasterDto
+        {
+            public string EmpCode { get; set; }           // Employee Code
+            public string EmployeeName { get; set; }      // Employee Full Name
+            public string LoginName { get; set; }         // Login Name
+            public string Email { get; set; }             // Email
+            public string Designation { get; set; }       // Designation (Excel text, mapped to DesignationId)
+            public string Role { get; set; }              // Role (Excel text, mapped to RoleId)
+            public string Partner { get; set; }
 
-        //SaveEmployeeMaster
-        public class SuperMasterSaveEmployeeMasterDto
+
+            // 🔹 Optional Fields (present in Excel)
+            public int? EmpId { get; set; }
+            public int? EmpNode { get; set; }
+            public int? LevelGrp { get; set; }
+            public int? EmpCategory { get; set; }
+            public int? CompanyId { get; set; }
+            public string OfficePhoneNo { get; set; }
+            public string Password { get; set; }
+            public string DelFlag { get; set; }
+            public string Status { get; set; }
+            public string IPAddress { get; set; }
+            public int? CompId { get; set; }
+            public string Type { get; set; }
+            public int? IsSuperuser { get; set; }
+            public int? DeptID { get; set; }
+            public int? MemberType { get; set; }
+            public int? Levelcode { get; set; }
+            public int? Suggestions { get; set; }
+
+            // 🔹 Extra fields required by SP but not in your DTO yet
+            public string DutyStatus { get; set; }        // e.g. "A" = Active
+            public string PhoneNo { get; set; }           // Landline or alternate
+            public string MobileNo { get; set; }
+            public string OfficePhoneExtn { get; set; }
+
+            public int? OrgnId { get; set; }
+            public int? GrpOrUserLvlPerm { get; set; }
+
+            // 🔹 Module flags
+            public int? MasterModule { get; set; }
+            public int? AuditModule { get; set; }
+            public int? RiskModule { get; set; }
+            public int? ComplianceModule { get; set; }
+            public int? BCMModule { get; set; }
+            public int? DigitalOfficeModule { get; set; }
+
+            // 🔹 Role flags
+            public int? MasterRole { get; set; }
+            public int? AuditRole { get; set; }
+            public int? RiskRole { get; set; }
+            public int? ComplianceRole { get; set; }
+            public int? BCMRole { get; set; }
+            public int? DigitalOfficeRole { get; set; }
+
+            // 🔹 Metadata
+            public int? CreatedBy { get; set; }
+            public int? UpdatedBy { get; set; }
+
+        }
+
+
+            //SaveEmployeeMaster
+            public class SuperMasterSaveEmployeeMasterDto
         {
             public int iUserID { get; set; }
             public int iUsrNode { get; set; }
