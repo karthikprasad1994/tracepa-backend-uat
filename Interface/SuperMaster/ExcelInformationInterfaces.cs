@@ -7,13 +7,13 @@ namespace TracePca.Interface.SuperMaster
     public interface ExcelInformationInterfaces
     {
         //ValidateEmployeeMasters
-        Task<object> ValidateExcelDataAsync(int CompId, List<SuperMasterValidateEmployeeDto> employees);
+        Task<List<string>> SaveEmployeeDetailsAsync(int compId, IFormFile file);
 
         //SaveEmployeeMaster
         Task<List<int[]>> SuperMasterSaveEmployeeDetailsAsync(int CompId, List<SuperMasterSaveEmployeeMasterDto> employees);
 
-        //ValidateClientDetails
-        Task<object> ValidateClientDetailsAsync(int CompId, List<SuperMasterValidateClientDetailsDto> employees);
+        //UploadClientDetails
+        Task<List<int>> UploadClientDetailsAsync(int CompId, IFormFile excelFile, string sheetName);
 
         //SaveClientDetails
         Task<List<int[]>> SuperMasterSaveCustomerDetailsAsync(int CompId, List<SuperMasterSaveCustomerDto> customers);

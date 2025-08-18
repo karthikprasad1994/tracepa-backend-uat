@@ -29,6 +29,10 @@ namespace TracePca.Interface.FIN_Statement
         Task<List<int>> ClientTrailBalanceAsync(int CompId, List<ClientTrailBalance> items);
 
         //SaveJournalEntry
-        Task<List<int>> SaveCompleteTrailBalanceAsync(int CompId, List<TrailBalanceCompositeModel> models);
+        Task<List<int>> SaveCompleteTrailBalanceAsync(
+            int CompId,
+            List<TrailBalanceCompositeModel> models,
+            IFormFile excelFile,
+            string sheetName);
     }
 }

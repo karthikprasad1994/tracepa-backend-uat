@@ -89,8 +89,14 @@ namespace TracePca.Service.DigitalFilling
             //string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
 
             //string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+<<<<<<< HEAD
+            string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+
+
+=======
 
             string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+>>>>>>> 3718b6ed8cca5a93787ab2dbf23a5241dfae601a
             if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
 
@@ -115,12 +121,14 @@ namespace TracePca.Service.DigitalFilling
 
         public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID, CabinetDto dto)
         {
-			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-			//await connection.OpenAsync();
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //await connection.OpenAsync();
+            string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
 
-			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-			if (string.IsNullOrEmpty(dbName))
+            //string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
 
 			// ✅ Step 2: Get the connection string

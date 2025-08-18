@@ -233,37 +233,31 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //SaveJournalEntry
-        [HttpPost("SaveJournalEntry")]
-        public async Task<IActionResult> SaveCompleteTrailBalance([FromQuery] int CompId, [FromBody] List<TrailBalanceCompositeModel> models)
+      
+        [HttpPost("uploadJE")]
+        public async Task<IActionResult> UploadTrailBalance(
+       int compId,
+       IFormFile excelFile,
+       string sheetName)
         {
+            if (excelFile == null || excelFile.Length == 0)
+                return BadRequest("No file uploaded.");
+
             try
             {
-                if (models == null || !models.Any())
-                {
-                    return BadRequest(new
-                    {
-                        statusCode = 400,
-                        message = "Invalid input data.",
-                        data = (object)null
-                    });
-                }
-                var result = await _ScheduleExcelUploadService.SaveCompleteTrailBalanceAsync(CompId, models);
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Trail balance data saved successfully.",
-                    data = result
-                });
+                var resultIds = await _ScheduleExcelUploadService.SaveCompleteTrailBalanceAsync(
+                    compId,
+                    null, // models will be filled from Excel inside service
+                    excelFile,
+                    sheetName
+                );
+
+                return Ok(new { Success = true, SavedIds = resultIds });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An error occurred while saving trail balance data.",
-                    error = ex.Message
-                });
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { Success = false, Message = ex.Message });
             }
         }
     }
