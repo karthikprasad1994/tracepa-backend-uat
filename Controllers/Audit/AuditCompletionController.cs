@@ -372,11 +372,11 @@ namespace TracePca.Controllers.Audit
         }
 
         [HttpPost("GenerateACSubPointsReportAndGetURLPath")]
-        public async Task<IActionResult> GenerateACSubPointsReportAndGetURLPath(int compId, int auditId, string format = "pdf")
+        public async Task<IActionResult> GenerateACSubPointsReportAndGetURLPath(int compId, int auditId, int userId, string format = "pdf")
         {
             try
             {
-                var url = await _auditCompletionInterface.GenerateReportAndGetURLPathAsync(compId, auditId, format);
+                var url = await _auditCompletionInterface.GenerateACSubPointsReportAndGetURLPathAsync(compId, auditId, userId, format);
                 return Ok(new { statusCode = 200, message = "Audit Completion sub points report generated successfully. Download URL is available.", fileUrl = url });
             }
             catch

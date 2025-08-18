@@ -137,7 +137,7 @@ namespace TracePca.Service.Audit
                 var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
                     CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
                     CASE WHEN ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isReviewer,
-                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, SA_Status As Status 
+                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, SA_Status As Status, SA_AuditFrameworkId As AuditFrameworkId 
                     FROM StandardAudit_Schedule SA LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
                     WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId ";
 
@@ -164,6 +164,35 @@ namespace TracePca.Service.Audit
             catch (Exception ex)
             {
                 throw new ApplicationException("An error occurred while loading audit no DDL data", ex);
+            }
+        }
+
+        public async Task<AuditDropDownListDataDTO> LoadWorkpaperCheckListDDLAsync(int compId, int auditId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var parameters = new
+                {
+                    CompId = compId,
+                    AuditId = auditId
+                };
+
+                var sql = @"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master WHERE cmm_Delflag = 'A' AND cmm_Category = 'WCM' AND cmm_CompID = @CompId AND 
+            cms_KeyComponent IN (SELECT SA_AuditFrameworkId FROM StandardAudit_Schedule WHERE SA_ID = @AuditId AND SA_CompID = @CompId) ORDER BY cmm_Desc ASC";
+
+                var workpaperCheckList = await connection.QueryAsync<DropDownListData>(sql, parameters);
+
+                return new AuditDropDownListDataDTO
+                {
+                    WorkpaperCheckList = workpaperCheckList.ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while loading Workpaper CheckList DDL data", ex);
             }
         }
 
@@ -990,7 +1019,7 @@ namespace TracePca.Service.Audit
                   WHERE LOE.LOE_CompID = @CompId AND SA.SA_ID = @AuditId;", new { CompId = compId, AuditId = auditId });
 
             List<ConductAuditReportDetailDTO> dtoCA = await _auditCompletionInterface.GetConductAuditReportAsync(compId, auditId);
-            List<ConductAuditObservationDTO> dtoCAO = await _auditCompletionInterface.GetConductAuditObservationsAsync(compId, auditId);
+            List<ConductAuditRemarksReportDTO> dtoCAO = await _auditCompletionInterface.GetConductAuditRemarksReportAsync(compId, auditId);
 
             var reportTypeList = await connection.QueryAsync<DropDownListData>(@"SELECT RTM_Id AS ID, RTM_ReportTypeName As Name FROM SAD_ReportTypeMaster
                     WHERE RTM_TemplateId = 4 And RTM_DelFlag = 'A' AND RTM_CompID = @CompId ORDER BY RTM_ReportTypeName", new { CompId = compId }); //RTM_TemplateId = 4 And RTM_AudrptType = 3
@@ -1086,6 +1115,8 @@ namespace TracePca.Service.Audit
                                         columns.RelativeColumn(0.5f);
                                         columns.RelativeColumn(2);
                                         columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
                                     });
 
                                     table.Header(header =>
@@ -1093,15 +1124,17 @@ namespace TracePca.Service.Audit
                                         header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Check Point").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Observations").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Remarks By").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Client Remarks").FontSize(10).Bold();
                                     });
 
-                                    int slNo = 1;
                                     foreach (var details in dtoCAO)
                                     {
-                                        table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.SrNo.ToString()).FontSize(10);
                                         table.Cell().Element(CellStyle).Text(details.CheckPoint.ToString()).FontSize(10);
                                         table.Cell().Element(CellStyle).Text(details.Observations.ToString()).FontSize(10);
-                                        slNo++;
+                                        table.Cell().Element(CellStyle).Text(details.RemarksBy.ToString() + "(" + details.RemarksByRole + ")").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ClientRemarks.ToString()).FontSize(10);
                                     }
                                     static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
                                 });

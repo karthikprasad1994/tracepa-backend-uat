@@ -51,5 +51,9 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetPreviousLoadId
         Task<(int? HeadingId, int? SubHeadingId, int? ItemId)> GetPreviousLoadIdAsync(int? subItemId = null, int? itemId = null, int? subHeadingId = null);
+
+        //UpdateNetIncome
+        Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, string branchId, int durationId);
+
     }
 }

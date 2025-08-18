@@ -200,7 +200,7 @@ namespace TracePca.Dto.FIN_Statement
             public string ATBU_IPAddress { get; set; }
             public int ATBU_CompId { get; set; }
             public int ATBU_YEARId { get; set; }
-            public int ATBU_Branchid { get; set; }
+            public string ATBU_Branchid { get; set; }
             public int ATBU_QuarterId { get; set; }
 
             // UploadDetails properties (from TrailBalanceUploadDetailsDto)
@@ -302,6 +302,18 @@ namespace TracePca.Dto.FIN_Statement
             public int? ItemId { get; set; }
             public int? SubItemId { get; set; }
         }
+
+        //UploadTrialBalance
+        public class UpdateNetIncomeRequestDto
+        {
+            public int CompId { get; set; }
+            public int CustId { get; set; }
+            public int UserId { get; set; }
+            public int YearId { get; set; }
+            public string BranchId { get; set; } = string.Empty;
+            public int DurationId { get; set; }
+        }
+
     }
 }
 

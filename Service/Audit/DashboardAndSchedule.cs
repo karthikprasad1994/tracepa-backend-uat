@@ -1,10 +1,14 @@
 ﻿using Dapper;
+using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 using System.Data;
 using System.Data.Common;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -22,14 +26,17 @@ namespace TracePca.Service.Audit
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
 
-        public DashboardAndSchedule(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public DashboardAndSchedule(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IHttpClientFactory httpClientFactory)
         {
             _httpContextAccessor = httpContextAccessor;
             _dbcontext = dbcontext;
             _configuration = configuration;
+            _httpClientFactory = httpClientFactory;
+
         }
 
 
@@ -707,6 +714,8 @@ ORDER BY SrNo";
                 command.Parameters.AddWithValue("@SA_IPAddress", dto.SA_IPAddress ?? (object)DBNull.Value);
                 command.Parameters.AddWithValue("@SA_CompID", dto.SA_CompID != null ? (object)dto.SA_CompID : DBNull.Value);
 
+                command.Parameters.AddWithValue("@SA_AuditFrameworkId", dto.SA_AuditFrameworkId != null ? (object)dto.SA_AuditFrameworkId : DBNull.Value);
+
                 // Output Parameters
                 command.Parameters.Add("@Out_Message", SqlDbType.VarChar, 100).Direction = ParameterDirection.Output;
                 command.Parameters.Add("@Out_AuditScheduleID", SqlDbType.Int).Direction = ParameterDirection.Output;
@@ -1242,9 +1251,9 @@ ORDER BY SrNo";
                         parameters.Add("@SA_RptRvDate", dto.ReportReviewDate);         // MISSING
                         parameters.Add("@SA_RptFilDate", dto.ReportFilingDate);         // MISSING
                         parameters.Add("@SA_MRSDate", dto.DateForMRS);                  // MISSING
-                        parameters.Add("@SA_AuditOpinionDate", dto.ReportReviewDate);
-                        parameters.Add("@SA_FilingDateSEC", dto.ReportFilingDate);
-                        parameters.Add("@SA_MRLDate", dto.DateForMRS);
+                        parameters.Add("@SA_AuditOpinionDate", dto.SA_AuditOpinionDate);
+                        parameters.Add("@SA_FilingDateSEC", dto.SA_FilingDateSEC);
+                        parameters.Add("@SA_MRLDate", dto.SA_MRLDate);
                         parameters.Add("@SA_FilingDatePCAOB", dto.ReportFilingDatePCAOB);
                         parameters.Add("@SA_BinderCompletedDate", dto.BinderCompletedDate);
                         parameters.Add("@SA_IntervalId", dto.IntervalId);
@@ -1252,6 +1261,7 @@ ORDER BY SrNo";
                         parameters.Add("@SA_UpdatedBy", dto.UserID);
                         parameters.Add("@SA_IPAddress", dto.IPAddress);
                         parameters.Add("@SA_CompID", dto.CompID);
+                        parameters.Add("@SA_AuditFrameworkId", dto.SA_AuditFrameworkId != null ? (object)dto.SA_AuditFrameworkId : DBNull.Value);
 
                         // OUTPUT parameters
                         parameters.Add("@iUpdateOrSave", 2, direction: ParameterDirection.InputOutput);
@@ -2225,6 +2235,126 @@ ORDER BY SrNo";
         //        IPAddress = ipAddress
         //    });
         //}
+
+
+        public async Task<DiscoveryResponseDto> GetAnswerAsync(string question)
+        {
+            string answerUrl = _configuration["DiscoveryEngine:AnswerUrl"];
+            string serviceAccountPath = _configuration["DiscoveryEngine:ServiceAccountPath"];
+
+            GoogleCredential credential = GoogleCredential.FromFile(serviceAccountPath)
+                .CreateScoped("https://www.googleapis.com/auth/cloud-platform");
+
+            string token = await credential.UnderlyingCredential.GetAccessTokenForRequestAsync();
+
+            var client = _httpClientFactory.CreateClient();
+
+            var answerBody = new
+            {
+                query = new { text = question, queryId = "" },
+                session = "",
+                relatedQuestionsSpec = new { enable = true },
+                answerGenerationSpec = new
+                {
+                    ignoreAdversarialQuery = true,
+                    ignoreNonAnswerSeekingQuery = true,
+                    ignoreLowRelevantContent = true,
+                    includeCitations = true,
+                    modelSpec = new { modelVersion = "stable" }
+                }
+            };
+
+            string content = JsonConvert.SerializeObject(answerBody);
+            var request = new HttpRequestMessage(HttpMethod.Post, answerUrl)
+            {
+                Content = new StringContent(content, Encoding.UTF8, "application/json")
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await client.SendAsync(request);
+            var jsonResult = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception("Token expired or invalid: " + jsonResult);
+            }
+
+            JObject json = JObject.Parse(jsonResult);
+            string answerText = json["answer"]?["answerText"]?.ToString() ?? "No answer found";
+
+            //string redirectLinkText = FeatureMapper.GetFeatureLink(question);
+            if (answerText == "No results could be found. Try rephrasing the search query.")
+            {
+                answerText = "";
+            }
+            return new DiscoveryResponseDto
+            {
+                Answer = answerText,
+                RedirectLinkText = ""
+            };
+        }
+
+        public static class FeatureMapper
+        {
+            public static string GetFeatureLink(string input)
+            {
+                string q = input.ToLower();
+
+                if (q.Contains("cabinet") || q.Contains("subcabinet")) return "Cabinet";
+                if (q.Contains("folder")) return "Folder";
+                if (q.Contains("descriptor")) return "Descriptor";
+                if (q.Contains("document type")) return "Document Type";
+                if (q.Contains("document search") || q.Contains("search")) return "Document Search";
+                if (q.Contains("index") || q.Contains("indexing") || q.Contains("file upload")) return "Index";
+                if (q.Contains("digital vouching") || q.Contains("vouching")) return "Digital Vouching";
+                if (q.Contains("digital filling") || q.Contains("digital") || q.Contains("filling")) return "Digital Filling";
+                if (q.Contains("digital office") || q.Contains("office")) return "Digital Office";
+
+                // Add more conditions as needed...
+
+                if (q.Contains("audit report")) return "Audit Report";
+                if (q.Contains("audit")) return "Audit";
+                if (q.Contains("finalization")) return "Finalization of Account";
+
+                return string.Empty;
+            }
+        }
+
+        public async Task<LoeAuditFrameworkResponse> GetLoeAuditFrameworkIdAsync(LoeAuditFrameworkRequest request)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Build full connection string using appsettings pattern
+            string baseConnectionString = _configuration.GetConnectionString(dbName);
+            string connectionString = string.Format(baseConnectionString, dbName);
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                string sql = @"SELECT LOE_AuditFrameworkId 
+                       FROM SAD_CUST_LOE 
+                       WHERE LOE_CustomerId = @CustomerId 
+                         AND LOE_YearId = @YearId 
+                         AND LOE_ServiceTypeId = @ServiceTypeId";
+
+                var result = await connection.QueryFirstOrDefaultAsync<int?>(sql, new
+                {
+                    CustomerId = request.CustomerId,
+                    YearId = request.YearId,
+                    ServiceTypeId = request.ServiceTypeId
+                });
+
+                return new LoeAuditFrameworkResponse
+                {
+                    LoeAuditFrameworkId = result ?? 0
+                };
+            }
+        }
+       
+
     }
 }
 

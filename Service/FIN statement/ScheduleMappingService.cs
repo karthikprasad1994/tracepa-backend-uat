@@ -28,6 +28,7 @@ using static TracePca.Service.FIN_statement.ScheduleMappingService;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using StackExchange.Redis;
+using DocumentFormat.OpenXml.Bibliography;
 namespace TracePca.Service.FIN_statement
 {
     public class ScheduleMappingService : ScheduleMappingInterface
@@ -45,7 +46,7 @@ namespace TracePca.Service.FIN_statement
             _configuration = configuration;
             _env = env;
             _httpContextAccessor = httpContextAccessor;
-        }  
+        }
 
         //GetScheduleHeading
         public async Task<IEnumerable<ScheduleHeadingDto>> GetScheduleHeadingAsync(int CompId, int CustId, int ScheduleTypeId)
@@ -169,11 +170,11 @@ namespace TracePca.Service.FIN_statement
             AND b.ASSI_Name IS NOT NULL 
             AND b.ASSI_ID IS NOT NULL";
 
-            return await connection.QueryAsync<ScheduleSubItemDto>(query, new {CompId, CustId, ScheduleTypeId });
+            return await connection.QueryAsync<ScheduleSubItemDto>(query, new { CompId, CustId, ScheduleTypeId });
         }
 
         //GetTotalAmount
-        public async Task<IEnumerable<CustCOASummaryDto>>  GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId)
+        public async Task<IEnumerable<CustCOASummaryDto>> GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -230,24 +231,23 @@ WHERE
     AND a.ATBU_QuarterId = @durationId
     AND a.ATBU_Description <> 'Net income';";
 
-            return await connection.QueryAsync<CustCOASummaryDto>(query, new{ CompId, CustId, YearId, BranchId, DurationId});
+            return await connection.QueryAsync<CustCOASummaryDto>(query, new { CompId, CustId, YearId, BranchId, DurationId });
         }
 
         //GetTrailBalance(Grid)
-        public async Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
+        public async Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(
+      int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
         {
-            // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
+
             var query = @"
 SELECT 
     ROW_NUMBER() OVER (ORDER BY ATBU_ID ASC) AS SrNo,
@@ -321,7 +321,12 @@ WHERE a.ATBU_CustId = @custId
     AND a.ATBU_YEARId = @yearId
     AND a.ATBU_BranchId = @branchId
     AND a.ATBU_QuarterId = @durationId
-    " + (Unmapped != 0 ? "AND ATBUD_Headingid = 0 AND ATBUD_Subheading = 0 AND ATBUD_itemid = 0 AND ATBUD_SubItemId = 0" : "") + @"
+" + (Unmapped == 1 ? @"AND (
+        ISNULL(ATBUD_Headingid, 0) = 0 and  
+        ISNULL(ATBUD_Subheading, 0) = 0 and  
+        ISNULL(ATBUD_itemid, 0) = 0 and 
+        ISNULL(ATBUD_SubItemId, 0) = 0
+    )" : "") + @"
 GROUP BY b.ATBUD_ID, a.ATBU_ID, a.ATBU_Code, a.ATBU_CustId, a.ATBU_Description, a.ATBU_Opening_Debit_Amount,
          a.ATBU_Opening_Credit_Amount, a.ATBU_TR_Debit_Amount, a.ATBU_TR_Credit_Amount,
          a.ATBU_Closing_TotalDebit_Amount, a.ATBU_Closing_TotalCredit_Amount,
@@ -331,8 +336,18 @@ GROUP BY b.ATBUD_ID, a.ATBU_ID, a.ATBU_Code, a.ATBU_CustId, a.ATBU_Description, 
 ORDER BY ATBU_ID;";
 
             return await connection.QueryAsync<CustCOADetailsDto>(query, new
-            {CompId, CustId, YearId, ScheduleTypeId, Unmapped, BranchId, DurationId });
+            {
+                CompId,
+                CustId,
+                YearId,
+                ScheduleTypeId,
+                Unmapped,
+                BranchId,
+                DurationId
+            });
+
         }
+
 
         //FreezeForPreviousDuration
         public async Task<int[]> FreezePreviousYearTrialBalanceAsync(FreezePreviousDurationRequestDto input)
@@ -589,7 +604,7 @@ WHERE ATBUD_Description = @AtbudDescription
                     detailParams.Add("@ATBUD_Description", item.AtbudDescription ?? string.Empty);
                     detailParams.Add("@ATBUD_CustId", item.AtbudCustId);
                     detailParams.Add("@ATBUD_SChedule_Type", item.AtbudScheduleType);
-                    detailParams.Add("@ATBUD_Branchid", item.AtbudBranchId); 
+                    detailParams.Add("@ATBUD_Branchid", item.AtbudBranchId);
                     detailParams.Add("@ATBUD_QuarterId", item.AtbudQuarterId);
                     detailParams.Add("@ATBUD_Company_Type", item.AtbudCompanyType);
                     detailParams.Add("@ATBUD_Headingid", item.AtbudHeadingId);
@@ -649,7 +664,17 @@ WHERE ATBUD_Description = @AtbudDescription
         //SaveTrailBalnceDetails
         public async Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDetailsDto> dtos)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
             var insertedIds = new List<int>();
@@ -657,20 +682,22 @@ WHERE ATBUD_Description = @AtbudDescription
             try
             {
 
-                //                var query = @"
-                //select CUST_ORGTYPEID as OrgId 
-                //from SAD_CUSTOMER_MASTER 
-                //where CUST_ID = @CompanyId and CUST_DELFLG = 'A'";
-                //                int OrgId = await connection.QueryFirstOrDefaultAsync<int>(query, new
-                //                {
+                var query = @"
+                select CUST_ORGTYPEID as OrgId 
+                from SAD_CUSTOMER_MASTER 
+                where CUST_ID = @CompanyId and CUST_DELFLG = 'A'";
+                int OrgId = await connection.QueryFirstOrDefaultAsync<int>(query, new
+                {
+                    CompanyId = dtos[0].ATBU_CustId
+                }, transaction);
 
-                //                    CompanyId = dtos[0].ATBU_CustId
-                //                });
                 foreach (var dto in dtos)
                 {
                     if (dto.ATBU_Description != "")
                     {
-                        int updateOrSave = 0, oper = 0;
+                        if (dto.ATBU_Opening_Debit_Amount != 0 || dto.ATBU_Opening_Credit_Amount != 0 || dto.ATBU_TR_Debit_Amount != 0 || dto.ATBU_TR_Credit_Amount != 0 || dto.ATBU_Closing_Debit_Amount != 0 || dto.ATBU_Closing_Credit_Amount != 0)
+                        {
+                            int updateOrSave = 0, oper = 0;
                         int subItemId = 0, itemId = 0, subHeadingId = 0, headingId = 0, scheduleType = 0;
                         DataTable templateIds;
 
@@ -713,7 +740,7 @@ WHERE ATBUD_Description = @AtbudDescription
                             subItemId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleSubItems", "ASSI_ID", dto.Excel_SubItem, dto.ATBU_CustId);
                             if (subItemId == 0)
                             {
-                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_SubItem, dto.ATBU_CompId, dto.ATBU_CustId, 4, dto.ATBUD_Company_Type);
+                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_SubItem, dto.ATBU_CompId, dto.ATBU_CustId, 4, OrgId);
                                 if (subIds.Rows.Count > 0)
                                 {
                                     DataRow row = subIds.Rows[0];
@@ -726,7 +753,7 @@ WHERE ATBUD_Description = @AtbudDescription
                             itemId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleItems", "ASI_ID", dto.Excel_Item, dto.ATBU_CustId);
                             if (itemId == 0)
                             {
-                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_Item, dto.ATBU_CompId, dto.ATBU_CustId, 3, dto.ATBU_CustId);
+                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_Item, dto.ATBU_CompId, dto.ATBU_CustId, 3, OrgId);
                                 if (subIds.Rows.Count > 0)
                                 {
                                     DataRow row = subIds.Rows[0];
@@ -739,7 +766,7 @@ WHERE ATBUD_Description = @AtbudDescription
                             subHeadingId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleSubHeading", "ASSH_ID", dto.Excel_SubHeading, dto.ATBU_CustId);
                             if (subHeadingId == 0)
                             {
-                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_SubHeading, dto.ATBU_CompId, dto.ATBU_CustId, 2, dto.ATBU_CustId);
+                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_SubHeading, dto.ATBU_CompId, dto.ATBU_CustId, 2, OrgId);
                                 if (subIds.Rows.Count > 0)
                                 {
                                     DataRow row = subIds.Rows[0];
@@ -752,7 +779,7 @@ WHERE ATBUD_Description = @AtbudDescription
                             headingId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleHeading", "ASH_ID", dto.Excel_Heading, dto.ATBU_CustId);
                             if (headingId == 0)
                             {
-                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_Heading, dto.ATBU_CompId, dto.ATBU_CustId, 1, dto.ATBU_CustId);
+                                var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_Heading, dto.ATBU_CompId, dto.ATBU_CustId, 1, OrgId);
                                 if (subIds.Rows.Count > 0)
                                 {
                                     DataRow row = subIds.Rows[0];
@@ -847,8 +874,23 @@ WHERE ATBUD_Description = @AtbudDescription
                             insertedIds.Add((int)(output2.Value ?? 0));
                         }
                     }
+                    }
                 }
                 transaction.Commit();
+
+                // ✅ Call UpdateNetIncomeAsync once with common values (from first dto)
+                var firstDto = dtos.FirstOrDefault();
+                if (firstDto != null)
+                {
+                    await UpdateNetIncomeAsync(
+                        firstDto.ATBUD_CompId,
+                        firstDto.ATBUD_CustId,
+                        firstDto.ATBUD_CRBY,
+                        firstDto.ATBUD_YEARId,
+                        firstDto.ATBUD_Branchid.ToString(),
+                        firstDto.ATBUD_QuarterId 
+                    );
+                }
                 return insertedIds.ToArray();
             }
             catch
@@ -1233,6 +1275,8 @@ WHERE ATBUD_Description = @AtbudDescription
                         await detailsCommand.ExecuteNonQueryAsync();
                     }
                 }
+
+
                 transaction.Commit();
                 return resultIds;
             }
@@ -1404,8 +1448,123 @@ WHERE ASSI_ItemsID = @ItemId
                 throw;
             }
         }
+
+        //UploadNetIncome
+        public async Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, string branchId, int durationId)
+        {
+            // Step 1: Get DB name from session
+            var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // Step 3: Check if 'Net income' record already exists
+            var checkQuery = @"
+      SELECT * 
+      FROM Acc_TrailBalance_Upload 
+      WHERE ATBU_Description = 'Net income' 
+        AND ATBU_CustId = @CustId 
+        AND ATBU_YEARId = @YearId 
+        AND ATBU_Branchid = @BranchId 
+        AND ATBU_QuarterId = @DurationId";
+
+            var existingRecord = await connection.QueryFirstOrDefaultAsync(checkQuery, new
+            {
+                CustId = custId,
+                YearId = yearId,
+                BranchId = branchId,
+                DurationId = durationId
+            });
+
+            if (existingRecord != null)
+            {
+                // Record already exists; no insert required
+                return false;
+            }
+
+            // Step 4: Get new ID
+            var maxIdQuery = @"
+      SELECT ISNULL(MAX(ATBU_ID), 0) + 1 
+      FROM Acc_TrailBalance_Upload ";
+
+            int newId = await connection.ExecuteScalarAsync<int>(maxIdQuery, new
+            {
+                CustId = custId,
+                YearId = yearId,
+                BranchId = branchId,
+                DurationId = durationId
+            });
+
+            // Step 5: Insert into Acc_TrailBalance_Upload
+            var insertUploadQuery = @"
+      INSERT INTO Acc_TrailBalance_Upload
+      (
+          ATBU_ID, ATBU_Description, ATBU_CODE, ATBU_CustId, ATBU_Branchid, ATBU_QuarterId, ATBU_YEARId,
+          ATBU_Opening_Debit_Amount, ATBU_Opening_Credit_Amount, ATBU_TR_Debit_Amount, ATBU_TR_Credit_Amount,
+          ATBU_Closing_Debit_Amount, ATBU_Closing_Credit_Amount, ATBU_Closing_TotalDebit_Amount, ATBU_Closing_TotalCredit_Amount,
+          ATBU_CRBY, Atbu_CrOn, ATBU_CompId
+      )
+      VALUES
+      (
+          @NewId, 'Net Income', @NewId, @CustId, @BranchId, @DurationId, @YearId,
+          0, 0, 0, 0, 0, 0, 0, 0,
+          @UserId, GETDATE(), @CompId
+      );";
+
+            await connection.ExecuteAsync(insertUploadQuery, new
+            {
+                NewId = newId,
+                CustId = custId,
+                BranchId = branchId,
+                DurationId = durationId,
+                YearId = yearId,
+                UserId = userId,
+                CompId = compId
+            });
+
+            maxIdQuery = @"
+      SELECT ISNULL(MAX(ATBUD_ID), 0) + 1 
+      FROM Acc_TrailBalance_Upload_Details ";
+
+            newId = await connection.ExecuteScalarAsync<int>(maxIdQuery, new
+            {
+                CustId = custId,
+                YearId = yearId,
+                BranchId = branchId,
+                DurationId = durationId
+            });
+
+            // Step 6: Insert into Acc_TrailBalance_Upload_details
+            var insertDetailQuery = @"
+      INSERT INTO Acc_TrailBalance_Upload_details
+      (
+          ATBUD_ID, ATBUD_Masid, ATBUD_Description, ATBUD_CODE, ATBUD_CustId, Atbud_Branchnameid,
+          ATBUD_QuarterId, ATBUD_YEARId, ATBUD_CRBY, AtbuD_CrOn, ATBUD_CompId
+      )
+      VALUES
+      (
+          @NewId, @NewId, 'Net Income', @NewId, @CustId, @BranchId,
+          @DurationId, @YearId, @UserId, GETDATE(), @CompId
+      );";
+
+            await connection.ExecuteAsync(insertDetailQuery, new
+            {
+                NewId = newId,
+                CustId = custId,
+                BranchId = branchId,
+                DurationId = durationId,
+                YearId = yearId,
+                UserId = userId,
+                CompId = compId
+            });
+
+            return true;
+        }
     }
 }
-
-
-

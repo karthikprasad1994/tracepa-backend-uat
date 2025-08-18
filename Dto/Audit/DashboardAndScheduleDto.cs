@@ -121,6 +121,8 @@ namespace TracePca.Dto.Audit
         public int SA_UpdatedBy { get; set; }
         public string SA_IPAddress { get; set; }
         public int SA_CompID { get; set; }
+
+        public int SA_AuditFrameworkId { get; set; }
         public int iUpdateOrSave { get; set; }  // Required for sp
         public int iOper { get; set; }          // Required for sp
         public List<QuarterAuditDto> Quarters { get; set; } = new List<QuarterAuditDto>();
@@ -193,13 +195,20 @@ namespace TracePca.Dto.Audit
         public DateTime? ToDate { get; set; } // SA_ExpCompDate
         public DateTime? ReportReviewDate { get; set; } // SA_AuditOpinionDate
         public DateTime? ReportFilingDate { get; set; } // SA_FilingDateSEC
-        public DateTime? DateForMRS { get; set; } // SA_MRLDate
+        public DateTime? DateForMRS { get; set; } // SA_MRSDate
+
+        public DateTime? SA_MRLDate { get; set; } // SA_MRLDate
+        public DateTime? SA_AuditOpinionDate { get; set; } // SA_AuditOpinionDate
+        public DateTime?  SA_FilingDateSEC { get; set; } // SA_AuditOpinionDate
         public DateTime? ReportFilingDatePCAOB { get; set; } // SA_FilingDatePCAOB
         public DateTime? BinderCompletedDate { get; set; } // SA_BinderCompletedDate
         public int IntervalId { get; set; }
         public int UserID { get; set; } // CrBy and UpdatedBy
         public string IPAddress { get; set; }
         public int CompID { get; set; } // Company ID
+
+        public int SA_AuditFrameworkId { get; set; }
+
         public int CustRegAccessCodeId { get; set; }
         public string AccessCode { get; set; }
         public int SAI_ID { get; set; } // Primary Key
@@ -471,6 +480,26 @@ namespace TracePca.Dto.Audit
         public int YearID { get; set; }
         public string YearName { get; set; }
         public string Format { get; set; } = "dd-MMM-yyyy";
+    }
+    public class DiscoveryRequestDto
+    {
+        public string Question { get; set; }
+    }
+    public class DiscoveryResponseDto
+    {
+        public string Answer { get; set; }
+        public string RedirectLinkText { get; set; }
+    }
+    public class LoeAuditFrameworkRequest
+    {
+        public int CustomerId { get; set; }
+        public int YearId { get; set; }
+        public int ServiceTypeId { get; set; }
+    }
+
+    public class LoeAuditFrameworkResponse
+    {
+        public int LoeAuditFrameworkId { get; set; }
     }
 
 

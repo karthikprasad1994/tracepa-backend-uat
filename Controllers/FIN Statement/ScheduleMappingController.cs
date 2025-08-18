@@ -519,6 +519,39 @@ namespace TracePca.Controllers.FIN_Statement
             };
             return Ok(response);
         }
+
+        //UpdateNetIncome
+        [HttpPost("UpdateNetIncome")]
+        public async Task<IActionResult> UpdateNetIncome([FromBody] UpdateNetIncomeRequestDto request)
+        {
+            try
+            {
+                var result = await _ScheduleMappingService.UpdateNetIncomeAsync(
+                    request.CompId,
+                    request.CustId,
+                    request.UserId,
+                    request.YearId,
+                    request.BranchId,
+                    request.DurationId
+                );
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = result ? "Net Income inserted successfully." : "Net Income already exists.",
+                    success = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while processing Net Income.",
+                    error = ex.Message
+                });
+            }
+        }
     }
 }
 

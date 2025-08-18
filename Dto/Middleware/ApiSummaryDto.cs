@@ -8,5 +8,11 @@
         public double MaxResponseTimeMs { get; set; }
         public double LatestResponseTimeMs { get; set; }
         public DateTime LastSeen { get; set; }
+
+        public int ActiveUsers { get; set; }
+        public int InactiveUsers { get; set; }
+        // public int UserId { get; set; }
+
+
     }
 }

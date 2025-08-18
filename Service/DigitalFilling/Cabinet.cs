@@ -43,6 +43,8 @@ namespace TracePca.Service.DigitalFilling
 			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 			//await connection.OpenAsync();
 
+			
+
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
 			if (string.IsNullOrEmpty(dbName))
@@ -81,12 +83,16 @@ namespace TracePca.Service.DigitalFilling
 
         public async Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int deptId, int userId, int compID)
         {
-			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-			//await connection.OpenAsync();
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //await connection.OpenAsync();
 
-			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            //string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
 
-			if (string.IsNullOrEmpty(dbName))
+            //string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+
+
+            if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
 
 			// ✅ Step 2: Get the connection string
@@ -110,12 +116,14 @@ namespace TracePca.Service.DigitalFilling
 
         public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID, CabinetDto dto)
         {
-			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-			//await connection.OpenAsync();
+            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //await connection.OpenAsync();
+            string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
 
-			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-			if (string.IsNullOrEmpty(dbName))
+            //string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
 
 			// ✅ Step 2: Get the connection string

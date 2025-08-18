@@ -20,15 +20,15 @@ namespace TracePca.Controllers.Middleware
     
         // GET: api/<ApiPerformanceController>
         [HttpGet("ApiMetrics")]
-        public async Task<IActionResult> CheckPerformance([FromQuery] int lookbackMinutes = 10)
+        public async Task<IActionResult> CheckPerformance()
         {
-            var summaries = await _performanceInterface.GetFormPerformanceSummariesAsync(lookbackMinutes);
-            var alerts = await _performanceInterface.GetSlowApisAsync(lookbackMinutes);
+            var summaries = await _performanceInterface.GetFormPerformanceSummariesAsync();
+            //var alerts = await _performanceInterface.GetSlowApisAsync(lookbackMinutes);
 
             var result = new
             {
                 Summaries = summaries,
-                Alerts = alerts
+                //Alerts = alerts
             };
 
             return Ok(result);
