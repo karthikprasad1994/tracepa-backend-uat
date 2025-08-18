@@ -4207,6 +4207,124 @@ ORDER BY RCM_Id";
         }
 
 
+    //    public byte[] GenerateWordByFormName(
+    //string formName,
+    //string title,
+    //List<LOEHeadingDto> headings,
+    //int reportTypeId,
+    //int loeTemplateId,
+    //int customerId)
+    //    {
+    //        string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+    //        if (string.IsNullOrEmpty(dbName))
+    //            throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+    //        var connectionString = _configuration.GetConnectionString(dbName);
+
+    //        using var connection = new SqlConnection(connectionString);
+
+    //        // Fetch header data (same as your PDF)
+    //        var reportName = connection.QueryFirstOrDefault<string>(@"
+    //    SELECT RTM_ReportTypeName FROM SAD_ReportTypeMaster WHERE RTM_Id = @ReportTypeId",
+    //            new { ReportTypeId = reportTypeId });
+
+    //        var auditName = connection.QueryFirstOrDefault<string>(@"
+    //    SELECT SA_AuditNo FROM StandardAudit_Schedule WHERE SA_ID = @AuditId",
+    //            new { AuditId = loeTemplateId });
+
+    //        var customerName = connection.QueryFirstOrDefault<string>(@"
+    //    SELECT CUST_Name FROM SAD_Customer_Master WHERE CUST_ID = @Id",
+    //            new { Id = customerId });
+
+    //        using var ms = new MemoryStream();
+
+    //        // Create a Word document using Xceed.Words.NET
+    //        using var document = Xceed.Words.NET.DocX.Create(ms);
+
+    //        // Title
+    //        document.InsertParagraph(reportName ?? "Report")
+    //                .FontSize(16)
+    //                .Bold()
+    //                .Alignment = Alignment.center;
+
+    //        document.InsertParagraph(); // empty line
+
+    //        // Info Block
+    //        var infoTable = document.AddTable(3, 2);
+    //        infoTable.Design = TableDesign.LightListAccent1;                   // preferred (requires: using Xceed.Document.NET;)
+
+    //        infoTable.Rows[0].Cells[0].Paragraphs[0].Append("Client:").Bold();
+    //        infoTable.Rows[0].Cells[1].Paragraphs[0].Append(customerName ?? "N/A");
+
+    //        infoTable.Rows[1].Cells[0].Paragraphs[0].Append("Audit No:").Bold();
+    //        infoTable.Rows[1].Cells[1].Paragraphs[0].Append(auditName ?? "N/A");
+
+    //        infoTable.Rows[2].Cells[0].Paragraphs[0].Append("Date:").Bold();
+    //        infoTable.Rows[2].Cells[1].Paragraphs[0].Append(DateTime.Now.ToString("dd-MMM-yy"));
+
+    //        document.InsertTable(infoTable);
+    //        document.InsertParagraph();
+
+    //        // Loop through headings (like PDF)
+    //        for (int i = 0; i < headings.Count; i++)
+    //        {
+    //            var heading = headings[i];
+
+    //            // Heading Title
+    //            document.InsertParagraph((heading.LOEHeading ?? "N/A")
+    //                .Replace("\r", "").Replace("\n", " "))
+    //                .Bold()
+    //                .FontSize(12)
+    //                .SpacingAfter(5);
+
+    //            // Description
+    //            if (!string.IsNullOrWhiteSpace(heading.LOEDesc))
+    //            {
+    //                var lines = heading.LOEDesc.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+    //                foreach (var line in lines)
+    //                {
+    //                    document.InsertParagraph(line.Trim())
+    //                            .FontSize(11)
+    //                            .SpacingAfter(2);
+    //                }
+    //            }
+    //            else
+    //            {
+    //                document.InsertParagraph("No description available.")
+    //                        .Italic()
+    //                        .FontSize(11);
+    //            }
+
+    //            // Divider (except after last heading)
+    //            // Divider (except after last heading)
+    //            if (i != headings.Count - 1)
+    //            {
+    //                // Option: insert a thin divider line using underscores (visual HR)
+    //                document.InsertParagraph(new string('_', 80))
+    //                        .SpacingBefore(5)
+    //                        .SpacingAfter(5);
+    //            }
+
+
+    //            document.InsertParagraph(); // Ending space
+
+    //            // Footer (simple text footer)
+    //            // Enable different footer for first page
+    //            document.AddFooters();
+    //            document.DifferentFirstPage = true;
+
+    //            // Footer for the first page
+    //            var footer = document.Footers.First;
+    //            footer.InsertParagraph($"Generated on {DateTime.Now:dd-MMM-yyyy HH:mm}")
+    //                  .FontSize(9)
+    //                  .Alignment = Alignment.center;
+
+
+    //            document.Save();
+    //            return ms.ToArray();
+    //        }
+    //    }
+
 
 
 

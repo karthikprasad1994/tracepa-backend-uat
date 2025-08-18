@@ -88,6 +88,156 @@ namespace TracePca.Service.Audit
         //	}
         //}
 
+        public async Task<IActionResult> TrackPerformanceAsync(
+     Func<Task<HttpResponseMessage>> apiCall,
+     string apiUrl,
+     string method = "GET")
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                return new BadRequestObjectResult("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+            using var connection = new SqlConnection(connectionString);
+
+            var stopwatch = Stopwatch.StartNew();
+            HttpResponseMessage response = null;
+            string errorMessage = null;
+            bool isSuccess = false;
+
+            try
+            {
+                response = await apiCall();
+                isSuccess = response.IsSuccessStatusCode;
+
+                var content = await response.Content.ReadAsStringAsync();
+
+                if (!isSuccess)
+                {
+                    errorMessage = $"API returned error: {response.StatusCode} - {content}";
+                    return new ObjectResult(errorMessage)
+                    {
+                        StatusCode = (int)response.StatusCode
+                    };
+                }
+
+                return new OkObjectResult(content);
+            }
+            catch (HttpRequestException httpEx)
+            {
+                errorMessage = $"HTTP Request failed: {httpEx.Message}";
+                if (httpEx.InnerException != null)
+                    errorMessage += $"\nInner Exception: {httpEx.InnerException.Message}";
+
+                return new ObjectResult(errorMessage)
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Unexpected error: {ex}";
+                return new ObjectResult(errorMessage)
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
+            }
+            finally
+            {
+                stopwatch.Stop();
+                await LogToDatabaseAsync(
+                    apiUrl,
+                    method,
+                    DateTime.UtcNow,
+                    stopwatch.ElapsedMilliseconds,
+                    response?.StatusCode,
+                    isSuccess,
+                    errorMessage
+                );
+            }
+        }
+
+
+
+        //	public async Task<IActionResult> TrackPerformanceAsync(
+        //Func<Task<HttpResponseMessage>> apiCall,
+        //string apiUrl,
+        //string method = "GET")
+        //	{
+        //		//_httpContextAccessor.HttpContext.Session.SetString("CustomerCode", "trdm");
+
+        //		string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //		if (string.IsNullOrEmpty(dbName))
+        //			throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //		// ✅ Step 2: Get the connection string
+        //		var connectionString = _configuration.GetConnectionString(dbName);
+
+        //		using var connection = new SqlConnection(connectionString);
+
+
+        //		var stopwatch = Stopwatch.StartNew();
+        //		HttpResponseMessage response = null;
+        //		string errorMessage = null;
+        //		bool isSuccess = false;
+
+        //		try
+        //		{
+        //			response = await apiCall();
+        //			isSuccess = response.IsSuccessStatusCode;
+
+        //			if (!isSuccess)
+        //			{
+        //				var errorContent = await response.Content.ReadAsStringAsync();
+        //				errorMessage = $"API returned error: {response.StatusCode} - {errorContent}";
+        //				return new ObjectResult(errorMessage)
+        //				{
+        //					StatusCode = (int)response.StatusCode
+        //				};
+        //			}
+
+        //			var content = await response.Content.ReadAsStringAsync();
+        //			return new OkObjectResult(content);
+        //		}
+        //		catch (HttpRequestException httpEx)
+        //		{
+        //			errorMessage = $"HTTP Request failed: {httpEx.Message}";
+        //			if (httpEx.InnerException != null)
+        //			{
+        //				errorMessage += $"\nInner Exception: {httpEx.InnerException.Message}";
+        //			}
+        //			return new ObjectResult(errorMessage)
+        //			{
+        //				StatusCode = (int)HttpStatusCode.InternalServerError
+        //			};
+        //		}
+        //		catch (Exception ex)
+        //		{
+        //			errorMessage = $"Unexpected error: {ex}";
+        //			return new ObjectResult(errorMessage)
+        //			{
+        //				StatusCode = (int)HttpStatusCode.InternalServerError
+        //			};
+        //		}
+        //		finally
+        //		{
+        //			stopwatch.Stop();
+        //			await LogToDatabaseAsync(
+        //				apiUrl,
+        //				method,
+        //				DateTime.UtcNow,
+        //				stopwatch.ElapsedMilliseconds,
+        //				response?.StatusCode,
+        //				isSuccess,
+        //				errorMessage
+        //			);
+        //		}
+        //	}
+
+
+
+
 
         public async Task<IActionResult> TrackPerformanceAsync(
 Func<Task<HttpResponseMessage>> apiCall,
@@ -157,6 +307,7 @@ string method = "GET")
                 );
             }
         }
+
 
 
         private async Task LogToDatabaseAsync(

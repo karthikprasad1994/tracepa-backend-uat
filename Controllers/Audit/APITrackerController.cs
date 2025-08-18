@@ -3,33 +3,33 @@ using TracePca.Service.Audit;
 
 namespace TracePca.Controllers.Audit
 {
-	[Route("api/[controller]")]
-	[ApiController]
-	public class APITrackerController : Controller
-	{
-		private readonly HttpClient _httpClient;
-		private readonly ApiPerformanceTracker _performanceTracker;
-		//public APITrackerController(IHttpClientFactory httpClientFactory,
-		//				 ApiPerformanceTracker performanceTracker)
-		//{
-		//	_httpClient = httpClientFactory.CreateClient();
-		//	_performanceTracker = performanceTracker;
-		//}
+    [Route("api/[controller]")]
+    [ApiController]
+    public class APITrackerController : Controller
+    {
+        private readonly HttpClient _httpClient;
+        private readonly ApiPerformanceTracker _performanceTracker;
+        //public APITrackerController(IHttpClientFactory httpClientFactory,
+        //				 ApiPerformanceTracker performanceTracker)
+        //{
+        //	_httpClient = httpClientFactory.CreateClient();
+        //	_performanceTracker = performanceTracker;
+        //}
 
 
-		public APITrackerController(IHttpClientFactory httpClientFactory,
-					 ApiPerformanceTracker performanceTracker)
-		{
-			// Create HttpClient with custom handler to bypass SSL validation
-			var handler = new HttpClientHandler
-			{
-				ServerCertificateCustomValidationCallback =
-					HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-			};
+        public APITrackerController(IHttpClientFactory httpClientFactory,
+                     ApiPerformanceTracker performanceTracker)
+        {
+            // Create HttpClient with custom handler to bypass SSL validation
+            var handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback =
+                    HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+            };
 
-			_httpClient = new HttpClient(handler);
-			_performanceTracker = performanceTracker;
-		}
+            _httpClient = new HttpClient(handler);
+            _performanceTracker = performanceTracker;
+        }
 
         //[HttpGet "CallExternalApi"]
 
