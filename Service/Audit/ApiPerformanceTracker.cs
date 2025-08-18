@@ -87,7 +87,7 @@ namespace TracePca.Service.Audit
         //		);
         //	}
         //}
-<<<<<<< HEAD
+
         public async Task<IActionResult> TrackPerformanceAsync(
      Func<Task<HttpResponseMessage>> apiCall,
      string apiUrl,
@@ -236,7 +236,7 @@ namespace TracePca.Service.Audit
         //	}
 
 
-=======
+
 
 
         public async Task<IActionResult> TrackPerformanceAsync(
@@ -309,7 +309,7 @@ string method = "GET")
         }
 
 
->>>>>>> 3718b6ed8cca5a93787ab2dbf23a5241dfae601a
+
         private async Task LogToDatabaseAsync(
 		string apiUrl,
 		string method,
