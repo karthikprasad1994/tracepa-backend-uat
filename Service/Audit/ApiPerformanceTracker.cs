@@ -87,6 +87,7 @@ namespace TracePca.Service.Audit
         //		);
         //	}
         //}
+<<<<<<< HEAD
         public async Task<IActionResult> TrackPerformanceAsync(
      Func<Task<HttpResponseMessage>> apiCall,
      string apiUrl,
@@ -235,6 +236,80 @@ namespace TracePca.Service.Audit
         //	}
 
 
+=======
+
+
+        public async Task<IActionResult> TrackPerformanceAsync(
+Func<Task<HttpResponseMessage>> apiCall,
+string apiUrl,
+string method = "GET")
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                return new BadRequestObjectResult("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+            using var connection = new SqlConnection(connectionString);
+
+            var stopwatch = Stopwatch.StartNew();
+            HttpResponseMessage response = null;
+            string errorMessage = null;
+            bool isSuccess = false;
+
+            try
+            {
+                response = await apiCall();
+                isSuccess = response.IsSuccessStatusCode;
+
+                var content = await response.Content.ReadAsStringAsync();
+
+                if (!isSuccess)
+                {
+                    errorMessage = $"API returned error: {response.StatusCode} - {content}";
+                    return new ObjectResult(errorMessage)
+                    {
+                        StatusCode = (int)response.StatusCode
+                    };
+                }
+
+                return new OkObjectResult(content);
+            }
+            catch (HttpRequestException httpEx)
+            {
+                errorMessage = $"HTTP Request failed: {httpEx.Message}";
+                if (httpEx.InnerException != null)
+                    errorMessage += $"\nInner Exception: {httpEx.InnerException.Message}";
+
+                return new ObjectResult(errorMessage)
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Unexpected error: {ex}";
+                return new ObjectResult(errorMessage)
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
+            }
+            finally
+            {
+                stopwatch.Stop();
+                await LogToDatabaseAsync(
+                    apiUrl,
+                    method,
+                    DateTime.UtcNow,
+                    stopwatch.ElapsedMilliseconds,
+                    response?.StatusCode,
+                    isSuccess,
+                    errorMessage
+                );
+            }
+        }
+
+
+>>>>>>> 3718b6ed8cca5a93787ab2dbf23a5241dfae601a
         private async Task LogToDatabaseAsync(
 		string apiUrl,
 		string method,

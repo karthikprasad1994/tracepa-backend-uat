@@ -38,6 +38,7 @@ namespace TracePca.Controllers.Audit
             {
                 string apiUrl = "https://localhost:7090/api/Cabinet/LoadCabinet?deptId=5&userId=1&compID=1";
 
+<<<<<<< HEAD
                 string customerCode = HttpContext.Session.GetString("CustomerCode");
                 if (string.IsNullOrEmpty(customerCode))
                 {
@@ -52,6 +53,31 @@ namespace TracePca.Controllers.Audit
 
                 using var httpClient = new HttpClient(handler);
 
+=======
+        //[HttpGet "CallExternalApi"]
+
+        [HttpGet("CallExternalApi")]
+        public async Task<IActionResult> CallExternalApi()
+        {
+            try
+            {
+                string apiUrl = "https://localhost:7090/api/Cabinet/LoadCabinet?deptId=5&userId=1&compID=1";
+
+                string customerCode = HttpContext.Session.GetString("CustomerCode");
+                if (string.IsNullOrEmpty(customerCode))
+                {
+                    return BadRequest("CustomerCode is missing in the current session.");
+                }
+
+                var handler = new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback =
+                        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+                };
+
+                using var httpClient = new HttpClient(handler);
+
+>>>>>>> 3718b6ed8cca5a93787ab2dbf23a5241dfae601a
                 var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
                 request.Headers.Add("X-Customer-Code", customerCode);
 
@@ -68,6 +94,7 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+<<<<<<< HEAD
 
 
         //[HttpGet "CallExternalApi"]
@@ -98,6 +125,8 @@ namespace TracePca.Controllers.Audit
         //		return StatusCode(500, $"Internal server error: {ex.Message}");
         //	}
         //}
+=======
+>>>>>>> 3718b6ed8cca5a93787ab2dbf23a5241dfae601a
     }
 }
 

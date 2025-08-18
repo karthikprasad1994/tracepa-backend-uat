@@ -403,8 +403,9 @@
             public TrailBalanceUploadDto Upload { get; set; }
             public TrailBalanceUploadDetailsDto UploadDetails { get; set; }
             public JournalEntryDto JournalEntry { get; set; }
-            public List<JournalTransactionDetailsDto> TransactionDetailsList { get; set; }
+            public List<TransactionDetailsDto> TransactionDetailsList { get; set; }
         }
+
         public class TrailBalanceUploadDto
         {
             public int ATBU_ID { get; set; }
@@ -418,15 +419,16 @@
             public decimal ATBU_Closing_Debit_Amount { get; set; }
             public decimal ATBU_Closing_Credit_Amount { get; set; }
             public string ATBU_DELFLG { get; set; }
-            public int ATBU_CRBY { get; set; }
             public string ATBU_STATUS { get; set; }
-            public int ATBU_UPDATEDBY { get; set; }
+            public string ATBU_UPDATEDBY { get; set; }
             public string ATBU_IPAddress { get; set; }
             public int ATBU_CompId { get; set; }
             public int ATBU_YEARId { get; set; }
             public int ATBU_Branchid { get; set; }
             public int ATBU_QuarterId { get; set; }
+            public string ATBU_CRBY { get; set; }
         }
+
         public class TrailBalanceUploadDetailsDto
         {
             public int ATBUD_ID { get; set; }
@@ -443,14 +445,15 @@
             public int ATBUD_itemid { get; set; }
             public int ATBUD_Subitemid { get; set; }
             public string ATBUD_DELFLG { get; set; }
-            public int ATBUD_CRBY { get; set; }
-            public int ATBUD_UPDATEDBY { get; set; }
+            public string ATBUD_CRBY { get; set; }
+            public string ATBUD_UPDATEDBY { get; set; }
             public string ATBUD_STATUS { get; set; }
             public string ATBUD_Progress { get; set; }
             public string ATBUD_IPAddress { get; set; }
             public int ATBUD_CompId { get; set; }
             public int ATBUD_YEARId { get; set; }
         }
+
         public class JournalEntryDto
         {
             public int Acc_JE_ID { get; set; }
@@ -459,7 +462,7 @@
             public int Acc_JE_Location { get; set; }
             public int Acc_JE_BillType { get; set; }
             public string Acc_JE_BillNo { get; set; }
-            public DateTime Acc_JE_BillDate { get; set; }
+            public DateTime? Acc_JE_BillDate { get; set; }
             public decimal Acc_JE_BillAmount { get; set; }
             public decimal Acc_JE_AdvanceAmount { get; set; }
             public string Acc_JE_AdvanceNaration { get; set; }
@@ -467,34 +470,37 @@
             public decimal Acc_JE_NetAmount { get; set; }
             public string Acc_JE_PaymentNarration { get; set; }
             public string Acc_JE_ChequeNo { get; set; }
-            public DateTime Acc_JE_ChequeDate { get; set; }
+            public DateTime? Acc_JE_ChequeDate { get; set; }
             public string Acc_JE_IFSCCode { get; set; }
             public string Acc_JE_BankName { get; set; }
             public string Acc_JE_BranchName { get; set; }
-            public int Acc_JE_CreatedBy { get; set; }
+            public string Acc_JE_CreatedBy { get; set; }
+
+            public string Acc_JE_UPDATEDBY { get; set; }
             public int Acc_JE_YearID { get; set; }
             public int Acc_JE_CompID { get; set; }
             public string Acc_JE_Status { get; set; }
             public string Acc_JE_Operation { get; set; }
             public string Acc_JE_IPAddress { get; set; }
-            public DateTime Acc_JE_BillCreatedDate { get; set; }
+            public DateTime? Acc_JE_BillCreatedDate { get; set; }
             public int Acc_JE_BranchId { get; set; }
             public int Acc_JE_QuarterId { get; set; }
             public string Acc_JE_Comnments { get; set; }
         }
-        public class JournalTransactionDetailsDto
+
+        public class TransactionDetailsDto
         {
             public int AJTB_ID { get; set; }
             public int AJTB_MasID { get; set; }
             public string AJTB_TranscNo { get; set; }
             public int AJTB_CustId { get; set; }
             public int AJTB_ScheduleTypeid { get; set; }
-            public int AJTB_Deschead { get; set; }
-            public int AJTB_Desc { get; set; }
+            public string AJTB_Deschead { get; set; }
+            public string AJTB_Desc { get; set; }
             public decimal AJTB_Debit { get; set; }
             public decimal AJTB_Credit { get; set; }
-            public int AJTB_CreatedBy { get; set; }
-            public int AJTB_UpdatedBy { get; set; }
+            public string AJTB_CreatedBy { get; set; }
+            public string AJTB_UpdatedBy { get; set; }
             public string AJTB_Status { get; set; }
             public string AJTB_IPAddress { get; set; }
             public int AJTB_CompID { get; set; }
@@ -504,6 +510,7 @@
             public int AJTB_BranchId { get; set; }
             public int AJTB_QuarterId { get; set; }
         }
+
     }
 }
 

@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Text.Json;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using OfficeOpenXml;
@@ -25,67 +26,234 @@ namespace TracePca.Service.SuperMaster
             _httpContextAccessor = httpContextAccessor;
         }
 
-        //ValidateEmployeeMasters
-        public async Task<object> ValidateExcelDataAsync(int CompId, List<SuperMasterValidateEmployeeDto> employees)
+        //UploadEmployeeMasters
+        public async Task<List<string>> SaveEmployeeDetailsAsync(int compId, IFormFile file)
         {
-            // ✅ Step 1: Get DB name from session
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (file == null || file.Length == 0)
+                throw new Exception("No file uploaded.");
 
+            // ✅ Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Setup Excel
+            // ✅ Parse Excel
+            List<UploadEmployeeMasterDto> employees;
+            using (var stream = file.OpenReadStream())
+            {
+                employees = ParseExcelToEmployees(stream);
+            }
+
+            var results = new List<string>();
+           
+            // Step 2: Null & duplicate check
+            employees = employees
+                .Where(e => !string.IsNullOrEmpty(e.LoginName) && !string.IsNullOrEmpty(e.EmployeeName))
+                .GroupBy(e => e.LoginName) // unique by login name
+                .Select(g => g.First())
+                .ToList();
+
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            var duplicates = new List<SuperMasterValidateEmployeeDto>();
-            var missingFields = new List<(string CustID, List<string> MissingFields)>();
+            using var transaction = connection.BeginTransaction();
 
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var emp in employees)
+            try
             {
-                var missing = new List<string>();
-                emp.Partner = string.IsNullOrWhiteSpace(emp.Partner) ? "No" : emp.Partner;
+                // Step 3: Validate duplicates in file
+                var duplicateInFile = employees.GroupBy(e => e.EmpCode).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+                if (duplicateInFile.Any())
+                    throw new Exception($"Duplicate EmpCode(s) found in file: {string.Join(", ", duplicateInFile)}");
 
-                if (string.IsNullOrWhiteSpace(emp.CustID)) missing.Add("CustID");
-                if (string.IsNullOrWhiteSpace(emp.CustName)) missing.Add("CustName");
-                if (string.IsNullOrWhiteSpace(emp.EmailID)) missing.Add("EmailID");
-                if (string.IsNullOrWhiteSpace(emp.LoginName)) missing.Add("LoginName");
-                if (string.IsNullOrWhiteSpace(emp.OfficePhoneNo)) missing.Add("OfficePhoneNo");
-                if (string.IsNullOrWhiteSpace(emp.Designation)) missing.Add("Designation");
-                if (string.IsNullOrWhiteSpace(emp.Partner)) missing.Add("Partner");
-
-                if (missing.Any())
+                foreach (var emp in employees)
                 {
-                    missingFields.Add((emp.CustID ?? "UNKNOWN", missing));
-                    continue;
-                }
-
-                // Duplicate check (CustName + EmailID)
-                string key = $"{emp.CustName.Trim().ToLower()}|{emp.EmailID.Trim().ToLower()}";
-
-                if (!seen.Add(key))
-                {
-                    duplicates.Add(new SuperMasterValidateEmployeeDto
+                    // Step 4: Validate mandatory fields
+                    if (string.IsNullOrWhiteSpace(emp.EmpCode) ||
+                        string.IsNullOrWhiteSpace(emp.EmployeeName) ||
+                        string.IsNullOrWhiteSpace(emp.LoginName) ||
+                        string.IsNullOrWhiteSpace(emp.Email) ||
+                        string.IsNullOrWhiteSpace(emp.Designation) ||
+                        string.IsNullOrWhiteSpace(emp.Role))
                     {
-                        CustID = emp.CustID,
-                        CustName = emp.CustName,
-                        EmailID = emp.EmailID
-                    });
+                        throw new Exception($"Mandatory fields missing for employee: {emp.EmployeeName}");
+                    }
+
+                    // Step 5: Ensure Designation exists
+                    string designationSql = @"
+                    SELECT Mas_ID FROM SAD_GRPDESGN_General_Master
+                    WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
+                    int? designationId = await connection.ExecuteScalarAsync<int?>(
+                        designationSql, new { Name = emp.Designation, CompId = compId }, transaction);
+
+                    if (!designationId.HasValue)
+                    {
+                        string insertDesig = @"
+                        INSERT INTO SAD_GRPDESGN_General_Master (Mas_Description, Mas_CompID)
+                        VALUES (@Name, @CompId);
+                        SELECT CAST(SCOPE_IDENTITY() as int);";
+                        designationId = await connection.ExecuteScalarAsync<int>(
+                            insertDesig, new { Name = emp.Designation, CompId = compId }, transaction);
+                    }
+
+                    // Step 6: Ensure Role exists
+                    string roleSql = @"
+                    SELECT Mas_ID FROM SAD_GrpOrLvl_General_Master
+                    WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
+                    int? roleId = await connection.ExecuteScalarAsync<int?>(
+                        roleSql, new { Name = emp.Role, CompId = compId }, transaction);
+
+                    if (!roleId.HasValue)
+                    {
+                        string insertRole = @"
+                        INSERT INTO SAD_GrpOrLvl_General_Master (Mas_Description, Mas_CompID)
+                        VALUES (@Name, @CompId);
+                        SELECT CAST(SCOPE_IDENTITY() as int);";
+                        roleId = await connection.ExecuteScalarAsync<int>(
+                            insertRole, new { Name = emp.Role, CompId = compId }, transaction);
+                    }
+
+                    // Step 7: Check if employee exists
+                    string checkEmpSql = "SELECT COUNT(1) FROM Sad_UserDetails WHERE Usr_Code=@EmpCode AND Usr_CompId=@CompId";
+                    bool exists = await connection.ExecuteScalarAsync<int>(
+                        checkEmpSql, new { EmpCode = emp.EmpCode, CompId = compId }, transaction) > 0;
+
+                    // Step 8: Insert/Update using SP
+                    using var cmd = new SqlCommand("spEmployeeMaster", connection, transaction);
+                    cmd.CommandType = CommandType.StoredProcedure;
+
+                    cmd.Parameters.AddWithValue("@Usr_ID", (object?)emp.EmpId ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_Node", emp.EmpNode ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_Code", emp.EmpCode ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_FullName", emp.EmployeeName ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_LoginName", emp.LoginName ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_Password", emp.Password ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_Email", emp.Email ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_Category", emp.EmpCategory ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_Suggetions", emp.Suggestions ?? 0);
+                    cmd.Parameters.AddWithValue("@usr_partner", emp.Partner ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_LevelGrp", emp.LevelGrp ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_DutyStatus", emp.DutyStatus ?? "A");
+                    cmd.Parameters.AddWithValue("@Usr_PhoneNo", emp.PhoneNo ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_MobileNo", emp.MobileNo ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_OfficePhone", emp.OfficePhoneNo ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_OffPhExtn", emp.OfficePhoneExtn ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_Designation", designationId ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_CompanyID", emp.CompanyId);
+                    cmd.Parameters.AddWithValue("@Usr_OrgnID", emp.OrgnId ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_GrpOrUserLvlPerm", emp.GrpOrUserLvlPerm ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_Role", roleId ?? 0);
+
+                    // ✅ Module flags
+                    cmd.Parameters.AddWithValue("@Usr_MasterModule", emp.MasterModule ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_AuditModule", emp.AuditModule ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_RiskModule", emp.RiskModule ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_ComplianceModule", emp.ComplianceModule ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_BCMModule", emp.BCMModule ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_DigitalOfficeModule", emp.DigitalOfficeModule ?? 0);
+
+                    // ✅ Role flags
+                    cmd.Parameters.AddWithValue("@Usr_MasterRole", emp.MasterRole ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_AuditRole", emp.AuditRole ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_RiskRole", emp.RiskRole ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_ComplianceRole", emp.ComplianceRole ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_BCMRole", emp.BCMRole ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_DigitalOfficeRole", emp.DigitalOfficeRole ?? 0);
+
+                    // ✅ Metadata
+                    cmd.Parameters.AddWithValue("@Usr_CreatedBy", emp.CreatedBy ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_UpdatedBy", emp.UpdatedBy ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_DelFlag", emp.DelFlag ?? "A");
+                    cmd.Parameters.AddWithValue("@Usr_Status", emp.Status ?? "N");
+                    cmd.Parameters.AddWithValue("@Usr_IPAddress", emp.IPAddress ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_CompId", emp.CompId ?? compId);
+                    cmd.Parameters.AddWithValue("@Usr_Type", emp.Type ?? "C");
+                    cmd.Parameters.AddWithValue("@usr_IsSuperuser", emp.IsSuperuser ?? 0);
+                    cmd.Parameters.AddWithValue("@USR_DeptID", emp.DeptID ?? 0);
+                    cmd.Parameters.AddWithValue("@USR_MemberType", emp.MemberType ?? 0);
+                    cmd.Parameters.AddWithValue("@USR_Levelcode", emp.Levelcode ?? 0);
+
+                    var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                    var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+
+                    cmd.Parameters.Add(updateOrSaveParam);
+                    cmd.Parameters.Add(operParam);
+
+                    await cmd.ExecuteNonQueryAsync();
+
+                    string action = exists ? "Updated" : "Inserted";
+                    results.Add($"{action} employee: {emp.EmpCode} - {emp.EmployeeName}");
                 }
+
+                transaction.Commit();
+                return results;
             }
-            return new
+            catch
             {
-                Duplicates = duplicates,
-                MissingFields = missingFields.Select(x => new
+                transaction.Rollback();
+                throw;
+            }
+        }
+        /// Parse Excel file into Employee DTO list
+        private List<UploadEmployeeMasterDto> ParseExcelToEmployees(Stream fileStream)
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using var package = new ExcelPackage(fileStream);
+            var worksheet = package.Workbook.Worksheets[0];
+            int rowCount = worksheet.Dimension.Rows;
+
+            var employees = new List<UploadEmployeeMasterDto>();
+            for (int row = 2; row <= rowCount; row++) // skip header
+            {
+                employees.Add(new UploadEmployeeMasterDto
                 {
-                    CustID = x.CustID,
-                    MissingFields = x.MissingFields
-                }).ToList()
-            };
+
+                    EmpCode = worksheet.Cells[row, 1].Text,   // Emp Code
+                    EmployeeName = worksheet.Cells[row, 2].Text,   // Full Name
+                    LoginName = worksheet.Cells[row, 3].Text,   // Login Name
+                    Email = worksheet.Cells[row, 4].Text,   // Email
+                    OfficePhoneNo = worksheet.Cells[row, 5].Text,   // Office Phone
+                    Designation = worksheet.Cells[row, 6].Text,   // Designation
+                    Partner = worksheet.Cells[row, 7].Text,   // Partner
+                    Role = worksheet.Cells[row, 8].Text,   // Role
+                    Password = worksheet.Cells[row, 9].Text,   // Password
+
+                    // Optional / Numeric values
+                    LevelGrp = int.TryParse(worksheet.Cells[row, 10].Text, out var levelGrp) ? levelGrp : 0,
+                    DutyStatus = worksheet.Cells[row, 11].Text,
+                    PhoneNo = worksheet.Cells[row, 12].Text,
+                    MobileNo = worksheet.Cells[row, 13].Text,
+                    OfficePhoneExtn = worksheet.Cells[row, 14].Text,
+                    OrgnId = int.TryParse(worksheet.Cells[row, 15].Text, out var orgId) ? orgId : 0,
+                    GrpOrUserLvlPerm = int.TryParse(worksheet.Cells[row, 16].Text, out var grpOfuser) ? grpOfuser : 0,
+                    MasterModule = int.TryParse(worksheet.Cells[row, 17].Text, out var mm) ? mm : 0,
+                    AuditModule = int.TryParse(worksheet.Cells[row, 18].Text, out var am) ? am : 0,
+                    RiskModule = int.TryParse(worksheet.Cells[row, 19].Text, out var rm) ? rm : 0,
+                    ComplianceModule = int.TryParse(worksheet.Cells[row, 20].Text, out var cm) ? cm : 0,
+                    BCMModule = int.TryParse(worksheet.Cells[row, 21].Text, out var bcm) ? bcm : 0,
+                    DigitalOfficeModule = int.TryParse(worksheet.Cells[row, 22].Text, out var dom) ? dom : 0,
+                    MasterRole = int.TryParse(worksheet.Cells[row, 23].Text, out var mr) ? mr : 0,
+                    AuditRole = int.TryParse(worksheet.Cells[row, 24].Text, out var ar) ? ar : 0,
+                    RiskRole = int.TryParse(worksheet.Cells[row, 25].Text, out var rr) ? rr : 0,
+                    ComplianceRole = int.TryParse(worksheet.Cells[row, 26].Text, out var cr) ? cr : 0,
+                    BCMRole = int.TryParse(worksheet.Cells[row, 27].Text, out var br) ? br : 0,
+                    DigitalOfficeRole = int.TryParse(worksheet.Cells[row, 28].Text, out var dor) ? dor : 0,
+                    CreatedBy = int.TryParse(worksheet.Cells[row, 29].Text, out var createdBy) ? createdBy : 0,
+                    UpdatedBy = int.TryParse(worksheet.Cells[row, 30].Text, out var updatedBy) ? updatedBy : 0,
+                    DelFlag = worksheet.Cells[row, 31].Text,
+                    Status = worksheet.Cells[row, 32].Text,
+                    IPAddress = worksheet.Cells[row, 33].Text,
+                    CompId = int.TryParse(worksheet.Cells[row, 34].Text, out var compId) ? compId : 0,
+                    Type = worksheet.Cells[row, 35].Text,
+                    IsSuperuser = int.TryParse(worksheet.Cells[row, 36].Text, out var su) ? su : 0,
+                    DeptID = int.TryParse(worksheet.Cells[row, 37].Text, out var dept) ? dept : 0,
+                    MemberType = int.TryParse(worksheet.Cells[row, 38].Text, out var mt) ? mt : 0,
+                    Levelcode = int.TryParse(worksheet.Cells[row, 39].Text, out var lc) ? lc : 0,
+                    Suggestions = int.TryParse(worksheet.Cells[row, 40].Text, out var sug2) ? sug2 : 0
+
+                });
+            }
+            return employees;
         }
 
 
@@ -202,73 +370,123 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
-        //ValidateClientDetails
-        public async Task<object> ValidateClientDetailsAsync(int CompId, List<SuperMasterValidateClientDetailsDto> employees)
+        //UploadClientDetails
+        public async Task<List<int>> UploadClientDetailsAsync( int CompId, IFormFile excelFile, string sheetName)
         {
+            var customers = new List<SuperMasterSaveCustomerDto>();
+
+            // ✅ Step 0: If Excel file is provided, parse into DTO list
+            if (excelFile != null && excelFile.Length > 0)
+            {
+                using var stream = new MemoryStream();
+                await excelFile.CopyToAsync(stream);
+                stream.Position = 0;
+
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial; // EPPlus license requirement
+                using var package = new ExcelPackage(stream);
+
+                var worksheet = package.Workbook.Worksheets[sheetName];
+                if (worksheet == null)
+                    throw new Exception($"Sheet '{sheetName}' not found in Excel file.");
+
+                int rowCount = worksheet.Dimension.Rows;
+                for (int row = 2; row <= rowCount; row++) // Skip header
+                {
+                    var dto = new SuperMasterSaveCustomerDto
+                    {
+                        CUST_ID = int.Parse(worksheet.Cells[row, 1].Text ?? "0"),
+                        CUST_NAME = worksheet.Cells[row, 2].Text,
+                        CUST_CODE = worksheet.Cells[row, 3].Text,
+                        CUST_WEBSITE = worksheet.Cells[row, 4].Text,
+                        CUST_EMAIL = worksheet.Cells[row, 5].Text,
+                        OrgTypeName = worksheet.Cells[row, 6].Text,
+                        CUST_ORGTYPEID = int.Parse(worksheet.Cells[row, 7].Text ?? "0"),
+                        LocationName = worksheet.Cells[row, 8].Text,
+                        Address = worksheet.Cells[row, 9].Text,
+                        ContactPerson = worksheet.Cells[row, 10].Text,
+                        Mobile = worksheet.Cells[row, 11].Text,
+                        Landline = worksheet.Cells[row, 12].Text,
+                        Email = worksheet.Cells[row, 13].Text,
+                        CIN = worksheet.Cells[row, 14].Text,
+                        TAN = worksheet.Cells[row, 15].Text,
+                        GST = worksheet.Cells[row, 16].Text,
+                        CUST_CRBY = int.Parse(worksheet.Cells[row, 17].Text ?? "0"),
+                        CUST_UpdatedBy = int.Parse(worksheet.Cells[row, 18].Text ?? "0"),
+                        CUST_CompID = CompId
+                    };
+
+                    customers.Add(dto);
+                }
+            }
+
+            if (customers == null || !customers.Any())
+                throw new Exception("No valid customer data found to save.");
+
+            var resultIds = new List<int>();
+
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
+            // ✅ Step 2: Get connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Setup Excel
+            // ✅ Step 3: Save to DB
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            var duplicates = new List<SuperMasterValidateClientDetailsDto>();
-            var missingFields = new List<(string CustID, List<string> MissingFields)>();
+            using var transaction = connection.BeginTransaction();
 
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var emp in employees)
+            try
             {
-                var missing = new List<string>();
-
-                if (string.IsNullOrWhiteSpace(emp.CustID)) missing.Add("CustID");
-                if (string.IsNullOrWhiteSpace(emp.CustName)) missing.Add("CustName");
-                if (string.IsNullOrWhiteSpace(emp.OrganisationType)) missing.Add("OrganisationType");
-                if (string.IsNullOrWhiteSpace(emp.Address)) missing.Add("Address");
-                if (string.IsNullOrWhiteSpace(emp.City)) missing.Add("City");
-                if (string.IsNullOrWhiteSpace(emp.EmailID)) missing.Add("Email");
-                if (string.IsNullOrWhiteSpace(emp.MobileNo)) missing.Add("MobileNo");
-                if (string.IsNullOrWhiteSpace(emp.IndustryType)) missing.Add("LocationName");
-                if (string.IsNullOrWhiteSpace(emp.LocationName)) missing.Add("ContactPerson");
-                if (string.IsNullOrWhiteSpace(emp.ContactPerson)) missing.Add("ContactPerson");
-
-                if (missing.Any())
+                foreach (var dto in customers)
                 {
-                    missingFields.Add((emp.CustID ?? "UNKNOWN", missing));
-                    continue;
-                }
-
-                // Duplicate check (CustName + EmailID)
-                string key = $"{emp.CustName.Trim().ToLower()}|{emp.EmailID.Trim().ToLower()}";
-
-                if (!seen.Add(key))
-                {
-                    duplicates.Add(new SuperMasterValidateClientDetailsDto
+                    using (var cmd = new SqlCommand("spSuperMaster_SaveCustomer", connection, transaction))
                     {
-                        CustID = emp.CustID,
-                        CustName = emp.CustName,
-                        EmailID = emp.EmailID
-                    });
+                        cmd.CommandType = CommandType.StoredProcedure;
+
+                        cmd.Parameters.AddWithValue("@CUST_ID", dto.CUST_ID);
+                        cmd.Parameters.AddWithValue("@CUST_NAME", dto.CUST_NAME ?? "");
+                        cmd.Parameters.AddWithValue("@CUST_CODE", dto.CUST_CODE ?? "");
+                        cmd.Parameters.AddWithValue("@CUST_WEBSITE", dto.CUST_WEBSITE ?? "");
+                        cmd.Parameters.AddWithValue("@CUST_EMAIL", dto.CUST_EMAIL ?? "");
+                        cmd.Parameters.AddWithValue("@OrgTypeName", dto.OrgTypeName ?? "");
+                        cmd.Parameters.AddWithValue("@CUST_ORGTYPEID", dto.CUST_ORGTYPEID);
+                        cmd.Parameters.AddWithValue("@LocationName", dto.LocationName ?? "");
+                        cmd.Parameters.AddWithValue("@Address", dto.Address ?? "");
+                        cmd.Parameters.AddWithValue("@ContactPerson", dto.ContactPerson ?? "");
+                        cmd.Parameters.AddWithValue("@Mobile", dto.Mobile ?? "");
+                        cmd.Parameters.AddWithValue("@Landline", dto.Landline ?? "");
+                        cmd.Parameters.AddWithValue("@Email", dto.Email ?? "");
+                        cmd.Parameters.AddWithValue("@CIN", dto.CIN ?? "");
+                        cmd.Parameters.AddWithValue("@TAN", dto.TAN ?? "");
+                        cmd.Parameters.AddWithValue("@GST", dto.GST ?? "");
+                        cmd.Parameters.AddWithValue("@CUST_CRBY", dto.CUST_CRBY);
+                        cmd.Parameters.AddWithValue("@CUST_UpdatedBy", dto.CUST_UpdatedBy);
+                        cmd.Parameters.AddWithValue("@CUST_CompID", dto.CUST_CompID);
+
+                        var outParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        cmd.Parameters.Add(outParam);
+
+                        await cmd.ExecuteNonQueryAsync();
+
+                        resultIds.Add((int)(outParam.Value ?? 0));
+                    }
                 }
+
+                transaction.Commit();
+                return resultIds;
             }
-            return new
+            catch (Exception ex)
             {
-                Duplicates = duplicates,
-                MissingFields = missingFields.Select(x => new
-                {
-                    CustID = x.CustID,
-                    MissingFields = x.MissingFields
-                }).ToList()
-            };
+                transaction.Rollback();
+                throw new Exception("Error while saving or updating customers: " + ex.Message, ex);
+            }
         }
 
+
         //SaveClientDetails
-        public async Task<List<int[]>> SuperMasterSaveCustomerDetailsAsync(int CompId, List<SuperMasterSaveClientDetailsDto> customers)
+        public async Task<List<int[]>> SuperMasterSaveCustomerDetailsAsync(int CompId, List<SuperMasterSaveCustomerDto> customers)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -289,103 +507,215 @@ namespace TracePca.Service.SuperMaster
 
                 foreach (var objCust in customers)
                 {
-                    // ✅ Generate Customer Code if not provided
-                    if (string.IsNullOrWhiteSpace(objCust.CUST_CODE))
-                    {
-                        const string getCodeSql = @"
-                    SELECT 'CUST' + CAST(COALESCE(MAX(Cust_ID), 0) + 1 AS VARCHAR)
-                    FROM SAD_CUSTOMER_MASTER";
 
+                    //Checks OrgType Fisrt
+                    // If OrgTypeName is provided (string from frontend), resolve or insert
+                    if (!string.IsNullOrWhiteSpace(objCust.OrgTypeName) && objCust.CUST_ORGTYPEID == 0)
+                    {
+                        int orgTypeId = await connection.ExecuteScalarAsync<int?>(
+                            @"SELECT TOP 1 Cmm_ID 
+          FROM Content_Management_Master 
+          WHERE cmm_Category = 'ORG' 
+            AND Cmm_CompID = @CompId 
+            AND UPPER(cmm_Desc) = UPPER(@OrgType)",
+                            new { CompId, OrgType = objCust.OrgTypeName }, transaction
+                        ) ?? 0;
+
+                        if (orgTypeId == 0)
+                        {
+                            // Get next cmm_ID before inserting
+                            int nextCmmId = await connection.ExecuteScalarAsync<int>(
+                                "SELECT ISNULL(MAX(cmm_ID) + 1, 1) FROM Content_Management_Master",
+                                transaction: transaction
+                            );
+
+                            // Insert new OrgType
+                            orgTypeId = await connection.ExecuteScalarAsync<int>(
+                                @"INSERT INTO Content_Management_Master 
+              (cmm_ID, cmm_Code, cmm_Category, Cmm_CompID, cmm_Desc, cmm_DelFlag)
+              VALUES (@Cmm_ID, @cmm_Code, 'ORG', @CompId, @OrgType, 'A');
+              SELECT @Cmm_ID;",
+                                new
+                                {
+                                    Cmm_ID = nextCmmId,
+                                    cmm_Code = objCust.Cmm_Code,
+                                    CompId,
+                                    OrgType = objCust.OrgTypeName
+                                },
+                                transaction
+                            );
+                        }
+                        else
+                        {
+                            // Ensure it's active
+                            await connection.ExecuteAsync(
+                                @"UPDATE Content_Management_Master
+              SET cmm_DelFlag = 'A'
+              WHERE Cmm_ID = @OrgTypeId",
+                                new { OrgTypeId = orgTypeId }, transaction
+                            );
+                        }
+
+                        objCust.CUST_ORGTYPEID = orgTypeId;
+                    }
+
+
+                    //Ensure Customer Code exists or activate it
+                    var custRecord = await connection.QueryFirstOrDefaultAsync<(int Id, string DelFlag)>(
+                        @"SELECT Cust_ID AS Id, CUST_DELFLG AS DelFlag
+      FROM SAD_CUSTOMER_MASTER
+      WHERE CUST_CODE = @CustCode",
+                        new { CustCode = objCust.CUST_CODE }, transaction
+                    );
+
+                    if (custRecord.Id == 0) // Not found
+                    {
                         objCust.CUST_CODE = await connection.ExecuteScalarAsync<string>(
-                            getCodeSql,
+                            @"SELECT 'CUST' + CAST(COALESCE(MAX(Cust_ID), 0) + 1 AS VARCHAR)
+          FROM SAD_CUSTOMER_MASTER",
                             transaction: transaction
                         );
                     }
-
-                    // ✅ Resolve OrgType ID if only description provided
-                    if (objCust.CUST_ORGTYPEID <= 0 && !string.IsNullOrEmpty(objCust.CUST_GROUPNAME))
+                    else
                     {
-                        const string getOrgTypeSql = @"
-                    SELECT Cmm_ID
-                    FROM Content_Management_Master
-                    WHERE cmm_Category = 'ORG'
-                      AND Cmm_CompID = @CompanyId
-                      AND cmm_Desc = @OrgType
-                      AND cmm_DelFlag = 'A'";
-
-                        objCust.CUST_ORGTYPEID = await connection.ExecuteScalarAsync<int>(
-                            getOrgTypeSql,
-                            new { CompanyId = CompId, OrgType = objCust.CUST_GROUPNAME },
-                            transaction: transaction
-                        );
-
-                        if (objCust.CUST_ORGTYPEID == 0)
-                            throw new Exception($"Invalid OrgType for customer: {objCust.CUST_NAME}");
+                        if (!string.Equals(custRecord.DelFlag, "A", StringComparison.OrdinalIgnoreCase))
+                        {
+                            await connection.ExecuteAsync(
+                                @"UPDATE SAD_CUSTOMER_MASTER
+              SET CUST_DELFLG = 'A'
+              WHERE Cust_ID = @Id",
+                                new { custRecord.Id }, transaction
+                            );
+                        }
                     }
 
-                    int updateOrSave, oper;
-
-                    using var command = new SqlCommand("spSAD_CUSTOMER_MASTER", connection, transaction);
-                    command.CommandType = CommandType.StoredProcedure;
-
-                    command.Parameters.AddWithValue("@CUST_ID", objCust.CUST_ID);
-                    command.Parameters.AddWithValue("@CUST_NAME", objCust.CUST_NAME ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_CODE", objCust.CUST_CODE ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_WEBSITE", objCust.CUST_WEBSITE ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_EMAIL", objCust.CUST_EMAIL ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_GROUPNAME", objCust.CUST_GROUPNAME ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_GROUPINDIVIDUAL", objCust.CUST_GROUPINDIVIDUAL);
-                    command.Parameters.AddWithValue("@CUST_ORGTYPEID", objCust.CUST_ORGTYPEID);
-                    command.Parameters.AddWithValue("@CUST_INDTYPEID", objCust.CUST_INDTYPEID);
-                    command.Parameters.AddWithValue("@CUST_MGMTTYPEID", objCust.CUST_MGMTTYPEID);
-                    command.Parameters.AddWithValue("@CUST_CommitmentDate", objCust.CUST_CommitmentDate);
-                    command.Parameters.AddWithValue("@CUSt_BranchId", objCust.CUSt_BranchId ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_COMM_ADDRESS", objCust.CUST_COMM_ADDRESS ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_COMM_CITY", objCust.CUST_COMM_CITY ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_COMM_PIN", objCust.CUST_COMM_PIN ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_COMM_STATE", objCust.CUST_COMM_STATE ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_COMM_COUNTRY", objCust.CUST_COMM_COUNTRY ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_COMM_FAX", objCust.CUST_COMM_FAX ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_COMM_TEL", objCust.CUST_COMM_TEL ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_COMM_Email", objCust.CUST_COMM_Email ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_ADDRESS", objCust.CUST_ADDRESS ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_CITY", objCust.CUST_CITY ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_PIN", objCust.CUST_PIN ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_STATE", objCust.CUST_STATE ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_COUNTRY", objCust.CUST_COUNTRY ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_FAX", objCust.CUST_FAX ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_TELPHONE", objCust.CUST_TELPHONE ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_ConEmailID", objCust.CUST_ConEmailID ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_LOCATIONID", objCust.CUST_LOCATIONID ?? "0");
-                    command.Parameters.AddWithValue("@CUST_TASKS", objCust.CUST_TASKS ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_ORGID", objCust.CUST_ORGID);
-                    command.Parameters.AddWithValue("@CUST_CRBY", objCust.CUST_CRBY);
-                    command.Parameters.AddWithValue("@CUST_UpdatedBy", objCust.CUST_UpdatedBy);
-                    command.Parameters.AddWithValue("@CUST_BOARDOFDIRECTORS", objCust.CUST_BOARDOFDIRECTORS ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_DEPMETHOD", objCust.CUST_DEPMETHOD);
-                    command.Parameters.AddWithValue("@CUST_IPAddress", objCust.CUST_IPAddress ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_CompID", objCust.CUST_CompID);
-                    command.Parameters.AddWithValue("@CUST_Amount_Type", objCust.CUST_Amount_Type);
-                    command.Parameters.AddWithValue("@CUST_RoundOff", objCust.CUST_RoundOff);
-                    command.Parameters.AddWithValue("@Cust_DurtnId", objCust.Cust_DurtnId);
-                    command.Parameters.AddWithValue("@Cust_FY", objCust.Cust_FY);
-
-                    var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                    var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
-
-                    command.Parameters.Add(updateOrSaveParam);
-                    command.Parameters.Add(operParam);
-
-                    await command.ExecuteNonQueryAsync();
-
-                    updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
-                    oper = (int)(operParam.Value ?? 0);
+                    //Save Customer Master Details via stored procedure
+                    int updateOrSave, customerId;
+                    using (var cmdCust = new SqlCommand("spSAD_CUSTOMER_MASTER", connection, transaction))
+                    {
+                        cmdCust.CommandType = CommandType.StoredProcedure;
+                        cmdCust.Parameters.AddWithValue("@CUST_ID", objCust.CUST_ID);
+                        cmdCust.Parameters.AddWithValue("@CUST_NAME", objCust.CUST_NAME ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_CODE", objCust.CUST_CODE ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_WEBSITE", objCust.CUST_WEBSITE ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_EMAIL", objCust.CUST_EMAIL ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_GROUPNAME", objCust.CUST_GROUPNAME ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_GROUPINDIVIDUAL", objCust.CUST_GROUPINDIVIDUAL);
+                        cmdCust.Parameters.AddWithValue("@CUST_ORGTYPEID", objCust.CUST_ORGTYPEID);
+                        cmdCust.Parameters.AddWithValue("@CUST_INDTYPEID", objCust.CUST_INDTYPEID);
+                        cmdCust.Parameters.AddWithValue("@CUST_MGMTTYPEID", objCust.CUST_MGMTTYPEID);
+                        cmdCust.Parameters.AddWithValue("@CUST_CommitmentDate", objCust.CUST_CommitmentDate);
+                        cmdCust.Parameters.AddWithValue("@CUSt_BranchId", objCust.CUSt_BranchId ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_COMM_ADDRESS", objCust.CUST_COMM_ADDRESS ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_COMM_CITY", objCust.CUST_COMM_CITY ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_COMM_PIN", objCust.CUST_COMM_PIN ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_COMM_STATE", objCust.CUST_COMM_STATE ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_COMM_COUNTRY", objCust.CUST_COMM_COUNTRY ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_COMM_FAX", objCust.CUST_COMM_FAX ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_COMM_TEL", objCust.CUST_COMM_TEL ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_COMM_Email", objCust.CUST_COMM_Email ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_ADDRESS", objCust.CUST_ADDRESS ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_CITY", objCust.CUST_CITY ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_PIN", objCust.CUST_PIN ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_STATE", objCust.CUST_STATE ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_COUNTRY", objCust.CUST_COUNTRY ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_FAX", objCust.CUST_FAX ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_TELPHONE", objCust.CUST_TELPHONE ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_ConEmailID", objCust.CUST_ConEmailID ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_LOCATIONID", objCust.CUST_LOCATIONID ?? "0");
+                        cmdCust.Parameters.AddWithValue("@CUST_TASKS", objCust.CUST_TASKS ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_ORGID", objCust.CUST_ORGID);
+                        cmdCust.Parameters.AddWithValue("@CUST_CRBY", objCust.CUST_CRBY);
+                        cmdCust.Parameters.AddWithValue("@CUST_UpdatedBy", objCust.CUST_UpdatedBy);
+                        cmdCust.Parameters.AddWithValue("@CUST_BOARDOFDIRECTORS", objCust.CUST_BOARDOFDIRECTORS ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_DEPMETHOD", objCust.CUST_DEPMETHOD);
+                        cmdCust.Parameters.AddWithValue("@CUST_IPAddress", objCust.CUST_IPAddress ?? string.Empty);
+                        cmdCust.Parameters.AddWithValue("@CUST_CompID", objCust.CUST_CompID);
+                        cmdCust.Parameters.AddWithValue("@CUST_Amount_Type", objCust.CUST_Amount_Type);
+                        cmdCust.Parameters.AddWithValue("@CUST_RoundOff", objCust.CUST_RoundOff);
+                        cmdCust.Parameters.AddWithValue("@Cust_DurtnId", objCust.Cust_DurtnId);
+                        cmdCust.Parameters.AddWithValue("@Cust_FY", objCust.Cust_FY);
 
 
+                        var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        cmdCust.Parameters.Add(updateOrSaveParam);
+                        cmdCust.Parameters.Add(operParam);
 
+                        await cmdCust.ExecuteNonQueryAsync();
 
+                        updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+                        customerId = (int)(operParam.Value ?? 0);
+                    }
 
-                    results.Add(new[] { updateOrSave, oper });
+                    //Step 6: Save Locations
+                    if (!string.IsNullOrWhiteSpace(objCust.LocationName))
+                    {
+                        int locationId;
+                        using (var cmdLoc = new SqlCommand("spSAD_CUST_LOCATION", connection, transaction))
+                        {
+                            cmdLoc.CommandType = CommandType.StoredProcedure;
+                            cmdLoc.Parameters.AddWithValue("@Mas_Id", objCust.Mas_Id);
+                            cmdLoc.Parameters.AddWithValue("@Mas_code", objCust.Mas_code ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_Description", objCust.LocationName ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_DelFlag", objCust.DelFlag ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_CustID", customerId);
+                            cmdLoc.Parameters.AddWithValue("@Mas_Loc_Address", objCust.Address ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_Contact_Person", objCust.ContactPerson ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_Contact_MobileNo", objCust.Mobile ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_Contact_LandLineNo", objCust.Landline ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_Contact_Email", objCust.Email ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@mas_Designation", objCust.Designation ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_CRBY", objCust.CUST_CRBY);
+                            cmdLoc.Parameters.AddWithValue("@Mas_UpdatedBy", objCust.CUST_UpdatedBy);
+                            cmdLoc.Parameters.AddWithValue("@Mas_STATUS", "A");
+                            cmdLoc.Parameters.AddWithValue("@Mas_IPAddress", objCust.CUST_IPAddress ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_CompID", objCust.CUST_CompID);
+
+                            var updateOrSaveLoc = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            var operLoc = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            cmdLoc.Parameters.Add(updateOrSaveLoc);
+                            cmdLoc.Parameters.Add(operLoc);
+
+                            await cmdLoc.ExecuteNonQueryAsync();
+                            locationId = (int)(operLoc.Value ?? 0);
+                        }
+
+                        //Save Statutory Refs for this location
+                        async Task SaveStatutoryRef(string desc, string value)
+                        {
+                            if (string.IsNullOrWhiteSpace(value))
+                                return;
+
+                            using var cmdStat = new SqlCommand("spSAD_CUST_Accounting_Template", connection, transaction);
+                            cmdStat.CommandType = CommandType.StoredProcedure;
+                            cmdStat.Parameters.AddWithValue("@Cust_PKID", 0);
+                            cmdStat.Parameters.AddWithValue("@Cust_ID", customerId);
+                            cmdStat.Parameters.AddWithValue("@Cust_Desc", desc);
+                            cmdStat.Parameters.AddWithValue("@Cust_Value", value);
+                            cmdStat.Parameters.AddWithValue("@Cust_Delflag", "A");
+                            cmdStat.Parameters.AddWithValue("@Cust_Status", "A");
+                            cmdStat.Parameters.AddWithValue("@Cust_AttchID", 0);
+                            cmdStat.Parameters.AddWithValue("@Cust_CrBy", objCust.CUST_CRBY);
+                            cmdStat.Parameters.AddWithValue("@Cust_UpdatedBy", objCust.CUST_UpdatedBy);
+                            cmdStat.Parameters.AddWithValue("@Cust_IPAddress", objCust.CUST_IPAddress ?? string.Empty);
+                            cmdStat.Parameters.AddWithValue("@Cust_Compid", objCust.CUST_CompID);
+                            cmdStat.Parameters.AddWithValue("@Cust_LocationId", locationId);
+
+                            var updateOrSaveStat = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            var operStat = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            cmdStat.Parameters.Add(updateOrSaveStat);
+                            cmdStat.Parameters.Add(operStat);
+
+                            await cmdStat.ExecuteNonQueryAsync();
+                        }
+
+                        await SaveStatutoryRef("CIN", objCust.CIN);
+                        await SaveStatutoryRef("TAN", objCust.TAN);
+                        await SaveStatutoryRef("GST", objCust.GST);
+                    }
+
+                    results.Add(new[] { updateOrSave, customerId });
                 }
 
                 transaction.Commit();
@@ -399,7 +729,7 @@ namespace TracePca.Service.SuperMaster
         }
 
         // SaveClientUser 
-        public async Task<List<int[]>> SuperMasterSaveClientUserAsync(int CompId, List<SaveClientUserDto> employees)
+        public async Task<List<int[]>> SuperMasterSaveClientUserAsync(int CompId, List<SaveClientUserDto> clientUser)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -416,7 +746,7 @@ namespace TracePca.Service.SuperMaster
             {
                 var results = new List<int[]>();
 
-                foreach (var objEmp in employees)
+                foreach (var objEmp in clientUser)
                 {
                     // ✅ 1. Vendor check or create
                     const string checkVendorQuery = @"
@@ -487,7 +817,7 @@ namespace TracePca.Service.SuperMaster
                     int updateOrSave, oper;
                     using var command = new SqlCommand("spEmployeeMaster", connection, transaction);
                     command.CommandType = CommandType.StoredProcedure;
-
+                           
                     command.Parameters.AddWithValue("@Usr_ID", objEmp.iUserID);
                     command.Parameters.AddWithValue("@Usr_Node", objEmp.iUsrNode);
                     command.Parameters.AddWithValue("@Usr_Code", objEmp.sUsrCode ?? string.Empty);
