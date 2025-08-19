@@ -1958,7 +1958,7 @@ namespace TracePca.Service.Audit
 
                 var request = _httpContextAccessor.HttpContext.Request;
                 string baseUrl = $"{request.Scheme}://{request.Host}";
-                string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{SanitizeName(result.SubCabinet) + ".zip"}";
+                string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{SanitizeName(Cabinet) + ".zip"}";
 
                 return (true, downloadUrl);
             }
