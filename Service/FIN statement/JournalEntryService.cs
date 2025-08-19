@@ -277,6 +277,7 @@ namespace TracePca.Service.FIN_statement
         ORDER BY CC_gl";
 
             return await connection.QueryAsync<SubGlDto>(query, new
+
             {
                 CompId = compId,
                 CustId = custId
