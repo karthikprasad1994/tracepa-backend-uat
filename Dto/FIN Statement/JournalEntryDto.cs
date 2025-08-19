@@ -155,5 +155,13 @@
             public int ATBUD_YEARId { get; set; }
         }
 
+        //ActivateJE
+        public class ActivateRequestDto
+        {
+            public List<int> DescriptionIds { get; set; } = new(); 
+            public int CompId { get; set; }                       
+            public int UserId { get; set; }                
+            public string IpAddress { get; set; } = "127.0.0.1";
+        }
     }
 }

@@ -207,6 +207,9 @@
         //UploadClientUser
         public class UploadClientUserDto
         {
+            //Customer Table
+            public string CustomerName { get; set; }
+            //Employee Table
             public string EmpCode { get; set; }         
             public string EmployeeName { get; set; }     
             public string LoginName { get; set; }       

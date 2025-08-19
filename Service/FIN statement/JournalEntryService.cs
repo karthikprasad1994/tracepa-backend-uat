@@ -553,6 +553,43 @@ namespace TracePca.Service.FIN_statement
                 throw;
             }
         }
+
+        //ActivateJE
+        public async Task<int> ActivateJournalEntriesAsync(ActivateRequestDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            const string sql = @"
+        UPDATE Acc_JournalEntry_Master
+        SET JEM_Status = @Status,
+            JEM_UpdatedBy = @UserId,
+            JEM_UpdatedOn = GETDATE(),
+            JEM_IPAddress = @IpAddress
+        WHERE JEM_ID IN @Ids
+          AND JEM_CompId = @CompId";
+
+            var rowsAffected = await connection.ExecuteAsync(sql, new
+            {
+                Status = "A",          // Activate
+                UserId = dto.UserId,
+                IpAddress = dto.IpAddress,
+                Ids = dto.DescriptionIds,
+                CompId = dto.CompId
+            });
+
+            return rowsAffected;
+        }
     }
 }
 

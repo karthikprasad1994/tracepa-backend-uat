@@ -277,6 +277,39 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //
+        //ActivateJE
+        [HttpPost("ActivateJournalEntries")]
+        public async Task<IActionResult> ActivateJournalEntries([FromBody] ActivateRequestDto dto)
+        {
+            try
+            {
+                var rowsAffected = await _JournalEntryService.ActivateJournalEntriesAsync(dto);
+
+                if (rowsAffected <= 0)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No matching entries found to activate."
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Journal Entries activated successfully.",
+                    data = new { count = rowsAffected, ids = dto.DescriptionIds }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while activating Journal Entries.",
+                    error = ex.Message
+                });
+            }
+        }
     }
 }
