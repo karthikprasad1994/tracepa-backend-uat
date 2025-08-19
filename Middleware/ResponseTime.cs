@@ -16,66 +16,66 @@ namespace TracePca.Middleware
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
-        public async Task InvokeAsync(HttpContext context)
-        {
-            var path = context.Request.Path.Value ?? string.Empty;
+      
 
-            // Skip logging for metrics API itself
-            if (path.StartsWith("/api/ApiPerformance", StringComparison.OrdinalIgnoreCase))
+            public async Task InvokeAsync(HttpContext context)
             {
-                await _next(context);
-                return;
-            }
+                var path = context.Request.Path.Value ?? string.Empty;
 
-            // Record start time
-            var stopwatch = Stopwatch.StartNew();
+                // Skip logging for metrics API itself
+                if (path.StartsWith("/api/ApiPerformance", StringComparison.OrdinalIgnoreCase))
+                {
+                    await _next(context);
+                    return;
+                }
 
-            await _next(context);  // Call the next middleware / controller
+                // Record start time
+                var stopwatch = Stopwatch.StartNew();
 
-            stopwatch.Stop();
-            var responseTimeMs = stopwatch.ElapsedMilliseconds;
+                await _next(context);  // Call the next middleware / controller
 
-            // Read FormName from request headers (frontend must send it)
-            string formName = context.Request.Headers["FormName"];
-            string apiName = context.Request.Path;
+                stopwatch.Stop();
+                var responseTimeMs = stopwatch.ElapsedMilliseconds;
 
-            // Get UserId from JWT claims
-            int? userId = null;
-            var userIdClaim = context.User?.FindFirst(ClaimTypes.NameIdentifier);
-            if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int parsedUserId))
-            {
-                userId = parsedUserId;
-            }
+                // Read FormName from request headers (frontend must send it)
+                string formName = context.Request.Headers["FormName"];
+                string apiName = context.Request.Path;
 
-            // Optional: add message if response exceeds threshold
-            string message = null;
-            long thresholdMs = 2000; // example threshold, or use _globalThresholdMs
-            if (responseTimeMs > thresholdMs)
-            {
-                message = $"API exceeded threshold: {thresholdMs} ms";
-            }
+                // Get UserId from session (set during login)
+                int? userId = context.Session.GetInt32("UserId");
 
-            try
-            {
-                using var connection = new SqlConnection(_connectionString);
-                await connection.ExecuteAsync(
-                    @"INSERT INTO ApiResponseLogs (UserId, FormName, ApiName, ResponseTime, ResponseMessage, CreatedOn)
-              VALUES (@UserId, @FormName, @ApiName, @ResponseTime, @ResponseMessage, GETDATE())",
-                    new
-                    {
-                        UserId = userId,
-                        FormName = string.IsNullOrEmpty(formName) ? apiName : formName,
-                        ApiName = apiName,
-                        ResponseTime = responseTimeMs,
-                        ResponseMessage  = message
-                    });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to log API response time: {ex.Message}");
+                // Optional: add message if response exceeds threshold
+                string message = null;
+                long thresholdMs = 2000; // example threshold, or use _globalThresholdMs
+                if (responseTimeMs > thresholdMs)
+                {
+                    message = $"API exceeded threshold: {thresholdMs} ms";
+                }
+
+                try
+                {
+                    using var connection = new SqlConnection(_connectionString);
+                    await connection.ExecuteAsync(
+                        @"INSERT INTO ApiResponseLogs 
+                  (UserId, FormName, ApiName, ResponseTime, ResponseMessage, CreatedOn)
+                  VALUES (@UserId, @FormName, @ApiName, @ResponseTime, @ResponseMessage, GETDATE())",
+                        new
+                        {
+                            UserId = userId,
+                            FormName = string.IsNullOrEmpty(formName) ? apiName : formName,
+                            ApiName = apiName,
+                            ResponseTime = responseTimeMs,
+                            ResponseMessage = message
+                        });
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to log API response time: {ex.Message}");
+                }
             }
         }
 
 
+
     }
-}
+
