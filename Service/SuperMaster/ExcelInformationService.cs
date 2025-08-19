@@ -882,21 +882,23 @@ namespace TracePca.Service.SuperMaster
                     }
 
                     // Step 5: Ensure ComapnyId exists
+                    // Look up Cust_ID using the name from Excel
                     string customerSql = @"
     SELECT CUST_ID 
     FROM SAD_CUSTOMER_MASTER 
-    WHERE UPPER(CUST_NAME) = UPPER(@CustomerName) AND CUST_CompID = @CompId";
+    WHERE UPPER(CUST_NAME) = UPPER(@CustomerName) 
+      AND CUST_CompID = @CompId";
 
-                    int? customerId = await connection.ExecuteScalarAsync<int?>(
+                    int? CompanyId = await connection.ExecuteScalarAsync<int?>(
                         customerSql, new { CustomerName = emp.CustomerName, CompId = compId }, transaction);
 
-                    if (!customerId.HasValue)
+                    if (!CompanyId.HasValue)
                     {
                         throw new Exception($"Customer '{emp.CustomerName}' does not exist in master table.");
                     }
 
-                    emp.CompanyId = customerId.Value; // use this for inserting ClientUser
-
+                    // Assign the looked-up ID
+                    emp.CompanyId = CompanyId.Value.ToString();
 
                     // Step 7: Check if ClientUser exists
                     string checkEmpSql = "SELECT COUNT(1) FROM Sad_UserDetails WHERE Usr_Code=@EmpCode AND Usr_CompId=@CompId";
@@ -925,7 +927,7 @@ namespace TracePca.Service.SuperMaster
                     cmd.Parameters.AddWithValue("@Usr_OfficePhone", emp.OfficePhoneNo ?? "");
                     cmd.Parameters.AddWithValue("@Usr_OffPhExtn", emp.OfficePhoneExtn ?? "");
                     cmd.Parameters.AddWithValue("@Usr_Designation", emp.Designation ?? 0);
-                    cmd.Parameters.AddWithValue("@Usr_CompanyID", vendorId);
+                    cmd.Parameters.AddWithValue("@Usr_CompanyID", CompanyId);
                     cmd.Parameters.AddWithValue("@Usr_OrgnID", emp.OrgnId ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_GrpOrUserLvlPerm", emp.GrpOrUserLvlPerm ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_Role", emp.Role ?? 0);
@@ -998,18 +1000,17 @@ namespace TracePca.Service.SuperMaster
             int rowCount = worksheet.Dimension.Rows;
 
             var employees = new List<UploadClientUserDto>();
-            for (int row = 2; row <= rowCount; row++) // skip header
+            for (int row = 2; row <= rowCount; row++) 
             {
                 employees.Add(new UploadClientUserDto
                 {
                     CompanyId = worksheet.Cells[row, 1].Text,
-                    EmpCode = worksheet.Cells[row, 1].Text,   // Emp Code
-                    EmployeeName = worksheet.Cells[row, 2].Text,   // Full Name
-                    LoginName = worksheet.Cells[row, 3].Text,   // Login Name
-                    Email = worksheet.Cells[row, 4].Text,   // Email
-                    PhoneNo = worksheet.Cells[row, 5].Text,   // Office Phone
+                    EmpCode = worksheet.Cells[row, 1].Text,   
+                    EmployeeName = worksheet.Cells[row, 2].Text,   
+                    LoginName = worksheet.Cells[row, 3].Text,  
+                    Email = worksheet.Cells[row, 4].Text,   
+                    PhoneNo = worksheet.Cells[row, 5].Text,   
                     Password = worksheet.Cells[row, 9].Text,
-
                     //Optional / Numeric values
                     LevelGrp = int.TryParse(worksheet.Cells[row, 10].Text, out var levelGrp) ? levelGrp : 0,
                     DutyStatus = worksheet.Cells[row, 11].Text,
@@ -1068,7 +1069,7 @@ namespace TracePca.Service.SuperMaster
                 if (string.IsNullOrWhiteSpace(emp.Email))
                     errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Email missing" });
 
-                if (string.IsNullOrWhiteSpace(emp.OfficePhoneNo))
+                if (string.IsNullOrWhiteSpace(emp.PhoneNo))
                     errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "OfficePhoneNo missing" });
             }
             return errors;
