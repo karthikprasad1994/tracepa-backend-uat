@@ -388,6 +388,33 @@ namespace TracePca.Service
 
                 // Execute the script
                 await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePathToUse);
+                string seedConfigSql = $@"
+INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Config_Value], [SAD_UpdatedBy], [SAD_UpdatedOn], [SAD_Config_Operation], [SAD_Config_IPAddress], [SAD_CompID]) VALUES 
+(1, N'ImgPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(2, N'ExcelPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\Tempfolder\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(3, N'FilesInDB', N'False', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(4, N'HTP', N'http://', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(5, N'AppName', N'TRACe', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(6, N'FtpServer', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\FTPROOT\ROOT\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(7, N'RDBMS', N'SQL', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(8, N'Currency', N'1', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(9, N'ErrorLog', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\ErrorLog\ErrorLog.txt', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(10, N'DateFormat', N'1', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(11, N'FileSize', N'7', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(12, N'TimeOut', N'40', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(13, N'TimeOutWarning', N'5', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(14, N'FileInDBPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\TRACePA Doc', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(15, N'OutlookEMail', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\Outlook\MSG', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+(16, N'TempPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\', 1, GETDATE(), N'U', N'192.168.0.118', 1),
+(17, N'DisplayPath', N'https://tracepacore.multimedia.interactivedns.com/{newCustomerCode}/', 1, GETDATE(), N'U', N'192.168.0.118', 1);
+";
+
+                
+                using (var seedConnection = new SqlConnection(newDbConnectionString))
+                {
+                    await seedConnection.ExecuteAsync(seedConfigSql);
+                }
+
 
                 // Step 5: Setup Schema
                 //string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");

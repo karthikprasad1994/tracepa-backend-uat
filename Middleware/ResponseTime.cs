@@ -2,23 +2,24 @@
 using System.Security.Claims;
 using Dapper;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 
 namespace TracePca.Middleware
 {
     public class ResponseTime
     {
         private readonly RequestDelegate _next;
-        private readonly string _connectionString;
+        private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public ResponseTime(RequestDelegate next, IConfiguration configuration)
+        public ResponseTime(RequestDelegate next, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _next = next;
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _configuration = configuration;
+            _httpContextAccessor = httpContextAccessor;
         }
-
-      
-
-            public async Task InvokeAsync(HttpContext context)
+              
+               public async Task InvokeAsync(HttpContext context)
             {
                 var path = context.Request.Path.Value ?? string.Empty;
 
@@ -31,10 +32,9 @@ namespace TracePca.Middleware
 
                 // Record start time
                 var stopwatch = Stopwatch.StartNew();
-
                 await _next(context);  // Call the next middleware / controller
-
                 stopwatch.Stop();
+
                 var responseTimeMs = stopwatch.ElapsedMilliseconds;
 
                 // Read FormName from request headers (frontend must send it)
@@ -44,9 +44,25 @@ namespace TracePca.Middleware
                 // Get UserId from session (set during login)
                 int? userId = context.Session.GetInt32("UserId");
 
+                // ✅ Get DB name from session
+                string dbName = context.Session.GetString("CustomerCode");
+                if (string.IsNullOrEmpty(dbName))
+                {
+                    Console.WriteLine("CustomerCode is missing in session. Skipping logging.");
+                    return;
+                }
+
+                // ✅ Resolve connection string dynamically
+                var connectionString = _configuration.GetConnectionString(dbName);
+                if (string.IsNullOrEmpty(connectionString))
+                {
+                    Console.WriteLine($"No connection string found for '{dbName}'. Skipping logging.");
+                    return;
+                }
+
                 // Optional: add message if response exceeds threshold
-                string message = null;
-                long thresholdMs = 2000;       // example threshold, or use _globalThresholdMs
+                string? message = null;
+                long thresholdMs = 2000; // example threshold
                 if (responseTimeMs > thresholdMs)
                 {
                     message = $"API exceeded threshold: {thresholdMs} ms";
@@ -54,11 +70,11 @@ namespace TracePca.Middleware
 
                 try
                 {
-                    using var connection = new SqlConnection(_connectionString);
+                    using var connection = new SqlConnection(connectionString);
                     await connection.ExecuteAsync(
                         @"INSERT INTO ApiResponseLogs 
-                  (UserId, FormName, ApiName, ResponseTime, ResponseMessage, CreatedOn)
-                  VALUES (@UserId, @FormName, @ApiName, @ResponseTime, @ResponseMessage, GETDATE())",
+                      (UserId, FormName, ApiName, ResponseTime, ResponseMessage, CreatedOn)
+                      VALUES (@UserId, @FormName, @ApiName, @ResponseTime, @ResponseMessage, GETDATE())",
                         new
                         {
                             UserId = userId,
@@ -74,8 +90,11 @@ namespace TracePca.Middleware
                 }
             }
         }
-
-
-
     }
+
+
+
+
+
+    
 
