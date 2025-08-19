@@ -6250,7 +6250,6 @@ WHERE
             var attachmentId = 0;
             var documentId = 0;
 
-
             // ✅ Skip if there are no files to process
             if (request.Files == null || !request.Files.Any())
             {
@@ -6262,11 +6261,6 @@ WHERE
             foreach (var file in request.Files)
             {
                 var tempFolderPath = EnsureDirectoryExists(request.AccessCodeDirectory, request.UserId.ToString(), "Upload");
-                //if (file.FileName == "empty.txt")
-                //{
-                //    file.FileName = "";
-                //}
-
 
                 var originalFileName = Path.GetFileName(file.FileName);
                 var tempFilePath = Path.Combine(tempFolderPath, originalFileName);
@@ -6285,30 +6279,48 @@ WHERE
                     fileExtension = "";
                     fileBaseName = "";
                 }
+
                 var fileSize = new FileInfo(tempFilePath).Length;
 
-                attachmentId = request.AttachmentId == 0 ? GetNextId("ATCH_ID", request.CompanyId) : request.AttachmentId;
-                documentId = GetNextId("ATCH_DOCID", request.CompanyId);
+                // ✅ Corrected: get attachmentId from DB if needed
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+                if (string.IsNullOrEmpty(dbName))
+                    throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-                if (documentId == 0 && DocumentIdExists(request.CompanyId, attachmentId))
+                var connectionString = _configuration.GetConnectionString(dbName);
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    attachmentId = GetNextId("ATCH_ID", request.CompanyId);
+                    await connection.OpenAsync();
+                    var existingAttachmentId = await connection.ExecuteScalarAsync<int?>(
+                        @"SELECT ATCH_ID FROM EDT_Attachments
+                  LEFT JOIN Audit_DRLLog b ON b.ADRL_AttachID = ATCH_ID
+                  WHERE b.ADRL_CustID = @CustID AND b.ADRL_AuditNo = @AuditNo AND ATCH_DRLID = @DRLID",
+                        new { CustID = request.CustomerId, AuditNo = request.AuditNo, DRLID = request.RequestedListId }
+                    );
+
+                    if (existingAttachmentId.HasValue)
+                    {
+                        attachmentId = existingAttachmentId.Value;
+                    }
+                    else
+                    {
+                        attachmentId = request.AttachmentId == 0 ? GetNextId("ATCH_ID", request.CompanyId) : request.AttachmentId;
+                    }
+
                     documentId = GetNextId("ATCH_DOCID", request.CompanyId);
+
+                    if (documentId == 0 && DocumentIdExists(request.CompanyId, attachmentId))
+                    {
+                        attachmentId = GetNextId("ATCH_ID", request.CompanyId);
+                        documentId = GetNextId("ATCH_DOCID", request.CompanyId);
+                    }
                 }
 
                 if (IsFileStoredInDatabase(request.CompanyId))
                 {
                     byte[] fileData = await File.ReadAllBytesAsync(tempFilePath);
-                    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
-                    if (string.IsNullOrEmpty(dbName))
-                        throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-                    // ✅ Step 2: Get the connection string
-                    var connectionString = _configuration.GetConnectionString(dbName);
 
                     using var connection = new SqlConnection(connectionString);
-                    // using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                     string sql = @"INSERT INTO EDT_ATTACHMENTS 
                           (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, 
                            ATCH_VERSION, ATCH_FLAG, ATCH_OLE, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
@@ -6331,16 +6343,7 @@ WHERE
                 }
                 else
                 {
-                    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
-                    if (string.IsNullOrEmpty(dbName))
-                        throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-                    // ✅ Step 2: Get the connection string
-                    var connectionString = _configuration.GetConnectionString(dbName);
-
                     using var connection = new SqlConnection(connectionString);
-                    //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
                     string sql = @"INSERT INTO EDT_ATTACHMENTS 
                           (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, 
                            ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
@@ -6370,7 +6373,6 @@ WHERE
                 savedAttachmentIds.Add(attachmentId);
             }
 
-            // ✅ You can still log something even if attachments were skipped
             await SaveDRLLogDetailsAsync(request, attachmentId, documentId);
             return savedAttachmentIds;
         }
