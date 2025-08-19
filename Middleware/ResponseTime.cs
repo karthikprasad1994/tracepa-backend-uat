@@ -46,7 +46,7 @@ namespace TracePca.Middleware
 
                 // Optional: add message if response exceeds threshold
                 string message = null;
-                long thresholdMs = 2000; // example threshold, or use _globalThresholdMs
+                long thresholdMs = 2000;       // example threshold, or use _globalThresholdMs
                 if (responseTimeMs > thresholdMs)
                 {
                     message = $"API exceeded threshold: {thresholdMs} ms";
