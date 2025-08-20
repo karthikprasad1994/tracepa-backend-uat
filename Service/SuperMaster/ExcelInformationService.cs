@@ -885,7 +885,9 @@ namespace TracePca.Service.SuperMaster
                     string customerSql = @"
     SELECT CUST_ID 
     FROM SAD_CUSTOMER_MASTER 
-    WHERE UPPER(CUST_NAME) = UPPER(@CustomerName) AND CUST_CompID = @CompId";
+    WHERE UPPER(CUST_NAME) = UPPER(@CustomerName) 
+      AND CUST_CompID = @CompId";
+
 
                     //int? customerId = await connection.ExecuteScalarAsync<int?>(
                     //    customerSql, new { CustomerName = emp.CustomerName, CompId = compId }, transaction);
@@ -896,6 +898,18 @@ namespace TracePca.Service.SuperMaster
                     //}
 
                     //emp.CompanyId = customerId.Value; // use this for inserting ClientUser
+
+
+                    int? CompanyId = await connection.ExecuteScalarAsync<int?>(
+                        customerSql, new { CustomerName = emp.CompanyId, CompId = compId }, transaction);
+
+                    if (!CompanyId.HasValue)
+                    {
+                        throw new Exception($"Customer '{emp.CompanyId}' does not exist in master table.");
+                    }
+
+                    // Assign the looked-up ID
+                    emp.CompanyId = CompanyId.Value.ToString();
 
 
                     // Step 7: Check if ClientUser exists
@@ -918,14 +932,17 @@ namespace TracePca.Service.SuperMaster
                     cmd.Parameters.AddWithValue("@Usr_Suggetions", emp.Suggestions ?? 0);
                     cmd.Parameters.AddWithValue("@usr_partner", emp.Partner);
                     cmd.Parameters.AddWithValue("@Usr_LevelGrp", emp.LevelGrp ?? 0);
-                    cmd.Parameters.AddWithValue("@Usr_LevelGrp", emp.LevelGrp ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_DutyStatus", emp.DutyStatus ?? "A");
                     cmd.Parameters.AddWithValue("@Usr_PhoneNo", emp.PhoneNo ?? "");
                     cmd.Parameters.AddWithValue("@Usr_MobileNo", emp.MobileNo ?? "");
                     cmd.Parameters.AddWithValue("@Usr_OfficePhone", emp.OfficePhoneNo ?? "");
                     cmd.Parameters.AddWithValue("@Usr_OffPhExtn", emp.OfficePhoneExtn ?? "");
                     cmd.Parameters.AddWithValue("@Usr_Designation", emp.Designation ?? 0);
+
                     //cmd.Parameters.AddWithValue("@Usr_CompanyID", vendorId);
+
+                    cmd.Parameters.AddWithValue("@Usr_CompanyID", CompanyId);
+
                     cmd.Parameters.AddWithValue("@Usr_OrgnID", emp.OrgnId ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_GrpOrUserLvlPerm", emp.GrpOrUserLvlPerm ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_Role", emp.Role ?? 0);
@@ -998,51 +1015,52 @@ namespace TracePca.Service.SuperMaster
             int rowCount = worksheet.Dimension.Rows;
 
             var employees = new List<UploadClientUserDto>();
-            for (int row = 2; row <= rowCount; row++) // skip header
+            for (int row = 2; row <= rowCount; row++) 
             {
                 employees.Add(new UploadClientUserDto
                 {
                     CompanyId = worksheet.Cells[row, 1].Text,
-                    EmpCode = worksheet.Cells[row, 1].Text,   // Emp Code
-                    EmployeeName = worksheet.Cells[row, 2].Text,   // Full Name
-                    LoginName = worksheet.Cells[row, 3].Text,   // Login Name
-                    Email = worksheet.Cells[row, 4].Text,   // Email
-                    PhoneNo = worksheet.Cells[row, 5].Text,   // Office Phone
-                    Password = worksheet.Cells[row, 9].Text,
-
+                    EmpCode = worksheet.Cells[row, 2].Text,   
+                    EmployeeName = worksheet.Cells[row, 3].Text,   
+                    LoginName = worksheet.Cells[row, 4].Text,  
+                    Email = worksheet.Cells[row, 5].Text,   
+                    PhoneNo = worksheet.Cells[row, 6].Text,   
+                    Password = worksheet.Cells[row, 7].Text,
                     //Optional / Numeric values
-                    LevelGrp = int.TryParse(worksheet.Cells[row, 10].Text, out var levelGrp) ? levelGrp : 0,
-                    DutyStatus = worksheet.Cells[row, 11].Text,
+                    Partner = int.TryParse(worksheet.Cells[row, 8].Text, out var partner) ? partner : 0,
+                    LevelGrp = int.TryParse(worksheet.Cells[row, 9].Text, out var levelGrp) ? levelGrp : 0,
+                    DutyStatus = worksheet.Cells[row, 10].Text,
+                    MobileNo = worksheet.Cells[row, 11].Text,
                     OfficePhoneNo = worksheet.Cells[row, 12].Text,
-                    MobileNo = worksheet.Cells[row, 13].Text,
-                    OfficePhoneExtn = worksheet.Cells[row, 14].Text,
+                    OfficePhoneExtn = worksheet.Cells[row, 13].Text,
+                    Designation = int.TryParse(worksheet.Cells[row, 14].Text, out var designation) ? designation : 0,
                     OrgnId = int.TryParse(worksheet.Cells[row, 15].Text, out var orgId) ? orgId : 0,
                     GrpOrUserLvlPerm = int.TryParse(worksheet.Cells[row, 16].Text, out var grpOfuser) ? grpOfuser : 0,
-                    MasterModule = int.TryParse(worksheet.Cells[row, 17].Text, out var mm) ? mm : 0,
-                    AuditModule = int.TryParse(worksheet.Cells[row, 18].Text, out var am) ? am : 0,
-                    RiskModule = int.TryParse(worksheet.Cells[row, 19].Text, out var rm) ? rm : 0,
-                    ComplianceModule = int.TryParse(worksheet.Cells[row, 20].Text, out var cm) ? cm : 0,
-                    BCMModule = int.TryParse(worksheet.Cells[row, 21].Text, out var bcm) ? bcm : 0,
-                    DigitalOfficeModule = int.TryParse(worksheet.Cells[row, 22].Text, out var dom) ? dom : 0,
-                    MasterRole = int.TryParse(worksheet.Cells[row, 23].Text, out var mr) ? mr : 0,
-                    AuditRole = int.TryParse(worksheet.Cells[row, 24].Text, out var ar) ? ar : 0,
-                    RiskRole = int.TryParse(worksheet.Cells[row, 25].Text, out var rr) ? rr : 0,
-                    ComplianceRole = int.TryParse(worksheet.Cells[row, 26].Text, out var cr) ? cr : 0,
-                    BCMRole = int.TryParse(worksheet.Cells[row, 27].Text, out var br) ? br : 0,
-                    DigitalOfficeRole = int.TryParse(worksheet.Cells[row, 28].Text, out var dor) ? dor : 0,
-                    CreatedBy = int.TryParse(worksheet.Cells[row, 29].Text, out var createdBy) ? createdBy : 0,
-                    UpdatedBy = int.TryParse(worksheet.Cells[row, 30].Text, out var updatedBy) ? updatedBy : 0,
-                    DelFlag = worksheet.Cells[row, 31].Text,
-                    Status = worksheet.Cells[row, 32].Text,
-                    IPAddress = worksheet.Cells[row, 33].Text,
-                    CompId = int.TryParse(worksheet.Cells[row, 34].Text, out var compId) ? compId : 0,
-                    Type = worksheet.Cells[row, 35].Text,
-                    IsSuperuser = int.TryParse(worksheet.Cells[row, 36].Text, out var su) ? su : 0,
-                    DeptID = int.TryParse(worksheet.Cells[row, 37].Text, out var dept) ? dept : 0,
-                    MemberType = int.TryParse(worksheet.Cells[row, 38].Text, out var mt) ? mt : 0,
-                    Levelcode = int.TryParse(worksheet.Cells[row, 39].Text, out var lc) ? lc : 0,
-                    Suggestions = int.TryParse(worksheet.Cells[row, 40].Text, out var sug2) ? sug2 : 0
-
+                    Role = int.TryParse(worksheet.Cells[row, 17].Text, out var role) ? role : 0,
+                    MasterModule = int.TryParse(worksheet.Cells[row, 18].Text, out var mm) ? mm : 0,
+                    AuditModule = int.TryParse(worksheet.Cells[row, 19].Text, out var am) ? am : 0,
+                    RiskModule = int.TryParse(worksheet.Cells[row, 20].Text, out var rm) ? rm : 0,
+                    ComplianceModule = int.TryParse(worksheet.Cells[row, 21].Text, out var cm) ? cm : 0,
+                    BCMModule = int.TryParse(worksheet.Cells[row, 22].Text, out var bcm) ? bcm : 0,
+                    DigitalOfficeModule = int.TryParse(worksheet.Cells[row, 23].Text, out var dom) ? dom : 0,
+                    MasterRole = int.TryParse(worksheet.Cells[row, 24].Text, out var mr) ? mr : 0,
+                    AuditRole = int.TryParse(worksheet.Cells[row, 25].Text, out var ar) ? ar : 0,
+                    RiskRole = int.TryParse(worksheet.Cells[row, 26].Text, out var rr) ? rr : 0,
+                    ComplianceRole = int.TryParse(worksheet.Cells[row, 27].Text, out var cr) ? cr : 0,
+                    BCMRole = int.TryParse(worksheet.Cells[row, 28].Text, out var br) ? br : 0,
+                    DigitalOfficeRole = int.TryParse(worksheet.Cells[row, 29].Text, out var dor) ? dor : 0,
+                    CreatedBy = int.TryParse(worksheet.Cells[row, 30].Text, out var createdBy) ? createdBy : 0,
+                    UpdatedBy = int.TryParse(worksheet.Cells[row, 31].Text, out var updatedBy) ? updatedBy : 0,
+                    DelFlag = worksheet.Cells[row, 32].Text,
+                    Status = worksheet.Cells[row, 33].Text,
+                    IPAddress = worksheet.Cells[row, 34].Text,
+                    CompId = int.TryParse(worksheet.Cells[row, 35].Text, out var compId) ? compId : 0,
+                    Type = worksheet.Cells[row, 36].Text,
+                    IsSuperuser = int.TryParse(worksheet.Cells[row, 37].Text, out var su) ? su : 0,
+                    DeptID = int.TryParse(worksheet.Cells[row, 38].Text, out var dept) ? dept : 0,
+                    MemberType = int.TryParse(worksheet.Cells[row, 39].Text, out var mt) ? mt : 0,
+                    Levelcode = int.TryParse(worksheet.Cells[row, 40].Text, out var lc) ? lc : 0,
+                    Suggestions = int.TryParse(worksheet.Cells[row, 41].Text, out var sug2) ? sug2 : 0
                 });
             }
             return employees;
@@ -1068,7 +1086,7 @@ namespace TracePca.Service.SuperMaster
                 if (string.IsNullOrWhiteSpace(emp.Email))
                     errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Email missing" });
 
-                if (string.IsNullOrWhiteSpace(emp.OfficePhoneNo))
+                if (string.IsNullOrWhiteSpace(emp.PhoneNo))
                     errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "OfficePhoneNo missing" });
             }
             return errors;

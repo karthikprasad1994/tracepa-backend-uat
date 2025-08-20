@@ -207,6 +207,9 @@
         //UploadClientUser
         public class UploadClientUserDto
         {
+            //Customer Table
+            public string CustomerName { get; set; }
+            //Employee Table
             public string EmpCode { get; set; }         
             public string EmployeeName { get; set; }     
             public string LoginName { get; set; }       
@@ -214,7 +217,7 @@
             public string PhoneNo { get; set; }
             public int? Designation { get; set; }     
             public int? Role { get; set; }            
-            public string Partner { get; set; }
+            public int? Partner { get; set; }
             // 🔹 Optional Fields (present in Excel)
             public int? EmpId { get; set; }
             public int? EmpNode { get; set; }
