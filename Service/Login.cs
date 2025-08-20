@@ -795,11 +795,20 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
                 string plainEmail = email.Trim().ToLower();
 
                 // Fetch user details
-                var user = await connection.QueryFirstOrDefaultAsync<LoginDto>(
-                    @"SELECT usr_Email AS UsrEmail, usr_Password AS UsrPassWord
-          FROM Sad_UserDetails
-          WHERE LOWER(usr_Email) = @email",
-                    new { email = plainEmail });
+                var user = await connection.QueryFirstOrDefaultAsync(
+           @"SELECT 
+          u.usr_Email AS UsrEmail, 
+          u.usr_Password AS UsrPassWord, 
+          g.Mas_Description AS RoleName
+      FROM Sad_UserDetails u
+      LEFT JOIN SAD_GrpOrLvl_General_Master g 
+             ON u.Usr_Role = g.Mas_ID
+      WHERE LOWER(u.usr_Email) = @email",
+new { email = plainEmail });
+
+                // Fetch user details with role
+
+
 
                 if (user == null)
                 {
@@ -819,8 +828,17 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
                     new { email = plainEmail });
 
 
+                var roleName = await connection.QueryFirstOrDefaultAsync<string>(
+    @"SELECT g.Mas_Description 
+      FROM Sad_UserDetails u
+      LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID
+      WHERE LOWER(u.usr_Email) = @email",
+    new { email = plainEmail });
+
+
+
                 // Step 6: Generate JWT
-                string  accessToken = GenerateJwtToken(email, customerCode, userId);
+                string accessToken = GenerateJwtToken(email, customerCode, userId);
                 string refreshToken = Guid.NewGuid().ToString(); // Use JWT if you want, but GUID is fine too
                 DateTime accessExpiry = DateTime.UtcNow.AddMinutes(15);  // Match with JWT 'exp'
                 DateTime refreshExpiry = DateTime.UtcNow.AddDays(7);
@@ -836,7 +854,7 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
                     httpContext.Session.SetInt32("UserId", userId);
                 }
 
-                string token = GenerateJwtToken( email, customerCode, userId);
+                string token = GenerateJwtToken(email, customerCode, userId);
 
                 // Get year info
 
@@ -866,6 +884,7 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
                     Message = "Login successful",
                     Token = accessToken,
                     UsrId = userId,
+                    RoleName = roleName,
                     YmsId = ymsId,
                     YmsYearId = ymsYearId,
                     CustomerCode = customerCode,
@@ -883,6 +902,10 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
                 };
             }
         }
+
+
+
+
 
         public async Task<bool> LogoutUserAsync(string accessToken)
         {

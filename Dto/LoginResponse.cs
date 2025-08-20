@@ -19,5 +19,7 @@
 
         public string? SystemIpAddress { get; set; }
 
+        public string RoleName { get; set; }
+
     }
 }

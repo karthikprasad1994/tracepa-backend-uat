@@ -21,7 +21,14 @@ namespace TracePca.Middleware
               
                public async Task InvokeAsync(HttpContext context)
             {
-                var path = context.Request.Path.Value ?? string.Empty;
+
+            if (context.Request.Method.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase))
+            {
+                await _next(context);
+                return;
+            }
+
+            var path = context.Request.Path.Value ?? string.Empty;
 
                 // Skip logging for metrics API itself
                 if (path.StartsWith("/api/ApiPerformance", StringComparison.OrdinalIgnoreCase))
@@ -40,9 +47,10 @@ namespace TracePca.Middleware
                 // Read FormName from request headers (frontend must send it)
                 string formName = context.Request.Headers["FormName"];
                 string apiName = context.Request.Path;
+           
 
-                // Get UserId from session (set during login)
-                int? userId = context.Session.GetInt32("UserId");
+            // Get UserId from session (set during login)
+            int? userId = context.Session.GetInt32("UserId");
 
                 // ✅ Get DB name from session
                 string dbName = context.Session.GetString("CustomerCode");

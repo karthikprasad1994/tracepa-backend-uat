@@ -945,6 +945,18 @@ namespace TracePca.Service.SuperMaster
     WHERE UPPER(CUST_NAME) = UPPER(@CustomerName) 
       AND CUST_CompID = @CompId";
 
+
+                    //int? customerId = await connection.ExecuteScalarAsync<int?>(
+                    //    customerSql, new { CustomerName = emp.CustomerName, CompId = compId }, transaction);
+
+                    //if (!customerId.HasValue)
+                    //{
+                    //    throw new Exception($"Customer '{emp.CustomerName}' does not exist in master table.");
+                    //}
+
+                    //emp.CompanyId = customerId.Value; // use this for inserting ClientUser
+
+
                     int? CompanyId = await connection.ExecuteScalarAsync<int?>(
                         customerSql, new { CustomerName = emp.CompanyId, CompId = compId }, transaction);
 
@@ -955,6 +967,7 @@ namespace TracePca.Service.SuperMaster
 
                     // Assign the looked-up ID
                     emp.CompanyId = CompanyId.Value.ToString();
+
 
                     // Step 7: Check if ClientUser exists
                     string checkEmpSql = "SELECT COUNT(1) FROM Sad_UserDetails WHERE Usr_Code=@EmpCode AND Usr_CompId=@CompId";
@@ -982,7 +995,11 @@ namespace TracePca.Service.SuperMaster
                     cmd.Parameters.AddWithValue("@Usr_OfficePhone", emp.OfficePhoneNo ?? "");
                     cmd.Parameters.AddWithValue("@Usr_OffPhExtn", emp.OfficePhoneExtn ?? "");
                     cmd.Parameters.AddWithValue("@Usr_Designation", emp.Designation ?? 0);
+
+                    //cmd.Parameters.AddWithValue("@Usr_CompanyID", vendorId);
+
                     cmd.Parameters.AddWithValue("@Usr_CompanyID", CompanyId);
+
                     cmd.Parameters.AddWithValue("@Usr_OrgnID", emp.OrgnId ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_GrpOrUserLvlPerm", emp.GrpOrUserLvlPerm ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_Role", emp.Role ?? 0);
