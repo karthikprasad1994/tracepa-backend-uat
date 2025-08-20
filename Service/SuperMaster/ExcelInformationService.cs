@@ -882,7 +882,6 @@ namespace TracePca.Service.SuperMaster
                     }
 
                     // Step 5: Ensure ComapnyId exists
-                    // Look up Cust_ID using the name from Excel
                     string customerSql = @"
     SELECT CUST_ID 
     FROM SAD_CUSTOMER_MASTER 
@@ -890,11 +889,11 @@ namespace TracePca.Service.SuperMaster
       AND CUST_CompID = @CompId";
 
                     int? CompanyId = await connection.ExecuteScalarAsync<int?>(
-                        customerSql, new { CustomerName = emp.CustomerName, CompId = compId }, transaction);
+                        customerSql, new { CustomerName = emp.CompanyId, CompId = compId }, transaction);
 
                     if (!CompanyId.HasValue)
                     {
-                        throw new Exception($"Customer '{emp.CustomerName}' does not exist in master table.");
+                        throw new Exception($"Customer '{emp.CompanyId}' does not exist in master table.");
                     }
 
                     // Assign the looked-up ID
@@ -919,7 +918,6 @@ namespace TracePca.Service.SuperMaster
                     cmd.Parameters.AddWithValue("@Usr_Category", emp.EmpCategory ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_Suggetions", emp.Suggestions ?? 0);
                     cmd.Parameters.AddWithValue("@usr_partner", emp.Partner);
-                    cmd.Parameters.AddWithValue("@Usr_LevelGrp", emp.LevelGrp ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_LevelGrp", emp.LevelGrp ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_DutyStatus", emp.DutyStatus ?? "A");
                     cmd.Parameters.AddWithValue("@Usr_PhoneNo", emp.PhoneNo ?? "");
@@ -1005,45 +1003,47 @@ namespace TracePca.Service.SuperMaster
                 employees.Add(new UploadClientUserDto
                 {
                     CompanyId = worksheet.Cells[row, 1].Text,
-                    EmpCode = worksheet.Cells[row, 1].Text,   
-                    EmployeeName = worksheet.Cells[row, 2].Text,   
-                    LoginName = worksheet.Cells[row, 3].Text,  
-                    Email = worksheet.Cells[row, 4].Text,   
-                    PhoneNo = worksheet.Cells[row, 5].Text,   
-                    Password = worksheet.Cells[row, 9].Text,
+                    EmpCode = worksheet.Cells[row, 2].Text,   
+                    EmployeeName = worksheet.Cells[row, 3].Text,   
+                    LoginName = worksheet.Cells[row, 4].Text,  
+                    Email = worksheet.Cells[row, 5].Text,   
+                    PhoneNo = worksheet.Cells[row, 6].Text,   
+                    Password = worksheet.Cells[row, 7].Text,
                     //Optional / Numeric values
-                    LevelGrp = int.TryParse(worksheet.Cells[row, 10].Text, out var levelGrp) ? levelGrp : 0,
-                    DutyStatus = worksheet.Cells[row, 11].Text,
+                    Partner = int.TryParse(worksheet.Cells[row, 8].Text, out var partner) ? partner : 0,
+                    LevelGrp = int.TryParse(worksheet.Cells[row, 9].Text, out var levelGrp) ? levelGrp : 0,
+                    DutyStatus = worksheet.Cells[row, 10].Text,
+                    MobileNo = worksheet.Cells[row, 11].Text,
                     OfficePhoneNo = worksheet.Cells[row, 12].Text,
-                    MobileNo = worksheet.Cells[row, 13].Text,
-                    OfficePhoneExtn = worksheet.Cells[row, 14].Text,
+                    OfficePhoneExtn = worksheet.Cells[row, 13].Text,
+                    Designation = int.TryParse(worksheet.Cells[row, 14].Text, out var designation) ? designation : 0,
                     OrgnId = int.TryParse(worksheet.Cells[row, 15].Text, out var orgId) ? orgId : 0,
                     GrpOrUserLvlPerm = int.TryParse(worksheet.Cells[row, 16].Text, out var grpOfuser) ? grpOfuser : 0,
-                    MasterModule = int.TryParse(worksheet.Cells[row, 17].Text, out var mm) ? mm : 0,
-                    AuditModule = int.TryParse(worksheet.Cells[row, 18].Text, out var am) ? am : 0,
-                    RiskModule = int.TryParse(worksheet.Cells[row, 19].Text, out var rm) ? rm : 0,
-                    ComplianceModule = int.TryParse(worksheet.Cells[row, 20].Text, out var cm) ? cm : 0,
-                    BCMModule = int.TryParse(worksheet.Cells[row, 21].Text, out var bcm) ? bcm : 0,
-                    DigitalOfficeModule = int.TryParse(worksheet.Cells[row, 22].Text, out var dom) ? dom : 0,
-                    MasterRole = int.TryParse(worksheet.Cells[row, 23].Text, out var mr) ? mr : 0,
-                    AuditRole = int.TryParse(worksheet.Cells[row, 24].Text, out var ar) ? ar : 0,
-                    RiskRole = int.TryParse(worksheet.Cells[row, 25].Text, out var rr) ? rr : 0,
-                    ComplianceRole = int.TryParse(worksheet.Cells[row, 26].Text, out var cr) ? cr : 0,
-                    BCMRole = int.TryParse(worksheet.Cells[row, 27].Text, out var br) ? br : 0,
-                    DigitalOfficeRole = int.TryParse(worksheet.Cells[row, 28].Text, out var dor) ? dor : 0,
-                    CreatedBy = int.TryParse(worksheet.Cells[row, 29].Text, out var createdBy) ? createdBy : 0,
-                    UpdatedBy = int.TryParse(worksheet.Cells[row, 30].Text, out var updatedBy) ? updatedBy : 0,
-                    DelFlag = worksheet.Cells[row, 31].Text,
-                    Status = worksheet.Cells[row, 32].Text,
-                    IPAddress = worksheet.Cells[row, 33].Text,
-                    CompId = int.TryParse(worksheet.Cells[row, 34].Text, out var compId) ? compId : 0,
-                    Type = worksheet.Cells[row, 35].Text,
-                    IsSuperuser = int.TryParse(worksheet.Cells[row, 36].Text, out var su) ? su : 0,
-                    DeptID = int.TryParse(worksheet.Cells[row, 37].Text, out var dept) ? dept : 0,
-                    MemberType = int.TryParse(worksheet.Cells[row, 38].Text, out var mt) ? mt : 0,
-                    Levelcode = int.TryParse(worksheet.Cells[row, 39].Text, out var lc) ? lc : 0,
-                    Suggestions = int.TryParse(worksheet.Cells[row, 40].Text, out var sug2) ? sug2 : 0
-
+                    Role = int.TryParse(worksheet.Cells[row, 17].Text, out var role) ? role : 0,
+                    MasterModule = int.TryParse(worksheet.Cells[row, 18].Text, out var mm) ? mm : 0,
+                    AuditModule = int.TryParse(worksheet.Cells[row, 19].Text, out var am) ? am : 0,
+                    RiskModule = int.TryParse(worksheet.Cells[row, 20].Text, out var rm) ? rm : 0,
+                    ComplianceModule = int.TryParse(worksheet.Cells[row, 21].Text, out var cm) ? cm : 0,
+                    BCMModule = int.TryParse(worksheet.Cells[row, 22].Text, out var bcm) ? bcm : 0,
+                    DigitalOfficeModule = int.TryParse(worksheet.Cells[row, 23].Text, out var dom) ? dom : 0,
+                    MasterRole = int.TryParse(worksheet.Cells[row, 24].Text, out var mr) ? mr : 0,
+                    AuditRole = int.TryParse(worksheet.Cells[row, 25].Text, out var ar) ? ar : 0,
+                    RiskRole = int.TryParse(worksheet.Cells[row, 26].Text, out var rr) ? rr : 0,
+                    ComplianceRole = int.TryParse(worksheet.Cells[row, 27].Text, out var cr) ? cr : 0,
+                    BCMRole = int.TryParse(worksheet.Cells[row, 28].Text, out var br) ? br : 0,
+                    DigitalOfficeRole = int.TryParse(worksheet.Cells[row, 29].Text, out var dor) ? dor : 0,
+                    CreatedBy = int.TryParse(worksheet.Cells[row, 30].Text, out var createdBy) ? createdBy : 0,
+                    UpdatedBy = int.TryParse(worksheet.Cells[row, 31].Text, out var updatedBy) ? updatedBy : 0,
+                    DelFlag = worksheet.Cells[row, 32].Text,
+                    Status = worksheet.Cells[row, 33].Text,
+                    IPAddress = worksheet.Cells[row, 34].Text,
+                    CompId = int.TryParse(worksheet.Cells[row, 35].Text, out var compId) ? compId : 0,
+                    Type = worksheet.Cells[row, 36].Text,
+                    IsSuperuser = int.TryParse(worksheet.Cells[row, 37].Text, out var su) ? su : 0,
+                    DeptID = int.TryParse(worksheet.Cells[row, 38].Text, out var dept) ? dept : 0,
+                    MemberType = int.TryParse(worksheet.Cells[row, 39].Text, out var mt) ? mt : 0,
+                    Levelcode = int.TryParse(worksheet.Cells[row, 40].Text, out var lc) ? lc : 0,
+                    Suggestions = int.TryParse(worksheet.Cells[row, 41].Text, out var sug2) ? sug2 : 0
                 });
             }
             return employees;

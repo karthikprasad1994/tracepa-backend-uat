@@ -571,18 +571,15 @@ namespace TracePca.Service.FIN_statement
             await connection.OpenAsync();
 
             const string sql = @"
-        UPDATE Acc_JournalEntry_Master
-        SET JEM_Status = @Status,
-            JEM_UpdatedBy = @UserId,
-            JEM_UpdatedOn = GETDATE(),
-            JEM_IPAddress = @IpAddress
-        WHERE JEM_ID IN @Ids
-          AND JEM_CompId = @CompId";
+        UPDATE Acc_JE_Master
+        SET Acc_JE_Status = @Status,
+            Acc_JE_IPAddress = @IpAddress
+        WHERE Acc_JE_ID IN @Ids
+          AND Acc_JE_CompID = @CompId";
 
             var rowsAffected = await connection.ExecuteAsync(sql, new
             {
                 Status = "A",          // Activate
-                UserId = dto.UserId,
                 IpAddress = dto.IpAddress,
                 Ids = dto.DescriptionIds,
                 CompId = dto.CompId

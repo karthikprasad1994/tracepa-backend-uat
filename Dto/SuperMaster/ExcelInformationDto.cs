@@ -217,7 +217,7 @@
             public string PhoneNo { get; set; }
             public int? Designation { get; set; }     
             public int? Role { get; set; }            
-            public string Partner { get; set; }
+            public int? Partner { get; set; }
             // 🔹 Optional Fields (present in Excel)
             public int? EmpId { get; set; }
             public int? EmpNode { get; set; }
