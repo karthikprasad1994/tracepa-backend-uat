@@ -27,5 +27,11 @@ namespace TracePca.Interface.FIN_Statement
 
         //SaveGeneralLedger
         Task<int[]> SaveGeneralLedgerAsync(int CompId, List<GeneralLedgerDto> dtos);
+
+        //ActivateJE
+        Task<int> ActivateJournalEntriesAsync(ActivateRequestDto dto);
+
+        //DeActivateJE
+        Task<int> ApproveJournalEntriesAsync(ApproveRequestDto dto);
     }
 }

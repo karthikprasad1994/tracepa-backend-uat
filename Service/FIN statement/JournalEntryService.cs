@@ -277,6 +277,7 @@ namespace TracePca.Service.FIN_statement
         ORDER BY CC_gl";
 
             return await connection.QueryAsync<SubGlDto>(query, new
+
             {
                 CompId = compId,
                 CustId = custId
@@ -428,6 +429,29 @@ namespace TracePca.Service.FIN_statement
                 foreach (var dto in dtos)
                 {
                     int iPKId = dto.ATBU_ID;
+
+                    // ✅ Step A: Auto-generate ATBU_CODE using Dapper
+                    string sql = @"
+                SELECT COUNT(*)
+                FROM Acc_TrailBalance_Upload
+                WHERE ATBU_CustId = @CustId
+                  AND ATBU_CompId = @CompId
+                  AND ATBU_YearId = @YearId
+                  AND ATBU_BranchId = @BranchId
+                  AND ATBU_QuarterId = @QuarterId";
+
+                    var count = await connection.ExecuteScalarAsync<int>(sql, new
+                    {
+                        CustId = dto.ATBU_CustId,
+                        CompId = dto.ATBU_CompId,
+                        YearId = dto.ATBU_YEARId,
+                        BranchId = dto.ATBU_Branchid,
+                        QuarterId = dto.ATBU_QuarterId
+                    }, transaction);
+
+                    // Generate ATBU_CODE → count + 1
+                    string generatedCode = $"ATBU-{count + 1}";
+
                     using (var cmdMaster = new SqlCommand("spAcc_TrailBalance_Upload", connection, transaction))
                     {
                         cmdMaster.CommandType = CommandType.StoredProcedure;
@@ -462,6 +486,28 @@ namespace TracePca.Service.FIN_statement
                         updateOrSave = (int)(output1.Value ?? 0);
                         oper = (int)(output2.Value ?? 0);
                     }
+
+                    // ✅ Step B: Auto-generate ATBUD_CODE using Dapper
+                    string sqlCheckDetail = @"
+    SELECT COUNT(*)
+    FROM Acc_TrailBalance_Upload_Details
+    WHERE ATBUD_CustId = @CustId
+      AND ATBUD_CompId = @CompId
+      AND ATBUD_YearId = @YearId
+      AND ATBUD_BranchId = @BranchId
+      AND ATBUD_QuarterId = @QuarterId";
+
+                    var detailCount = await connection.ExecuteScalarAsync<int>(sqlCheckDetail, new
+                    {
+                        CustId = dto.ATBUD_CustId,
+                        CompId = dto.ATBUD_CompId,
+                        YearId = dto.ATBU_YEARId,
+                        BranchId = dto.ATBUD_Branchid,
+                        QuarterId = dto.ATBUD_QuarterId
+                    }, transaction);
+
+                    // Generate ATBUD_CODE → detailCount + 1
+                    string generatedDetailCode = $"ATBUD-{detailCount + 1}";
 
                     // --- Detail Insert ---
                     using (var cmdDetail = new SqlCommand("spAcc_TrailBalance_Upload_Details", connection, transaction))
@@ -506,6 +552,75 @@ namespace TracePca.Service.FIN_statement
                 transaction.Rollback();
                 throw;
             }
+        }
+
+        //ActivateJE
+        public async Task<int> ActivateJournalEntriesAsync(ActivateRequestDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            const string sql = @"
+        UPDATE Acc_JE_Master
+        SET Acc_JE_Status = @Status,
+            Acc_JE_IPAddress = @IpAddress
+        WHERE Acc_JE_ID IN @Ids
+          AND Acc_JE_CompID = @CompId";
+
+            var rowsAffected = await connection.ExecuteAsync(sql, new
+            {
+                Status = "A",          // Activate
+                IpAddress = dto.IpAddress,
+                Ids = dto.DescriptionIds,
+                CompId = dto.CompId
+            });
+
+            return rowsAffected;
+        }
+
+        //DeActiveteJE
+        public async Task<int> ApproveJournalEntriesAsync(ApproveRequestDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // In VB code, status was "W" (waiting for approval).
+            const string sql = @"
+        UPDATE Acc_JE_Master
+        SET Acc_JE_Status = @Status,
+            Acc_JE_IPAddress = @IpAddress
+        WHERE Acc_JE_ID IN @Ids
+          AND Acc_JE_CompID = @CompId";
+
+            var rowsAffected = await connection.ExecuteAsync(sql, new
+            {
+                Status = "W", // waiting for approval
+                IpAddress = dto.IpAddress,
+                Ids = dto.DescriptionIds,
+                CompId = dto.CompId
+            });
+
+            return rowsAffected;
         }
 
     }

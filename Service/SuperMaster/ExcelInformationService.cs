@@ -27,7 +27,7 @@ namespace TracePca.Service.SuperMaster
         }
 
         //UploadEmployeeMasters
-        public async Task<List<string>> SaveEmployeeDetailsAsync(int compId, IFormFile file)
+        public async Task<List<string>> UploadEmployeeDetailsAsync(int compId, IFormFile file)
         {
             if (file == null || file.Length == 0)
                 throw new Exception("No file uploaded.");
@@ -46,14 +46,41 @@ namespace TracePca.Service.SuperMaster
                 employees = ParseExcelToEmployees(stream);
             }
 
+            // ✅ Step 1: Validate mandatory fields (collect all errors)
+            var errors = ValidateEmployees(employees);
+            if (errors.Any())
+            {
+                var groupedErrors = errors
+        .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+        .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+
+                throw new Exception("Validation failed:\n" + string.Join(Environment.NewLine, groupedErrors));
+            }
+
             var results = new List<string>();
-           
+
             // Step 2: Null & duplicate check
-            employees = employees
-                .Where(e => !string.IsNullOrEmpty(e.LoginName) && !string.IsNullOrEmpty(e.EmployeeName))
-                .GroupBy(e => e.LoginName) // unique by login name
-                .Select(g => g.First())
-                .ToList();
+            var duplicateErrors = employees
+     .GroupBy(e => new { e.EmployeeName, e.Email }) // group by Name + Email
+     .Where(g => g.Count() > 1)                     // only groups with duplicates
+     .Select(g => new UploadEmployeeMasterDto
+     {
+         EmpCode = g.First().EmpCode,
+         EmployeeName = g.Key.EmployeeName,
+         ErrorMessage = $"Duplicate found for Employee: {g.Key.EmployeeName}, Email: {g.Key.Email}"
+     })
+     .ToList();
+
+            if (duplicateErrors.Any())
+            {
+                var validationErrors = duplicateErrors
+        .Select(e => $"{e.EmployeeName} ({e.EmpCode}): {e.ErrorMessage}")
+        .ToList();
+
+                // Example: throw exception with serialized list
+                throw new Exception("Validation failed: " +
+                    System.Text.Json.JsonSerializer.Serialize(validationErrors));
+            }
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
@@ -73,8 +100,10 @@ namespace TracePca.Service.SuperMaster
                         string.IsNullOrWhiteSpace(emp.EmployeeName) ||
                         string.IsNullOrWhiteSpace(emp.LoginName) ||
                         string.IsNullOrWhiteSpace(emp.Email) ||
+                        string.IsNullOrWhiteSpace(emp.OfficePhoneNo) ||
                         string.IsNullOrWhiteSpace(emp.Designation) ||
-                        string.IsNullOrWhiteSpace(emp.Role))
+                        emp.Partner == "yes" ||       // int check
+                        string.IsNullOrWhiteSpace(emp.Role))              
                     {
                         throw new Exception($"Mandatory fields missing for employee: {emp.EmployeeName}");
                     }
@@ -131,18 +160,18 @@ namespace TracePca.Service.SuperMaster
                     cmd.Parameters.AddWithValue("@Usr_Email", emp.Email ?? "");
                     cmd.Parameters.AddWithValue("@Usr_Category", emp.EmpCategory ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_Suggetions", emp.Suggestions ?? 0);
-                    cmd.Parameters.AddWithValue("@usr_partner", emp.Partner ?? "");
+                    cmd.Parameters.AddWithValue("@usr_partner", emp.Partner);
                     cmd.Parameters.AddWithValue("@Usr_LevelGrp", emp.LevelGrp ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_DutyStatus", emp.DutyStatus ?? "A");
                     cmd.Parameters.AddWithValue("@Usr_PhoneNo", emp.PhoneNo ?? "");
                     cmd.Parameters.AddWithValue("@Usr_MobileNo", emp.MobileNo ?? "");
                     cmd.Parameters.AddWithValue("@Usr_OfficePhone", emp.OfficePhoneNo ?? "");
                     cmd.Parameters.AddWithValue("@Usr_OffPhExtn", emp.OfficePhoneExtn ?? "");
-                    cmd.Parameters.AddWithValue("@Usr_Designation", designationId ?? 0);
-                    cmd.Parameters.AddWithValue("@Usr_CompanyID", emp.CompanyId);
+                    cmd.Parameters.AddWithValue("@Usr_Designation", designationId);
+                    cmd.Parameters.AddWithValue("@Usr_CompanyID", emp.CompanyId ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_OrgnID", emp.OrgnId ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_GrpOrUserLvlPerm", emp.GrpOrUserLvlPerm ?? 0);
-                    cmd.Parameters.AddWithValue("@Usr_Role", roleId ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_Role", roleId);
 
                     // ✅ Module flags
                     cmd.Parameters.AddWithValue("@Usr_MasterModule", emp.MasterModule ?? 0);
@@ -173,16 +202,25 @@ namespace TracePca.Service.SuperMaster
                     cmd.Parameters.AddWithValue("@USR_MemberType", emp.MemberType ?? 0);
                     cmd.Parameters.AddWithValue("@USR_Levelcode", emp.Levelcode ?? 0);
 
-                    var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                    var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                    var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
+                    {
+                        Direction = ParameterDirection.Output
+                    };
+                    var operParam = new SqlParameter("@iOper", SqlDbType.Int)
+                    {
+                        Direction = ParameterDirection.Output
+                    };
 
                     cmd.Parameters.Add(updateOrSaveParam);
                     cmd.Parameters.Add(operParam);
 
                     await cmd.ExecuteNonQueryAsync();
 
-                    string action = exists ? "Updated" : "Inserted";
-                    results.Add($"{action} employee: {emp.EmpCode} - {emp.EmployeeName}");
+                    int updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+                    int oper = (int)(operParam.Value ?? 0);
+
+                    string action = updateOrSave == 2 ? "Updated" : "Inserted";
+                    results.Add($"{action} employee: {emp.EmpCode} - {emp.EmployeeName} (Usr_ID={oper})");
                 }
 
                 transaction.Commit();
@@ -214,9 +252,14 @@ namespace TracePca.Service.SuperMaster
                     Email = worksheet.Cells[row, 4].Text,   // Email
                     OfficePhoneNo = worksheet.Cells[row, 5].Text,   // Office Phone
                     Designation = worksheet.Cells[row, 6].Text,   // Designation
-                    Partner = worksheet.Cells[row, 7].Text,   // Partner
-                    Role = worksheet.Cells[row, 8].Text,   // Role
-                    Password = worksheet.Cells[row, 9].Text,   // Password
+                    Partner = worksheet.Cells[row, 7].Text switch
+                    {
+                        "Yes" => "1",
+                        "No" => "0",
+                        _ => "0", // Partner
+                    },
+                    Role = worksheet.Cells[row, 8].Text,  // Role
+                    Password = worksheet.Cells[row, 9].Text, 
 
                     // Optional / Numeric values
                     LevelGrp = int.TryParse(worksheet.Cells[row, 10].Text, out var levelGrp) ? levelGrp : 0,
@@ -255,7 +298,38 @@ namespace TracePca.Service.SuperMaster
             }
             return employees;
         }
+        private List<UploadEmployeeMasterDto> ValidateEmployees(List<UploadEmployeeMasterDto> employees)
+        {
+            var errors = new List<UploadEmployeeMasterDto>();
 
+            foreach (var emp in employees)
+            {
+                if (string.IsNullOrWhiteSpace(emp.EmpCode))
+                    errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "EmpCode missing" });
+
+                if (string.IsNullOrWhiteSpace(emp.EmployeeName))
+                    errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "EmployeeName missing" });
+
+                if (string.IsNullOrWhiteSpace(emp.LoginName))
+                    errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "LoginName missing" });
+
+                if (string.IsNullOrWhiteSpace(emp.Email))
+                    errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Email missing" });
+
+                if (string.IsNullOrWhiteSpace(emp.OfficePhoneNo))
+                    errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "OfficePhoneNo missing" });
+
+                if (string.IsNullOrWhiteSpace(emp.Designation))
+                    errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Designation missing" });
+
+                if (string.IsNullOrWhiteSpace(emp.Partner))
+                    errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Partner missing" });
+
+                if (string.IsNullOrWhiteSpace(emp.Role))
+                    errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Role missing" });
+            }
+            return errors;
+        }
 
         //SaveEmployeeMaster
         public async Task<List<int[]>> SuperMasterSaveEmployeeDetailsAsync(int CompId, List<SuperMasterSaveEmployeeMasterDto> employees)
@@ -371,118 +445,118 @@ namespace TracePca.Service.SuperMaster
         }
 
         //UploadClientDetails
-        public async Task<List<int>> UploadClientDetailsAsync( int CompId, IFormFile excelFile, string sheetName)
-        {
-            var customers = new List<SuperMasterSaveCustomerDto>();
+        //public async Task<List<int>> UploadClientDetailsAsync( int CompId, IFormFile excelFile, string sheetName)
+        //{
+        //    var customers = new List<SuperMasterSaveCustomerDto>();
 
-            // ✅ Step 0: If Excel file is provided, parse into DTO list
-            if (excelFile != null && excelFile.Length > 0)
-            {
-                using var stream = new MemoryStream();
-                await excelFile.CopyToAsync(stream);
-                stream.Position = 0;
+        //    // ✅ Step 0: If Excel file is provided, parse into DTO list
+        //    if (excelFile != null && excelFile.Length > 0)
+        //    {
+        //        using var stream = new MemoryStream();
+        //        await excelFile.CopyToAsync(stream);
+        //        stream.Position = 0;
 
-                ExcelPackage.LicenseContext = LicenseContext.NonCommercial; // EPPlus license requirement
-                using var package = new ExcelPackage(stream);
+        //        ExcelPackage.LicenseContext = LicenseContext.NonCommercial; // EPPlus license requirement
+        //        using var package = new ExcelPackage(stream);
 
-                var worksheet = package.Workbook.Worksheets[sheetName];
-                if (worksheet == null)
-                    throw new Exception($"Sheet '{sheetName}' not found in Excel file.");
+        //        var worksheet = package.Workbook.Worksheets[sheetName];
+        //        if (worksheet == null)
+        //            throw new Exception($"Sheet '{sheetName}' not found in Excel file.");
 
-                int rowCount = worksheet.Dimension.Rows;
-                for (int row = 2; row <= rowCount; row++) // Skip header
-                {
-                    var dto = new SuperMasterSaveCustomerDto
-                    {
-                        CUST_ID = int.Parse(worksheet.Cells[row, 1].Text ?? "0"),
-                        CUST_NAME = worksheet.Cells[row, 2].Text,
-                        CUST_CODE = worksheet.Cells[row, 3].Text,
-                        CUST_WEBSITE = worksheet.Cells[row, 4].Text,
-                        CUST_EMAIL = worksheet.Cells[row, 5].Text,
-                        OrgTypeName = worksheet.Cells[row, 6].Text,
-                        CUST_ORGTYPEID = int.Parse(worksheet.Cells[row, 7].Text ?? "0"),
-                        LocationName = worksheet.Cells[row, 8].Text,
-                        Address = worksheet.Cells[row, 9].Text,
-                        ContactPerson = worksheet.Cells[row, 10].Text,
-                        Mobile = worksheet.Cells[row, 11].Text,
-                        Landline = worksheet.Cells[row, 12].Text,
-                        Email = worksheet.Cells[row, 13].Text,
-                        CIN = worksheet.Cells[row, 14].Text,
-                        TAN = worksheet.Cells[row, 15].Text,
-                        GST = worksheet.Cells[row, 16].Text,
-                        CUST_CRBY = int.Parse(worksheet.Cells[row, 17].Text ?? "0"),
-                        CUST_UpdatedBy = int.Parse(worksheet.Cells[row, 18].Text ?? "0"),
-                        CUST_CompID = CompId
-                    };
+        //        int rowCount = worksheet.Dimension.Rows;
+        //        for (int row = 2; row <= rowCount; row++) // Skip header
+        //        {
+        //            var dto = new SuperMasterSaveCustomerDto
+        //            {
+        //                CUST_ID = int.Parse(worksheet.Cells[row, 1].Text ?? "0"),
+        //                CUST_NAME = worksheet.Cells[row, 2].Text,
+        //                CUST_CODE = worksheet.Cells[row, 3].Text,
+        //                CUST_WEBSITE = worksheet.Cells[row, 4].Text,
+        //                CUST_EMAIL = worksheet.Cells[row, 5].Text,
+        //                OrgTypeName = worksheet.Cells[row, 6].Text,
+        //                CUST_ORGTYPEID = int.Parse(worksheet.Cells[row, 7].Text ?? "0"),
+        //                LocationName = worksheet.Cells[row, 8].Text,
+        //                Address = worksheet.Cells[row, 9].Text,
+        //                ContactPerson = worksheet.Cells[row, 10].Text,
+        //                Mobile = worksheet.Cells[row, 11].Text,
+        //                Landline = worksheet.Cells[row, 12].Text,
+        //                Email = worksheet.Cells[row, 13].Text,
+        //                CIN = worksheet.Cells[row, 14].Text,
+        //                TAN = worksheet.Cells[row, 15].Text,
+        //                GST = worksheet.Cells[row, 16].Text,
+        //                CUST_CRBY = int.Parse(worksheet.Cells[row, 17].Text ?? "0"),
+        //                CUST_UpdatedBy = int.Parse(worksheet.Cells[row, 18].Text ?? "0"),
+        //                CUST_CompID = CompId
+        //            };
 
-                    customers.Add(dto);
-                }
-            }
+        //            customers.Add(dto);
+        //        }
+        //    }
 
-            if (customers == null || !customers.Any())
-                throw new Exception("No valid customer data found to save.");
+        //    if (customers == null || !customers.Any())
+        //        throw new Exception("No valid customer data found to save.");
 
-            var resultIds = new List<int>();
+        //    var resultIds = new List<int>();
 
-            // ✅ Step 1: Get DB name from session
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-            if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+        //    // ✅ Step 1: Get DB name from session
+        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //    if (string.IsNullOrEmpty(dbName))
+        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get connection string
-            var connectionString = _configuration.GetConnectionString(dbName);
+        //    // ✅ Step 2: Get connection string
+        //    var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Save to DB
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-            using var transaction = connection.BeginTransaction();
+        //    // ✅ Step 3: Save to DB
+        //    using var connection = new SqlConnection(connectionString);
+        //    await connection.OpenAsync();
+        //    using var transaction = connection.BeginTransaction();
 
-            try
-            {
-                foreach (var dto in customers)
-                {
-                    using (var cmd = new SqlCommand("spSuperMaster_SaveCustomer", connection, transaction))
-                    {
-                        cmd.CommandType = CommandType.StoredProcedure;
+        //    try
+        //    {
+        //        foreach (var dto in customers)
+        //        {
+        //            using (var cmd = new SqlCommand("spSuperMaster_SaveCustomer", connection, transaction))
+        //            {
+        //                cmd.CommandType = CommandType.StoredProcedure;
 
-                        cmd.Parameters.AddWithValue("@CUST_ID", dto.CUST_ID);
-                        cmd.Parameters.AddWithValue("@CUST_NAME", dto.CUST_NAME ?? "");
-                        cmd.Parameters.AddWithValue("@CUST_CODE", dto.CUST_CODE ?? "");
-                        cmd.Parameters.AddWithValue("@CUST_WEBSITE", dto.CUST_WEBSITE ?? "");
-                        cmd.Parameters.AddWithValue("@CUST_EMAIL", dto.CUST_EMAIL ?? "");
-                        cmd.Parameters.AddWithValue("@OrgTypeName", dto.OrgTypeName ?? "");
-                        cmd.Parameters.AddWithValue("@CUST_ORGTYPEID", dto.CUST_ORGTYPEID);
-                        cmd.Parameters.AddWithValue("@LocationName", dto.LocationName ?? "");
-                        cmd.Parameters.AddWithValue("@Address", dto.Address ?? "");
-                        cmd.Parameters.AddWithValue("@ContactPerson", dto.ContactPerson ?? "");
-                        cmd.Parameters.AddWithValue("@Mobile", dto.Mobile ?? "");
-                        cmd.Parameters.AddWithValue("@Landline", dto.Landline ?? "");
-                        cmd.Parameters.AddWithValue("@Email", dto.Email ?? "");
-                        cmd.Parameters.AddWithValue("@CIN", dto.CIN ?? "");
-                        cmd.Parameters.AddWithValue("@TAN", dto.TAN ?? "");
-                        cmd.Parameters.AddWithValue("@GST", dto.GST ?? "");
-                        cmd.Parameters.AddWithValue("@CUST_CRBY", dto.CUST_CRBY);
-                        cmd.Parameters.AddWithValue("@CUST_UpdatedBy", dto.CUST_UpdatedBy);
-                        cmd.Parameters.AddWithValue("@CUST_CompID", dto.CUST_CompID);
+        //                cmd.Parameters.AddWithValue("@CUST_ID", dto.CUST_ID);
+        //                cmd.Parameters.AddWithValue("@CUST_NAME", dto.CUST_NAME ?? "");
+        //                cmd.Parameters.AddWithValue("@CUST_CODE", dto.CUST_CODE ?? "");
+        //                cmd.Parameters.AddWithValue("@CUST_WEBSITE", dto.CUST_WEBSITE ?? "");
+        //                cmd.Parameters.AddWithValue("@CUST_EMAIL", dto.CUST_EMAIL ?? "");
+        //                cmd.Parameters.AddWithValue("@OrgTypeName", dto.OrgTypeName ?? "");
+        //                cmd.Parameters.AddWithValue("@CUST_ORGTYPEID", dto.CUST_ORGTYPEID);
+        //                cmd.Parameters.AddWithValue("@LocationName", dto.LocationName ?? "");
+        //                cmd.Parameters.AddWithValue("@Address", dto.Address ?? "");
+        //                cmd.Parameters.AddWithValue("@ContactPerson", dto.ContactPerson ?? "");
+        //                cmd.Parameters.AddWithValue("@Mobile", dto.Mobile ?? "");
+        //                cmd.Parameters.AddWithValue("@Landline", dto.Landline ?? "");
+        //                cmd.Parameters.AddWithValue("@Email", dto.Email ?? "");
+        //                cmd.Parameters.AddWithValue("@CIN", dto.CIN ?? "");
+        //                cmd.Parameters.AddWithValue("@TAN", dto.TAN ?? "");
+        //                cmd.Parameters.AddWithValue("@GST", dto.GST ?? "");
+        //                cmd.Parameters.AddWithValue("@CUST_CRBY", dto.CUST_CRBY);
+        //                cmd.Parameters.AddWithValue("@CUST_UpdatedBy", dto.CUST_UpdatedBy);
+        //                cmd.Parameters.AddWithValue("@CUST_CompID", dto.CUST_CompID);
 
-                        var outParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                        cmd.Parameters.Add(outParam);
+        //                var outParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+        //                cmd.Parameters.Add(outParam);
 
-                        await cmd.ExecuteNonQueryAsync();
+        //                await cmd.ExecuteNonQueryAsync();
 
-                        resultIds.Add((int)(outParam.Value ?? 0));
-                    }
-                }
+        //                resultIds.Add((int)(outParam.Value ?? 0));
+        //            }
+        //        }
 
-                transaction.Commit();
-                return resultIds;
-            }
-            catch (Exception ex)
-            {
-                transaction.Rollback();
-                throw new Exception("Error while saving or updating customers: " + ex.Message, ex);
-            }
-        }
+        //        transaction.Commit();
+        //        return resultIds;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        transaction.Rollback();
+        //        throw new Exception("Error while saving or updating customers: " + ex.Message, ex);
+        //    }
+        //}
 
 
         //SaveClientDetails
@@ -717,6 +791,211 @@ namespace TracePca.Service.SuperMaster
 
                     results.Add(new[] { updateOrSave, customerId });
                 }
+                transaction.Commit();
+                return results;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
+        //UploadClientUser
+        public async Task<List<string>> UploadClientUserAsync(int compId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                throw new Exception("No file uploaded.");
+
+            // ✅ Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Parse Excel
+            List<UploadClientUserDto> employees;
+            using (var stream = file.OpenReadStream())
+            {
+                employees = ParseExcelToClientUser(stream);
+            }
+
+            // ✅ Step 1: Validate mandatory fields (collect all errors)
+            var errors = ValidateClientUser(employees);
+            if (errors.Any())
+            {
+                var groupedErrors = errors
+        .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+        .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+
+                throw new Exception("Validation failed:\n" + string.Join(Environment.NewLine, groupedErrors));
+            }
+
+            var results = new List<string>();
+
+            // Step 2: Null & duplicate check
+            var duplicateErrors = employees
+     .GroupBy(e => new { e.EmployeeName, e.Email }) // group by Name + Email
+     .Where(g => g.Count() > 1)                     // only groups with duplicates
+     .Select(g => new UploadEmployeeMasterDto
+     {
+         EmpCode = g.First().EmpCode,
+         EmployeeName = g.Key.EmployeeName,
+         ErrorMessage = $"Duplicate found for Employee: {g.Key.EmployeeName}, Email: {g.Key.Email}"
+     })
+     .ToList();
+
+            if (duplicateErrors.Any())
+            {
+                var validationErrors = duplicateErrors
+        .Select(e => $"{e.EmployeeName} ({e.EmpCode}): {e.ErrorMessage}")
+        .ToList();
+
+                //Example: throw exception with serialized list
+                throw new Exception("Validation failed: " +
+                    System.Text.Json.JsonSerializer.Serialize(validationErrors));
+            }
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                //Step 3: Validate duplicates in file
+                var duplicateInFile = employees.GroupBy(e => e.EmpCode).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+                if (duplicateInFile.Any())
+                    throw new Exception($"Duplicate EmpCode(s) found in file: {string.Join(", ", duplicateInFile)}");
+
+                foreach (var emp in employees)
+                {
+                    // Step 4: Validate mandatory fields
+                    if (string.IsNullOrWhiteSpace(emp.CompanyId) ||
+                        string.IsNullOrWhiteSpace(emp.EmpCode) ||
+                        string.IsNullOrWhiteSpace(emp.EmployeeName) ||
+                        string.IsNullOrWhiteSpace(emp.LoginName) ||
+                        string.IsNullOrWhiteSpace(emp.Email) ||
+                        string.IsNullOrWhiteSpace(emp.PhoneNo))
+                    {
+                        throw new Exception($"Mandatory fields missing for employee: {emp.EmployeeName}");
+                    }
+
+                    // Step 5: Ensure ComapnyId exists
+                    string customerSql = @"
+    SELECT CUST_ID 
+    FROM SAD_CUSTOMER_MASTER 
+    WHERE UPPER(CUST_NAME) = UPPER(@CustomerName) 
+      AND CUST_CompID = @CompId";
+
+
+                    //int? customerId = await connection.ExecuteScalarAsync<int?>(
+                    //    customerSql, new { CustomerName = emp.CustomerName, CompId = compId }, transaction);
+
+                    //if (!customerId.HasValue)
+                    //{
+                    //    throw new Exception($"Customer '{emp.CustomerName}' does not exist in master table.");
+                    //}
+
+                    //emp.CompanyId = customerId.Value; // use this for inserting ClientUser
+
+
+                    int? CompanyId = await connection.ExecuteScalarAsync<int?>(
+                        customerSql, new { CustomerName = emp.CompanyId, CompId = compId }, transaction);
+
+                    if (!CompanyId.HasValue)
+                    {
+                        throw new Exception($"Customer '{emp.CompanyId}' does not exist in master table.");
+                    }
+
+                    // Assign the looked-up ID
+                    emp.CompanyId = CompanyId.Value.ToString();
+
+
+                    // Step 7: Check if ClientUser exists
+                    string checkEmpSql = "SELECT COUNT(1) FROM Sad_UserDetails WHERE Usr_Code=@EmpCode AND Usr_CompId=@CompId";
+                    bool exists = await connection.ExecuteScalarAsync<int>(
+                        checkEmpSql, new { EmpCode = emp.EmpCode, CompId = compId }, transaction) > 0;
+
+                    // Step 8: Insert/Update using SP
+                    using var cmd = new SqlCommand("spEmployeeMaster", connection, transaction);
+                    cmd.CommandType = CommandType.StoredProcedure;
+
+                    cmd.Parameters.AddWithValue("@Usr_ID", (object?)emp.EmpId ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_Node", emp.EmpNode ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_Code", emp.EmpCode ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_FullName", emp.EmployeeName ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_LoginName", emp.LoginName ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_Password", emp.Password ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_Email", emp.Email ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_Category", emp.EmpCategory ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_Suggetions", emp.Suggestions ?? 0);
+                    cmd.Parameters.AddWithValue("@usr_partner", emp.Partner);
+                    cmd.Parameters.AddWithValue("@Usr_LevelGrp", emp.LevelGrp ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_DutyStatus", emp.DutyStatus ?? "A");
+                    cmd.Parameters.AddWithValue("@Usr_PhoneNo", emp.PhoneNo ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_MobileNo", emp.MobileNo ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_OfficePhone", emp.OfficePhoneNo ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_OffPhExtn", emp.OfficePhoneExtn ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_Designation", emp.Designation ?? 0);
+
+                    //cmd.Parameters.AddWithValue("@Usr_CompanyID", vendorId);
+
+                    cmd.Parameters.AddWithValue("@Usr_CompanyID", CompanyId);
+
+                    cmd.Parameters.AddWithValue("@Usr_OrgnID", emp.OrgnId ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_GrpOrUserLvlPerm", emp.GrpOrUserLvlPerm ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_Role", emp.Role ?? 0);
+
+                    // ✅ Module flags
+                    cmd.Parameters.AddWithValue("@Usr_MasterModule", emp.MasterModule ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_AuditModule", emp.AuditModule ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_RiskModule", emp.RiskModule ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_ComplianceModule", emp.ComplianceModule ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_BCMModule", emp.BCMModule ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_DigitalOfficeModule", emp.DigitalOfficeModule ?? 0);
+
+                    // ✅ Role flags
+                    cmd.Parameters.AddWithValue("@Usr_MasterRole", emp.MasterRole ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_AuditRole", emp.AuditRole ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_RiskRole", emp.RiskRole ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_ComplianceRole", emp.ComplianceRole ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_BCMRole", emp.BCMRole ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_DigitalOfficeRole", emp.DigitalOfficeRole ?? 0);
+
+                    // ✅ Metadata
+                    cmd.Parameters.AddWithValue("@Usr_CreatedBy", emp.CreatedBy ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_UpdatedBy", emp.UpdatedBy ?? 0);
+                    cmd.Parameters.AddWithValue("@Usr_DelFlag", emp.DelFlag ?? "A");
+                    cmd.Parameters.AddWithValue("@Usr_Status", emp.Status ?? "N");
+                    cmd.Parameters.AddWithValue("@Usr_IPAddress", emp.IPAddress ?? "");
+                    cmd.Parameters.AddWithValue("@Usr_CompId", emp.CompId ?? compId);
+                    cmd.Parameters.AddWithValue("@Usr_Type", emp.Type ?? "C");
+                    cmd.Parameters.AddWithValue("@usr_IsSuperuser", emp.IsSuperuser ?? 0);
+                    cmd.Parameters.AddWithValue("@USR_DeptID", emp.DeptID ?? 0);
+                    cmd.Parameters.AddWithValue("@USR_MemberType", emp.MemberType ?? 0);
+                    cmd.Parameters.AddWithValue("@USR_Levelcode", emp.Levelcode ?? 0);
+
+                    var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
+                    {
+                        Direction = ParameterDirection.Output
+                    };
+                    var operParam = new SqlParameter("@iOper", SqlDbType.Int)
+                    {
+                        Direction = ParameterDirection.Output
+                    };
+
+                    cmd.Parameters.Add(updateOrSaveParam);
+                    cmd.Parameters.Add(operParam);
+
+                    await cmd.ExecuteNonQueryAsync();
+
+                    int updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+                    int oper = (int)(operParam.Value ?? 0);
+
+                    string action = updateOrSave == 2 ? "Updated" : "Inserted";
+                    results.Add($"{action} employee: {emp.EmpCode} - {emp.EmployeeName} (Usr_ID={oper})");
+                }
 
                 transaction.Commit();
                 return results;
@@ -726,6 +1005,91 @@ namespace TracePca.Service.SuperMaster
                 transaction.Rollback();
                 throw;
             }
+        }
+        //Parse Excel file into Employee DTO list
+        private List<UploadClientUserDto> ParseExcelToClientUser(Stream fileStream)
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using var package = new ExcelPackage(fileStream);
+            var worksheet = package.Workbook.Worksheets[0];
+            int rowCount = worksheet.Dimension.Rows;
+
+            var employees = new List<UploadClientUserDto>();
+            for (int row = 2; row <= rowCount; row++) 
+            {
+                employees.Add(new UploadClientUserDto
+                {
+                    CompanyId = worksheet.Cells[row, 1].Text,
+                    EmpCode = worksheet.Cells[row, 2].Text,   
+                    EmployeeName = worksheet.Cells[row, 3].Text,   
+                    LoginName = worksheet.Cells[row, 4].Text,  
+                    Email = worksheet.Cells[row, 5].Text,   
+                    PhoneNo = worksheet.Cells[row, 6].Text,   
+                    Password = worksheet.Cells[row, 7].Text,
+                    //Optional / Numeric values
+                    Partner = int.TryParse(worksheet.Cells[row, 8].Text, out var partner) ? partner : 0,
+                    LevelGrp = int.TryParse(worksheet.Cells[row, 9].Text, out var levelGrp) ? levelGrp : 0,
+                    DutyStatus = worksheet.Cells[row, 10].Text,
+                    MobileNo = worksheet.Cells[row, 11].Text,
+                    OfficePhoneNo = worksheet.Cells[row, 12].Text,
+                    OfficePhoneExtn = worksheet.Cells[row, 13].Text,
+                    Designation = int.TryParse(worksheet.Cells[row, 14].Text, out var designation) ? designation : 0,
+                    OrgnId = int.TryParse(worksheet.Cells[row, 15].Text, out var orgId) ? orgId : 0,
+                    GrpOrUserLvlPerm = int.TryParse(worksheet.Cells[row, 16].Text, out var grpOfuser) ? grpOfuser : 0,
+                    Role = int.TryParse(worksheet.Cells[row, 17].Text, out var role) ? role : 0,
+                    MasterModule = int.TryParse(worksheet.Cells[row, 18].Text, out var mm) ? mm : 0,
+                    AuditModule = int.TryParse(worksheet.Cells[row, 19].Text, out var am) ? am : 0,
+                    RiskModule = int.TryParse(worksheet.Cells[row, 20].Text, out var rm) ? rm : 0,
+                    ComplianceModule = int.TryParse(worksheet.Cells[row, 21].Text, out var cm) ? cm : 0,
+                    BCMModule = int.TryParse(worksheet.Cells[row, 22].Text, out var bcm) ? bcm : 0,
+                    DigitalOfficeModule = int.TryParse(worksheet.Cells[row, 23].Text, out var dom) ? dom : 0,
+                    MasterRole = int.TryParse(worksheet.Cells[row, 24].Text, out var mr) ? mr : 0,
+                    AuditRole = int.TryParse(worksheet.Cells[row, 25].Text, out var ar) ? ar : 0,
+                    RiskRole = int.TryParse(worksheet.Cells[row, 26].Text, out var rr) ? rr : 0,
+                    ComplianceRole = int.TryParse(worksheet.Cells[row, 27].Text, out var cr) ? cr : 0,
+                    BCMRole = int.TryParse(worksheet.Cells[row, 28].Text, out var br) ? br : 0,
+                    DigitalOfficeRole = int.TryParse(worksheet.Cells[row, 29].Text, out var dor) ? dor : 0,
+                    CreatedBy = int.TryParse(worksheet.Cells[row, 30].Text, out var createdBy) ? createdBy : 0,
+                    UpdatedBy = int.TryParse(worksheet.Cells[row, 31].Text, out var updatedBy) ? updatedBy : 0,
+                    DelFlag = worksheet.Cells[row, 32].Text,
+                    Status = worksheet.Cells[row, 33].Text,
+                    IPAddress = worksheet.Cells[row, 34].Text,
+                    CompId = int.TryParse(worksheet.Cells[row, 35].Text, out var compId) ? compId : 0,
+                    Type = worksheet.Cells[row, 36].Text,
+                    IsSuperuser = int.TryParse(worksheet.Cells[row, 37].Text, out var su) ? su : 0,
+                    DeptID = int.TryParse(worksheet.Cells[row, 38].Text, out var dept) ? dept : 0,
+                    MemberType = int.TryParse(worksheet.Cells[row, 39].Text, out var mt) ? mt : 0,
+                    Levelcode = int.TryParse(worksheet.Cells[row, 40].Text, out var lc) ? lc : 0,
+                    Suggestions = int.TryParse(worksheet.Cells[row, 41].Text, out var sug2) ? sug2 : 0
+                });
+            }
+            return employees;
+        }
+        private List<UploadClientUserDto> ValidateClientUser(List<UploadClientUserDto> employees)
+        {
+            var errors = new List<UploadClientUserDto>();
+
+            foreach (var emp in employees)
+            {
+                if (string.IsNullOrWhiteSpace(emp.CompanyId))
+                    errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Customer missing" });
+
+                if (string.IsNullOrWhiteSpace(emp.EmpCode))
+                    errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "EmpCode missing" });
+
+                if (string.IsNullOrWhiteSpace(emp.EmployeeName))
+                    errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "EmployeeName missing" });
+
+                if (string.IsNullOrWhiteSpace(emp.LoginName))
+                    errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "LoginName missing" });
+
+                if (string.IsNullOrWhiteSpace(emp.Email))
+                    errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Email missing" });
+
+                if (string.IsNullOrWhiteSpace(emp.PhoneNo))
+                    errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "OfficePhoneNo missing" });
+            }
+            return errors;
         }
 
         // SaveClientUser 

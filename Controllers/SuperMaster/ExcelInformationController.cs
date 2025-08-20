@@ -31,7 +31,7 @@ namespace TracePca.Controllers.SuperMaster
 
             try
             {
-                var results = await _ExcelInformationService.SaveEmployeeDetailsAsync(compId, file);
+                var results = await _ExcelInformationService.UploadEmployeeDetailsAsync(compId, file);
                 return Ok(new
                 {
                     Success = true,
@@ -49,7 +49,6 @@ namespace TracePca.Controllers.SuperMaster
                 });
             }
         }
-       
 
         //SaveEmployeeMaster
         [HttpPost("SaveEmployeeMaster")]
@@ -134,6 +133,34 @@ namespace TracePca.Controllers.SuperMaster
                 return StatusCode(500, new
                 {
                     Message = "An error occurred while saving customer(s)",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //UploadClientUser
+        [HttpPost("UploadClientUser")]
+        public async Task<IActionResult> UploadClientUser([FromQuery] int compId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No file uploaded.");
+
+            try
+            {
+                var results = await _ExcelInformationService.UploadClientUserAsync(compId, file);
+                return Ok(new
+                {
+                    Success = true,
+                    Message = "Employee master processed successfully",
+                    Details = results
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    Success = false,
+                    Message = "Error processing employee master",
                     Error = ex.Message
                 });
             }

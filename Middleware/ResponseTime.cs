@@ -2,80 +2,107 @@
 using System.Security.Claims;
 using Dapper;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 
 namespace TracePca.Middleware
 {
     public class ResponseTime
     {
         private readonly RequestDelegate _next;
-        private readonly string _connectionString;
+        private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public ResponseTime(RequestDelegate next, IConfiguration configuration)
+        public ResponseTime(RequestDelegate next, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _next = next;
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _configuration = configuration;
+            _httpContextAccessor = httpContextAccessor;
         }
+              
+               public async Task InvokeAsync(HttpContext context)
+            {
 
-        public async Task InvokeAsync(HttpContext context)
-        {
-            var path = context.Request.Path.Value ?? string.Empty;
-
-            // Skip logging for metrics API itself
-            if (path.StartsWith("/api/ApiPerformance", StringComparison.OrdinalIgnoreCase))
+            if (context.Request.Method.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase))
             {
                 await _next(context);
                 return;
             }
 
-            // Record start time
-            var stopwatch = Stopwatch.StartNew();
+            var path = context.Request.Path.Value ?? string.Empty;
 
-            await _next(context);  // Call the next middleware / controller
+                // Skip logging for metrics API itself
+                if (path.StartsWith("/api/ApiPerformance", StringComparison.OrdinalIgnoreCase))
+                {
+                    await _next(context);
+                    return;
+                }
 
-            stopwatch.Stop();
-            var responseTimeMs = stopwatch.ElapsedMilliseconds;
+                // Record start time
+                var stopwatch = Stopwatch.StartNew();
+                await _next(context);  // Call the next middleware / controller
+                stopwatch.Stop();
 
-            // Read FormName from request headers (frontend must send it)
-            string formName = context.Request.Headers["FormName"];
-            string apiName = context.Request.Path;
+                var responseTimeMs = stopwatch.ElapsedMilliseconds;
 
-            // Get UserId from JWT claims
-            int? userId = null;
-            var userIdClaim = context.User?.FindFirst(ClaimTypes.NameIdentifier);
-            if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int parsedUserId))
-            {
-                userId = parsedUserId;
-            }
+                // Read FormName from request headers (frontend must send it)
+                string formName = context.Request.Headers["FormName"];
+                string apiName = context.Request.Path;
+           
 
-            // Optional: add message if response exceeds threshold
-            string message = null;
-            long thresholdMs = 2000; // example threshold, or use _globalThresholdMs
-            if (responseTimeMs > thresholdMs)
-            {
-                message = $"API exceeded threshold: {thresholdMs} ms";
-            }
+            // Get UserId from session (set during login)
+            int? userId = context.Session.GetInt32("UserId");
 
-            try
-            {
-                using var connection = new SqlConnection(_connectionString);
-                await connection.ExecuteAsync(
-                    @"INSERT INTO ApiResponseLogs (UserId, FormName, ApiName, ResponseTime, ResponseMessage, CreatedOn)
-              VALUES (@UserId, @FormName, @ApiName, @ResponseTime, @ResponseMessage, GETDATE())",
-                    new
-                    {
-                        UserId = userId,
-                        FormName = string.IsNullOrEmpty(formName) ? apiName : formName,
-                        ApiName = apiName,
-                        ResponseTime = responseTimeMs,
-                        ResponseMessage  = message
-                    });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to log API response time: {ex.Message}");
+                // ✅ Get DB name from session
+                string dbName = context.Session.GetString("CustomerCode");
+                if (string.IsNullOrEmpty(dbName))
+                {
+                    Console.WriteLine("CustomerCode is missing in session. Skipping logging.");
+                    return;
+                }
+
+                // ✅ Resolve connection string dynamically
+                var connectionString = _configuration.GetConnectionString(dbName);
+                if (string.IsNullOrEmpty(connectionString))
+                {
+                    Console.WriteLine($"No connection string found for '{dbName}'. Skipping logging.");
+                    return;
+                }
+
+                // Optional: add message if response exceeds threshold
+                string? message = null;
+                long thresholdMs = 2000; // example threshold
+                if (responseTimeMs > thresholdMs)
+                {
+                    message = $"API exceeded threshold: {thresholdMs} ms";
+                }
+
+                try
+                {
+                    using var connection = new SqlConnection(connectionString);
+                    await connection.ExecuteAsync(
+                        @"INSERT INTO ApiResponseLogs 
+                      (UserId, FormName, ApiName, ResponseTime, ResponseMessage, CreatedOn)
+                      VALUES (@UserId, @FormName, @ApiName, @ResponseTime, @ResponseMessage, GETDATE())",
+                        new
+                        {
+                            UserId = userId,
+                            FormName = string.IsNullOrEmpty(formName) ? apiName : formName,
+                            ApiName = apiName,
+                            ResponseTime = responseTimeMs,
+                            ResponseMessage = message
+                        });
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to log API response time: {ex.Message}");
+                }
             }
         }
-
-
     }
-}
+
+
+
+
+
+    
+

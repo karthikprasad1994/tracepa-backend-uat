@@ -16,6 +16,7 @@ namespace TracePca.Middleware
             {
                 customerContext.CustomerCode = customerCode.ToString()?.Trim();
             }
+            var _ = context.Session.GetString("KeepAlive");
 
             await _next(context);
         }
