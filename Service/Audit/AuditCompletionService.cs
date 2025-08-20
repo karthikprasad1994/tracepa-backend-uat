@@ -1956,6 +1956,9 @@ namespace TracePca.Service.Audit
 
                 ZipFile.CreateFromDirectory(cleanedPath, zipFilePath);
 
+
+
+
                 var request = _httpContextAccessor.HttpContext.Request;
                 string baseUrl = $"{request.Scheme}://{request.Host}";
                 string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{SanitizeName(Cabinet) + ".zip"}";
