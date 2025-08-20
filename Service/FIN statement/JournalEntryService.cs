@@ -587,6 +587,42 @@ namespace TracePca.Service.FIN_statement
 
             return rowsAffected;
         }
+
+        //DeActiveteJE
+        public async Task<int> ApproveJournalEntriesAsync(ApproveRequestDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // In VB code, status was "W" (waiting for approval).
+            const string sql = @"
+        UPDATE Acc_JE_Master
+        SET Acc_JE_Status = @Status,
+            Acc_JE_IPAddress = @IpAddress
+        WHERE Acc_JE_ID IN @Ids
+          AND Acc_JE_CompID = @CompId";
+
+            var rowsAffected = await connection.ExecuteAsync(sql, new
+            {
+                Status = "W", // waiting for approval
+                IpAddress = dto.IpAddress,
+                Ids = dto.DescriptionIds,
+                CompId = dto.CompId
+            });
+
+            return rowsAffected;
+        }
+
     }
 }
 

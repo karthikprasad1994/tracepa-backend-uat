@@ -30,5 +30,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //ActivateJE
         Task<int> ActivateJournalEntriesAsync(ActivateRequestDto dto);
+
+        //DeActivateJE
+        Task<int> ApproveJournalEntriesAsync(ApproveRequestDto dto);
     }
 }
