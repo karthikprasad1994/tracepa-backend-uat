@@ -311,5 +311,41 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+        //DeActivatedJE
+        [HttpPost("Approve")]
+        public async Task<IActionResult> ApproveJournalEntries([FromBody] ApproveRequestDto dto)
+        {
+            try
+            {
+                var rowsAffected = await _JournalEntryService.ApproveJournalEntriesAsync(dto);
+
+                if (rowsAffected <= 0)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No records found to approve."
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Successfully Approved.",
+                    data = new { count = rowsAffected, ids = dto.DescriptionIds }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while approving Journal Entries.",
+                    error = ex.Message
+                });
+            }
+        }
+
     }
 }
