@@ -61,7 +61,7 @@ namespace TracePca.Service.SuperMaster
 
             // Step 2: Null & duplicate check
             var duplicateErrors = employees
-     .GroupBy(e => new { e.EmployeeName, e.Email }) // group by Name + Email
+     .GroupBy(e => new { e.EmployeeName, e.Email, e.EmpCode, e.OfficePhoneNo, e.LoginName}) // group by Name + Email
      .Where(g => g.Count() > 1)                     // only groups with duplicates
      .Select(g => new UploadEmployeeMasterDto
      {
