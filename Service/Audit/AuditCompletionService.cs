@@ -150,7 +150,8 @@ namespace TracePca.Service.Audit
                 var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
                     CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
                     CASE WHEN ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isReviewer,
-                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, SA_Status As Status, SA_AuditFrameworkId As AuditFrameworkId
+                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, SA_Status As Status, SA_AuditFrameworkId As AuditFrameworkId,
+                    CASE WHEN SA_IsArchived IS NULL THEN 0 ELSE SA_IsArchived END AS IsArchived
                     FROM StandardAudit_Schedule SA LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
                     WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId ";
 
@@ -2303,6 +2304,26 @@ namespace TracePca.Service.Audit
                         fsOutput.WriteByte((byte)data);
                     }
                 }
+            }
+        }
+
+        public async Task<int> UpdateArchiveInAuditAsync(AuditArchiveDTO dto)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var query = @"UPDATE StandardAudit_Schedule SET SA_RetentionPeriod = @RetentionPeriod, SA_ExpiryDate = @ExpiryDate, SA_ForCompleteAudit = @ForCompleteAudit, SA_IsArchived = 1 WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
+
+                var parameters = new { RetentionPeriod = dto.SA_RetentionPeriod, ExpiryDate = dto.SA_ExpiryDate, ForCompleteAudit = dto.SA_ForCompleteAudit, AuditID = dto.SA_ID, ACID = dto.SA_CompID };
+                var rowsAffected = await connection.ExecuteAsync(query, parameters);
+
+                return rowsAffected;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while updating the Archive data in the audit.", ex);
             }
         }
     }

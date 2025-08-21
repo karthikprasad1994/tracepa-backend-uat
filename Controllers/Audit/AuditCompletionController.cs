@@ -429,5 +429,47 @@ namespace TracePca.Controllers.Audit
                 return StatusCode(500, new { success = false, message = $"An error occurred while downloading the file: {ex.Message}" });
             }
         }
+
+        [HttpPost("UpdateArchiveInAudit")]
+        public async Task<IActionResult> UpdateArchiveInAudit([FromBody] AuditArchiveDTO dto)
+        {
+            try
+            {
+                int result = await _auditCompletionInterface.CheckCAEIndependentAuditorsReportSavedAsync(dto.SA_CompID, dto.SA_ID);
+
+                if (result == 0)
+                {
+                    return BadRequest(new { statusCode = 400, message = "Independent Auditor's Report details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                }
+                else if (result == 1)
+                {
+                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
+                }
+                else if (result == 2)
+                {
+                    var res = await _auditCompletionInterface.UpdateArchiveInAuditAsync(dto);
+                    if (res > 0)
+                    {
+                        return Ok(new { statusCode = 200, message = "Audit Archive details updated successfully.", Data = res });
+                    }
+                    else
+                    {
+                        return BadRequest(new { statusCode = 400, message = "No Audit Archive data was saved." });
+                    }
+                }
+                else if (result == 3)
+                {
+                    return Ok(new { statusCode = 200, message = "No checkpoints exist for this audit." });
+                }
+                else
+                {
+                    return StatusCode(500, new { statusCode = 500, message = "Unexpected result from CAE status check." });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "An error occurred while saving or updating Audit Archive data.", error = ex.Message });
+            }
+        }
     }
 }
