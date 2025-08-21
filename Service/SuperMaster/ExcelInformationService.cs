@@ -445,177 +445,177 @@ namespace TracePca.Service.SuperMaster
         }
 
         //UploadClientDetails
-        public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
-        {
-            if (file == null || file.Length == 0)
-                throw new Exception("No file uploaded.");
+        //public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
+        //{
+        //    if (file == null || file.Length == 0)
+        //        throw new Exception("No file uploaded.");
 
-            // ✅ Get DB name from session
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-            if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+        //    // ✅ Get DB name from session
+        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //    if (string.IsNullOrEmpty(dbName))
+        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            var connectionString = _configuration.GetConnectionString(dbName);
+        //    var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Parse Excel
-            List<UploadClientDetailsDto> clients;
-            using (var stream = file.OpenReadStream())
-            {
-                clients = ParseExcelToClients(stream);
-            }
+        //    // ✅ Parse Excel
+        //    List<UploadClientDetailsDto> clients;
+        //    using (var stream = file.OpenReadStream())
+        //    {
+        //        clients = ParseExcelToClients(stream);
+        //    }
 
-            // ✅ Step 1: Validate mandatory fields (collect all errors)
-            var errors = ValidateClients(clients);
-            if (errors.Any())
-            {
-                var groupedErrors = errors
-                    .GroupBy(e => new { e.ClientName, e.ClientCode })
-                    .Select(g => $"{g.Key.ClientName} ({g.Key.ClientCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+        //    // ✅ Step 1: Validate mandatory fields (collect all errors)
+        //    var errors = ValidateClients(clients);
+        //    if (errors.Any())
+        //    {
+        //        var groupedErrors = errors
+        //            .GroupBy(e => new { e.ClientName, e.ClientCode })
+        //            .Select(g => $"{g.Key.ClientName} ({g.Key.ClientCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
 
-                throw new Exception("Validation failed:\n" + string.Join(Environment.NewLine, groupedErrors));
-            }
+        //        throw new Exception("Validation failed:\n" + string.Join(Environment.NewLine, groupedErrors));
+        //    }
 
-            // ✅ Step 2: Duplicate check inside file
-            var duplicateErrors = clients
-                .GroupBy(c => new { c.ClientName, c.PAN, c.GSTN })
-                .Where(g => g.Count() > 1)
-                .Select(g => new UploadClientDetailsDto
-                {
-                    ClientCode = g.First().ClientCode,
-                    ClientName = g.Key.ClientName,
-                    ErrorMessage = $"Duplicate found for Client: {g.Key.ClientName}, PAN: {g.Key.PAN}, GSTN: {g.Key.GSTN}"
-                })
-                .ToList();
+        //    // ✅ Step 2: Duplicate check inside file
+        //    var duplicateErrors = clients
+        //        .GroupBy(c => new { c.ClientName, c.PAN, c.GSTN })
+        //        .Where(g => g.Count() > 1)
+        //        .Select(g => new UploadClientDetailsDto
+        //        {
+        //            ClientCode = g.First().ClientCode,
+        //            ClientName = g.Key.ClientName,
+        //            ErrorMessage = $"Duplicate found for Client: {g.Key.ClientName}, PAN: {g.Key.PAN}, GSTN: {g.Key.GSTN}"
+        //        })
+        //        .ToList();
 
-            if (duplicateErrors.Any())
-            {
-                var validationErrors = duplicateErrors
-                    .Select(e => $"{e.ClientName} ({e.ClientCode}): {e.ErrorMessage}")
-                    .ToList();
+        //    if (duplicateErrors.Any())
+        //    {
+        //        var validationErrors = duplicateErrors
+        //            .Select(e => $"{e.ClientName} ({e.ClientCode}): {e.ErrorMessage}")
+        //            .ToList();
 
-                throw new Exception("Validation failed: " +
-                    System.Text.Json.JsonSerializer.Serialize(validationErrors));
-            }
+        //        throw new Exception("Validation failed: " +
+        //            System.Text.Json.JsonSerializer.Serialize(validationErrors));
+        //    }
 
-            var results = new List<string>();
+        //    var results = new List<string>();
 
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-            using var transaction = connection.BeginTransaction();
+        //    using var connection = new SqlConnection(connectionString);
+        //    await connection.OpenAsync();
+        //    using var transaction = connection.BeginTransaction();
 
-            try
-            {
-                foreach (var client in clients)
-                {
+        //    try
+        //    {
+        //        foreach (var client in clients)
+        //        {
 
-                    // ✅ Step 3: Ensure client not already existing in DB
-                    string checkClientSql = @"
-                SELECT COUNT(1) 
-                FROM Client_Master 
-                WHERE UPPER(Client_Name) = UPPER(@Name) AND Client_CompId = @CompId";
-                    bool exists = await connection.ExecuteScalarAsync<int>(
-                        checkClientSql, new { Name = client.ClientName, CompId = compId }, transaction) > 0;
+        //            // ✅ Step 3: Ensure client not already existing in DB
+        //            string checkClientSql = @"
+        //        SELECT COUNT(1) 
+        //        FROM Client_Master 
+        //        WHERE UPPER(Client_Name) = UPPER(@Name) AND Client_CompId = @CompId";
+        //            bool exists = await connection.ExecuteScalarAsync<int>(
+        //                checkClientSql, new { Name = client.ClientName, CompId = compId }, transaction) > 0;
 
-                    // ✅ Step 4: Call stored procedure
-                    using var cmd = new SqlCommand("spSaveClientDetails", connection, transaction);
-                    cmd.CommandType = CommandType.StoredProcedure;
+        //            // ✅ Step 4: Call stored procedure
+        //            using var cmd = new SqlCommand("spSaveClientDetails", connection, transaction);
+        //            cmd.CommandType = CommandType.StoredProcedure;
 
-                    cmd.Parameters.AddWithValue("@Client_ID", (object?)client.ClientId ?? 0);
-                    cmd.Parameters.AddWithValue("@Client_Code", client.ClientCode ?? "");
-                    cmd.Parameters.AddWithValue("@Client_Name", client.ClientName ?? "");
-                    cmd.Parameters.AddWithValue("@Client_PAN", client.PAN ?? "");
-                    cmd.Parameters.AddWithValue("@Client_GSTN", client.GSTN ?? "");
-                    cmd.Parameters.AddWithValue("@Client_Address", client.Address ?? "");
-                    cmd.Parameters.AddWithValue("@Client_Email", client.Email ?? "");
-                    cmd.Parameters.AddWithValue("@Client_Phone", client.Phone ?? "");
-                    cmd.Parameters.AddWithValue("@Client_CompId", compId);
-                    cmd.Parameters.AddWithValue("@CreatedBy", client.CreatedBy ?? 0);
-                    cmd.Parameters.AddWithValue("@UpdatedBy", client.UpdatedBy ?? 0);
-                    cmd.Parameters.AddWithValue("@DelFlag", client.DelFlag ?? "A");
-                    cmd.Parameters.AddWithValue("@Status", client.Status ?? "N");
-                    cmd.Parameters.AddWithValue("@IPAddress", client.IPAddress ?? "");
+        //            cmd.Parameters.AddWithValue("@Client_ID", (object?)client.ClientId ?? 0);
+        //            cmd.Parameters.AddWithValue("@Client_Code", client.ClientCode ?? "");
+        //            cmd.Parameters.AddWithValue("@Client_Name", client.ClientName ?? "");
+        //            cmd.Parameters.AddWithValue("@Client_PAN", client.PAN ?? "");
+        //            cmd.Parameters.AddWithValue("@Client_GSTN", client.GSTN ?? "");
+        //            cmd.Parameters.AddWithValue("@Client_Address", client.Address ?? "");
+        //            cmd.Parameters.AddWithValue("@Client_Email", client.Email ?? "");
+        //            cmd.Parameters.AddWithValue("@Client_Phone", client.Phone ?? "");
+        //            cmd.Parameters.AddWithValue("@Client_CompId", compId);
+        //            cmd.Parameters.AddWithValue("@CreatedBy", client.CreatedBy ?? 0);
+        //            cmd.Parameters.AddWithValue("@UpdatedBy", client.UpdatedBy ?? 0);
+        //            cmd.Parameters.AddWithValue("@DelFlag", client.DelFlag ?? "A");
+        //            cmd.Parameters.AddWithValue("@Status", client.Status ?? "N");
+        //            cmd.Parameters.AddWithValue("@IPAddress", client.IPAddress ?? "");
 
-                    var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
-                    {
-                        Direction = ParameterDirection.Output
-                    };
-                    var operParam = new SqlParameter("@iOper", SqlDbType.Int)
-                    {
-                        Direction = ParameterDirection.Output
-                    };
+        //            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
+        //            {
+        //                Direction = ParameterDirection.Output
+        //            };
+        //            var operParam = new SqlParameter("@iOper", SqlDbType.Int)
+        //            {
+        //                Direction = ParameterDirection.Output
+        //            };
 
-                    cmd.Parameters.Add(updateOrSaveParam);
-                    cmd.Parameters.Add(operParam);
+        //            cmd.Parameters.Add(updateOrSaveParam);
+        //            cmd.Parameters.Add(operParam);
 
-                    await cmd.ExecuteNonQueryAsync();
+        //            await cmd.ExecuteNonQueryAsync();
 
-                    int updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
-                    int oper = (int)(operParam.Value ?? 0);
+        //            int updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+        //            int oper = (int)(operParam.Value ?? 0);
 
-                    string action = updateOrSave == 2 ? "Updated" : "Inserted";
-                    results.Add($"{action} client: {client.ClientCode} - {client.ClientName} (Client_ID={oper})");
-                }
+        //            string action = updateOrSave == 2 ? "Updated" : "Inserted";
+        //            results.Add($"{action} client: {client.ClientCode} - {client.ClientName} (Client_ID={oper})");
+        //        }
 
-                transaction.Commit();
-                return results;
-            }
-            catch
-            {
-                transaction.Rollback();
-                throw;
-            }
-        }
+        //        transaction.Commit();
+        //        return results;
+        //    }
+        //    catch
+        //    {
+        //        transaction.Rollback();
+        //        throw;
+        //    }
+        //}
 
-        private List<UploadClientDetailsDto> ParseExcelToClients(Stream fileStream)
-        {
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-            using var package = new ExcelPackage(fileStream);
-            var worksheet = package.Workbook.Worksheets[0];
-            int rowCount = worksheet.Dimension.Rows;
+        //private List<UploadClientDetailsDto> ParseExcelToClients(Stream fileStream)
+        //{
+        //    ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+        //    using var package = new ExcelPackage(fileStream);
+        //    var worksheet = package.Workbook.Worksheets[0];
+        //    int rowCount = worksheet.Dimension.Rows;
 
-            var clients = new List<UploadClientDetailsDto>();
-            for (int row = 2; row <= rowCount; row++) // skip header
-            {
-                clients.Add(new UploadClientDetailsDto
-                {
-                    ClientCode = worksheet.Cells[row, 1].Text,
-                    ClientName = worksheet.Cells[row, 2].Text,
-                    PAN = worksheet.Cells[row, 3].Text,
-                    GSTN = worksheet.Cells[row, 4].Text,
-                    Address = worksheet.Cells[row, 5].Text,
-                    Email = worksheet.Cells[row, 6].Text,
-                    Phone = worksheet.Cells[row, 7].Text,
-                    CreatedBy = int.TryParse(worksheet.Cells[row, 8].Text, out var createdBy) ? createdBy : 0,
-                    UpdatedBy = int.TryParse(worksheet.Cells[row, 9].Text, out var updatedBy) ? updatedBy : 0,
-                    DelFlag = worksheet.Cells[row, 10].Text,
-                    Status = worksheet.Cells[row, 11].Text,
-                    IPAddress = worksheet.Cells[row, 12].Text
-                });
-            }
-            return clients;
-        }
+        //    var clients = new List<UploadClientDetailsDto>();
+        //    for (int row = 2; row <= rowCount; row++) // skip header
+        //    {
+        //        clients.Add(new UploadClientDetailsDto
+        //        {
+        //            ClientCode = worksheet.Cells[row, 1].Text,
+        //            ClientName = worksheet.Cells[row, 2].Text,
+        //            PAN = worksheet.Cells[row, 3].Text,
+        //            GSTN = worksheet.Cells[row, 4].Text,
+        //            Address = worksheet.Cells[row, 5].Text,
+        //            Email = worksheet.Cells[row, 6].Text,
+        //            Phone = worksheet.Cells[row, 7].Text,
+        //            CreatedBy = int.TryParse(worksheet.Cells[row, 8].Text, out var createdBy) ? createdBy : 0,
+        //            UpdatedBy = int.TryParse(worksheet.Cells[row, 9].Text, out var updatedBy) ? updatedBy : 0,
+        //            DelFlag = worksheet.Cells[row, 10].Text,
+        //            Status = worksheet.Cells[row, 11].Text,
+        //            IPAddress = worksheet.Cells[row, 12].Text
+        //        });
+        //    }
+        //    return clients;
+        //}
 
-        private List<UploadClientDetailsDto> ValidateClients(List<UploadClientDetailsDto> clients)
-        {
-            var errors = new List<UploadClientDetailsDto>();
+        //private List<UploadClientDetailsDto> ValidateClients(List<UploadClientDetailsDto> clients)
+        //{
+        //    var errors = new List<UploadClientDetailsDto>();
 
-            foreach (var client in clients)
-            {
-                if (string.IsNullOrWhiteSpace(client.ClientCode))
-                    errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "ClientCode missing" });
+        //    foreach (var client in clients)
+        //    {
+        //        if (string.IsNullOrWhiteSpace(client.ClientCode))
+        //            errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "ClientCode missing" });
 
-                if (string.IsNullOrWhiteSpace(client.ClientName))
-                    errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "ClientName missing" });
+        //        if (string.IsNullOrWhiteSpace(client.ClientName))
+        //            errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "ClientName missing" });
 
-                if (string.IsNullOrWhiteSpace(client.PAN))
-                    errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "PAN missing" });
+        //        if (string.IsNullOrWhiteSpace(client.PAN))
+        //            errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "PAN missing" });
 
-                if (string.IsNullOrWhiteSpace(client.GSTN))
-                    errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "GSTN missing" });
-            }
+        //        if (string.IsNullOrWhiteSpace(client.GSTN))
+        //            errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "GSTN missing" });
+        //    }
 
-            return errors;
-        }
+        //    return errors;
+        //}
 
         //SaveClientDetails
         public async Task<List<int[]>> SuperMasterSaveCustomerDetailsAsync(int CompId, List<SuperMasterSaveCustomerDto> customers)
@@ -945,18 +945,6 @@ namespace TracePca.Service.SuperMaster
     WHERE UPPER(CUST_NAME) = UPPER(@CustomerName) 
       AND CUST_CompID = @CompId";
 
-
-                    //int? customerId = await connection.ExecuteScalarAsync<int?>(
-                    //    customerSql, new { CustomerName = emp.CustomerName, CompId = compId }, transaction);
-
-                    //if (!customerId.HasValue)
-                    //{
-                    //    throw new Exception($"Customer '{emp.CustomerName}' does not exist in master table.");
-                    //}
-
-                    //emp.CompanyId = customerId.Value; // use this for inserting ClientUser
-
-
                     int? CompanyId = await connection.ExecuteScalarAsync<int?>(
                         customerSql, new { CustomerName = emp.CompanyId, CompId = compId }, transaction);
 
@@ -1128,6 +1116,17 @@ namespace TracePca.Service.SuperMaster
 
             foreach (var emp in employees)
             {
+                // ✅ Skip validation if the entire row is blank
+                if (string.IsNullOrWhiteSpace(emp.CompanyId) &&
+                    string.IsNullOrWhiteSpace(emp.EmpCode) &&
+                    string.IsNullOrWhiteSpace(emp.EmployeeName) &&
+                    string.IsNullOrWhiteSpace(emp.LoginName) &&
+                    string.IsNullOrWhiteSpace(emp.Email) &&
+                    string.IsNullOrWhiteSpace(emp.PhoneNo))
+                {
+                    continue;
+                }
+
                 if (string.IsNullOrWhiteSpace(emp.CompanyId))
                     errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Customer missing" });
 
@@ -1148,6 +1147,7 @@ namespace TracePca.Service.SuperMaster
             }
             return errors;
         }
+
 
         // SaveClientUser 
         public async Task<List<int[]>> SuperMasterSaveClientUserAsync(int CompId, List<SaveClientUserDto> clientUser)

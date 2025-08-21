@@ -173,7 +173,7 @@ namespace TracePca.Controllers.SuperMaster
         {
             if (clientUser == null || clientUser.Count == 0)
             {
-                return BadRequest(new { message = "No employee data provided." });
+                return BadRequest(new { message = "No client user data provided." });
             }
 
             try
@@ -182,7 +182,7 @@ namespace TracePca.Controllers.SuperMaster
 
                 return Ok(new
                 {
-                    message = "Employees processed successfully.",
+                    message = "Client User processed successfully.",
                     results // This will contain a List<int[]> from service
                 });
             }
@@ -190,7 +190,7 @@ namespace TracePca.Controllers.SuperMaster
             {
                 return StatusCode(500, new
                 {
-                    message = "An error occurred while saving employees.",
+                    message = "An error occurred while saving client user.",
                     error = ex.Message
                 });
             }
