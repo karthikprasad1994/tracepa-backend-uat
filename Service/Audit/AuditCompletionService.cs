@@ -623,6 +623,45 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<string> GenerateReportAndGetTempPathAsync(int compId, int auditId, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Audit_Completion_{timestamp}";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GeneratePdfAsync(compId, auditId);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                var filePath = Path.Combine(tempFolder, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+                string downloadUrl = $"{tempFolder}/{fileName}";
+                return downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
         public async Task<string> GenerateACSubPointsReportAndGetURLPathAsync(int compId, int auditId, int userId, string format)
         {
             try
@@ -1834,6 +1873,105 @@ namespace TracePca.Service.Audit
             return name;
         }
 
+        private async Task<string> GenerateAuditeeInfoTempPathAsync(int compId, int auditId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            var result = await connection.QueryFirstOrDefaultAsync<(int EpPkId, int CustID, string YearName, string AuditNo)>(
+                @"SELECT LOE.LOE_ID AS EpPkId, SA.SA_CustID As CustID, YMS.YMS_ID AS YearName, SA_AuditNo + ' - ' + CMA.CMM_Desc As AuditNo FROM StandardAudit_Schedule AS SA
+                  LEFT JOIN SAD_CUST_LOE AS LOE ON LOE.LOE_CustomerId = SA.SA_CustID AND LOE.LOE_YearId = SA.SA_YearID AND LOE.LOE_ServiceTypeId = SA.SA_AuditTyPeId
+                  LEFT JOIN YEAR_MASTER AS YMS ON YMS.YMS_YEARID = SA.SA_YearID
+                  LEFT JOIN Content_Management_Master CMA On CMA.cmm_ID = SA.SA_AuditTypeID
+                  WHERE LOE.LOE_CompID = @CompId AND SA.SA_ID = @AuditId;", new { CompId = compId, AuditId = auditId });
+
+            EngagementPlanReportDetailsDTO dtoEP = await _engagementPlanInterface
+                .GetEngagementPlanReportDetailsByIdAsync(compId, result.EpPkId);
+
+            List<AuditReportCustInfoAuditeeDetailDTO> dtoAD = await GetAuditeeDetails(compId, result.CustID, result.YearName);
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            byte[] fileBytes;
+            var document = QuestPDF.Fluent.Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Margin(30);
+                    page.Size(PageSizes.A4);
+                    page.PageColor(Colors.White);
+                    page.DefaultTextStyle(x => x.FontSize(12));
+
+                    page.Content().Column(column =>
+                    {
+                        column.Item().AlignCenter().PaddingBottom(10)
+                              .Text("Profile/Information about the Auditee").FontSize(16).Bold();
+
+                        if (dtoAD.Any())
+                        {
+                            column.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(columns =>
+                                {
+                                    columns.RelativeColumn(0.5f);
+                                    columns.RelativeColumn(3);
+                                    columns.RelativeColumn(2);
+                                });
+
+                                table.Header(header =>
+                                {
+                                    header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
+                                    header.Cell().Element(CellStyle).Text("Particulars").FontSize(10).Bold();
+                                    header.Cell().Element(CellStyle).Text("Details").FontSize(10).Bold();
+                                });
+
+                                int slNo = 1;
+                                foreach (var details in dtoAD)
+                                {
+                                    table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                    table.Cell().Element(CellStyle).Text(details.Particulars ?? "-").FontSize(10);
+                                    table.Cell().Element(CellStyle).Text(details.Details ?? "-").FontSize(10);
+                                    slNo++;
+                                }
+
+                                static IContainer CellStyle(IContainer container) =>
+                                    container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                            });
+                        }
+
+                        column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
+                        column.Item().PaddingBottom(5).Text("For " + (dtoEP.CompanyName ?? "")).FontSize(10).Bold();
+                        column.Item().PaddingBottom(5).Text("[Designation]").FontSize(10);
+                        column.Item().PaddingBottom(5).Text("Place : ").FontSize(10);
+                        column.Item().PaddingBottom(5).Text("Date :").FontSize(10);
+                    });
+                });
+            });
+
+            using (var ms = new MemoryStream())
+            {
+                document.GeneratePdf(ms);
+                fileBytes = ms.ToArray();
+            }
+
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string fileName = $"Information_About_Auditee.pdf";
+
+            string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+            Directory.CreateDirectory(tempFolder);
+
+            var filePath = Path.Combine(tempFolder, fileName);
+            if (System.IO.File.Exists(filePath))
+            {
+                System.IO.File.Delete(filePath);
+            }
+
+            await File.WriteAllBytesAsync(filePath, fileBytes);
+            string downloadUrl = $"{tempFolder}/{fileName}";
+            return downloadUrl;
+        }
+
         public async Task<(bool, string)> DownloadAllAuditAttachmentsByAuditIdAsync(int compId, int auditId, int userId, string ipAddress)
         {
             using var connection = new SqlConnection(_connectionString);
@@ -1841,8 +1979,8 @@ namespace TracePca.Service.Audit
 
             try
             {
-                var result = await connection.QueryFirstOrDefaultAsync<(string SubCabinet, string CustCode, string CustName, string YearName, string UserName)>(
-                    @"Select SA_AuditNo + ' - ' + CMM.CMM_Desc, CUST_CODE, CUST_NAME, YMS_ID, usr_FullName
+                var result = await connection.QueryFirstOrDefaultAsync<(string SubCabinet, string CustCode, string CustName, string YearName, string UserName, DateTime DocumentExpiryDate, int ReminderDay) >(
+                    @"Select SA_AuditNo + ' - ' + CMM.CMM_Desc, CUST_CODE, CUST_NAME, YMS_ID, usr_FullName, ISNULL(SA_ExpiryDate, DATEADD(YEAR, 7, GETDATE())) AS SA_ExpiryDate, ISNULL(SA_RetentionPeriod, 7) AS SA_RetentionPeriod
                     from StandardAudit_Schedule JOIN SAD_CUSTOMER_MASTER On CUST_ID=SA_CustID JOIN Year_Master On YMS_YEARID = SA_YearID Join Sad_Userdetails On Usr_Id = @UserId 
                     JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA_AuditTypeID Where SA_ID= @AuditId;",
                     new { CompId = compId, AuditId = auditId, UserId = userId });
@@ -1869,10 +2007,10 @@ namespace TracePca.Service.Audit
                 if (cabinetId == 0)
                 {
                     cabinetId = await connection.ExecuteScalarAsync<int>(@"DECLARE @CBN_ID INT = (SELECT ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet);
-                        INSERT INTO edt_cabinet (CBN_ID, CBN_NAME, CBN_Note, CBN_PARENT, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_Status, CBN_DelFlag, CBN_CreatedBy, CBN_CreatedOn, CBN_CompID)
-                        VALUES (@CBN_ID, @CBN_NAME, @CBN_NAME, -1, @CBN_UserID, 0, 0, 0, 'A', 'A', @CBN_CreatedBy, GETDATE(), @CBN_CompID);
+                        INSERT INTO edt_cabinet (CBN_ID, CBN_NAME, CBN_Note, CBN_PARENT, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_Status, CBN_DelFlag, CBN_CreatedBy, CBN_CreatedOn, CBN_CompID, CBN_DocumentExpiryDate, CBN_ReminderDay)
+                        VALUES (@CBN_ID, @CBN_NAME, @CBN_NAME, -1, @CBN_UserID, 0, 0, 0, 'A', 'A', @CBN_CreatedBy, GETDATE(), @CBN_CompID, @CBN_DocumentExpiryDate, @CBN_ReminderDay);
                         SELECT @CBN_ID;",
-                        new { CBN_NAME = Cabinet, CBN_UserID = userId, CBN_CreatedBy = userId, CBN_CompID = compId });
+                        new { CBN_NAME = Cabinet, CBN_UserID = userId, CBN_CreatedBy = userId, CBN_CompID = compId, CBN_DocumentExpiryDate = result.DocumentExpiryDate, CBN_ReminderDay = result.ReminderDay });
                 }
 
                 int subCabinetId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(CBN_ID, 0) FROM edt_cabinet WHERE CBN_Name = @Name AND CBN_Parent = @ParentId AND CBN_CompID = @CompId",
@@ -1895,7 +2033,7 @@ namespace TracePca.Service.Audit
                 String mainFolder = SanitizeName(result.SubCabinet);
 
                 // 0. Audit Plan/EngagementPlan
-                var auditPlanTypes = "SELECT TOP 1 RTM.RTM_Id AS TypeId, 'LOE - ' + RTM.RTM_ReportTypeName AS TypeName, " +
+                var auditPlanTypes = "SELECT TOP 1 LOE_ID As LOEID, RTM.RTM_Id AS TypeId, 'LOE - ' + RTM.RTM_ReportTypeName AS TypeName, " +
                     "ISNULL(STUFF((SELECT ',' + CAST(ISNULL(LOET2.LOE_AttachID, 0) AS VARCHAR) FROM StandardAudit_Schedule SA2 JOIN SAD_CUST_LOE LOE2 ON LOE2.LOE_CustomerId = SA2.SA_CustID " +
                     "AND LOE2.LOE_YearId = SA2.SA_YearID AND LOE2.LOE_ServiceTypeId = SA2.SA_AuditTypeID " +
                     "JOIN LOE_Template LOET2 ON LOET2.LOET_LOEID = LOE2.LOE_ID WHERE SA2.SA_ID = " + auditId + " AND SA2.SA_CompID = " + compId + " FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, ''), '0') AttachIds  " +
@@ -1948,6 +2086,31 @@ namespace TracePca.Service.Audit
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, conductTypes);
                 //@"SELECT DISTINCT ISNULL(CAST(SAC_AttachID AS VARCHAR), '0') AS SAC_AttachID FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = " + auditId,
                 //folderNameField: null, attachIdField: "SAC_AttachID");
+
+
+                // Audit Plan/EngagementPlan Report
+                var dt = await GetDataTableAsync(connection, auditPlanTypes);
+                if (dt.Rows.Count > 0)
+                {
+                    DataRow row = dt.Rows[0];
+                    string folderName = row["TypeName"] == null ? "StandardAudit" : row["TypeName"]?.ToString() ?? "StandardAudit";
+                    int epPKid = row["LOEID"] == DBNull.Value ? 0 : Convert.ToInt32(row["LOEID"]);
+                    string folderPath = Path.Combine(downloadDirectoryPath, mainFolder, SanitizeName(folderName));
+                    var savedAudiPlanFilePath = await _engagementPlanInterface.GenerateReportAndGetTempPathAsync(compId, epPKid, "pdf");
+                    if (!Directory.Exists(folderPath))
+                        Directory.CreateDirectory(folderPath);
+
+                    await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, folderName, "LOE_Final.pdf", savedAudiPlanFilePath);
+                }
+
+                // Information about the Auditee Report
+                var savedAuditeeFilePath = await GenerateAuditeeInfoTempPathAsync(compId, auditId);
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Information about the Auditee", "Information_About_Auditee_Report.pdf", savedAuditeeFilePath);
+
+
+                // Audit Completion Report
+                var savedAuditCompletionFilePath = await GenerateReportAndGetTempPathAsync(compId, auditId, "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Completion", "Audit_Completion_Report.pdf", savedAuditCompletionFilePath);
 
                 string cleanedPath = downloadDirectoryPath.TrimEnd('\\');
                 string zipFilePath = cleanedPath + ".zip";
@@ -2314,7 +2477,7 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                var query = @"UPDATE StandardAudit_Schedule SET SA_RetentionPeriod = @RetentionPeriod, SA_ExpiryDate = @ExpiryDate, SA_ForCompleteAudit = @ForCompleteAudit, SA_IsArchived = 1 WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
+                var query = @"UPDATE StandardAudit_Schedule SET SA_RetentionPeriod = @RetentionPeriod, SA_ExpiryDate = DATEADD(YEAR, @RetentionPeriod, @ExpiryDate), SA_ForCompleteAudit = @ForCompleteAudit, SA_IsArchived = 1 WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
 
                 var parameters = new { RetentionPeriod = dto.SA_RetentionPeriod, ExpiryDate = dto.SA_ExpiryDate, ForCompleteAudit = dto.SA_ForCompleteAudit, AuditID = dto.SA_ID, ACID = dto.SA_CompID };
                 var rowsAffected = await connection.ExecuteAsync(query, parameters);
