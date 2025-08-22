@@ -62,9 +62,10 @@ namespace TracePca.Service.FIN_statement
             acc_JE_BranchId AS BranchID,
             '' AS BillNo,
             FORMAT(Acc_JE_BillDate, @dateFormat) AS BillDate,
-            Acc_JE_BillType,
+            Acc_JE_BillType as BillType,
             Acc_JE_Party AS PartyID,
-            Acc_JE_Status AS Status
+            Acc_JE_Status AS Status,
+Acc_JE_Comnments as comments
         FROM Acc_JE_Master
         WHERE Acc_JE_Party = @custId 
             AND Acc_JE_CompID = @compId 
@@ -124,17 +125,7 @@ namespace TracePca.Service.FIN_statement
                 entry.DebDescription = string.Join(", ", debDescriptions);
                 entry.CredDescription = string.Join(", ", credDescriptions);
 
-                // Map Bill Type
-                entry.BillType = entry.BillType switch
-                {
-                    "1" => "Payment",
-                    "2" => "Receipt",
-                    "3" => "Petty Cash",
-                    "4" => "Purchase",
-                    "5" => "Sales",
-                    "6" => "Others",
-                    _ => ""
-                };
+          
 
                 // Map Status
                 entry.Status = entry.Status switch
@@ -301,13 +292,14 @@ namespace TracePca.Service.FIN_statement
             await connection.OpenAsync();
 
             using var transaction = connection.BeginTransaction();
-
+            string Transaction;
             int updateOrSave = 0, oper = 0;
-
             try
             {
                 foreach (var dto in dtos)
                 {
+                    dto.Acc_JE_TransactionNo = await GenerateTransactionNoAsync(dto.Acc_JE_YearID, dto.Acc_JE_Party, dto.Acc_JE_QuarterId, dto.acc_JE_BranchId);
+                    Transaction = dto.Acc_JE_TransactionNo;
                     int iPKId = dto.Acc_JE_ID;
 
                     // --- Save Journal Entry Master ---
@@ -366,7 +358,7 @@ namespace TracePca.Service.FIN_statement
 
                                 cmdDetail.Parameters.AddWithValue("@AJTB_ID", t.AJTB_ID);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_MasID", oper);
-                                cmdDetail.Parameters.AddWithValue("@AJTB_TranscNo", t.AJTB_TranscNo ?? string.Empty);
+                                cmdDetail.Parameters.AddWithValue("@AJTB_TranscNo", Transaction ?? string.Empty);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_CustId", t.AJTB_CustId);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_ScheduleTypeid", t.AJTB_ScheduleTypeid);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_Deschead", t.AJTB_Deschead);
@@ -494,15 +486,15 @@ namespace TracePca.Service.FIN_statement
     WHERE ATBUD_CustId = @CustId
       AND ATBUD_CompId = @CompId
       AND ATBUD_YearId = @YearId
-      AND ATBUD_BranchId = @BranchId
+      AND Atbud_Branchnameid = @BranchId
       AND ATBUD_QuarterId = @QuarterId";
 
                     var detailCount = await connection.ExecuteScalarAsync<int>(sqlCheckDetail, new
                     {
                         CustId = dto.ATBUD_CustId,
                         CompId = dto.ATBUD_CompId,
-                        YearId = dto.ATBU_YEARId,
-                        BranchId = dto.ATBUD_Branchid,
+                        YearId = dto.ATBUD_YEARId,   // fixed
+                        BranchId = dto.ATBUD_Branchid, // fixed
                         QuarterId = dto.ATBUD_QuarterId
                     }, transaction);
 
@@ -697,7 +689,8 @@ namespace TracePca.Service.FIN_statement
 
             return transactions;
         }
-        public async Task<string> GenerateTransactionNoAsync(GenerateTransactionNoRequest request)
+
+        public async Task<string> GenerateTransactionNoAsync(int Yearid,int Custid, int duration,int branchid)
         {
             try
             {
@@ -716,10 +709,10 @@ namespace TracePca.Service.FIN_statement
                 string sql = $@"
                 SELECT ISNULL(MAX(Acc_JE_ID) + 1, 1) 
                 FROM Acc_JE_Master 
-                WHERE Acc_JE_YearID = {request.YearID} 
-                  AND Acc_JE_Party = {request.PartyID} 
-                  AND Acc_JE_QuarterId = {request.DurationID} 
-                  AND Acc_JE_BranchName = {request.BranchID}";
+                WHERE Acc_JE_YearID = {Yearid} 
+                  AND Acc_JE_Party = {Custid} 
+                  AND Acc_JE_QuarterId = {duration} 
+                  AND Acc_JE_BranchName = {branchid}";
 
                 int iMax = await connection.ExecuteScalarAsync<int>(sql);
 

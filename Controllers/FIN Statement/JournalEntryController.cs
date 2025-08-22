@@ -367,21 +367,6 @@ namespace TracePca.Controllers.FIN_Statement
             var result = await _JournalEntryService.LoadTransactionDetailsAsync(companyId, yearId, custId, jeId, branchId, durationId);
             return Ok(result);
         }
-        [HttpPost("GenerateTransactionNo")]
-        public async Task<IActionResult> GenerateTransactionNo([FromBody] GenerateTransactionNoRequest request)
-        {
-            if (request == null)
-                return BadRequest("Invalid request");
 
-            try
-            {
-                string transactionNo = await _JournalEntryService.GenerateTransactionNoAsync(request);
-                return Ok(new { TransactionNo = transactionNo });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error generating transaction number: {ex.Message}");
-            }
-        }
     }
 }
