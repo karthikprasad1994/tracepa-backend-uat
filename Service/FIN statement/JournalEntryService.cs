@@ -630,7 +630,108 @@ namespace TracePca.Service.FIN_statement
             var result = await connection.QueryFirstOrDefaultAsync<JERecordDto>(sql, new { JEId = jeId, CompId = compId });
             return result;
         }
+        public async Task<List<TransactionDetailDto>> LoadTransactionDetailsAsync(int companyId, int yearId, int custId, int jeId, int branchId, int durationId)
+        {
+            var transactions = new List<TransactionDetailDto>();
 
+            // Dynamic connection string
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+
+            using (var conn = new SqlConnection(connectionString))
+            {
+                await conn.OpenAsync();
+
+                var sql = @"SELECT Ajtb_id, ajtb_deschead, ATBU_Description, AJTB_Debit, AJTB_Credit
+                        FROM Acc_JETransactions_Details
+                        LEFT JOIN Acc_TrailBalance_Upload b ON b.ATBU_ID = ajtb_deschead
+                        LEFT JOIN Acc_JE_Master c ON c.Acc_JE_ID = Ajtb_Masid
+                        WHERE ajtb_custid = @CustID AND AJTB_CompID = @CompanyID AND AJTB_YearID = @YearID
+                        AND c.Acc_JE_ID = @JEID";
+
+                if (branchId != 0)
+                {
+                    sql += " AND ajtb_BranchID = @BranchID AND Acc_JE_QuarterId = @DurationID";
+                }
+
+                sql += " ORDER BY AJTB_ID";
+
+                var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@CustID", custId);
+                cmd.Parameters.AddWithValue("@CompanyID", companyId);
+                cmd.Parameters.AddWithValue("@YearID", yearId);
+                cmd.Parameters.AddWithValue("@JEID", jeId);
+                if (branchId != 0)
+                {
+                    cmd.Parameters.AddWithValue("@BranchID", branchId);
+                    cmd.Parameters.AddWithValue("@DurationID", durationId);
+                }
+
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    int srNo = 1;
+                    while (await reader.ReadAsync())
+                    {
+                        transactions.Add(new TransactionDetailDto
+                        {
+                            SrNo = srNo++,
+                            DetID = reader["Ajtb_id"] as int?,
+                            HeadID = reader["ajtb_deschead"] as int?,
+                            GLID = reader["ajtb_deschead"] as int?,
+                            GLCode = "",
+                            GLDescription = reader["ATBU_Description"]?.ToString(),
+                            SubGL = "",
+                            Debit = reader["AJTB_Debit"] != DBNull.Value ? Convert.ToDecimal(reader["AJTB_Debit"]) : 0,
+                            Credit = reader["AJTB_Credit"] != DBNull.Value ? Convert.ToDecimal(reader["AJTB_Credit"]) : 0,
+                            Balance = 0 // You can calculate balance if needed
+                        });
+                    }
+                }
+            }
+
+            return transactions;
+        }
+        public async Task<string> GenerateTransactionNoAsync(GenerateTransactionNoRequest request)
+        {
+            try
+            {
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                if (string.IsNullOrEmpty(dbName))
+                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                // ✅ Step 2: Get the connection string
+                var connectionString = _configuration.GetConnectionString(dbName);
+
+                // ✅ Step 3: Use SqlConnection
+                using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                string sql = $@"
+                SELECT ISNULL(MAX(Acc_JE_ID) + 1, 1) 
+                FROM Acc_JE_Master 
+                WHERE Acc_JE_YearID = {request.YearID} 
+                  AND Acc_JE_Party = {request.PartyID} 
+                  AND Acc_JE_QuarterId = {request.DurationID} 
+                  AND Acc_JE_BranchName = {request.BranchID}";
+
+                int iMax = await connection.ExecuteScalarAsync<int>(sql);
+
+                string prefix = $"JE00-{iMax}";
+
+                return prefix;
+            }
+            catch (Exception ex)
+            {
+                throw; // or handle logging
+            }
+        }
     }
 }
 

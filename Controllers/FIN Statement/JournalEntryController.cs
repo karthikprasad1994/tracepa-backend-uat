@@ -355,5 +355,33 @@ namespace TracePca.Controllers.FIN_Statement
 
             return Ok(record);
         }
+        [HttpGet("GetTransactionDetails")]
+        public async Task<IActionResult> GetTransactionDetails(
+    [FromQuery] int companyId,
+    [FromQuery] int yearId,
+    [FromQuery] int custId,
+    [FromQuery] int jeId,
+    [FromQuery] int branchId = 0,
+    [FromQuery] int durationId = 0)
+        {
+            var result = await _JournalEntryService.LoadTransactionDetailsAsync(companyId, yearId, custId, jeId, branchId, durationId);
+            return Ok(result);
+        }
+        [HttpPost("GenerateTransactionNo")]
+        public async Task<IActionResult> GenerateTransactionNo([FromBody] GenerateTransactionNoRequest request)
+        {
+            if (request == null)
+                return BadRequest("Invalid request");
+
+            try
+            {
+                string transactionNo = await _JournalEntryService.GenerateTransactionNoAsync(request);
+                return Ok(new { TransactionNo = transactionNo });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error generating transaction number: {ex.Message}");
+            }
+        }
     }
 }

@@ -182,6 +182,31 @@
             public string Description { get; set; }
             // Add other columns as needed
         }
+        public class TransactionDetailDto
+        {
+            public int SrNo { get; set; }
+            public int? DetID { get; set; }
+            public int? HeadID { get; set; }
+            public int? GLID { get; set; }
+            public int? SubGLID { get; set; }
+            public int? PaymentID { get; set; }
+            public string Type { get; set; }
+            public string GLCode { get; set; }
+            public string GLDescription { get; set; }
+            public string SubGL { get; set; }
+            public string SubGLDescription { get; set; }
+            public decimal Debit { get; set; }
+            public decimal Credit { get; set; }
+            public decimal Balance { get; set; }
+        }
+        public class GenerateTransactionNoRequest
+        {
+            public int AccessCodeID { get; set; }
+            public int YearID { get; set; }
+            public int PartyID { get; set; }
+            public int DurationID { get; set; }
+            public int BranchID { get; set; }
+        }
 
     }
 }
