@@ -33,5 +33,7 @@ namespace TracePca.Interface.FIN_Statement
 
         //DeActivateJE
         Task<int> ApproveJournalEntriesAsync(ApproveRequestDto dto);
+        Task<JERecordDto?> GetJERecordAsync(int jeId, int compId);
+
     }
 }

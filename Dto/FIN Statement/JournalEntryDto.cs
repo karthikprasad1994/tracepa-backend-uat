@@ -158,6 +158,7 @@
         //ActivateJE
         public class ActivateRequestDto
         {
+            public string Status { get; set; }
             public List<int> DescriptionIds { get; set; } = new(); 
             public int CompId { get; set; }                       
             public int UserId { get; set; }                
@@ -172,5 +173,15 @@
             public string IpAddress { get; set; }
             public int BranchId { get; set; }
         }
+        public class JERecordDto
+        {
+            public int Acc_JE_ID { get; set; }
+            public int Acc_JE_CompID { get; set; }
+            public string JE_Number { get; set; }
+            public DateTime JE_Date { get; set; }
+            public string Description { get; set; }
+            // Add other columns as needed
+        }
+
     }
 }

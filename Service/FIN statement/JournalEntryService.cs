@@ -579,7 +579,7 @@ namespace TracePca.Service.FIN_statement
 
             var rowsAffected = await connection.ExecuteAsync(sql, new
             {
-                Status = "A",          // Activate
+                Status = dto.Status,          // Activate
                 IpAddress = dto.IpAddress,
                 Ids = dto.DescriptionIds,
                 CompId = dto.CompId
@@ -621,6 +621,14 @@ namespace TracePca.Service.FIN_statement
             });
 
             return rowsAffected;
+        }
+        public async Task<JERecordDto?> GetJERecordAsync(int jeId, int compId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string sql = "SELECT * FROM Acc_JE_Master WHERE Acc_JE_ID = @JEId AND Acc_JE_CompID = @CompId";
+
+            var result = await connection.QueryFirstOrDefaultAsync<JERecordDto>(sql, new { JEId = jeId, CompId = compId });
+            return result;
         }
 
     }

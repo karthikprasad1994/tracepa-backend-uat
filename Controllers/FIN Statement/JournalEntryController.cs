@@ -346,6 +346,14 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+        [HttpGet("{jeId}/{compId}")]
+        public async Task<IActionResult> GetJERecord(int jeId, int compId)
+        {
+            var record = await _JournalEntryService.GetJERecordAsync(jeId, compId);
+            if (record == null)
+                return NotFound(new { message = "Record not found" });
 
+            return Ok(record);
+        }
     }
 }
