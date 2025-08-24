@@ -35,7 +35,9 @@
         public int isPartner { get; set; }
         public int isReviewer { get; set; }
         public int isAuditor { get; set; }
-        public int Status { get; set; }
+
+		public int IsArchived { get; set; }
+		public int Status { get; set; }
         public int AuditFrameworkId { get; set; }
     }
 

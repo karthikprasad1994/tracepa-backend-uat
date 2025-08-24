@@ -88,9 +88,9 @@ namespace TracePca.Service.DigitalFilling
 
             //string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
 
-            //string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+            //string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
 
 
 
