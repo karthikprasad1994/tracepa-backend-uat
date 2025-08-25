@@ -448,178 +448,272 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
-        ////UploadClientDetails
-        //public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
-        //{
-        //    if (file == null || file.Length == 0)
-        //        throw new Exception("No file uploaded.");
+        //UploadClientDetails
+    //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
+    //    {
+    //        if (file == null || file.Length == 0)
+    //            throw new Exception("No file uploaded.");
 
-        //    // ✅ Get DB name from session
-        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-        //    if (string.IsNullOrEmpty(dbName))
-        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
+    //        // ✅ Get DB name from session
+    //        string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+    //        if (string.IsNullOrEmpty(dbName))
+    //            throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-        //    var connectionString = _configuration.GetConnectionString(dbName);
+    //        var connectionString = _configuration.GetConnectionString(dbName);
 
-        //    // ✅ Parse Excel
-        //    List<UploadClientDetailsDto> clients;
-        //    using (var stream = file.OpenReadStream())
-        //    {
-        //        clients = ParseExcelToClients(stream);
-        //    }
+    //        // ✅ Parse Excel
+    //        List<UploadClientDetailsDto> clients;
+    //        using (var stream = file.OpenReadStream())
+    //        {
+    //            clients = ParseExcelToClients(stream);
+    //        }
 
-        //    // ✅ Step 1: Validate mandatory fields (collect all errors)
-        //    var errors = ValidateClients(clients);
-        //    if (errors.Any())
-        //    {
-        //        var groupedErrors = errors
-        //            .GroupBy(e => new { e.ClientName, e.ClientCode })
-        //            .Select(g => $"{g.Key.ClientName} ({g.Key.ClientCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+    //        // ✅ Step 1: Validate mandatory fields (collect all errors)
+    //        var errors = ValidateClients(clients);
+    //        if (errors.Any())
+    //        {
+    //            var groupedErrors = errors
+    //                .GroupBy(e => new { e.CUST_NAME, e.CUST_CODE })
+    //                .Select(g => $"{g.Key.CUST_NAME} ({g.Key.ClientCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
 
-        //        throw new Exception("Validation failed:\n" + string.Join(Environment.NewLine, groupedErrors));
-        //    }
+    //            throw new Exception("Validation failed:\n" + string.Join(Environment.NewLine, groupedErrors));
+    //        }
 
-        //    // ✅ Step 2: Duplicate check inside file
-        //    var duplicateErrors = clients
-        //        .GroupBy(c => new { c.ClientName, c.PAN, c.GSTN })
-        //        .Where(g => g.Count() > 1)
-        //        .Select(g => new UploadClientDetailsDto
-        //        {
-        //            ClientCode = g.First().ClientCode,
-        //            ClientName = g.Key.ClientName,
-        //            ErrorMessage = $"Duplicate found for Client: {g.Key.ClientName}, PAN: {g.Key.PAN}, GSTN: {g.Key.GSTN}"
-        //        })
-        //        .ToList();
+    //        // ✅ Step 2: Duplicate check inside file
+    //        var duplicateErrors = clients
+    //            .GroupBy(c => new { c.CUST_NAME, c.PAN, c.GSTN })
+    //            .Where(g => g.Count() > 1)
+    //            .Select(g => new UploadClientDetailsDto
+    //            {
+    //                CUST_CODE = g.First().ClientCode,
+    //                CUST_NAME = g.Key.ClientName,
+    //                ErrorMessage = $"Duplicate found for Client: {g.Key.ClientName}, PAN: {g.Key.PAN}, GSTN: {g.Key.GSTN}"
+    //            })
+    //            .ToList();
 
-        //    if (duplicateErrors.Any())
-        //    {
-        //        var validationErrors = duplicateErrors
-        //            .Select(e => $"{e.ClientName} ({e.ClientCode}): {e.ErrorMessage}")
-        //            .ToList();
+    //        if (duplicateErrors.Any())
+    //        {
+    //            var validationErrors = duplicateErrors
+    //                .Select(e => $"{e.ClientName} ({e.ClientCode}): {e.ErrorMessage}")
+    //                .ToList();
 
-        //        throw new Exception("Validation failed: " +
-        //            System.Text.Json.JsonSerializer.Serialize(validationErrors));
-        //    }
+    //            throw new Exception("Validation failed: " +
+    //                System.Text.Json.JsonSerializer.Serialize(validationErrors));
+    //        }
 
-        //    var results = new List<string>();
+    //        var results = new List<string>();
 
-        //    using var connection = new SqlConnection(connectionString);
-        //    await connection.OpenAsync();
-        //    using var transaction = connection.BeginTransaction();
+    //        using var connection = new SqlConnection(connectionString);
+    //        await connection.OpenAsync();
+    //        using var transaction = connection.BeginTransaction();
 
-        //    try
-        //    {
-        //        foreach (var client in clients)
-        //        {
+    //        try
+    //        {
+    //            foreach (var client in clients)
+    //            {
 
-        //            // ✅ Step 3: Ensure client not already existing in DB
-        //            string checkClientSql = @"
-        //        SELECT COUNT(1) 
-        //        FROM Client_Master 
-        //        WHERE UPPER(Client_Name) = UPPER(@Name) AND Client_CompId = @CompId";
-        //            bool exists = await connection.ExecuteScalarAsync<int>(
-        //                checkClientSql, new { Name = client.ClientName, CompId = compId }, transaction) > 0;
+    //                // Step 3: Ensure Industry Type exists
+    //                string indTypeSql = @"
+    //SELECT Cmm_ID 
+    //FROM Content_Management_Master 
+    //WHERE cmm_Category = 'IND' 
+    //  AND Cmm_CompID = @CompId 
+    //  AND UPPER(cmm_Desc) = UPPER(@Name) 
+    //  AND cmm_DelFlag = 'A'";
 
-        //            // ✅ Step 4: Call stored procedure
-        //            using var cmd = new SqlCommand("spSaveClientDetails", connection, transaction);
-        //            cmd.CommandType = CommandType.StoredProcedure;
+    //                int? indTypeId = await connection.ExecuteScalarAsync<int?>(
+    //                    indTypeSql, new { Name = sIndType, CompId = iACID }, transaction);
 
-        //            cmd.Parameters.AddWithValue("@Client_ID", (object?)client.ClientId ?? 0);
-        //            cmd.Parameters.AddWithValue("@Client_Code", client.ClientCode ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_Name", client.ClientName ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_PAN", client.PAN ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_GSTN", client.GSTN ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_Address", client.Address ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_Email", client.Email ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_Phone", client.Phone ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_CompId", compId);
-        //            cmd.Parameters.AddWithValue("@CreatedBy", client.CreatedBy ?? 0);
-        //            cmd.Parameters.AddWithValue("@UpdatedBy", client.UpdatedBy ?? 0);
-        //            cmd.Parameters.AddWithValue("@DelFlag", client.DelFlag ?? "A");
-        //            cmd.Parameters.AddWithValue("@Status", client.Status ?? "N");
-        //            cmd.Parameters.AddWithValue("@IPAddress", client.IPAddress ?? "");
+    //                if (!indTypeId.HasValue)
+    //                {
+    //                    string insertIndType = @"
+    //    INSERT INTO Content_Management_Master (cmm_Category, Cmm_CompID, cmm_Desc, cmm_DelFlag)
+    //    VALUES ('IND', @CompId, @Name, 'A');
+    //    SELECT CAST(SCOPE_IDENTITY() as int);";
 
-        //            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
-        //            {
-        //                Direction = ParameterDirection.Output
-        //            };
-        //            var operParam = new SqlParameter("@iOper", SqlDbType.Int)
-        //            {
-        //                Direction = ParameterDirection.Output
-        //            };
+    //                    indTypeId = await connection.ExecuteScalarAsync<int>(
+    //                        insertIndType, new { Name = sIndType, CompId = iACID }, transaction);
+    //                }
 
-        //            cmd.Parameters.Add(updateOrSaveParam);
-        //            cmd.Parameters.Add(operParam);
+    //                //Step 4: Ensure Customer Code exists or activate it
+    //                var custRecord = await connection.QueryFirstOrDefaultAsync<(int Id, string DelFlag)>(
+    //                    @"SELECT Cust_ID AS Id, CUST_DELFLG AS DelFlag
+    //  FROM SAD_CUSTOMER_MASTER
+    //  WHERE CUST_CODE = @CustCode",
+    //                    new { CustCode = objCust.CUST_CODE }, transaction
+    //                );
 
-        //            await cmd.ExecuteNonQueryAsync();
+    //                if (custRecord.Id == 0) // Not found
+    //                {
+    //                    objCust.CUST_CODE = await connection.ExecuteScalarAsync<string>(
+    //                        @"SELECT 'CUST' + CAST(COALESCE(MAX(Cust_ID), 0) + 1 AS VARCHAR)
+    //      FROM SAD_CUSTOMER_MASTER",
+    //                        transaction: transaction
+    //                    );
+    //                }
+    //                else
+    //                {
+    //                    if (!string.Equals(custRecord.DelFlag, "A", StringComparison.OrdinalIgnoreCase))
+    //                    {
+    //                        await connection.ExecuteAsync(
+    //                            @"UPDATE SAD_CUSTOMER_MASTER
+    //          SET CUST_DELFLG = 'A'
+    //          WHERE Cust_ID = @Id",
+    //                            new { custRecord.Id }, transaction
+    //                        );
+    //                    }
+    //                }
 
-        //            int updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
-        //            int oper = (int)(operParam.Value ?? 0);
+    //                // Step 5: Ensure Org Type exists
+    //                string orgTypeSql = @"
+    //SELECT Cmm_ID 
+    //FROM Content_Management_Master 
+    //WHERE cmm_Category = 'ORG' 
+    //  AND Cmm_CompID = @CompId 
+    //  AND UPPER(cmm_Desc) = UPPER(@Name) 
+    //  AND cmm_DelFlag = 'A'";
 
-        //            string action = updateOrSave == 2 ? "Updated" : "Inserted";
-        //            results.Add($"{action} client: {client.ClientCode} - {client.ClientName} (Client_ID={oper})");
-        //        }
+    //                int? orgTypeId = await connection.ExecuteScalarAsync<int?>(
+    //                    orgTypeSql, new { Name = sOrgType, CompId = iACID }, transaction);
 
-        //        transaction.Commit();
-        //        return results;
-        //    }
-        //    catch
-        //    {
-        //        transaction.Rollback();
-        //        throw;
-        //    }
-        //}
+    //                if (!orgTypeId.HasValue)
+    //                {
+    //                    string insertOrgType = @"
+    //    INSERT INTO Content_Management_Master (cmm_Category, Cmm_CompID, cmm_Desc, cmm_DelFlag)
+    //    VALUES ('ORG', @CompId, @Name, 'A');
+    //    SELECT CAST(SCOPE_IDENTITY() as int);";
 
-        //private List<UploadClientDetailsDto> ParseExcelToClients(Stream fileStream)
-        //{
-        //    ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-        //    using var package = new ExcelPackage(fileStream);
-        //    var worksheet = package.Workbook.Worksheets[0];
-        //    int rowCount = worksheet.Dimension.Rows;
+    //                    orgTypeId = await connection.ExecuteScalarAsync<int>(
+    //                        insertOrgType, new { Name = sOrgType, CompId = iACID }, transaction);
+    //                }
 
-        //    var clients = new List<UploadClientDetailsDto>();
-        //    for (int row = 2; row <= rowCount; row++) // skip header
-        //    {
-        //        clients.Add(new UploadClientDetailsDto
-        //        {
-        //            ClientCode = worksheet.Cells[row, 1].Text,
-        //            ClientName = worksheet.Cells[row, 2].Text,
-        //            PAN = worksheet.Cells[row, 3].Text,
-        //            GSTN = worksheet.Cells[row, 4].Text,
-        //            Address = worksheet.Cells[row, 5].Text,
-        //            Email = worksheet.Cells[row, 6].Text,
-        //            Phone = worksheet.Cells[row, 7].Text,
-        //            CreatedBy = int.TryParse(worksheet.Cells[row, 8].Text, out var createdBy) ? createdBy : 0,
-        //            UpdatedBy = int.TryParse(worksheet.Cells[row, 9].Text, out var updatedBy) ? updatedBy : 0,
-        //            DelFlag = worksheet.Cells[row, 10].Text,
-        //            Status = worksheet.Cells[row, 11].Text,
-        //            IPAddress = worksheet.Cells[row, 12].Text
-        //        });
-        //    }
-        //    return clients;
-        //}
 
-        //private List<UploadClientDetailsDto> ValidateClients(List<UploadClientDetailsDto> clients)
-        //{
-        //    var errors = new List<UploadClientDetailsDto>();
 
-        //    foreach (var client in clients)
-        //    {
-        //        if (string.IsNullOrWhiteSpace(client.ClientCode))
-        //            errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "ClientCode missing" });
+    //                // ✅ Step 4: Call stored procedure
+    //                using var cmd = new SqlCommand("spSaveClientDetails", connection, transaction);
+    //                cmd.CommandType = CommandType.StoredProcedure;
 
-        //        if (string.IsNullOrWhiteSpace(client.ClientName))
-        //            errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "ClientName missing" });
+    //                cmd.CommandType = CommandType.StoredProcedure;
+    //                cmd.Parameters.AddWithValue("@CUST_ID", client.CUST_ID);
+    //                cmd.Parameters.AddWithValue("@CUST_NAME", client.CUST_NAME ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_CODE", client.CUST_CODE ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_WEBSITE", client.CUST_WEBSITE ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_EMAIL", client.CUST_EMAIL ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_GROUPNAME", client.CUST_GROUPNAME ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_GROUPINDIVIDUAL", client.CUST_GROUPINDIVIDUAL);
+    //                cmd.Parameters.AddWithValue("@CUST_ORGTYPEID", client.CUST_ORGTYPEID);
+    //                cmd.Parameters.AddWithValue("@CUST_INDTYPEID", client.CUST_INDTYPEID);
+    //                cmd.Parameters.AddWithValue("@CUST_MGMTTYPEID", client.CUST_MGMTTYPEID);
+    //                cmd.Parameters.AddWithValue("@CUST_CommitmentDate", client.CUST_CommitmentDate);
+    //                cmd.Parameters.AddWithValue("@CUSt_BranchId", client.CUSt_BranchId ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_COMM_ADDRESS", client.CUST_COMM_ADDRESS ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_COMM_CITY", client.CUST_COMM_CITY ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_COMM_PIN", client.CUST_COMM_PIN ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_COMM_STATE", client.CUST_COMM_STATE ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_COMM_COUNTRY", client.CUST_COMM_COUNTRY ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_COMM_FAX", client.CUST_COMM_FAX ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_COMM_TEL", client.CUST_COMM_TEL ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_COMM_Email", client.CUST_COMM_Email ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_ADDRESS", client.CUST_ADDRESS ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_CITY", client.CUST_CITY ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_PIN", client.CUST_PIN ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_STATE", client.CUST_STATE ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_COUNTRY", client.CUST_COUNTRY ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_FAX", client.CUST_FAX ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_TELPHONE", client.CUST_TELPHONE ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_ConEmailID", client.CUST_ConEmailID ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_LOCATIONID", client.CUST_LOCATIONID ?? "0");
+    //                cmd.Parameters.AddWithValue("@CUST_TASKS", client.CUST_TASKS ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_ORGID", client.CUST_ORGID);
+    //                cmd.Parameters.AddWithValue("@CUST_CRBY", client.CUST_UpdatedBy);
+    //                cmd.Parameters.AddWithValue("@CUST_BOARDOFDIRECTORS", client.CUST_BOARDOFDIRECTORS ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_DEPMETHOD", client.CUST_DEPMETHOD);
+    //                cmd.Parameters.AddWithValue("@CUST_IPAddress", client.CUST_IPAddress ?? string.Empty);
+    //                cmd.Parameters.AddWithValue("@CUST_CompID", client.CUST_CompID);
+    //                cmd.Parameters.AddWithValue("@CUST_Amount_Type", client.CUST_Amount_Type);
+    //                cmd.Parameters.AddWithValue("@CUST_RoundOff", client.CUST_RoundOff);
+    //                cmd.Parameters.AddWithValue("@Cust_DurtnId", client.Cust_DurtnId);
+    //                cmd.Parameters.AddWithValue("@Cust_FY", client.Cust_FY);
 
-        //        if (string.IsNullOrWhiteSpace(client.PAN))
-        //            errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "PAN missing" });
+    //                var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
+    //                {
+    //                    Direction = ParameterDirection.Output
+    //                };
+    //                var operParam = new SqlParameter("@iOper", SqlDbType.Int)
+    //                {
+    //                    Direction = ParameterDirection.Output
+    //                };
 
-        //        if (string.IsNullOrWhiteSpace(client.GSTN))
-        //            errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "GSTN missing" });
-        //    }
+    //                cmd.Parameters.Add(updateOrSaveParam);
+    //                cmd.Parameters.Add(operParam);
 
-        //    return errors;
-        //}
+    //                await cmd.ExecuteNonQueryAsync();
+
+    //                int updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+    //                int oper = (int)(operParam.Value ?? 0);
+
+    //                string action = updateOrSave == 2 ? "Updated" : "Inserted";
+    //                results.Add($"{action} client: {client.CUST_CODE} - {client.CUST_NAME} (Client_ID={oper})");
+    //            }
+
+    //            transaction.Commit();
+    //            return results;
+    //        }
+    //        catch
+    //        {
+    //            transaction.Rollback();
+    //            throw;
+    //        }
+    //    }
+    //    private List<UploadClientDetailsDto> ParseExcelToClients(Stream fileStream)
+    //    {
+    //        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+    //        using var package = new ExcelPackage(fileStream);
+    //        var worksheet = package.Workbook.Worksheets[0];
+    //        int rowCount = worksheet.Dimension.Rows;
+
+    //        var clients = new List<UploadClientDetailsDto>();
+    //        for (int row = 2; row <= rowCount; row++) // skip header
+    //        {
+    //            clients.Add(new UploadClientDetailsDto
+    //            {
+    //                CUST_ID = worksheet.Cells[row, 1].Text,
+    //                CUST_NAME = worksheet.Cells[row, 2].Text,
+    //                CUST_ORGTYPEID = worksheet.Cells[row, 3].Text,
+    //                CUST_ADDRESS = worksheet.Cells[row, 4].Text,
+    //                CUST_CITY = worksheet.Cells[row, 5].Text,
+    //                CUST_COMM_Email = worksheet.Cells[row, 6].Text,
+    //                Phone = worksheet.Cells[row, 7].Text,
+    //                CreatedBy = int.TryParse(worksheet.Cells[row, 8].Text, out var createdBy) ? createdBy : 0,
+    //                UpdatedBy = int.TryParse(worksheet.Cells[row, 9].Text, out var updatedBy) ? updatedBy : 0,
+    //                DelFlag = worksheet.Cells[row, 10].Text,
+    //                Status = worksheet.Cells[row, 11].Text,
+    //                IPAddress = worksheet.Cells[row, 12].Text
+    //            });
+    //        }
+    //        return clients;
+    //    }
+    //    private List<UploadClientDetailsDto> ValidateClients(List<UploadClientDetailsDto> clients)
+    //    {
+    //        var errors = new List<UploadClientDetailsDto>();
+
+    //        foreach (var client in clients)
+    //        {
+    //            if (string.IsNullOrWhiteSpace(client.CUST_CODE))
+    //                errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "ClientCode missing" });
+
+    //            if (string.IsNullOrWhiteSpace(client.CUST_NAME))
+    //                errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "ClientName missing" });
+
+    //            if (string.IsNullOrWhiteSpace(client.PAN))
+    //                errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "PAN missing" });
+
+    //            if (string.IsNullOrWhiteSpace(client.GSTN))
+    //                errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "GSTN missing" });
+    //        }
+
+    //        return errors;
+    //    }
 
         //SaveClientDetails
         public async Task<List<int[]>> SuperMasterSaveCustomerDetailsAsync(int CompId, List<SuperMasterSaveCustomerDto> customers)
@@ -1108,14 +1202,14 @@ namespace TracePca.Service.SuperMaster
                 // ✅ Email check
                 if (string.IsNullOrWhiteSpace(emp.Email))
                 {
-                    errors.Add(new UploadClientUserDto{ EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Email missing"});
+                    errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Email missing" });
                 }
                 else
                 {
                     string trimmedEmail = emp.Email.Trim();
                     if (!System.Text.RegularExpressions.Regex.IsMatch(trimmedEmail, @"^[a-z0-9](\.?[a-z0-9]){1,}@gmail\.com$"))
                     {
-                        errors.Add(new UploadClientUserDto{ EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Invalid Gmail format. Must be like 'username@gmail.com'"});
+                        errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Invalid Gmail format. Must be like 'username@gmail.com'" });
                     }
                 }
 
