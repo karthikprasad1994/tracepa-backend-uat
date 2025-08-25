@@ -64,7 +64,6 @@ namespace TracePca.Service.FIN_statement
                 throw;
             }
         }
-
         private async Task<int> GetHeadingId(SqlConnection connection, SqlTransaction transaction, int customerId, string headName)
         {
             const string sql = @"
@@ -79,7 +78,6 @@ namespace TracePca.Service.FIN_statement
                 transaction
             ) ?? 0;
         }
-
         // ✅ Get Calculated Amounts
         private async Task<(decimal Dc1, decimal DP1)> GetHeadingAmt1( SqlConnection connection, SqlTransaction transaction,
         int yearId, int customerId, int schedType, int headingId)
