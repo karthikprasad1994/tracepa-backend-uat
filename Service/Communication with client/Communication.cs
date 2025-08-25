@@ -57,6 +57,7 @@ using TracePca.Models;
 using DocumentFormat.OpenXml.Office2010.Word;
 using Microsoft.Playwright;
 using Alignment = Xceed.Document.NET.Alignment;
+using Org.BouncyCastle.Asn1.Crmf;
 
 
 
@@ -6500,6 +6501,11 @@ WHERE SA_ID = @AuditId";
                 AttachID = attachmentId,
                 DRLID = req.RequestedListId
             });
+            if (req.OpinionFlag == 1)
+            {
+                UpdateAuditOpinionDetailsAsync(req.AuditNo, req.CustomerId, req.CompanyId);
+
+            }
         }
         private async Task<int?> GetExistingADRLIdAsync(LocalAttachmentDto req)
         {
@@ -6533,8 +6539,47 @@ WHERE SA_ID = @AuditId";
                 req.CompanyId,
                 req.YearId
             });
-        }
 
+        }
+        public async Task<bool> UpdateAuditOpinionDetailsAsync(int AuditNo,int custId ,int compid)
+        {
+            try
+            {
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                if (string.IsNullOrEmpty(dbName))
+                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                // ✅ Step 2: Get the connection string
+                var connectionString = _configuration.GetConnectionString(dbName);
+
+
+                using (var conn = new SqlConnection(connectionString))
+                {
+                    await conn.OpenAsync();
+
+                    string sql = @"UPDATE StandardAudit_Schedule 
+                               SET SA_AuditOpinionDate = GETDATE(),
+                                   SA_MRLDate = GETDATE(),
+                                   SA_FilingDatePCAOB = DATEADD(DAY, 29, GETDATE()),
+                                   SA_BinderCompletedDate = DATEADD(DAY, 40, GETDATE())
+                               WHERE SA_ID = @AuditId AND SA_CompID = @CompanyId";
+
+                    using (var cmd = new SqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@AuditId", AuditNo);
+                        cmd.Parameters.AddWithValue("@CompanyId", compid);
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
 
         public async Task UpdateReportTypeAsync(int companyId, int DRLpkId, int reportType, string comments, int attachmentId, int auditId, int drl_RequestId, int DocId)
         {

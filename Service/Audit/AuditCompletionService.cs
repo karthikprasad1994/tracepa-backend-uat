@@ -88,8 +88,9 @@ namespace TracePca.Service.Audit
                 var auditClosureCheckPointList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master
                 WHERE CMM_Category = 'ACP' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
 
-                var signedByList = connection.QueryAsync<DropDownListData>(@"SELECT Usr_ID AS ID, USr_FullName AS Name from sad_userdetails 
-                WHERE usr_compID = @CompId And USR_Partner = 1 And(usr_DelFlag = 'A' or usr_DelFlag = 'B' or usr_DelFlag = 'L') order by USr_FullName ASC", parameters);
+                var signedByList = connection.QueryAsync<DropDownListData>(@"SELECT Usr_ID AS ID, USr_FullName AS Name FROM sad_userdetails
+                WHERE usr_compID = @CompId AND Usr_Role IN (SELECT Mas_ID FROM SAD_GrpOrLvl_General_Master WHERE Mas_Delflag = 'A'
+                AND Mas_CompID = @CompId AND Mas_Description = 'Partner') AND usr_DelFlag IN ('A', 'B', 'L') ORDER BY USr_FullName", parameters);
 
                 await Task.WhenAll(currentYear, customerList, auditCompletionCheckPointList);
 
@@ -150,7 +151,8 @@ namespace TracePca.Service.Audit
                 var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
                     CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
                     CASE WHEN ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isReviewer,
-                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, SA_Status As Status, SA_AuditFrameworkId As AuditFrameworkId
+                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, SA_Status As Status, SA_AuditFrameworkId As AuditFrameworkId,
+                    CASE WHEN SA_IsArchived IS NULL THEN 0 ELSE SA_IsArchived END AS IsArchived
                     FROM StandardAudit_Schedule SA LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
                     WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId ";
 
@@ -486,7 +488,7 @@ namespace TracePca.Service.Audit
 
         public async Task<int> CheckCAEIndependentAuditorsReportSavedAsync(int compId, int auditId)
         {
-            const string CAEQuery = @"SELECT COUNT(*) FROM LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = 33 AND LTD_LOE_ID = @LOEId";
+            const string CAEQuery = @"SELECT COUNT(*) FROM LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = 2 AND LTD_LOE_ID = @LOEId";
             const string checkExistQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_CompID = @SAC_CompID";
             const string incompleteMandatoryQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_Mandatory = 1 AND SAC_TestResult IS NULL AND SAC_CompID = @SAC_CompID";
             try
@@ -622,6 +624,45 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<string> GenerateReportAndGetTempPathAsync(int compId, int auditId, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Audit_Completion_{timestamp}";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GeneratePdfAsync(compId, auditId);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                var filePath = Path.Combine(tempFolder, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+                string downloadUrl = $"{tempFolder}/{fileName}";
+                return downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
         public async Task<string> GenerateACSubPointsReportAndGetURLPathAsync(int compId, int auditId, int userId, string format)
         {
             try
@@ -656,6 +697,45 @@ namespace TracePca.Service.Audit
                 string baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
                 string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{fileName}";
 
+                return downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        public async Task<string> GenerateACSubPointsReportAndGetTempPathAsync(int compId, int auditId, int userId, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Audit_Completion_SubPoints_Report_{timestamp}";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GenerateACSubPointsPdfAsync(compId, auditId, userId);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                var filePath = Path.Combine(tempFolder, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+                string downloadUrl = $"{tempFolder}/{fileName}";
                 return downloadUrl;
             }
             catch (Exception ex)
@@ -770,7 +850,7 @@ namespace TracePca.Service.Audit
                 dt.Columns.Add("Remarks");
                 dt.Columns.Add("WorkpaperRef");
 
-                string queryHeading = $@"SELECT CMM_ID, CMM_Desc AS Name FROM Content_Management_Master WHERE CMM_Category='ASF' AND CMM_CompID={iAcID} AND CMM_Delflag='A' AND CMS_KeyComponent=0 ORDER BY CMM_ID ASC";
+                string queryHeading = $@"SELECT CMM_ID, CMM_Desc AS Name FROM Content_Management_Master WHERE CMM_Category='ASF' AND CMM_CompID={iAcID} AND CMM_Delflag='A' AND CMS_KeyComponent=0 ORDER BY CMM_Desc ASC";
                 var dtTab = await GetDataTableAsync(connection, queryHeading);
 
                 foreach (DataRow row in dtTab.Rows)
@@ -1452,47 +1532,47 @@ namespace TracePca.Service.Audit
                                             columns.RelativeColumn(2);
                                         });
 
-                                        table.Cell().Element(CellStyle).Text("Workpaper Name:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.WorkpaperRef);
+                                        table.Cell().Element(CellStyle).Text("Workpaper Name:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.WorkpaperRef).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Created By and Date:").Bold();
-                                        table.Cell().Element(CellStyle).Text($"{details.CreatedBy}, {details.CreatedOn}");
+                                        table.Cell().Element(CellStyle).Text("Created By and Date:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text($"{details.CreatedBy}, {details.CreatedOn}").FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Workpaper No:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.WorkpaperNo);
+                                        table.Cell().Element(CellStyle).Text("Workpaper No:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.WorkpaperNo).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Reviewed By and Date:").Bold();
-                                        table.Cell().Element(CellStyle).Text($"{details.ReviewedBy}, {details.ReviewedOn}");
+                                        table.Cell().Element(CellStyle).Text("Reviewed By and Date:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text($"{details.ReviewedBy}, {details.ReviewedOn}").FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Type of Test:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.TypeOfTest);
+                                        table.Cell().Element(CellStyle).Text("Type of Test:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.TypeOfTest).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Status:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.Status);
+                                        table.Cell().Element(CellStyle).Text("Status:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Status).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Exceeded Materiality:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.ExceededMateriality);
+                                        table.Cell().Element(CellStyle).Text("Exceeded Materiality:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.ExceededMateriality).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Auditor Hours Spent:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.AuditorHoursSpent);
+                                        table.Cell().Element(CellStyle).Text("Auditor Hours Spent:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.AuditorHoursSpent).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Notes/Steps:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.Notes);
+                                        table.Cell().Element(CellStyle).Text("Notes/Steps:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Notes).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Deviations/Exceptions Noted:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.Deviations);
+                                        table.Cell().Element(CellStyle).Text("Deviations/Exceptions Noted:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Deviations).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Critical Audit Matter(CAM):").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.CriticalAuditMatter);
+                                        table.Cell().Element(CellStyle).Text("Critical Audit Matter(CAM):").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.CriticalAuditMatter).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Conclusion:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.Conclusion);
+                                        table.Cell().Element(CellStyle).Text("Conclusion:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Conclusion).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Attachments:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.AttachmentCount);
+                                        table.Cell().Element(CellStyle).Text("Attachments:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.AttachmentCount).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("").Bold();
-                                        table.Cell().Element(CellStyle).Text("");
+                                        table.Cell().Element(CellStyle).Text("").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text("").FontSize(10);
                                     }
                                     static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
                                 });
@@ -1580,51 +1660,54 @@ namespace TracePca.Service.Audit
                     foreach (var reportType in reportTypeList)
                     {
                         var dtoCAE = allDtoCAEs.ContainsKey(reportType.ID) ? allDtoCAEs[reportType.ID] : new List<CommunicationWithClientTemplateReportDetailsDTO>();
-                        container.Page(page =>
+                        if (dtoCAE.Count > 0)
                         {
-                            page.Margin(30);
-                            page.Size(PageSizes.A4);
-                            page.PageColor(Colors.White);
-                            page.DefaultTextStyle(x => x.FontSize(12));
-
-                            page.Content().Column(column =>
+                            container.Page(page =>
                             {
-                                column.Item().AlignCenter().PaddingBottom(10).Text(reportType.Name).FontSize(16).Bold();
-                                column.Item().Text($"Ref.No.: {result.AuditNo}").FontSize(12).Bold();
-                                column.Item().Text($"Date: {dtoEP.CurrentDate:dd MMM yyyy}").FontSize(10);
-                                column.Item().Text(dtoEP.Customer ?? "N/A").FontSize(10);
-                                if (!string.IsNullOrWhiteSpace(address)) column.Item().Text(address).FontSize(10);
-                                if (!string.IsNullOrWhiteSpace(city)) column.Item().Text(city).FontSize(10);
+                                page.Margin(30);
+                                page.Size(PageSizes.A4);
+                                page.PageColor(Colors.White);
+                                page.DefaultTextStyle(x => x.FontSize(12));
 
-                                var statePin = string.Join(", ", new[] { state, pin }.Where(s => !string.IsNullOrWhiteSpace(s)));
-                                if (!string.IsNullOrWhiteSpace(statePin)) column.Item().Text(statePin).FontSize(10);
-
-                                if (!string.IsNullOrWhiteSpace(email)) column.Item().Text($"Email: {email}").FontSize(10);
-                                if (!string.IsNullOrWhiteSpace(telephone)) column.Item().Text($"Telephone: {telephone}").FontSize(10);
-
-                                column.Item().PaddingBottom(10);
-
-                                if (dtoCAE.Any())
+                                page.Content().Column(column =>
                                 {
-                                    int count = 1;
-                                    foreach (var item in dtoCAE)
+                                    column.Item().AlignCenter().PaddingBottom(10).Text(reportType.Name).FontSize(16).Bold();
+                                    column.Item().Text($"Ref.No.: {result.AuditNo}").FontSize(12).Bold();
+                                    column.Item().Text($"Date: {dtoEP.CurrentDate:dd MMM yyyy}").FontSize(10);
+                                    column.Item().Text(dtoEP.Customer ?? "N/A").FontSize(10);
+                                    if (!string.IsNullOrWhiteSpace(address)) column.Item().Text(address).FontSize(10);
+                                    if (!string.IsNullOrWhiteSpace(city)) column.Item().Text(city).FontSize(10);
+
+                                    var statePin = string.Join(", ", new[] { state, pin }.Where(s => !string.IsNullOrWhiteSpace(s)));
+                                    if (!string.IsNullOrWhiteSpace(statePin)) column.Item().Text(statePin).FontSize(10);
+
+                                    if (!string.IsNullOrWhiteSpace(email)) column.Item().Text($"Email: {email}").FontSize(10);
+                                    if (!string.IsNullOrWhiteSpace(telephone)) column.Item().Text($"Telephone: {telephone}").FontSize(10);
+
+                                    column.Item().PaddingBottom(10);
+
+                                    if (dtoCAE.Any())
                                     {
-                                        //column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
-                                        if (!string.IsNullOrWhiteSpace(item.LTD_Heading) && !item.LTD_Heading.ToString().StartsWith("NH", StringComparison.OrdinalIgnoreCase))
-                                            column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
-                                        if (!string.IsNullOrWhiteSpace(item.LTD_Decription))
-                                            column.Item().Text(item.LTD_Decription).FontSize(10);
+                                        int count = 1;
+                                        foreach (var item in dtoCAE)
+                                        {
+                                            //column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
+                                            if (!string.IsNullOrWhiteSpace(item.LTD_Heading) && !item.LTD_Heading.ToString().StartsWith("NH", StringComparison.OrdinalIgnoreCase))
+                                                column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
+                                            if (!string.IsNullOrWhiteSpace(item.LTD_Decription))
+                                                column.Item().Text(item.LTD_Decription).FontSize(10);
 
-                                        column.Item().PaddingBottom(5);
-                                        count++;
+                                            column.Item().PaddingBottom(5);
+                                            count++;
+                                        }
                                     }
-                                }
 
-                                column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
-                                column.Item().Text(dtoEP.CompanyName ?? "[Company Name]").FontSize(10).Bold();
-                                column.Item().Text("Chartered Accountant").FontSize(10);
+                                    column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
+                                    column.Item().Text(dtoEP.CompanyName ?? "[Company Name]").FontSize(10).Bold();
+                                    column.Item().Text("Chartered Accountant").FontSize(10);
+                                });
                             });
-                        });
+                        }
                     }
 
                     container.Page(page =>
@@ -1671,7 +1754,7 @@ namespace TracePca.Service.Audit
 
                                     table.Header(header =>
                                     {
-                                        header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text(" ").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Workpaper Ref").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("CAM").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Exceeded Materiality").FontSize(10).Bold();
@@ -1729,15 +1812,17 @@ namespace TracePca.Service.Audit
 
                 // 0. Audit Plan/EngagementPlan
                 var auditPlanTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
-                    @"SELECT TOP 1 RTM.RTM_Id AS TypeId, RTM.RTM_ReportTypeName AS TypeName,
-                    ISNULL(STUFF((SELECT ',' + CAST(ISNULL(LOET2.LOE_AttachID, 0) AS VARCHAR) FROM StandardAudit_Schedule SA2 JOIN SAD_CUST_LOE LOE2 ON LOE2.LOE_CustomerId = SA2.SA_CustID 
-                    AND LOE2.LOE_YearId = SA2.SA_YearID AND LOE2.LOE_ServiceTypeId = SA2.SA_AuditTypeID
-                    JOIN LOE_Template LOET2 ON LOET2.LOET_LOEID = LOE2.LOE_ID WHERE SA2.SA_ID = @AuditID AND SA2.SA_CompID = @CompId FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, ''), '0') AttachIds
-                    FROM StandardAudit_Schedule SA
-                    JOIN SAD_CUST_LOE LOE ON LOE.LOE_CustomerId = SA.SA_CustID AND LOE.LOE_YearId = SA.SA_YearID AND LOE.LOE_ServiceTypeId = SA.SA_AuditTypeID
-                    JOIN LOE_Template LOET ON LOET.LOET_LOEID = LOE.LOE_ID JOIN LOE_Template_Details LTD ON LTD.LTD_LOE_ID = LOET.LOET_LOEID AND LTD.LTD_FormName = 'LOE' AND LTD.LTD_CompID = SA.SA_CompID
-                    JOIN SAD_ReportTypeMaster RTM ON RTM.RTM_Id = LTD.LTD_ReportTypeID WHERE SA.SA_ID = @AuditID And SA.SA_CompID = @CompId",
-                    new { CompId = compId, AuditID = auditId });
+                @"SELECT TOP 1 RTM.RTM_Id AS TypeId, RTM.RTM_ReportTypeName AS TypeName,
+                STUFF((SELECT DISTINCT ',' + CAST(LOET2.LOE_AttachID AS VARCHAR) FROM StandardAudit_Schedule SA2
+                           JOIN SAD_CUST_LOE LOE2 ON LOE2.LOE_CustomerId=SA2.SA_CustID AND LOE2.LOE_YearId=SA2.SA_YearID AND LOE2.LOE_ServiceTypeId=SA2.SA_AuditTypeID
+                           JOIN LOE_Template LOET2 ON LOET2.LOET_LOEID=LOE2.LOE_ID WHERE SA2.SA_ID=@AuditID AND SA2.SA_CompID=@CompId AND LOET2.LOE_AttachID>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
+                  FROM StandardAudit_Schedule SA
+                  JOIN SAD_CUST_LOE LOE ON LOE.LOE_CustomerId=SA.SA_CustID AND LOE.LOE_YearId=SA.SA_YearID AND LOE.LOE_ServiceTypeId=SA.SA_AuditTypeID
+                  JOIN LOE_Template LOET ON LOET.LOET_LOEID=LOE.LOE_ID
+                  JOIN LOE_Template_Details LTD ON LTD.LTD_LOE_ID=LOET.LOET_LOEID AND LTD.LTD_FormName='LOE' AND LTD.LTD_CompID=SA.SA_CompID
+                  JOIN SAD_ReportTypeMaster RTM ON RTM.RTM_Id=LTD.LTD_ReportTypeID
+                  WHERE SA.SA_ID=@AuditID AND SA.SA_CompID=@CompId",
+                new { CompId = compId, AuditID = auditId });
 
                 foreach (var item in auditPlanTypes)
                 {
@@ -1748,9 +1833,11 @@ namespace TracePca.Service.Audit
 
                 // 1. Beginning Audit (Pre-Audit) & Nearing End Audit (Post-Audit)
                 var beginningTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
-                    @"SELECT RTM_Id AS TypeId, RTM_ReportTypeName AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAR_AttchId, 0) AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory
-                    WHERE SAR_SA_ID = @AuditID AND SAR_ReportType = RTM_Id FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM SAD_ReportTypeMaster WHERE RTM_CompID = @CompId AND RTM_TemplateId in(2, 4)",
-                    new { CompId = compId, AuditID = auditId });
+                 @"SELECT RTM_Id AS TypeId, RTM_ReportTypeName AS TypeName,
+                  STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=@AuditID AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
+                  FROM SAD_ReportTypeMaster
+                  WHERE RTM_CompID=@CompId AND RTM_TemplateId IN(2,4) AND RTM_DelFlag='A' AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory H WHERE H.SAR_SA_ID=@AuditID AND H.SAR_ReportType=RTM_Id AND H.SAR_AttchId>0)",
+                 new { CompId = compId, AuditID = auditId });
 
                 foreach (var item in beginningTypes)
                 {
@@ -1761,9 +1848,10 @@ namespace TracePca.Service.Audit
 
                 // 2. During Audit (DRL)
                 var duringTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
-                    @"SELECT CMM_ID AS TypeId, CMM_Desc AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(ADRL_AttachID, 0) AS VARCHAR) FROM Audit_DRLLog
-                    WHERE ADRL_AuditNo = @AuditID AND ADRL_RequestedTypeID = CMM_ID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM Content_Management_Master WHERE CMM_Category = 'DRL'",
-                    new { AuditID = auditId });
+                @"SELECT CMM_ID AS TypeId, CMM_Desc AS TypeName,
+                  STUFF((SELECT DISTINCT ',' + CAST(ADRL_AttachID AS VARCHAR) FROM Audit_DRLLog WHERE ADRL_AuditNo=@AuditID AND ADRL_RequestedListID=CMM_ID AND ADRL_AttachID>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
+                  FROM Content_Management_Master WHERE CMM_Category='DRL' AND CMS_Keycomponent=0 AND EXISTS(SELECT 1 FROM Audit_DRLLog WHERE ADRL_AuditNo=@AuditID AND ADRL_RequestedListID=CMM_ID AND ADRL_AttachID>0)",
+                new { AuditID = auditId });
 
                 foreach (var item in duringTypes)
                 {
@@ -1774,9 +1862,10 @@ namespace TracePca.Service.Audit
 
                 // 3. Workpaper
                 var workpaperTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
-                    @"SELECT wp.SSW_ID AS TypeId, wp.SSW_WorkpaperRef AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SSW_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper
-                    WHERE SSW_SA_ID = @AuditID AND SSW_ID = wp.SSW_ID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM StandardAudit_ScheduleConduct_WorkPaper wp WHERE SSW_SA_ID = @AuditID",
-                    new { AuditID = auditId });
+                @"SELECT wp.SSW_ID AS TypeId, wp.SSW_WorkpaperRef AS TypeName,
+                  STUFF((SELECT DISTINCT ',' + CAST(SSW_AttachID AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID=@AuditID AND SSW_ID=wp.SSW_ID AND SSW_AttachID>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
+                  FROM StandardAudit_ScheduleConduct_WorkPaper wp WHERE SSW_SA_ID=@AuditID AND EXISTS(SELECT 1 FROM StandardAudit_ScheduleConduct_WorkPaper W WHERE W.SSW_SA_ID=@AuditID AND W.SSW_ID=wp.SSW_ID AND W.SSW_AttachID>0)",
+                new { AuditID = auditId });
 
                 foreach (var item in workpaperTypes)
                 {
@@ -1787,10 +1876,12 @@ namespace TracePca.Service.Audit
 
                 // 4. Conduct Audit (Checkpoints)
                 var conductTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
-                    @"SELECT DISTINCT ACM_ID AS TypeId, ACM_CheckPoint AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAC_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList
-                    WHERE SAC_SA_ID = @AuditID AND SAC_CheckPointID = cp.SAC_CheckPointID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM StandardAudit_ScheduleCheckPointList cp
-                    INNER JOIN AuditType_Checklist_Master ON ACM_ID = cp.SAC_CheckPointID WHERE cp.SAC_SA_ID = @AuditID",
-                    new { AuditID = auditId });
+                @"SELECT DISTINCT ACM_ID AS TypeId, ACM_CheckPoint AS TypeName,
+                  STUFF((SELECT DISTINCT ',' + CAST(SAC_AttachID AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID=@AuditID AND SAC_CheckPointID=cp.SAC_CheckPointID AND SAC_AttachID>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
+                  FROM StandardAudit_ScheduleCheckPointList cp
+                  INNER JOIN AuditType_Checklist_Master ON ACM_ID=cp.SAC_CheckPointID
+                  WHERE cp.SAC_SA_ID=@AuditID AND EXISTS(SELECT 1 FROM StandardAudit_ScheduleCheckPointList X WHERE X.SAC_SA_ID=@AuditID AND X.SAC_CheckPointID=cp.SAC_CheckPointID AND X.SAC_AttachID>0)",
+                new { AuditID = auditId });
 
                 foreach (var item in conductTypes)
                 {
@@ -1833,6 +1924,105 @@ namespace TracePca.Service.Audit
             return name;
         }
 
+        private async Task<string> GenerateAuditeeInfoTempPathAsync(int compId, int auditId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            var result = await connection.QueryFirstOrDefaultAsync<(int EpPkId, int CustID, string YearName, string AuditNo)>(
+                @"SELECT LOE.LOE_ID AS EpPkId, SA.SA_CustID As CustID, YMS.YMS_ID AS YearName, SA_AuditNo + ' - ' + CMA.CMM_Desc As AuditNo FROM StandardAudit_Schedule AS SA
+                  LEFT JOIN SAD_CUST_LOE AS LOE ON LOE.LOE_CustomerId = SA.SA_CustID AND LOE.LOE_YearId = SA.SA_YearID AND LOE.LOE_ServiceTypeId = SA.SA_AuditTyPeId
+                  LEFT JOIN YEAR_MASTER AS YMS ON YMS.YMS_YEARID = SA.SA_YearID
+                  LEFT JOIN Content_Management_Master CMA On CMA.cmm_ID = SA.SA_AuditTypeID
+                  WHERE LOE.LOE_CompID = @CompId AND SA.SA_ID = @AuditId;", new { CompId = compId, AuditId = auditId });
+
+            EngagementPlanReportDetailsDTO dtoEP = await _engagementPlanInterface
+                .GetEngagementPlanReportDetailsByIdAsync(compId, result.EpPkId);
+
+            List<AuditReportCustInfoAuditeeDetailDTO> dtoAD = await GetAuditeeDetails(compId, result.CustID, result.YearName);
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            byte[] fileBytes;
+            var document = QuestPDF.Fluent.Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Margin(30);
+                    page.Size(PageSizes.A4);
+                    page.PageColor(Colors.White);
+                    page.DefaultTextStyle(x => x.FontSize(12));
+
+                    page.Content().Column(column =>
+                    {
+                        column.Item().AlignCenter().PaddingBottom(10)
+                              .Text("Profile/Information about the Auditee").FontSize(16).Bold();
+
+                        if (dtoAD.Any())
+                        {
+                            column.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(columns =>
+                                {
+                                    columns.RelativeColumn(0.5f);
+                                    columns.RelativeColumn(3);
+                                    columns.RelativeColumn(2);
+                                });
+
+                                table.Header(header =>
+                                {
+                                    header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
+                                    header.Cell().Element(CellStyle).Text("Particulars").FontSize(10).Bold();
+                                    header.Cell().Element(CellStyle).Text("Details").FontSize(10).Bold();
+                                });
+
+                                int slNo = 1;
+                                foreach (var details in dtoAD)
+                                {
+                                    table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                    table.Cell().Element(CellStyle).Text(details.Particulars ?? "-").FontSize(10);
+                                    table.Cell().Element(CellStyle).Text(details.Details ?? "-").FontSize(10);
+                                    slNo++;
+                                }
+
+                                static IContainer CellStyle(IContainer container) =>
+                                    container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                            });
+                        }
+
+                        column.Item().PaddingTop(20).Text("Very truly yours,").FontSize(10);
+                        column.Item().PaddingBottom(5).Text("For " + (dtoEP.CompanyName ?? "")).FontSize(10).Bold();
+                        column.Item().PaddingBottom(5).Text("[Designation]").FontSize(10);
+                        column.Item().PaddingBottom(5).Text("Place : ").FontSize(10);
+                        column.Item().PaddingBottom(5).Text("Date :").FontSize(10);
+                    });
+                });
+            });
+
+            using (var ms = new MemoryStream())
+            {
+                document.GeneratePdf(ms);
+                fileBytes = ms.ToArray();
+            }
+
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string fileName = $"Information_About_Auditee.pdf";
+
+            string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+            Directory.CreateDirectory(tempFolder);
+
+            var filePath = Path.Combine(tempFolder, fileName);
+            if (System.IO.File.Exists(filePath))
+            {
+                System.IO.File.Delete(filePath);
+            }
+
+            await File.WriteAllBytesAsync(filePath, fileBytes);
+            string downloadUrl = $"{tempFolder}/{fileName}";
+            return downloadUrl;
+        }
+
         public async Task<(bool, string)> DownloadAllAuditAttachmentsByAuditIdAsync(int compId, int auditId, int userId, string ipAddress)
         {
             using var connection = new SqlConnection(_connectionString);
@@ -1840,8 +2030,8 @@ namespace TracePca.Service.Audit
 
             try
             {
-                var result = await connection.QueryFirstOrDefaultAsync<(string SubCabinet, string CustCode, string CustName, string YearName, string UserName)>(
-                    @"Select SA_AuditNo + ' - ' + CMM.CMM_Desc, CUST_CODE, CUST_NAME, YMS_ID, usr_FullName
+                var result = await connection.QueryFirstOrDefaultAsync<(string SubCabinet, string CustCode, string CustName, string YearName, string UserName, DateTime DocumentExpiryDate, int ReminderDay) >(
+                    @"Select SA_AuditNo + ' - ' + CMM.CMM_Desc, CUST_CODE, CUST_NAME, YMS_ID, usr_FullName, ISNULL(SA_ExpiryDate, DATEADD(YEAR, 7, GETDATE())) AS SA_ExpiryDate, ISNULL(SA_RetentionPeriod, 7) AS SA_RetentionPeriod
                     from StandardAudit_Schedule JOIN SAD_CUSTOMER_MASTER On CUST_ID=SA_CustID JOIN Year_Master On YMS_YEARID = SA_YearID Join Sad_Userdetails On Usr_Id = @UserId 
                     JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA_AuditTypeID Where SA_ID= @AuditId;",
                     new { CompId = compId, AuditId = auditId, UserId = userId });
@@ -1868,10 +2058,10 @@ namespace TracePca.Service.Audit
                 if (cabinetId == 0)
                 {
                     cabinetId = await connection.ExecuteScalarAsync<int>(@"DECLARE @CBN_ID INT = (SELECT ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet);
-                        INSERT INTO edt_cabinet (CBN_ID, CBN_NAME, CBN_Note, CBN_PARENT, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_Status, CBN_DelFlag, CBN_CreatedBy, CBN_CreatedOn, CBN_CompID)
-                        VALUES (@CBN_ID, @CBN_NAME, @CBN_NAME, -1, @CBN_UserID, 0, 0, 0, 'A', 'A', @CBN_CreatedBy, GETDATE(), @CBN_CompID);
+                        INSERT INTO edt_cabinet (CBN_ID, CBN_NAME, CBN_Note, CBN_PARENT, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_Status, CBN_DelFlag, CBN_CreatedBy, CBN_CreatedOn, CBN_CompID, CBN_DocumentExpiryDate, CBN_ReminderDay)
+                        VALUES (@CBN_ID, @CBN_NAME, @CBN_NAME, -1, @CBN_UserID, 0, 0, 0, 'A', 'A', @CBN_CreatedBy, GETDATE(), @CBN_CompID, @CBN_DocumentExpiryDate, @CBN_ReminderDay);
                         SELECT @CBN_ID;",
-                        new { CBN_NAME = Cabinet, CBN_UserID = userId, CBN_CreatedBy = userId, CBN_CompID = compId });
+                        new { CBN_NAME = Cabinet, CBN_UserID = userId, CBN_CreatedBy = userId, CBN_CompID = compId, CBN_DocumentExpiryDate = result.DocumentExpiryDate, CBN_ReminderDay = result.ReminderDay });
                 }
 
                 int subCabinetId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(CBN_ID, 0) FROM edt_cabinet WHERE CBN_Name = @Name AND CBN_Parent = @ParentId AND CBN_CompID = @CompId",
@@ -1893,51 +2083,82 @@ namespace TracePca.Service.Audit
 
                 String mainFolder = SanitizeName(result.SubCabinet);
 
-                // 0. Audit Plan/EngagementPlan
-                var auditPlanTypes = "SELECT TOP 1 RTM.RTM_Id AS TypeId, 'LOE - ' + RTM.RTM_ReportTypeName AS TypeName, " +
-                    "ISNULL(STUFF((SELECT ',' + CAST(ISNULL(LOET2.LOE_AttachID, 0) AS VARCHAR) FROM StandardAudit_Schedule SA2 JOIN SAD_CUST_LOE LOE2 ON LOE2.LOE_CustomerId = SA2.SA_CustID " +
-                    "AND LOE2.LOE_YearId = SA2.SA_YearID AND LOE2.LOE_ServiceTypeId = SA2.SA_AuditTypeID " +
-                    "JOIN LOE_Template LOET2 ON LOET2.LOET_LOEID = LOE2.LOE_ID WHERE SA2.SA_ID = " + auditId + " AND SA2.SA_CompID = " + compId + " FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, ''), '0') AttachIds  " +
-                    "FROM StandardAudit_Schedule SA  " +
-                    "JOIN SAD_CUST_LOE LOE ON LOE.LOE_CustomerId = SA.SA_CustID AND LOE.LOE_YearId = SA.SA_YearID AND LOE.LOE_ServiceTypeId = SA.SA_AuditTypeID  " +
-                    "JOIN LOE_Template LOET ON LOET.LOET_LOEID = LOE.LOE_ID JOIN LOE_Template_Details LTD ON LTD.LTD_LOE_ID = LOET.LOET_LOEID AND LTD.LTD_FormName = 'LOE' AND LTD.LTD_CompID = SA.SA_CompID  " +
-                    "JOIN SAD_ReportTypeMaster RTM ON RTM.RTM_Id = LTD.LTD_ReportTypeID WHERE SA.SA_ID = " + auditId + " And SA.SA_CompID = " + compId + "";
+                // 0. Audit Plan / Engagement Plan
+                var auditPlanTypes =
+                "SELECT TOP 1 LOE_ID AS LOEID, RTM.RTM_Id AS TypeId,'LOE - ' + RTM.RTM_ReportTypeName AS TypeName," +
+                " STUFF((SELECT ',' + CAST(LOET2.LOE_AttachID AS VARCHAR) FROM StandardAudit_Schedule SA2" +
+                " JOIN SAD_CUST_LOE LOE2 ON LOE2.LOE_CustomerId=SA2.SA_CustID AND LOE2.LOE_YearId=SA2.SA_YearID AND LOE2.LOE_ServiceTypeId=SA2.SA_AuditTypeID" +
+                " JOIN LOE_Template LOET2 ON LOET2.LOET_LOEID=LOE2.LOE_ID" +
+                " WHERE SA2.SA_ID=" + auditId + " AND SA2.SA_CompID=" + compId + " AND LOET2.LOE_AttachID>0" +
+                " FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AttachIds" +
+                " FROM StandardAudit_Schedule SA" +
+                " JOIN SAD_CUST_LOE LOE ON LOE.LOE_CustomerId=SA.SA_CustID AND LOE.LOE_YearId=SA.SA_YearID AND LOE.LOE_ServiceTypeId=SA.SA_AuditTypeID" +
+                " JOIN LOE_Template LOET ON LOET.LOET_LOEID=LOE.LOE_ID" +
+                " JOIN LOE_Template_Details LTD ON LTD.LTD_LOE_ID=LOET.LOET_LOEID AND LTD.LTD_FormName='LOE' AND LTD.LTD_CompID=SA.SA_CompID" +
+                " JOIN SAD_ReportTypeMaster RTM ON RTM.RTM_Id=LTD.LTD_ReportTypeID" +
+                " WHERE SA.SA_ID=" + auditId + " AND SA.SA_CompID=" + compId +
+                " AND EXISTS(SELECT 1 FROM LOE_Template t2 WHERE t2.LOET_LOEID=LOE.LOE_ID AND t2.LOE_AttachID>0)";
 
                 // 1. Beginning Audit (Pre-Audit)
-                var beginningTypes = "SELECT RTM_Id AS TypeId, 'Beginning of the Audit - ' + RTM_ReportTypeName AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAR_AttchId, 0) AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory " +
-                    "WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType = RTM_Id FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM SAD_ReportTypeMaster WHERE RTM_CompID = " + compId + " AND RTM_TemplateId in (2)";
+                var beginningTypes =
+                "SELECT RTM_Id AS TypeId,'Beginning of the Audit - ' + RTM_ReportTypeName AS TypeName," +
+                " STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory" +
+                " WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
+                " FROM SAD_ReportTypeMaster" +
+                " WHERE RTM_CompID=" + compId + " AND RTM_TemplateId=2 AND RTM_DelFlag='A'" +
+                " AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0)";
 
                 // 2. During Audit (DRL)
-                var duringTypes = "SELECT CMM_ID AS TypeId, 'DRL - ' + CMM_Desc AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(ADRL_AttachID, 0) AS VARCHAR) FROM Audit_DRLLog " +
-                    "WHERE ADRL_AuditNo = " + auditId + " AND ADRL_RequestedTypeID = CMM_ID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM Content_Management_Master WHERE CMM_Category = 'DRL'";
+                var duringTypes =
+                "SELECT CMM_ID AS TypeId,'DRL - ' + CMM_Desc AS TypeName," +
+                " STUFF((SELECT ',' + CAST(ADRL_AttachID AS VARCHAR) FROM Audit_DRLLog" +
+                " WHERE ADRL_AuditNo=" + auditId + " AND ADRL_RequestedListID=CMM_ID AND ADRL_AttachID>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
+                " FROM Content_Management_Master" +
+                " WHERE CMM_Category='DRL' AND CMS_Keycomponent=0" +
+                " AND EXISTS(SELECT 1 FROM Audit_DRLLog WHERE ADRL_AuditNo=" + auditId + " AND ADRL_RequestedListID=CMM_ID AND ADRL_AttachID>0)";
 
                 // 3. Nearing End Audit (Post-Audit)
-                var nearingEndTypes = "SELECT RTM_Id AS TypeId, 'Near end of the Audit - ' + RTM_ReportTypeName AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAR_AttchId, 0) AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory " +
-                    "WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType = RTM_Id FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM SAD_ReportTypeMaster WHERE RTM_CompID = " + compId + " AND RTM_TemplateId in (4)";
+                var nearingEndTypes =
+                "SELECT RTM_Id AS TypeId,'Near end of the Audit - ' + RTM_ReportTypeName AS TypeName," +
+                " STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory" +
+                " WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
+                " FROM SAD_ReportTypeMaster" +
+                " WHERE RTM_CompID=" + compId + " AND RTM_TemplateId=4 AND RTM_DelFlag='A'" +
+                " AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0)";
 
                 // 4. Workpaper
-                var workpaperTypes = "SELECT wp.SSW_ID AS TypeId, 'WP - ' + wp.SSW_WorkpaperRef AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SSW_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper " +
-                    "WHERE SSW_SA_ID = " + auditId + " AND SSW_ID = wp.SSW_ID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM StandardAudit_ScheduleConduct_WorkPaper wp WHERE SSW_SA_ID = " + auditId + "";
+                var workpaperTypes =
+                "SELECT wp.SSW_ID AS TypeId,'WP - ' + wp.SSW_WorkpaperRef AS TypeName," +
+                " STUFF((SELECT ',' + CAST(SSW_AttachID AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper" +
+                " WHERE SSW_SA_ID=" + auditId + " AND SSW_ID=wp.SSW_ID AND SSW_AttachID>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
+                " FROM StandardAudit_ScheduleConduct_WorkPaper wp" +
+                " WHERE SSW_SA_ID=" + auditId +
+                " AND EXISTS(SELECT 1 FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID=" + auditId + " AND SSW_ID=wp.SSW_ID AND SSW_AttachID>0)";
 
                 // 5. Conduct Audit (Checkpoints)
-                var conductTypes = "SELECT DISTINCT ACM_ID AS TypeId, CAST('CheckPoint_' + CAST(ACM_ID AS VARCHAR(10)) + ' - ' + CAST(ACM_Heading AS VARCHAR(Max)) AS VARCHAR(Max)) AS TypeName, ISNULL(STUFF((SELECT ',' + CAST(ISNULL(SAC_AttachID, 0) AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList " +
-                    "WHERE SAC_SA_ID = " + auditId + " AND SAC_CheckPointID = cp.SAC_CheckPointID FOR XML PATH('')), 1, 1, ''), '0') AS AttachIds FROM StandardAudit_ScheduleCheckPointList cp " +
-                    "INNER JOIN AuditType_Checklist_Master ON ACM_ID = cp.SAC_CheckPointID WHERE cp.SAC_SA_ID = " + auditId + "";
+                var conductTypes =
+                "SELECT DISTINCT ACM_ID AS TypeId,CAST('CheckPoint_' + CAST(ACM_ID AS VARCHAR(10)) + ' - ' + CAST(ACM_Heading AS VARCHAR(MAX)) AS VARCHAR(MAX)) AS TypeName," +
+                " STUFF((SELECT ',' + CAST(SAC_AttachID AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList" +
+                " WHERE SAC_SA_ID=" + auditId + " AND SAC_CheckPointID=cp.SAC_CheckPointID AND SAC_AttachID>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
+                " FROM StandardAudit_ScheduleCheckPointList cp" +
+                " INNER JOIN AuditType_Checklist_Master ON ACM_ID=cp.SAC_CheckPointID" +
+                " WHERE cp.SAC_SA_ID=" + auditId +
+                " AND EXISTS(SELECT 1 FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID=" + auditId + " AND SAC_CheckPointID=cp.SAC_CheckPointID AND SAC_AttachID>0)";
 
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, auditPlanTypes);
-                //@"SELECT DISTINCT ISNULL(CAST(SAR_AttchId AS VARCHAR), '0') AS SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = " + compId + " And RTM_TemplateId = 2)",
+                //@"SELECT DISTINCT ISNULL(CAST(SAR_AttchId AS VARCHAR), '0') AS SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = " + compId + " And RTM_TemplateId = 2) And RTM_DelFlag='A'",
                 //folderNameField: null, attachIdField: "SAR_AttchId");
 
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, beginningTypes);
-                //@"SELECT DISTINCT ISNULL(CMM_DESC, 'Audit') AS FolderName, ISNULL(CAST(ADRL_AttachID AS VARCHAR), '0') AS ADRL_AttachID FROM Audit_DRLLog LEFT JOIN Content_Management_Master ON ADRL_RequestedTypeID = CMM_ID And cmm_Category = 'DRL' WHERE ADRL_AuditNo = " + auditId,
+                //@"SELECT DISTINCT ISNULL(CMM_DESC, 'Audit') AS FolderName, ISNULL(CAST(ADRL_AttachID AS VARCHAR), '0') AS ADRL_AttachID FROM Audit_DRLLog LEFT JOIN Content_Management_Master ON ADRL_RequestedListID = CMM_ID And cmm_Category = 'DRL' WHERE ADRL_AuditNo = " + auditId,
                 //folderNameField: "FolderName", attachIdField: "ADRL_AttachID");
 
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, duringTypes);
-                //@"SELECT DISTINCT ISNULL(CAST(SAR_AttchId AS VARCHAR), '0') AS SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = " + compId + " And RTM_TemplateId = 4)",
+                //@"SELECT DISTINCT ISNULL(CAST(SAR_AttchId AS VARCHAR), '0') AS SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = " + compId + " And RTM_TemplateId = 4) And RTM_DelFlag='A'",
                 //folderNameField: null, attachIdField: "SAR_AttchId");
 
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, nearingEndTypes);
-                //@"SELECT DISTINCT ISNULL(CMM_DESC, 'Audit') AS FolderName, ISNULL(CAST(ADRL_AttachID AS VARCHAR), '0') AS ADRL_AttachID FROM Audit_DRLLog LEFT JOIN Content_Management_Master ON ADRL_RequestedTypeID = CMM_ID And cmm_Category = 'DRL' WHERE ADRL_AuditNo = " + auditId,
+                //@"SELECT DISTINCT ISNULL(CMM_DESC, 'Audit') AS FolderName, ISNULL(CAST(ADRL_AttachID AS VARCHAR), '0') AS ADRL_AttachID FROM Audit_DRLLog LEFT JOIN Content_Management_Master ON ADRL_RequestedListID = CMM_ID And cmm_Category = 'DRL' WHERE ADRL_AuditNo = " + auditId,
                 //folderNameField: "FolderName", attachIdField: "ADRL_AttachID");
 
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, workpaperTypes);
@@ -1947,6 +2168,34 @@ namespace TracePca.Service.Audit
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, conductTypes);
                 //@"SELECT DISTINCT ISNULL(CAST(SAC_AttachID AS VARCHAR), '0') AS SAC_AttachID FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = " + auditId,
                 //folderNameField: null, attachIdField: "SAC_AttachID");
+
+
+                // Audit Plan/EngagementPlan Report
+                var dt = await GetDataTableAsync(connection, auditPlanTypes);
+                if (dt.Rows.Count > 0)
+                {
+                    DataRow row = dt.Rows[0];
+                    string folderName = row["TypeName"] == null ? "StandardAudit" : row["TypeName"]?.ToString() ?? "StandardAudit";
+                    int epPKid = row["LOEID"] == DBNull.Value ? 0 : Convert.ToInt32(row["LOEID"]);
+                    string folderPath = Path.Combine(downloadDirectoryPath, mainFolder, SanitizeName(folderName));
+                    var savedAudiPlanFilePath = await _engagementPlanInterface.GenerateReportAndGetTempPathAsync(compId, epPKid, "pdf");
+                    if (!Directory.Exists(folderPath))
+                        Directory.CreateDirectory(folderPath);
+
+                    await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, folderName, "LOE_Final.pdf", savedAudiPlanFilePath);
+                }
+
+                // Information about the Auditee Report
+                var savedAuditeeFilePath = await GenerateAuditeeInfoTempPathAsync(compId, auditId);
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Information about the Auditee", "Information_About_Auditee_Report.pdf", savedAuditeeFilePath);
+
+                // Audit Completion SubPoint Report
+                var savedAuditCompletionSubPointFilePath = await GenerateACSubPointsReportAndGetTempPathAsync(compId, auditId, userId, "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Completion", "Audit_Completion_SubPoint_Report.pdf", savedAuditCompletionSubPointFilePath);
+
+                // Audit Completion Report
+                var savedAuditCompletionFilePath = await GenerateReportAndGetTempPathAsync(compId, auditId, "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Completion", "Audit_Completion_Report.pdf", savedAuditCompletionFilePath);
 
                 string cleanedPath = downloadDirectoryPath.TrimEnd('\\');
                 string zipFilePath = cleanedPath + ".zip";
@@ -2303,6 +2552,26 @@ namespace TracePca.Service.Audit
                         fsOutput.WriteByte((byte)data);
                     }
                 }
+            }
+        }
+
+        public async Task<int> UpdateArchiveInAuditAsync(AuditArchiveDTO dto)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var query = @"UPDATE StandardAudit_Schedule SET SA_RetentionPeriod = @RetentionPeriod, SA_ExpiryDate = DATEADD(YEAR, @RetentionPeriod, @ExpiryDate), SA_ForCompleteAudit = @ForCompleteAudit, SA_IsArchived = 1 WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
+
+                var parameters = new { RetentionPeriod = dto.SA_RetentionPeriod, ExpiryDate = dto.SA_ExpiryDate, ForCompleteAudit = dto.SA_ForCompleteAudit, AuditID = dto.SA_ID, ACID = dto.SA_CompID };
+                var rowsAffected = await connection.ExecuteAsync(query, parameters);
+
+                return rowsAffected;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while updating the Archive data in the audit.", ex);
             }
         }
     }
