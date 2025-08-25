@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using System.Collections.Generic;
+using System.Data;
 using System.Text.Json;
 using Dapper;
 using Microsoft.Data.SqlClient;
@@ -46,41 +47,18 @@ namespace TracePca.Service.SuperMaster
                 employees = ParseExcelToEmployees(stream);
             }
 
-            // ✅ Step 1: Validate mandatory fields (collect all errors)
+            // ✅ Step 1: Validate all (mandatory + duplicates)
             var errors = ValidateEmployees(employees);
             if (errors.Any())
             {
                 var groupedErrors = errors
-        .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-        .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+                    .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
 
-                throw new Exception("Validation failed:\n" + string.Join(Environment.NewLine, groupedErrors));
+                throw new Exception(string.Join("||", groupedErrors));
             }
 
             var results = new List<string>();
-
-            // Step 2: Null & duplicate check
-            var duplicateErrors = employees
-     .GroupBy(e => new { e.EmployeeName, e.Email }) // group by Name + Email
-     .Where(g => g.Count() > 1)                     // only groups with duplicates
-     .Select(g => new UploadEmployeeMasterDto
-     {
-         EmpCode = g.First().EmpCode,
-         EmployeeName = g.Key.EmployeeName,
-         ErrorMessage = $"Duplicate found for Employee: {g.Key.EmployeeName}, Email: {g.Key.Email}"
-     })
-     .ToList();
-
-            if (duplicateErrors.Any())
-            {
-                var validationErrors = duplicateErrors
-        .Select(e => $"{e.EmployeeName} ({e.EmpCode}): {e.ErrorMessage}")
-        .ToList();
-
-                // Example: throw exception with serialized list
-                throw new Exception("Validation failed: " +
-                    System.Text.Json.JsonSerializer.Serialize(validationErrors));
-            }
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
@@ -88,66 +66,48 @@ namespace TracePca.Service.SuperMaster
 
             try
             {
-                // Step 3: Validate duplicates in file
-                var duplicateInFile = employees.GroupBy(e => e.EmpCode).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-                if (duplicateInFile.Any())
-                    throw new Exception($"Duplicate EmpCode(s) found in file: {string.Join(", ", duplicateInFile)}");
-
                 foreach (var emp in employees)
                 {
-                    // Step 4: Validate mandatory fields
-                    if (string.IsNullOrWhiteSpace(emp.EmpCode) ||
-                        string.IsNullOrWhiteSpace(emp.EmployeeName) ||
-                        string.IsNullOrWhiteSpace(emp.LoginName) ||
-                        string.IsNullOrWhiteSpace(emp.Email) ||
-                        string.IsNullOrWhiteSpace(emp.OfficePhoneNo) ||
-                        string.IsNullOrWhiteSpace(emp.Designation) ||
-                        emp.Partner == "yes" ||       // int check
-                        string.IsNullOrWhiteSpace(emp.Role))              
-                    {
-                        throw new Exception($"Mandatory fields missing for employee: {emp.EmployeeName}");
-                    }
-
-                    // Step 5: Ensure Designation exists
+                    // Step 2: Ensure Designation exists
                     string designationSql = @"
-                    SELECT Mas_ID FROM SAD_GRPDESGN_General_Master
-                    WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
+            SELECT Mas_ID FROM SAD_GRPDESGN_General_Master
+            WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
                     int? designationId = await connection.ExecuteScalarAsync<int?>(
                         designationSql, new { Name = emp.Designation, CompId = compId }, transaction);
 
                     if (!designationId.HasValue)
                     {
                         string insertDesig = @"
-                        INSERT INTO SAD_GRPDESGN_General_Master (Mas_Description, Mas_CompID)
-                        VALUES (@Name, @CompId);
-                        SELECT CAST(SCOPE_IDENTITY() as int);";
+                INSERT INTO SAD_GRPDESGN_General_Master (Mas_Description, Mas_CompID)
+                VALUES (@Name, @CompId);
+                SELECT CAST(SCOPE_IDENTITY() as int);";
                         designationId = await connection.ExecuteScalarAsync<int>(
                             insertDesig, new { Name = emp.Designation, CompId = compId }, transaction);
                     }
 
-                    // Step 6: Ensure Role exists
+                    // Step 3: Ensure Role exists
                     string roleSql = @"
-                    SELECT Mas_ID FROM SAD_GrpOrLvl_General_Master
-                    WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
+            SELECT Mas_ID FROM SAD_GrpOrLvl_General_Master
+            WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
                     int? roleId = await connection.ExecuteScalarAsync<int?>(
                         roleSql, new { Name = emp.Role, CompId = compId }, transaction);
 
                     if (!roleId.HasValue)
                     {
                         string insertRole = @"
-                        INSERT INTO SAD_GrpOrLvl_General_Master (Mas_Description, Mas_CompID)
-                        VALUES (@Name, @CompId);
-                        SELECT CAST(SCOPE_IDENTITY() as int);";
+                INSERT INTO SAD_GrpOrLvl_General_Master (Mas_Description, Mas_CompID)
+                VALUES (@Name, @CompId);
+                SELECT CAST(SCOPE_IDENTITY() as int);";
                         roleId = await connection.ExecuteScalarAsync<int>(
                             insertRole, new { Name = emp.Role, CompId = compId }, transaction);
                     }
 
-                    // Step 7: Check if employee exists
+                    // Step 4: Check if employee exists
                     string checkEmpSql = "SELECT COUNT(1) FROM Sad_UserDetails WHERE Usr_Code=@EmpCode AND Usr_CompId=@CompId";
                     bool exists = await connection.ExecuteScalarAsync<int>(
                         checkEmpSql, new { EmpCode = emp.EmpCode, CompId = compId }, transaction) > 0;
 
-                    // Step 8: Insert/Update using SP
+                    // Step 5: Insert/Update using SP
                     using var cmd = new SqlCommand("spEmployeeMaster", connection, transaction);
                     cmd.CommandType = CommandType.StoredProcedure;
 
@@ -232,6 +192,7 @@ namespace TracePca.Service.SuperMaster
                 throw;
             }
         }
+
         //Parse Excel file into Employee DTO list
         private List<UploadEmployeeMasterDto> ParseExcelToEmployees(Stream fileStream)
         {
@@ -245,7 +206,6 @@ namespace TracePca.Service.SuperMaster
             {
                 employees.Add(new UploadEmployeeMasterDto
                 {
-
                     EmpCode = worksheet.Cells[row, 1].Text,   // Emp Code
                     EmployeeName = worksheet.Cells[row, 2].Text,   // Full Name
                     LoginName = worksheet.Cells[row, 3].Text,   // Login Name
@@ -256,12 +216,10 @@ namespace TracePca.Service.SuperMaster
                     {
                         "Yes" => "1",
                         "No" => "0",
-                        _ => "0", // Partner
+                        _ => "0",
                     },
                     Role = worksheet.Cells[row, 8].Text,  // Role
-                    Password = worksheet.Cells[row, 9].Text, 
-
-                    // Optional / Numeric values
+                    Password = worksheet.Cells[row, 9].Text,
                     LevelGrp = int.TryParse(worksheet.Cells[row, 10].Text, out var levelGrp) ? levelGrp : 0,
                     DutyStatus = worksheet.Cells[row, 11].Text,
                     PhoneNo = worksheet.Cells[row, 12].Text,
@@ -293,15 +251,17 @@ namespace TracePca.Service.SuperMaster
                     MemberType = int.TryParse(worksheet.Cells[row, 38].Text, out var mt) ? mt : 0,
                     Levelcode = int.TryParse(worksheet.Cells[row, 39].Text, out var lc) ? lc : 0,
                     Suggestions = int.TryParse(worksheet.Cells[row, 40].Text, out var sug2) ? sug2 : 0
-
                 });
             }
             return employees;
         }
+
+        // ✅ Combined Validation (mandatory fields + duplicates in one go)
         private List<UploadEmployeeMasterDto> ValidateEmployees(List<UploadEmployeeMasterDto> employees)
         {
             var errors = new List<UploadEmployeeMasterDto>();
 
+            // 🔹 Mandatory field checks
             foreach (var emp in employees)
             {
                 if (string.IsNullOrWhiteSpace(emp.EmpCode))
@@ -313,11 +273,33 @@ namespace TracePca.Service.SuperMaster
                 if (string.IsNullOrWhiteSpace(emp.LoginName))
                     errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "LoginName missing" });
 
+                // ✅ Gmail format check
                 if (string.IsNullOrWhiteSpace(emp.Email))
+                {
                     errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Email missing" });
+                }
+                else
+                {
+                    string trimmedEmail = emp.Email.Trim();
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(trimmedEmail, @"^[a-z0-9](\.?[a-z0-9]){1,}@gmail\.com$"))
+                    {
+                        errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Invalid Gmail format. Must be like 'username@gmail.com'" });
+                    }
+                }
 
+                // ✅ OfficePhoneNo check (10 digits only)
                 if (string.IsNullOrWhiteSpace(emp.OfficePhoneNo))
+                {
                     errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "OfficePhoneNo missing" });
+                }
+                else
+                {
+                    string phone = emp.OfficePhoneNo.Trim();
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(phone, @"^[0-9]{10}$"))
+                    {
+                        errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "OfficePhoneNo must be exactly 10 digits" });
+                    }
+                }
 
                 if (string.IsNullOrWhiteSpace(emp.Designation))
                     errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Designation missing" });
@@ -328,8 +310,30 @@ namespace TracePca.Service.SuperMaster
                 if (string.IsNullOrWhiteSpace(emp.Role))
                     errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Role missing" });
             }
+
+            // 🔹 Duplicate checks
+            void AddDuplicateErrors(Func<UploadEmployeeMasterDto, string> keySelector, string fieldName)
+            {
+                errors.AddRange(
+                    employees.GroupBy(keySelector)
+                    .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
+                    .Select(g => new UploadEmployeeMasterDto
+                    {
+                        EmpCode = g.First().EmpCode,
+                        EmployeeName = g.First().EmployeeName,
+                        ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
+                    })
+                );
+            }
+
+            AddDuplicateErrors(e => e.EmpCode, "EmpCode");
+            AddDuplicateErrors(e => e.LoginName, "LoginName");
+            AddDuplicateErrors(e => e.Email, "Email");
+            AddDuplicateErrors(e => e.OfficePhoneNo, "OfficePhoneNo");
+
             return errors;
         }
+
 
         //SaveEmployeeMaster
         public async Task<List<int[]>> SuperMasterSaveEmployeeDetailsAsync(int CompId, List<SuperMasterSaveEmployeeMasterDto> employees)
@@ -880,84 +884,34 @@ namespace TracePca.Service.SuperMaster
                 employees = ParseExcelToClientUser(stream);
             }
 
-            // ✅ Step 1: Validate mandatory fields (collect all errors)
+            // ✅ Step 1: Validate all (mandatory + duplicates)
             var errors = ValidateClientUser(employees);
             if (errors.Any())
             {
                 var groupedErrors = errors
-        .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-        .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+                   .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+                   .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
 
-                throw new Exception("Validation failed:\n" + string.Join(Environment.NewLine, groupedErrors));
+                throw new Exception(string.Join("||", groupedErrors));
             }
 
             var results = new List<string>();
-
-            // Step 2: Null & duplicate check
-            var duplicateErrors = employees
-     .GroupBy(e => new { e.EmployeeName, e.Email }) // group by Name + Email
-     .Where(g => g.Count() > 1)                     // only groups with duplicates
-     .Select(g => new UploadEmployeeMasterDto
-     {
-         EmpCode = g.First().EmpCode,
-         EmployeeName = g.Key.EmployeeName,
-         ErrorMessage = $"Duplicate found for Employee: {g.Key.EmployeeName}, Email: {g.Key.Email}"
-     })
-     .ToList();
-
-            if (duplicateErrors.Any())
-            {
-                var validationErrors = duplicateErrors
-        .Select(e => $"{e.EmployeeName} ({e.EmpCode}): {e.ErrorMessage}")
-        .ToList();
-
-                //Example: throw exception with serialized list
-                throw new Exception("Validation failed: " +
-                    System.Text.Json.JsonSerializer.Serialize(validationErrors));
-            }
-
+            
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
             try
             {
-                //Step 3: Validate duplicates in file
-                var duplicateInFile = employees.GroupBy(e => e.EmpCode).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-                if (duplicateInFile.Any())
-                    throw new Exception($"Duplicate EmpCode(s) found in file: {string.Join(", ", duplicateInFile)}");
-
                 foreach (var emp in employees)
                 {
-                    // Step 4: Validate mandatory fields
-                    if (string.IsNullOrWhiteSpace(emp.CompanyId) ||
-                        string.IsNullOrWhiteSpace(emp.EmpCode) ||
-                        string.IsNullOrWhiteSpace(emp.EmployeeName) ||
-                        string.IsNullOrWhiteSpace(emp.LoginName) ||
-                        string.IsNullOrWhiteSpace(emp.Email) ||
-                        string.IsNullOrWhiteSpace(emp.PhoneNo))
-                    {
-                        throw new Exception($"Mandatory fields missing for employee: {emp.EmployeeName}");
-                    }
 
-                    // Step 5: Ensure ComapnyId exists
+                    // Step 2: Ensure ComapnyId exists
                     string customerSql = @"
     SELECT CUST_ID 
     FROM SAD_CUSTOMER_MASTER 
     WHERE UPPER(CUST_NAME) = UPPER(@CustomerName) 
       AND CUST_CompID = @CompId";
-
-
-                    //int? customerId = await connection.ExecuteScalarAsync<int?>(
-                    //    customerSql, new { CustomerName = emp.CustomerName, CompId = compId }, transaction);
-
-                    //if (!customerId.HasValue)
-                    //{
-                    //    throw new Exception($"Customer '{emp.CustomerName}' does not exist in master table.");
-                    //}
-
-                    //emp.CompanyId = customerId.Value; // use this for inserting ClientUser
-
 
                     int? CompanyId = await connection.ExecuteScalarAsync<int?>(
                         customerSql, new { CustomerName = emp.CompanyId, CompId = compId }, transaction);
@@ -1130,6 +1084,17 @@ namespace TracePca.Service.SuperMaster
 
             foreach (var emp in employees)
             {
+                // ✅ Skip validation if the entire row is blank
+                if (string.IsNullOrWhiteSpace(emp.CompanyId) &&
+                    string.IsNullOrWhiteSpace(emp.EmpCode) &&
+                    string.IsNullOrWhiteSpace(emp.EmployeeName) &&
+                    string.IsNullOrWhiteSpace(emp.LoginName) &&
+                    string.IsNullOrWhiteSpace(emp.Email) &&
+                    string.IsNullOrWhiteSpace(emp.PhoneNo))
+                {
+                    continue;
+                }
+
                 if (string.IsNullOrWhiteSpace(emp.CompanyId))
                     errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Customer missing" });
 
@@ -1142,12 +1107,54 @@ namespace TracePca.Service.SuperMaster
                 if (string.IsNullOrWhiteSpace(emp.LoginName))
                     errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "LoginName missing" });
 
+                // ✅ Email check
                 if (string.IsNullOrWhiteSpace(emp.Email))
-                    errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Email missing" });
+                {
+                    errors.Add(new UploadClientUserDto{ EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Email missing"});
+                }
+                else
+                {
+                    string trimmedEmail = emp.Email.Trim();
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(trimmedEmail, @"^[a-z0-9](\.?[a-z0-9]){1,}@gmail\.com$"))
+                    {
+                        errors.Add(new UploadClientUserDto{ EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Invalid Gmail format. Must be like 'username@gmail.com'"});
+                    }
+                }
 
+                // ✅ PhoneNo check (10 digits only)
                 if (string.IsNullOrWhiteSpace(emp.PhoneNo))
-                    errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "OfficePhoneNo missing" });
+                {
+                    errors.Add(new UploadClientUserDto{ EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "PhoneNo missing" });
+                }
+                else
+                {
+                    string phone = emp.PhoneNo.Trim();
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(phone, @"^[0-9]{10}$"))
+                    {
+                        errors.Add(new UploadClientUserDto{ EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "PhoneNo must be exactly 10 digits"});
+                    }
+                }
             }
+            // 🔹 Duplicate checks
+            void AddDuplicateErrors(Func<UploadClientUserDto, string> keySelector, string fieldName)
+            {
+                errors.AddRange(
+                    employees.GroupBy(keySelector)
+                    .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
+                    .Select(g => new UploadClientUserDto
+                    {
+                        EmpCode = g.First().EmpCode,
+                        EmployeeName = g.First().EmployeeName,
+                        ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
+                    })
+                );
+            }
+
+            AddDuplicateErrors(e => e.EmpCode, "EmpCode");
+            AddDuplicateErrors(e => e.LoginName, "LoginName");
+            AddDuplicateErrors(e => e.Email, "Email");
+            AddDuplicateErrors(e => e.OfficePhoneNo, "OfficePhoneNo");
+
             return errors;
         }
 

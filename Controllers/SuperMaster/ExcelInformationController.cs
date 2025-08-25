@@ -27,28 +27,41 @@ namespace TracePca.Controllers.SuperMaster
         public async Task<IActionResult> UploadEmployeeMaster([FromQuery] int compId, IFormFile file)
         {
             if (file == null || file.Length == 0)
-                return BadRequest("No file uploaded.");
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "No file uploaded."
+                });
 
             try
             {
                 var results = await _ExcelInformationService.UploadEmployeeDetailsAsync(compId, file);
+
+                // If no errors and employees inserted successfully
                 return Ok(new
                 {
-                    Success = true,
-                    Message = "Employee master processed successfully",
-                    Details = results
+                    statusCode = 200,
+                    message = "Employee master processed successfully"
                 });
             }
             catch (Exception ex)
             {
+                List<string> errors;
+
+                if (ex.Message.Contains("||"))
+                    errors = ex.Message.Split("||").ToList();
+                else
+                    errors = new List<string> { ex.Message };
+
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    Success = false,
-                    Message = "Error processing employee master",
-                    Error = ex.Message
+                    statusCode = 500,
+                    message = "Error processing employee master",
+                    error = errors
                 });
             }
         }
+
 
         //SaveEmployeeMaster
         [HttpPost("SaveEmployeeMaster")]
@@ -143,28 +156,41 @@ namespace TracePca.Controllers.SuperMaster
         public async Task<IActionResult> UploadClientUser([FromQuery] int compId, IFormFile file)
         {
             if (file == null || file.Length == 0)
-                return BadRequest("No file uploaded.");
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "No file uploaded."
+                });
 
             try
             {
                 var results = await _ExcelInformationService.UploadClientUserAsync(compId, file);
+
+                // If processed successfully
                 return Ok(new
                 {
-                    Success = true,
-                    Message = "Employee master processed successfully",
-                    Details = results
+                    statusCode = 200,
+                    message = "Client user processed successfully"
                 });
             }
             catch (Exception ex)
             {
+                List<string> errors;
+
+                if (ex.Message.Contains("||"))
+                    errors = ex.Message.Split("||").ToList();
+                else
+                    errors = new List<string> { ex.Message };
+
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    Success = false,
-                    Message = "Error processing employee master",
-                    Error = ex.Message
+                    statusCode = 500,
+                    message = "Error processing client user",
+                    error = errors
                 });
             }
         }
+
 
         //SaveClientUser
         [HttpPost("SaveClientUser")]
@@ -173,7 +199,7 @@ namespace TracePca.Controllers.SuperMaster
         {
             if (clientUser == null || clientUser.Count == 0)
             {
-                return BadRequest(new { message = "No employee data provided." });
+                return BadRequest(new { message = "No client user data provided." });
             }
 
             try
@@ -182,7 +208,7 @@ namespace TracePca.Controllers.SuperMaster
 
                 return Ok(new
                 {
-                    message = "Employees processed successfully.",
+                    message = "Client User processed successfully.",
                     results // This will contain a List<int[]> from service
                 });
             }
@@ -190,7 +216,7 @@ namespace TracePca.Controllers.SuperMaster
             {
                 return StatusCode(500, new
                 {
-                    message = "An error occurred while saving employees.",
+                    message = "An error occurred while saving client user.",
                     error = ex.Message
                 });
             }
