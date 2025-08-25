@@ -448,11 +448,21 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
+<<<<<<< HEAD
         //UploadClientDetails
     //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
     //    {
     //        if (file == null || file.Length == 0)
     //            throw new Exception("No file uploaded.");
+=======
+
+
+        ////UploadClientDetails
+        //public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
+        //{
+        //    if (file == null || file.Length == 0)
+        //        throw new Exception("No file uploaded.");
+>>>>>>> 9758a141fbec5dd1b82cea27818eb5f8d9b5915b
 
     //        // ✅ Get DB name from session
     //        string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
