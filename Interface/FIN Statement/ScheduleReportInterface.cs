@@ -36,6 +36,10 @@ namespace TracePca.Interface.FIN_Statement
 
         //UpdatePnL
         Task<bool> UpdatePnLAsync(string pnlAmount, int compId, int custId, int userId, int yearId, string branchId, int durationId);
+        Task<(int iUpdateOrSave, int iOper)> SaveCustomerStatutoryPartnerAsync(StatutoryPartnerDto partnerDto);
+        Task<(int iUpdateOrSave, int iOper)> SaveCustomerStatutoryDirectorAsync(StatutoryDirectorDto directorDto);
+
+
     }
 }
                          
