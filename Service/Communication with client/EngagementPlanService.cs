@@ -847,6 +847,54 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public async Task<string> GenerateReportAndGetTempPathAsync(int compId, int epPKid, string format)
+        {
+            try
+            {
+                var dto = await GetEngagementPlanReportDetailsByIdAsync(compId, epPKid);
+
+                if (dto == null)
+                    throw new ApplicationException("Engagement Plan data not found for the specified ID.");
+
+                byte[] fileBytes;
+                string extension;
+                string contentType;
+                string rawName = dto.EngagementPlanNo ?? "LOE_Report";
+                string fileName = rawName.Replace("/", "_").Replace("\\", "_");
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GeneratePdfAsync(dto);
+                    contentType = "application/pdf";
+                    extension = ".pdf";
+                }
+                else
+                {
+                    fileBytes = await GenerateWordAsync(dto);
+                    contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                    extension = ".docx";
+                }
+                fileName += extension;
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                var filePath = Path.Combine(tempFolder, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+                string downloadUrl = $"{tempFolder}/{fileName}";
+                return downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
         private async Task<byte[]> GeneratePdfAsync(EngagementPlanReportDetailsDTO dto)
         {
             QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;

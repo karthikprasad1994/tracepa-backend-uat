@@ -39,6 +39,7 @@
 		public int IsArchived { get; set; }
 		public int Status { get; set; }
         public int AuditFrameworkId { get; set; }
+        
     }
 
     public class LOEDropDownListData
