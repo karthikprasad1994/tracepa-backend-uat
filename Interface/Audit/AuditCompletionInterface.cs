@@ -28,5 +28,6 @@ namespace TracePca.Interface.Audit
         Task<List<ConductAuditWorkPaperDTO>> LoadConductAuditWorkPapersAsync(int compId, int auditId);
         Task<StandardAuditAllAttachmentsDTO> LoadAllAuditAttachmentsByAuditIdAsync(int compId, int auditId);
         Task<(bool, string)> DownloadAllAuditAttachmentsByAuditIdAsync(int compId, int auditId, int userId, string ipAddress);
+        Task<int> UpdateArchiveInAuditAsync(AuditArchiveDTO dto);
     }
 }

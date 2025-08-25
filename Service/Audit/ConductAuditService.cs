@@ -949,47 +949,47 @@ namespace TracePca.Service.Audit
                                             columns.RelativeColumn(2);
                                         });
 
-                                        table.Cell().Element(CellStyle).Text("Workpaper Name:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.WorkpaperRef);
+                                        table.Cell().Element(CellStyle).Text("Workpaper Name:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.WorkpaperRef).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Created By and Date:").Bold();
-                                        table.Cell().Element(CellStyle).Text($"{details.CreatedBy}, {details.CreatedOn}");
+                                        table.Cell().Element(CellStyle).Text("Created By and Date:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text($"{details.CreatedBy}, {details.CreatedOn}").FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Workpaper No:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.WorkpaperNo);
+                                        table.Cell().Element(CellStyle).Text("Workpaper No:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.WorkpaperNo).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Reviewed By and Date:").Bold();
-                                        table.Cell().Element(CellStyle).Text($"{details.ReviewedBy}, {details.ReviewedOn}");
+                                        table.Cell().Element(CellStyle).Text("Reviewed By and Date:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text($"{details.ReviewedBy}, {details.ReviewedOn}").FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Type of Test:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.TypeOfTest);
+                                        table.Cell().Element(CellStyle).Text("Type of Test:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.TypeOfTest).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Status:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.Status);
+                                        table.Cell().Element(CellStyle).Text("Status:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Status).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Exceeded Materiality:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.ExceededMateriality);
+                                        table.Cell().Element(CellStyle).Text("Exceeded Materiality:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.ExceededMateriality).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Auditor Hours Spent:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.AuditorHoursSpent);
+                                        table.Cell().Element(CellStyle).Text("Auditor Hours Spent:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.AuditorHoursSpent).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Notes/Steps:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.Notes);
+                                        table.Cell().Element(CellStyle).Text("Notes/Steps:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Notes).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Deviations/Exceptions Noted:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.Deviations);
+                                        table.Cell().Element(CellStyle).Text("Deviations/Exceptions Noted:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Deviations).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Critical Audit Matter(CAM):").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.CriticalAuditMatter);
+                                        table.Cell().Element(CellStyle).Text("Critical Audit Matter(CAM):").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.CriticalAuditMatter).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Conclusion:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.Conclusion);
+                                        table.Cell().Element(CellStyle).Text("Conclusion:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Conclusion).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("Attachments:").Bold();
-                                        table.Cell().Element(CellStyle).Text(details.AttachmentCount);
+                                        table.Cell().Element(CellStyle).Text("Attachments:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.AttachmentCount).FontSize(10);
 
-                                        table.Cell().Element(CellStyle).Text("").Bold();
-                                        table.Cell().Element(CellStyle).Text("");
+                                        table.Cell().Element(CellStyle).Text("").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text("").FontSize(10);
                                     }
                                     static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
                                 });

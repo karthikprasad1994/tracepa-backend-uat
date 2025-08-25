@@ -346,6 +346,27 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+        [HttpGet("{jeId}/{compId}")]
+        public async Task<IActionResult> GetJERecord(int jeId, int compId)
+        {
+            var record = await _JournalEntryService.GetJERecordAsync(jeId, compId);
+            if (record == null)
+                return NotFound(new { message = "Record not found" });
+
+            return Ok(record);
+        }
+        [HttpGet("GetTransactionDetails")]
+        public async Task<IActionResult> GetTransactionDetails(
+    [FromQuery] int companyId,
+    [FromQuery] int yearId,
+    [FromQuery] int custId,
+    [FromQuery] int jeId,
+    [FromQuery] int branchId = 0,
+    [FromQuery] int durationId = 0)
+        {
+            var result = await _JournalEntryService.LoadTransactionDetailsAsync(companyId, yearId, custId, jeId, branchId, durationId);
+            return Ok(result);
+        }
 
     }
 }
