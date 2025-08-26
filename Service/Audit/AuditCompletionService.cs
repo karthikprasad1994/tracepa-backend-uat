@@ -473,9 +473,29 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                var query = @"UPDATE StandardAudit_Schedule SET SA_Status = 10, SA_SignedBy = @SignedBy, SA_UDIN = @UDIN, SA_UDINdate = @UDINDate WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
+                var query = @"UPDATE StandardAudit_Schedule SET SA_SignedBy = @SignedBy, SA_UDIN = @UDIN, SA_UDINdate = @UDINDate WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
 
                 var parameters = new { SignedBy = dto.SA_SignedBy, UDIN = dto.SA_UDIN, UDINDate = dto.SA_UDINdate, AuditID = dto.SA_ID, ACID = dto.SA_CompID };
+                var rowsAffected = await connection.ExecuteAsync(query, parameters);
+
+                return rowsAffected;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while updating the SignedBy and UDIN in the audit.", ex);
+            }
+        }
+
+        public async Task<int> UpdateAuditCompletionStatusAsync(AuditSignedByUDINRequestDTO dto)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var query = @"UPDATE StandardAudit_Schedule SET SA_Status = 10 WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
+
+                var parameters = new { AuditID = dto.SA_ID, ACID = dto.SA_CompID };
                 var rowsAffected = await connection.ExecuteAsync(query, parameters);
 
                 return rowsAffected;

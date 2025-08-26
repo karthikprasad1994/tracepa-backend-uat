@@ -12,6 +12,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Bibliography;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Http;
+using System.Data;
 namespace TracePca.Service.FIN_statement
 {
     public class ScheduleReportService : ScheduleReportInterface
@@ -2975,7 +2976,101 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
 
             return false;
         }
+        public async Task<(int iUpdateOrSave, int iOper)> SaveCustomerStatutoryPartnerAsync(StatutoryPartnerDto partnerDto)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            using (SqlCommand cmd = new SqlCommand("spSAD_Statutory_PartnerDetails", connection))
+            {
+                cmd.CommandType = CommandType.StoredProcedure;
+
+                // Input parameters
+                cmd.Parameters.AddWithValue("@SSP_Id", partnerDto.SSP_Id);
+                cmd.Parameters.AddWithValue("@SSP_CustID", partnerDto.SSP_CustID);
+                cmd.Parameters.AddWithValue("@SSP_PartnerName", partnerDto.SSP_PartnerName ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSP_DOJ", partnerDto.SSP_DOJ);
+                cmd.Parameters.AddWithValue("@SSP_PAN", partnerDto.SSP_PAN ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSP_ShareOfProfit", partnerDto.SSP_ShareOfProfit);
+                cmd.Parameters.AddWithValue("@SSP_CapitalAmount", partnerDto.SSP_CapitalAmount);
+                cmd.Parameters.AddWithValue("@SSP_CRON", partnerDto.SSP_CRON);
+                cmd.Parameters.AddWithValue("@SSP_CRBY", partnerDto.SSP_CRBY);
+                cmd.Parameters.AddWithValue("@SSP_UpdatedOn", partnerDto.SSP_UpdatedOn);
+                cmd.Parameters.AddWithValue("@SSP_UpdatedBy", partnerDto.SSP_UpdatedBy);
+                cmd.Parameters.AddWithValue("@SSP_DelFlag", partnerDto.SSP_DelFlag ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSP_STATUS", partnerDto.SSP_STATUS ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSP_IPAddress", partnerDto.SSP_IPAddress ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSP_CompID", partnerDto.SSP_CompID);
+
+                // Output parameters
+                var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+
+                cmd.Parameters.Add(updateOrSaveParam);
+                cmd.Parameters.Add(operParam);
+
+                await connection.OpenAsync();
+                await cmd.ExecuteNonQueryAsync();
+
+                int iUpdateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+                int iOper = (int)(operParam.Value ?? 0);
+
+                return (iUpdateOrSave, iOper);
+            }
+        }
+        public async Task<(int iUpdateOrSave, int iOper)> SaveCustomerStatutoryDirectorAsync(StatutoryDirectorDto directorDto)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            using (SqlCommand cmd = new SqlCommand("spSAD_Statutory_DirectorDetails", connection))
+            {
+                cmd.CommandType = CommandType.StoredProcedure;
+
+                cmd.Parameters.AddWithValue("@SSD_Id", directorDto.SSD_Id);
+                cmd.Parameters.AddWithValue("@SSD_CustID", directorDto.SSD_CustID);
+                cmd.Parameters.AddWithValue("@SSD_DirectorName", (object)directorDto.SSD_DirectorName ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSD_DOB", (object)directorDto.SSD_DOB ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSD_DIN", (object)directorDto.SSD_DIN ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSD_MobileNo", (object)directorDto.SSD_MobileNo ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSD_Email", (object)directorDto.SSD_Email ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSD_Remarks", (object)directorDto.SSD_Remarks ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSD_CRON", (object)directorDto.SSD_CRON ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSD_CRBY", directorDto.SSD_CRBY);
+                cmd.Parameters.AddWithValue("@SSD_UpdatedOn", (object)directorDto.SSD_UpdatedOn ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSD_UpdatedBy", directorDto.SSD_UpdatedBy);
+                cmd.Parameters.AddWithValue("@SSD_DelFlag", (object)directorDto.SSD_DelFlag ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSD_STATUS", (object)directorDto.SSD_STATUS ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSD_IPAddress", (object)directorDto.SSD_IPAddress ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@SSD_CompID", directorDto.SSD_CompID);
+
+                var outputUpdateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                var outputOper = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+
+                cmd.Parameters.Add(outputUpdateOrSave);
+                cmd.Parameters.Add(outputOper);
+
+                await connection.OpenAsync();
+                await cmd.ExecuteNonQueryAsync();
+
+                int iUpdateOrSave = (int)(outputUpdateOrSave.Value ?? 0);
+                int iOper = (int)(outputOper.Value ?? 0);
+
+                return (iUpdateOrSave, iOper);
+            }
+        }
     }
 }
 
