@@ -153,12 +153,26 @@
             public decimal CUST_RoundOff { get; set; }
             public int Cust_DurtnId { get; set; }
             public string Cust_FY { get; set; }
+            public string CIN { get; set; }
+            public string TAN { get; set; }
+            public string GST { get; set; }  
+            public string PAN { get; set; }
+            public string GSTN { get; set; }
 
+            //New fields for Location
+            public int Mas_Id { get; set; }
+            public string Mas_code { get; set; }
+            public string LocationName { get; set; }
+            public string DelFlag { get; set; }
+            public string Address { get; set; }
+            public string ContactPerson { get; set; }
+            public string Mobile { get; set; }
+            public string Landline { get; set; }
+            public string Email { get; set; }
+            public string Designation { get; set; }
             // Validation helper
             public string ErrorMessage { get; set; }
         }
-
-
 
         //SaveClientDetails
         public class SuperMasterSaveCustomerDto
