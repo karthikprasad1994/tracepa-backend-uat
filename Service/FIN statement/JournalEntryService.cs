@@ -725,6 +725,102 @@ Acc_JE_Comnments as comments
                 throw; // or handle logging
             }
         }
+        public async Task<(int UpdateOrSave, int Oper, int FinalId, string FinalCode)> SaveOrUpdateAsync(AdminMasterDto dto)
+        {
+            try
+            {
+                // ✅ Get dbName from session first
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                if (string.IsNullOrEmpty(dbName))
+                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                // ✅ Get connection string
+                var connectionString = _configuration.GetConnectionString(dbName);
+                if (string.IsNullOrEmpty(connectionString))
+                    throw new Exception($"No connection string found for database: {dbName}");
+
+                // ✅ If new record → generate new Id & Code
+                if (dto.Id == 0)
+                {
+                    dto.Id = await GetMaxIdAsync(dto.CompId, "Content_Management_Master", "cmm_ID", "Cmm_CompID");
+                    dto.Code = "JE_" + dto.Id;
+                    // ⚠️ Don't reset dto.Id back to 0, let SP handle the logic
+                }
+
+                using var conn = new SqlConnection(connectionString);
+                using var cmd = new SqlCommand("spContent_Management_Master", conn)
+                {
+                    CommandType = CommandType.StoredProcedure
+                };
+
+                cmd.Parameters.AddWithValue("@cmm_ID", dto.Id);
+                cmd.Parameters.AddWithValue("@cmm_Code", dto.Code ?? "");
+                cmd.Parameters.AddWithValue("@cmm_Desc", dto.Desc ?? "");
+                cmd.Parameters.AddWithValue("@cmm_Category", dto.Category ?? "");
+                cmd.Parameters.AddWithValue("@cms_Remarks", dto.Remarks ?? "");
+                cmd.Parameters.AddWithValue("@cms_KeyComponent", dto.KeyComponent);
+                cmd.Parameters.AddWithValue("@cms_Module", dto.Module ?? "");
+                cmd.Parameters.AddWithValue("@CMM_RiskCategory", dto.RiskCategory);
+                cmd.Parameters.AddWithValue("@CMM_Status", dto.Status ?? "");
+                cmd.Parameters.AddWithValue("@cmm_Rate", dto.Rate);
+                cmd.Parameters.AddWithValue("@CMM_Act", dto.CMMAct ?? "");
+                cmd.Parameters.AddWithValue("@CMM_HSNSAC", dto.CMMHSNSAC ?? "");
+                cmd.Parameters.AddWithValue("@cmm_delflag", dto.Delflag ?? "");
+                cmd.Parameters.AddWithValue("@CMM_CrBy", dto.CreatedBy);
+                cmd.Parameters.AddWithValue("@CMM_UpdatedBy", dto.UpdatedBy);
+                cmd.Parameters.AddWithValue("@CMM_IpAddress", dto.IpAddress ?? "");
+                cmd.Parameters.AddWithValue("@CMM_CompId", dto.CompId);
+
+                var outUpdateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                var outOper = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+
+                cmd.Parameters.Add(outUpdateOrSave);
+                cmd.Parameters.Add(outOper);
+
+                await conn.OpenAsync();
+                await cmd.ExecuteNonQueryAsync();
+
+                return (
+                    Convert.ToInt32(outUpdateOrSave.Value),
+                    Convert.ToInt32(outOper.Value),
+                    dto.Id,
+                    dto.Code
+                );
+            }
+            catch (SqlException sqlEx)
+            {
+                // Database related errors
+                throw new Exception($"SQL Error in SaveOrUpdateAsync: {sqlEx.Message}", sqlEx);
+            }
+            catch (Exception ex)
+            {
+                // Any other unhandled error
+                throw new Exception($"Unexpected error in SaveOrUpdateAsync: {ex.Message}", ex);
+            }
+        }
+
+
+        private async Task<int> GetMaxIdAsync(int compId, string table, string column, string compColumn)
+        {
+            var sql = $"SELECT ISNULL(MAX({column}) + 1, 1) FROM {table} WHERE {compColumn} = @CompId";
+
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+            using var conn = new SqlConnection(connectionString);
+            using (SqlCommand cmd = new SqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("@CompId", compId);
+                await conn.OpenAsync();
+                var result = await cmd.ExecuteScalarAsync();
+                return result != DBNull.Value ? Convert.ToInt32(result) : 0;
+            }
+        }
     }
 }
 
