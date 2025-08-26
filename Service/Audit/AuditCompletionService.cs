@@ -486,7 +486,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<int> UpdateAuditCompletionStatusAsync(AuditSignedByUDINRequestDTO dto)
+        public async Task<int> UpdateAuditCompletionStatusAsync(int compId, int auditId)
         {
             try
             {
@@ -495,7 +495,7 @@ namespace TracePca.Service.Audit
 
                 var query = @"UPDATE StandardAudit_Schedule SET SA_Status = 10 WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
 
-                var parameters = new { AuditID = dto.SA_ID, ACID = dto.SA_CompID };
+                var parameters = new { AuditID = auditId, ACID = compId };
                 var rowsAffected = await connection.ExecuteAsync(query, parameters);
 
                 return rowsAffected;

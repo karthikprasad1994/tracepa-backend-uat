@@ -235,11 +235,11 @@ namespace TracePca.Controllers.Audit
         }
 
         [HttpPost("UpdateAuditCompletionStatus")]
-        public async Task<IActionResult> UpdateAuditCompletionStatus([FromBody] AuditSignedByUDINRequestDTO dto)
+        public async Task<IActionResult> UpdateAuditCompletionStatus(int compId, int auditId)
         {
             try
             {
-                int result = await _auditCompletionInterface.CheckCAEIndependentAuditorsReportSavedAsync(dto.SA_CompID, dto.SA_ID);
+                int result = await _auditCompletionInterface.CheckCAEIndependentAuditorsReportSavedAsync(compId, auditId);
 
                 if (result == 0)
                 {
@@ -251,7 +251,7 @@ namespace TracePca.Controllers.Audit
                 }
                 else if (result == 2)
                 {
-                    var res = await _auditCompletionInterface.UpdateAuditCompletionStatusAsync(dto);
+                    var res = await _auditCompletionInterface.UpdateAuditCompletionStatusAsync(compId, auditId);
                     if (res > 0)
                     {
                         return Ok(new { statusCode = 200, message = "Audit Completion Status details updated successfully.", Data = res });
