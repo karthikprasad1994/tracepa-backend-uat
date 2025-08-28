@@ -234,6 +234,48 @@ namespace TracePca.Controllers.Audit
             }
         }
 
+        [HttpPost("UpdateAuditCompletionStatus")]
+        public async Task<IActionResult> UpdateAuditCompletionStatus(int compId, int auditId)
+        {
+            try
+            {
+                int result = await _auditCompletionInterface.CheckCAEIndependentAuditorsReportSavedAsync(compId, auditId);
+
+                if (result == 0)
+                {
+                    return BadRequest(new { statusCode = 400, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                }
+                else if (result == 1)
+                {
+                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
+                }
+                else if (result == 2)
+                {
+                    var res = await _auditCompletionInterface.UpdateAuditCompletionStatusAsync(compId, auditId);
+                    if (res > 0)
+                    {
+                        return Ok(new { statusCode = 200, message = "Audit Completion Status details updated successfully.", Data = res });
+                    }
+                    else
+                    {
+                        return BadRequest(new { statusCode = 400, message = "No Audit Completion data was saved." });
+                    }
+                }
+                else if (result == 3)
+                {
+                    return Ok(new { statusCode = 200, message = "No checkpoints exist for this audit." });
+                }
+                else
+                {
+                    return StatusCode(500, new { statusCode = 500, message = "Unexpected result from CAE status check." });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "An error occurred while saving or updating Audit Completion Status.", error = ex.Message });
+            }
+        }
+
         [HttpGet("GetSignedByUDINInAuditAsync")]
         public async Task<IActionResult> GetSignedByUDINInAudit(int compId, int auditId)
         {
@@ -343,9 +385,29 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var (fileBytes, contentType, fileName) = await _auditCompletionInterface.GenerateAndDownloadReportAsync(compId, auditId, format);
+                int result = await _auditCompletionInterface.CheckCAEIndependentAuditorsReportSavedAsync(compId, auditId);
 
-                return File(fileBytes, contentType, fileName);
+                if (result == 0)
+                {
+                    return BadRequest(new { statusCode = 400, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                }
+                else if (result == 1)
+                {
+                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
+                }
+                else if (result == 2)
+                {
+                    var (fileBytes, contentType, fileName) = await _auditCompletionInterface.GenerateAndDownloadReportAsync(compId, auditId, format);
+                    return File(fileBytes, contentType, fileName);
+                }
+                else if (result == 3)
+                {
+                    return Ok(new { statusCode = 200, message = "No checkpoints exist for this audit." });
+                }
+                else
+                {
+                    return StatusCode(500, new { statusCode = 500, message = "Unexpected result from CAE status check." });
+                }                
             }
             catch
             {
@@ -362,8 +424,30 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var url = await _auditCompletionInterface.GenerateReportAndGetURLPathAsync(compId, auditId, format);
-                return Ok(new { statusCode = 200, message = "Audit Completion report generated successfully. Download URL is available.", fileUrl = url });
+                int result = await _auditCompletionInterface.CheckCAEIndependentAuditorsReportSavedAsync(compId, auditId);
+
+                if (result == 0)
+                {
+                    return BadRequest(new { statusCode = 400, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                }
+                else if (result == 1)
+                {
+                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
+                }
+                else if (result == 2)
+                {
+                    var url = await _auditCompletionInterface.GenerateReportAndGetURLPathAsync(compId, auditId, format);
+                    return Ok(new { statusCode = 200, message = "Audit Completion report generated successfully. Download URL is available.", fileUrl = url });
+                }
+                else if (result == 3)
+                {
+                    return Ok(new { statusCode = 200, message = "No checkpoints exist for this audit." });
+                }
+                else
+                {
+                    return StatusCode(500, new { statusCode = 500, message = "Unexpected result from CAE status check." });
+                }
+                
             }
             catch
             {
