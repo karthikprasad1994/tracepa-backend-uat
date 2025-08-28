@@ -128,6 +128,7 @@ namespace TracePca.Interface.Audit
         Task<string> GetHttpsDocumentPathModulewiseAsync(GetDocumentPathRequestDto dto);
         byte[] GenerateWordByFormName(string formName, string title, List<LOEHeadingDto> headings, int reportTypeId, int loeTemplateId, int customerId);
 
+        Task<bool> UpdateAttachmentStatusAsync(UpdateAttachmentStatusDto dto);
 
     }
 
