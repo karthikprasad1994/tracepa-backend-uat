@@ -449,7 +449,6 @@ namespace TracePca.Service.SuperMaster
         }
 
         //UploadClientDetails
-<<<<<<< HEAD
         public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -460,7 +459,6 @@ namespace TracePca.Service.SuperMaster
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
-=======
     //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
     //    {
     //        if (file == null || file.Length == 0)
@@ -472,7 +470,6 @@ namespace TracePca.Service.SuperMaster
         //{
         //    if (file == null || file.Length == 0)
         //        throw new Exception("No file uploaded.");
->>>>>>> 7aaff0b14d73fdb40421ad0fa21de7dee7be555b
 
             var connectionString = _configuration.GetConnectionString(dbName);
 
