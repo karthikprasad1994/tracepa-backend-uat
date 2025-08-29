@@ -92,38 +92,45 @@ namespace TracePca.Controllers.SuperMaster
             }
         }
 
-     //   //UploadClientDetails
-     //   [HttpPost("UploadClientDetails")]
-     //   public async Task<IActionResult> UploadClientDetails(
-     //[FromForm] int compId,
-     //[FromForm] IFormFile excelFile,
-     //[FromForm] string sheetName)
-     //   {
-     //       if (excelFile == null || excelFile.Length == 0)
-     //       {
-     //           return BadRequest(new { message = "No Excel file uploaded." });
-     //       }
+        //UploadClientDetails
+        [HttpPost("UploadClientDetails")]
+        public async Task<IActionResult> UploadClientDetails([FromQuery] int compId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "No file uploaded."
+                });
 
-     //       try
-     //       {
-     //           var results = await _ExcelInformationService.UploadClientDetailsAsync(compId, excelFile, sheetName);
+            try
+            {
+                var results = await _ExcelInformationService.UploadClientDetailsAsync(compId, file);
 
-     //           return Ok(new
-     //           {
-     //               message = "Client details uploaded successfully.",
-     //               results
-     //           });
-     //       }
-     //       catch (Exception ex)
-     //       {
-     //           return StatusCode(500, new
-     //           {
-     //               message = "An error occurred while uploading client details.",
-     //               error = ex.Message
-     //           });
-     //       }
-     //   }
+                // If no errors and clients inserted successfully
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Client details processed successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                List<string> errors;
 
+                if (ex.Message.Contains("||"))
+                    errors = ex.Message.Split("||").ToList();
+                else
+                    errors = new List<string> { ex.Message };
+
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 500,
+                    message = "Error processing client details",
+                    error = errors
+                });
+            }
+        }
 
         //SaveClientDetails
         [HttpPost("SaveClientDetails")]
