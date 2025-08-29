@@ -119,8 +119,8 @@
             public string CUST_EMAIL { get; set; }
             public string CUST_GROUPNAME { get; set; }
             public int CUST_GROUPINDIVIDUAL { get; set; }
-            public int CUST_ORGTYPEID { get; set; }
-            public int CUST_INDTYPEID { get; set; }
+            public string CUST_ORGTYPEID { get; set; }
+            public string CUST_INDTYPEID { get; set; }
             public int CUST_MGMTTYPEID { get; set; }
             public DateTime? CUST_CommitmentDate { get; set; }
             public string CUSt_BranchId { get; set; }
