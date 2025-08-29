@@ -7,6 +7,7 @@ using Azure.Core;
 using Dapper;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing.Diagrams;
+using DocumentFormat.OpenXml.Office2010.Word;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using DocumentFormat.OpenXml.Office2016.Excel;
 using DocumentFormat.OpenXml.Packaging;
@@ -19,6 +20,7 @@ using MailKit.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Playwright;
 using MimeKit;
 using MimeKit.Utils;
 using OfficeOpenXml.Table.PivotTable;
@@ -30,11 +32,15 @@ using QuestPDF.Infrastructure;
 using TracePca.Data;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
+using TracePca.Dto.Email;
+using TracePca.Interface;
 using TracePca.Interface.Audit;
+using TracePca.Models;
 using TracePca.Models;
 using TracePca.Models.UserModels;
 using Xceed.Document.NET;
 using Xceed.Words.NET;
+using Alignment = Xceed.Document.NET.Alignment;
 //using static Org.BouncyCastle.Math.EC.ECCurve;
 
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
@@ -53,11 +59,13 @@ using WorkpaperDto = TracePca.Dto.Audit.WorkpaperDto;
 
 
 
+
 using TracePca.Models;
 using DocumentFormat.OpenXml.Office2010.Word;
 using Microsoft.Playwright;
-using Alignment = Xceed.Document.NET.Alignment;
+//using Alignment = Xceed.Document.NET.Alignment;
 using Org.BouncyCastle.Asn1.Crmf;
+
 
 
 
@@ -81,16 +89,17 @@ namespace TracePca.Service.Communication_with_client
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IWebHostEnvironment _env;
         private readonly DbConnectionProvider _dbConnectionProvider;
+        private readonly EmailInterface _emailInterface;
 
 
-
-        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider)
+        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider, EmailInterface emailinterface)
         {
 
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
             _env = env;
             _dbConnectionProvider = dbConnectionProvider;
+            _emailInterface = emailinterface;
 
         }
 
@@ -6417,18 +6426,40 @@ WHERE SA_ID = @AuditId";
             }
 
 
-            if (req.SendeMailFlag == 1)
+            if (req.SendeMailFlag == 1 || req.SendeMailFlag == 3)
             {
-                NewSendAuditLifecycleEmailAsync(req.EmailIds, req.AuditNo, AuditName, req.Comments);
+                var dto = new CommonEmailDto
+                {
+                    ToEmails = req.EmailIds,   // list of recipients
+                    EmailType = "AuditLifecycle",
+                    Parameters = new Dictionary<string, string>
+        {
+            { "AuditNo", req.AuditNo.ToString() },
+            { "AuditName", AuditName },
+            { "Remarks", req.Comments }
+        }
+                };
+
+                await _emailInterface.SendCommonEmailAsync(dto);
             }
             else if (req.SendeMailFlag == 2)
             {
-                DuringSendDuringAuditEmailAsync(req.EmailIds, req.AuditNo, req.ReportType, req.RequestedOn, req.Comments);
+                var dto = new CommonEmailDto
+                {
+                    ToEmails = req.EmailIds,
+                    EmailType = "DuringAudit",
+                    Parameters = new Dictionary<string, string>
+        {
+            { "AuditNo", req.AuditNo.ToString() },
+            { "ReportType", req.ReportType.ToString() },
+            { "RequestedOn", req.RequestedOn }, // format if needed
+            { "Remarks", req.Comments }
+        }
+                };
+
+                await _emailInterface.SendCommonEmailAsync(dto);
             }
-            else if (req.SendeMailFlag == 3)
-            {
-                NewSendAuditLifecycleEmailAsync(req.EmailIds, req.AuditNo, AuditName, req.Comments);
-            }
+
 
             string Emails = string.Join(",", req.EmailIds);
 

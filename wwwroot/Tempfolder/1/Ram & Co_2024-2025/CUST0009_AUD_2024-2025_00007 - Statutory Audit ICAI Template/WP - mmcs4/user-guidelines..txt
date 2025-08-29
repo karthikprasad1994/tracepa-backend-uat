@@ -1,0 +1,221 @@
+Dear Venugopal, 
+
+Here is the draft list as discussed yesterday
+
+List of short videos
+
+1.       Signup TRACe PA
+
+2.       Login
+
+3.       Audit in TRACe PA
+
+4.       Creating Clients
+
+5.       Add team members
+
+6.       Audit Checklists in TRACe PA
+
+7.       Planning an Audit
+
+8.       Letter of Engagement
+
+9.       Create Client Users to share the documents
+
+10.   Audit Schedule
+
+11.   Audit Scope, Headings and Checkpoints for an Audit
+
+12.   Communication with Client
+
+13.   Communication at the Beginning of the Audit
+
+14.   Communication – During the Audit
+
+15.   Communication – At or near End of the Audit
+
+16.   Document Request List
+
+17.   Inquiry report templates
+
+18.   Conduct Audit
+
+19.   Workpaper Creation
+
+20.   Audit Procedures
+
+21.   Critical Audit Matters (CAM)
+
+22.   Audit Progress summary
+
+23.   Management Representation Letters
+
+24.   Audit Completion Checklist
+
+25.   Independent Auditor’s report
+
+26.   Audit Completion Report
+
+27.   Archive an Audit
+
+28.   Excel Upload
+
+29.   Information about the Auditee
+
+30.   Attach Documents
+
+31.   Template Preview
+
+32.   Report Download
+
+33.   Client Portal Login
+
+34.   View Documents in Client Portal
+
+35.   Attach Documents in Client Portal
+
+36.    
+
+ 
+
+Short Description for the List of short videos
+
+1.       Signup TRACe PA
+
+Configure/Setup Audit Firm details by giving the basic details which creates login credentials using the Email Id and creates a Database and shares the link to your email.
+
+2.       Login
+
+Login to TRACe PA using the link shared to explore our Audit tool using the database with basic details created for your Audit firm.
+
+ 
+
+3.       Audit in TRACe PA
+
+TRACe PA helps an Auditor to conduct Audit using a systematic examination and evaluation of records, processes, or systems to ensure accuracy, compliance, and efficiency. This is achieved by verifying the operations, financial statements, or procedures and check whether they are correct and meet the required standards or regulations using the various modules and operations within TRACe PA.
+
+TRACe PA Audit Workflow starting from Audit Planning, Engagement creation, Scheduling, Scope definition and Team allocation. Process planning and sharing the formats to receive the details from the Client at the beginning of the Audit.
+
+Workpaper creation and checking the processes using the Checklists and identifying the deviations and observations.
+
+Audit Report generation from all these workflow steps.
+
+ 
+
+4.       Creating Clients
+
+Client definition before starting the Audit
+
+ 
+
+5.       Add team members
+
+Audit team members at Roles – Partners, Reviewers and Audit Assistants are added to TRACe PA that helps while Scheduling an Audit.
+
+ 
+
+6.       Audit Checklists in TRACe PA
+
+Audit Checklist for Schedule III to the Companies Act, 2013 and CARO Checklist for Statutory
+
+Audit has been provided.
+
+ 
+
+7.       Planning an Audit
+
+Starts with Agreeing the Terms of Audit Engagements deals with the auditor’s
+
+responsibilities in agreeing to the terms of the audit engagement with management and, where appropriate, those charges with governance. Draft Engagement Letter format is prepared and shared with the Client for approval.
+
+ 
+
+8.       Letter of Engagement
+
+TRACe PA provides Engagement Letter format for Auditor to edit wherever needed and check the preview before sharing it with the Client. On getting the consent or approval LOE is approved.
+
+ 
+
+9.       Client Portal
+
+ 
+
+10.   Client Portal Login
+
+ 
+
+11.   Create Client Users to share the documents
+
+ 
+
+ 
+
+12.   Audit Schedule
+
+Define the Scope of the Audit Engagement, Audit Timeline, Audit team, Key Focus areas are defined.
+
+ 
+
+13.   Audit Scope, Headings and Checkpoints for an Audit
+
+Depending on the Scope of the Audit Key Focus Areas, their Headings and applicable Checkpoints are selected for the Audit.
+
+ 
+
+14.   Communication with Client
+
+Lot of Communication happens between Auditor and Client during the Audit. It is important to convey to client, what information is required to conduct the audit seamlessly. This happens before starting the Audit, During the Audit and Near completion or End of the Audit.
+
+TRACe PA has provided templates for some of these requests and some Document Request lists. The list does not represent an exhaustive list and additional information may be requested during the course of audit.
+
+ 
+
+15.   Communication at the Beginning of the Audit
+
+16.   Communication – During the Audit
+
+17.   Communication – At or near End of the Audit
+
+18.   Document Request List
+
+19.   Inquiry report templates
+
+ 
+
+20.   Conduct Audit
+
+21.   Workpaper Creation
+
+22.   Audit Procedures
+
+23.   Critical Audit Matters (CAM)
+
+24.   Audit Progress summary
+
+25.   Management Representation Letters
+
+26.   Audit Completion Checklist
+
+27.   Independent Auditor’s report
+
+28.   Audit Completion Report
+
+29.   Archive an Audit
+
+30.   Excel Upload
+
+31.   Information about the Auditee
+
+32.   Attach Documents
+
+33.   Template Preview
+
+34.   Report Download
+
+35.   View Documents in Client Portal
+
+36.   Attach Documents in Client Portal
+
+37.    
+
+ 

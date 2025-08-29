@@ -766,7 +766,7 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
             try
             {
                 email = email?.Trim().ToLower();
-                password = password?.Trim();
+               password = password?.Trim();
 
                 using var regConnection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
                 await regConnection.OpenAsync();
@@ -775,7 +775,7 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
                 string customerCodeSql = @"
         SELECT TOP 1 MCR_CustomerCode 
         FROM mmcs_customerregistration 
-        CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
+        CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails 
         WHERE LTRIM(RTRIM(Emails.value)) = @Email";
 
                 var customerCode = await regConnection.QuerySingleOrDefaultAsync<string>(customerCodeSql, new { Email = email });
@@ -827,13 +827,34 @@ new { email = plainEmail });
                     @"SELECT usr_Id FROM Sad_UserDetails WHERE LOWER(usr_Email) = @email",
                     new { email = plainEmail });
 
+       var roleName = await connection.QueryFirstOrDefaultAsync<string>(
+       @"SELECT g.Mas_Description 
+       FROM Sad_UserDetails u
+       LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID WHERE LOWER(u.usr_Email) = @email", 
+      new { email = plainEmail });
 
-                var roleName = await connection.QueryFirstOrDefaultAsync<string>(
-    @"SELECT g.Mas_Description 
-      FROM Sad_UserDetails u
-      LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID
-      WHERE LOWER(u.usr_Email) = @email",
-    new { email = plainEmail });
+                // Step 5: Check if user already logged in on another system
+           //     var existingToken = await connection.QueryFirstOrDefaultAsync<string>(
+           //         @"SELECT AccessToken 
+           //        FROM UserTokens 
+           //WHERE UserId = @UserId AND IsRevoked = 0
+           //AND RefreshTokenExpiry > GETUTCDATE()", // still valid
+
+
+
+                    //new { UserId = userId });
+
+                //if (!string.IsNullOrEmpty(existingToken))
+                //{
+                //    return new LoginResponse
+                //    {
+                //        StatusCode = 409, // Conflict
+                //        Message = "User already logged in from another system.",
+                //        UsrId = userId,
+
+                //    };
+                //}
+
 
 
 
@@ -842,17 +863,20 @@ new { email = plainEmail });
                 string refreshToken = Guid.NewGuid().ToString(); // Use JWT if you want, but GUID is fine too
                 DateTime accessExpiry = DateTime.UtcNow.AddMinutes(15);  // Match with JWT 'exp'
                 DateTime refreshExpiry = DateTime.UtcNow.AddDays(7);
-                await InsertUserTokenAsync(userId, email, accessToken, refreshToken, accessExpiry, refreshExpiry);
-                _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
-                _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
-
                 // Generate JWT
                 var httpContext = _httpContextAccessor.HttpContext;
                 if (httpContext != null)
                 {
                     httpContext.Session.SetString("CustomerCode", customerCode);
                     httpContext.Session.SetInt32("UserId", userId);
+                    _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
                 }
+
+                await InsertUserTokenAsync(userId, email, accessToken, refreshToken, accessExpiry, refreshExpiry, customerCode);
+               // _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
+               // _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
+
+              
 
                 string token = GenerateJwtToken(email, customerCode, userId);
 
@@ -913,13 +937,28 @@ new { email = plainEmail });
         UPDATE UserTokens
         SET IsRevoked = 1,
             RevokedAt = GETUTCDATE()
-        WHERE AccessToken = @AccessToken AND IsRevoked = 0";
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        WHERE AccessToken = @AccessToken 
+          AND IsRevoked = 0";
 
+            // ✅ Step 1: Get CustomerCode from Session
+            string customerCode = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(customerCode))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Build customer-specific connection string
+            string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+            string customerDbConnection = string.Format(connectionStringTemplate, customerCode);
+
+            // ✅ Step 3: Run logout query
+            using var connection = new SqlConnection(customerDbConnection);
             await connection.OpenAsync();
+
             var rowsAffected = await connection.ExecuteAsync(query, new { AccessToken = accessToken });
+
             return rowsAffected > 0;
         }
+
 
 
         public async Task InsertUserTokenAsync(
@@ -928,7 +967,8 @@ new { email = plainEmail });
     string accessToken,
     string refreshToken,
     DateTime accessExpiry,
-    DateTime refreshExpiry)
+    DateTime refreshExpiry,
+      string customerCode)
         {
             const string sql = @"
         INSERT INTO UserTokens 
@@ -936,10 +976,17 @@ new { email = plainEmail });
           UserId)
         VALUES (@UserEmail, @AccessToken, @RefreshToken, @AccessTokenExpiry, @RefreshTokenExpiry, @RevokedAt, @UserId)";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-           
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-           
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+            string customerDbConnection = string.Format(connectionStringTemplate, customerCode);
+
+
+            using var connection = new SqlConnection(customerDbConnection);
             await connection.OpenAsync();
 
             await connection.ExecuteAsync(sql, new
