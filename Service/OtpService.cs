@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Dapper;
 using MailKit.Net.Smtp;
@@ -9,17 +10,41 @@ using Microsoft.Data.SqlClient;
 using Microsoft.IdentityModel.Tokens;
 using MimeKit;
 using MimeKit.Text;
+using TracePca.Dto.Email;
+using TracePca.Interface;
 
 public class OtpService
 {
     private readonly IConfiguration _configuration;
+    private readonly EmailInterface _emailInterface;
+    
+
+    
+
     // private readonly ConcurrentDictionary<string, (string Otp, DateTime Expiry)> _emailOtpStorage = new();
 
-    public OtpService(IConfiguration configuration)
+    public OtpService(IConfiguration configuration, EmailInterface emailinterface)
     {
         _configuration = configuration;
+        _emailInterface = emailinterface;
 
     }
+
+    public string GenerateOtpCode()
+    {
+        using var rng = RandomNumberGenerator.Create();
+        var bytes = new byte[6]; // 6 bytes gives a bigger random space
+        rng.GetBytes(bytes);
+
+        // Convert to a large positive number
+        long value = BitConverter.ToInt64(bytes, 0) & long.MaxValue;
+
+        // Restrict to 6-digit OTP
+        int otp = (int)(value % 1000000);
+
+        return otp.ToString("D6"); // always 6 digits (with leading zeros if needed)
+    }
+
 
 
     public async Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email)
@@ -36,14 +61,51 @@ public class OtpService
             return (false, "User already exists with this email.", null);
         }
 
+        // Generate OTP and JWT
         string otpCode;
         string otpJwt = GenerateOtpJwt(email, out otpCode);
 
-        // Send email to user here
-        await SendEmailAsync(email, otpCode);
+        // Prepare email DTO
+        var emailDto = new CommonEmailDto
+        {
+            ToEmails = new List<string> { email },
+            EmailType = "OTP",
+            Parameters = new Dictionary<string, string>
+        {
+            { "OTP", otpCode }
+        }
+        };
+
+        // Send the OTP email using the new common method
+        await _emailInterface.SendCommonEmailAsync(emailDto);
 
         return (true, "OTP sent successfully.", otpJwt);
     }
+
+
+
+    //public async Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email)
+    //{
+    //    using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+    //    await connection.OpenAsync();
+
+    //    var existingUser = await connection.QueryFirstOrDefaultAsync<string>(
+    //        @"SELECT MCR_CustomerEmail FROM MMCS_CustomerRegistration WHERE LOWER(MCR_CustomerEmail) = LOWER(@Email)",
+    //        new { Email = email });
+
+    //    if (existingUser != null)
+    //    {
+    //        return (false, "User already exists with this email.", null);
+    //    }
+
+    //    string otpCode;
+    //    string otpJwt = GenerateOtpJwt(email, out otpCode);
+
+    //    // Send email to user here
+    //    await SendEmailAsync(email, otpCode);
+
+    //    return (true, "OTP sent successfully.", otpJwt);
+    //}
 
 
 
@@ -61,8 +123,9 @@ public class OtpService
 
     private string GenerateOtpJwt(string email, out string otpCode)
     {
+        otpCode = GenerateOtpCode();
 
-        otpCode = new Random().Next(100000, 999999).ToString();
+        // otpCode = new Random().Next(100000, 999999).ToString();
         var expiry = DateTime.UtcNow.AddMinutes(10); // OTP expires in 10 mins
 
         var claims = new[]
@@ -124,7 +187,7 @@ public class OtpService
             {
                 ValidateIssuer = false,
                 ValidateAudience = false,
-                ValidateLifetime = false, // We'll manually check expiry
+                ValidateLifetime = true, // We'll manually check expiry
                 IssuerSigningKey = key
             };
 
