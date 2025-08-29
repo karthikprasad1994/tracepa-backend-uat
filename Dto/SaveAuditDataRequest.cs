@@ -44,6 +44,8 @@ namespace TracePca.Dto
         public int RequestedListId { get; set; }
 
         public int SendeMailFlag { get; set; }
+
+        public int OpinionFlag { get; set; }
     }
 
 

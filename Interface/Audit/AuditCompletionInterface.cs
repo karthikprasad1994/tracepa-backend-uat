@@ -17,6 +17,7 @@ namespace TracePca.Interface.Audit
         Task<int> SaveOrUpdateAuditCompletionSubPointDataAsync(AuditCompletionSingleDTO dto);
         Task<int> SaveOrUpdateAuditCompletionDataAsync(AuditCompletionDTO dto);        
         Task<int> UpdateSignedByUDINInAuditAsync(AuditSignedByUDINRequestDTO dto);
+        Task<int> UpdateAuditCompletionStatusAsync(int compId, int auditId);        
         Task<int> CheckCAEIndependentAuditorsReportSavedAsync(int compId, int auditId);
         Task<AuditSignedByUDINRequestDTO> GetSignedByUDINInAuditAsync(int compId, int auditId);
         Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadReportAsync(int compId, int auditId, string format);
@@ -28,5 +29,6 @@ namespace TracePca.Interface.Audit
         Task<List<ConductAuditWorkPaperDTO>> LoadConductAuditWorkPapersAsync(int compId, int auditId);
         Task<StandardAuditAllAttachmentsDTO> LoadAllAuditAttachmentsByAuditIdAsync(int compId, int auditId);
         Task<(bool, string)> DownloadAllAuditAttachmentsByAuditIdAsync(int compId, int auditId, int userId, string ipAddress);
+        Task<int> UpdateArchiveInAuditAsync(AuditArchiveDTO dto);
     }
 }

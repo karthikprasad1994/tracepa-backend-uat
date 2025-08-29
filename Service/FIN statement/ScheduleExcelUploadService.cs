@@ -1547,43 +1547,82 @@ public async Task<List<int>> SaveCompleteTrailBalanceAsync(
                         UploadDetails = new TrailBalanceUploadDetailsDto
                         {
                             ATBUD_ID = 0,
+                            ATBUD_Masid = 0,   // comes from your method (same as VB iATBUD_Masid)
                             ATBUD_CODE = "0",
                             ATBUD_Description = worksheet.Cells[row, 8].Text,
                             ATBUD_CustId = 12,
+                            ATBUD_SChedule_Type = 0,
+                            ATBUD_Branchid = 0,
+                            ATBUD_QuarterId = 0,
+                            ATBUD_Company_Type = 0,
+                            ATBUD_Headingid = 0,
+                            ATBUD_Subheading = 0,
+                            ATBUD_itemid = 0,
+                            ATBUD_Subitemid = 0,
                             ATBUD_DELFLG = "A",
+                            ATBUD_CRBY = "0",             // if userId available, set it
+                            ATBUD_UPDATEDBY = "0",        // if update userId available, set it
                             ATBUD_STATUS = "C",
-                            ATBUD_CompId = CompId
+                            ATBUD_Progress = string.Empty,
+                            ATBUD_IPAddress = string.Empty,
+                            ATBUD_CompId = CompId,
+                            ATBUD_YEARId = 0
                         },
                         JournalEntry = new JournalEntryDto
                         {
                             Acc_JE_ID = 0,
                             Acc_JE_TransactionNo = "13",
                             Acc_JE_Party = 12,
-                            Acc_JE_BillAmount = decimal.Parse("0"),
-                            Acc_JE_NetAmount = decimal.Parse("0"),
-                            Acc_JE_Status = "C",
+                            Acc_JE_Location = 0,
+                            Acc_JE_BillType = 0,
+                            Acc_JE_BillNo = string.Empty,
+                            Acc_JE_BillDate = null,   // use null instead of dummy date
+                            Acc_JE_BillAmount = 0m,
+                            Acc_JE_AdvanceAmount = 0m,
+                            Acc_JE_AdvanceNaration = string.Empty,
+                            Acc_JE_BalanceAmount = 0m,
+                            Acc_JE_NetAmount = 0m,
+                            Acc_JE_PaymentNarration = string.Empty,
+                            Acc_JE_ChequeNo = string.Empty,
+                            Acc_JE_ChequeDate = null,
+                            Acc_JE_IFSCCode = string.Empty,
+                            Acc_JE_BankName = string.Empty,
+                            Acc_JE_BranchName = string.Empty,
                             Acc_JE_CreatedBy = "0",
                             Acc_JE_UPDATEDBY = "0",
-                            Acc_JE_IPAddress = "0.0.0.0",
-                            Acc_JE_CompID = CompId,
                             Acc_JE_YearID = 0,
+                            Acc_JE_CompID = CompId,
+                            Acc_JE_Status = "C",
+                            Acc_JE_Operation = string.Empty,
+                            Acc_JE_IPAddress = "0.0.0.0",
+                            Acc_JE_BillCreatedDate = null,
                             Acc_JE_BranchId = 0,
-                            Acc_JE_QuarterId = 0
+                            Acc_JE_QuarterId = 0,
+                            Acc_JE_Comnments = string.Empty
                         },
                         TransactionDetailsList = new List<TransactionDetailsDto>
 {
     new TransactionDetailsDto
     {
         AJTB_ID = 0,
+        AJTB_MasID = 0,                 // will be set after JE master insert
         AJTB_TranscNo = "13",
-        AJTB_Debit = decimal.Parse("0"),
-        AJTB_Credit = decimal.Parse("0"),
-        AJTB_Status = "C",
+        AJTB_CustId = 0,
+        AJTB_ScheduleTypeid = 0,
+        AJTB_Deschead = string.Empty,
+        AJTB_Desc = string.Empty,
+        AJTB_Debit = 0m,
+        AJTB_Credit = 0m,
         AJTB_CreatedBy = "0",
         AJTB_UpdatedBy = "0",
+        AJTB_Status = "C",
         AJTB_IPAddress = "0.0.0.0",
         AJTB_CompID = CompId,
-        AJTB_YearID = 0
+        AJTB_YearID = 0,
+        AJTB_BillType = 0,
+        AJTB_DescName = string.Empty,
+        AJTB_BranchId = 0,
+        AJTB_QuarterId = 0
     }
         }
                     };
@@ -1651,61 +1690,138 @@ public async Task<List<int>> SaveCompleteTrailBalanceAsync(
                     uploadId = (int)(out2.Value ?? dto.ATBU_ID);
                 }
 
-                // === 2. Save Upload Details ===
-                using (var cmd = new SqlCommand("spAcc_TrailBalance_Upload_Details", connection, transaction))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    var dto = model.UploadDetails;
-                    cmd.Parameters.AddWithValue("@ATBUD_ID", dto.ATBUD_ID);
-                    cmd.Parameters.AddWithValue("@ATBUD_Masid", uploadId);
-                    cmd.Parameters.AddWithValue("@ATBUD_CODE", dto.ATBUD_CODE ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@ATBUD_Description", dto.ATBUD_Description ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@ATBUD_CustId", dto.ATBUD_CustId);
-                    cmd.Parameters.AddWithValue("@ATBUD_DELFLG", dto.ATBUD_DELFLG);
-                    cmd.Parameters.AddWithValue("@ATBUD_STATUS", dto.ATBUD_STATUS);
-                    cmd.Parameters.AddWithValue("@ATBUD_CompId", dto.ATBUD_CompId);
-
-                    await cmd.ExecuteNonQueryAsync();
-                }
-
-                // === 3. Save Journal Entry ===
-                using (var cmd = new SqlCommand("spAcc_JE_Master", connection, transaction))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    var dto = model.JournalEntry;
-                    cmd.Parameters.AddWithValue("@Acc_JE_ID", dto.Acc_JE_ID);
-                    cmd.Parameters.AddWithValue("@Acc_JE_TransactionNo", dto.Acc_JE_TransactionNo ?? "");
-                    cmd.Parameters.AddWithValue("@Acc_JE_Party", dto.Acc_JE_Party);
-                    cmd.Parameters.AddWithValue("@Acc_JE_BillAmount", dto.Acc_JE_BillAmount);
-                    cmd.Parameters.AddWithValue("@Acc_JE_NetAmount", dto.Acc_JE_NetAmount);
-                    cmd.Parameters.AddWithValue("@Acc_JE_Status", dto.Acc_JE_Status);
-                    cmd.Parameters.AddWithValue("@Acc_JE_CompID", dto.Acc_JE_CompID);
-
-                    var out2 = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                    cmd.Parameters.Add(out2);
-
-                    await cmd.ExecuteNonQueryAsync();
-                    jeMasId = (int)(out2.Value ?? dto.Acc_JE_ID);
-                }
-
-                // === 4. Save Transaction Details ===
-                foreach (var t in model.TransactionDetailsList)
-                {
-                    using (var cmd = new SqlCommand("spAcc_JETransactions_Details", connection, transaction))
+                    // === 2. Save Upload Details ===
+                    using (var cmd = new SqlCommand("spAcc_TrailBalance_Upload_Details", connection, transaction))
                     {
                         cmd.CommandType = CommandType.StoredProcedure;
-                        cmd.Parameters.AddWithValue("@AJTB_ID", t.AJTB_ID);
-                        cmd.Parameters.AddWithValue("@AJTB_MasID", jeMasId);
-                        cmd.Parameters.AddWithValue("@AJTB_Debit", t.AJTB_Debit);
-                        cmd.Parameters.AddWithValue("@AJTB_Credit", t.AJTB_Credit);
-                        cmd.Parameters.AddWithValue("@AJTB_Status", t.AJTB_Status);
-                        cmd.Parameters.AddWithValue("@AJTB_CompID", t.AJTB_CompID);
+                        var dto = model.UploadDetails;
+
+                        cmd.Parameters.AddWithValue("@ATBUD_ID", dto.ATBUD_ID);
+                        cmd.Parameters.AddWithValue("@ATBUD_Masid", uploadId);
+                        cmd.Parameters.AddWithValue("@ATBUD_CODE", dto.ATBUD_CODE ?? string.Empty);
+                        cmd.Parameters.AddWithValue("@ATBUD_Description", dto.ATBUD_Description ?? string.Empty);
+                        cmd.Parameters.AddWithValue("@ATBUD_CustId", dto.ATBUD_CustId);
+                        cmd.Parameters.AddWithValue("@ATBUD_SChedule_Type", dto.ATBUD_SChedule_Type);
+                        cmd.Parameters.AddWithValue("@ATBUD_Branchid", dto.ATBUD_Branchid);
+                        cmd.Parameters.AddWithValue("@ATBUD_QuarterId", dto.ATBUD_QuarterId);
+                        cmd.Parameters.AddWithValue("@ATBUD_Company_Type", dto.ATBUD_Company_Type);
+                        cmd.Parameters.AddWithValue("@ATBUD_Headingid", dto.ATBUD_Headingid);
+                        cmd.Parameters.AddWithValue("@ATBUD_Subheading", dto.ATBUD_Subheading);
+                        cmd.Parameters.AddWithValue("@ATBUD_itemid", dto.ATBUD_itemid);
+                        cmd.Parameters.AddWithValue("@ATBUD_Subitemid", dto.ATBUD_Subitemid);
+                        cmd.Parameters.AddWithValue("@ATBUD_DELFLG", dto.ATBUD_DELFLG ?? string.Empty);
+                        cmd.Parameters.AddWithValue("@ATBUD_CRBY", dto.ATBUD_CRBY);
+                        cmd.Parameters.AddWithValue("@ATBUD_UPDATEDBY", dto.ATBUD_UPDATEDBY);
+                        cmd.Parameters.AddWithValue("@ATBUD_STATUS", dto.ATBUD_STATUS ?? string.Empty);
+                        cmd.Parameters.AddWithValue("@ATBUD_Progress", dto.ATBUD_Progress ?? string.Empty);
+                        cmd.Parameters.AddWithValue("@ATBUD_IPAddress", dto.ATBUD_IPAddress ?? string.Empty);
+                        cmd.Parameters.AddWithValue("@ATBUD_CompId", dto.ATBUD_CompId);
+                        cmd.Parameters.AddWithValue("@ATBUD_YEARId", dto.ATBUD_YEARId);
+
+                        // Output parameters
+                        var updateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
+                        { Direction = ParameterDirection.Output };
+                        cmd.Parameters.Add(updateOrSave);
+
+                        var oper = new SqlParameter("@iOper", SqlDbType.Int)
+                        { Direction = ParameterDirection.Output };
+                        cmd.Parameters.Add(oper);
 
                         await cmd.ExecuteNonQueryAsync();
-                    }
-                }
 
-                resultIds.Add(uploadId);
+                        // if you want output values
+                        var resultUpdateOrSave = (int)(updateOrSave.Value ?? 0);
+                        var resultOper = (int)(oper.Value ?? 0);
+                    }
+
+
+                    // === 3. Save Journal Entry ===
+                    using (var cmd = new SqlCommand("spAcc_JE_Master", connection, transaction))
+                    {
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        var dto = model.JournalEntry;
+
+                        cmd.Parameters.AddWithValue("@Acc_JE_ID", dto.Acc_JE_ID);
+                        cmd.Parameters.AddWithValue("@Acc_JE_TransactionNo", dto.Acc_JE_TransactionNo ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_Party", dto.Acc_JE_Party);
+                        cmd.Parameters.AddWithValue("@Acc_JE_Location", dto.Acc_JE_Location);
+                        cmd.Parameters.AddWithValue("@Acc_JE_BillType", dto.Acc_JE_BillType);
+                        cmd.Parameters.AddWithValue("@Acc_JE_BillNo", dto.Acc_JE_BillNo ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_BillDate", (object?)dto.Acc_JE_BillDate ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@Acc_JE_BillAmount", dto.Acc_JE_BillAmount);
+                        cmd.Parameters.AddWithValue("@Acc_JE_AdvanceAmount", dto.Acc_JE_AdvanceAmount);
+                        cmd.Parameters.AddWithValue("@Acc_JE_AdvanceNaration", dto.Acc_JE_AdvanceNaration ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_BalanceAmount", dto.Acc_JE_BalanceAmount);
+                        cmd.Parameters.AddWithValue("@Acc_JE_NetAmount", dto.Acc_JE_NetAmount);
+                        cmd.Parameters.AddWithValue("@Acc_JE_PaymentNarration", dto.Acc_JE_PaymentNarration ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_ChequeNo", dto.Acc_JE_ChequeNo ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_ChequeDate", (object?)dto.Acc_JE_ChequeDate ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@Acc_JE_IFSCCode", dto.Acc_JE_IFSCCode ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_BankName", dto.Acc_JE_BankName ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_BranchName", dto.Acc_JE_BranchName ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_CreatedBy", dto.Acc_JE_CreatedBy ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_UPDATEDBY", dto.Acc_JE_UPDATEDBY ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_YearID", dto.Acc_JE_YearID);
+                        cmd.Parameters.AddWithValue("@Acc_JE_CompID", dto.Acc_JE_CompID);
+                        cmd.Parameters.AddWithValue("@Acc_JE_Status", dto.Acc_JE_Status ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_Operation", dto.Acc_JE_Operation ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_IPAddress", dto.Acc_JE_IPAddress ?? "");
+                        cmd.Parameters.AddWithValue("@Acc_JE_BillCreatedDate", (object?)dto.Acc_JE_BillCreatedDate ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@Acc_JE_BranchId", dto.Acc_JE_BranchId);
+                        cmd.Parameters.AddWithValue("@Acc_JE_QuarterId", dto.Acc_JE_QuarterId);
+                        cmd.Parameters.AddWithValue("@Acc_JE_Comnments", dto.Acc_JE_Comnments ?? "");
+
+                        // Output params
+                        var updateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        var iOper = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        cmd.Parameters.Add(updateOrSave);
+                        cmd.Parameters.Add(iOper);
+
+                        await cmd.ExecuteNonQueryAsync();
+
+                        jeMasId = (int)(iOper.Value ?? dto.Acc_JE_ID);
+                    }
+
+
+                    // === 4. Save Transaction Details ===
+                    foreach (var t in model.TransactionDetailsList)
+                    {
+                        using (var cmd = new SqlCommand("spAcc_JETransactions_Details", connection, transaction))
+                        {
+                            cmd.CommandType = CommandType.StoredProcedure;
+
+                            cmd.Parameters.AddWithValue("@AJTB_ID", t.AJTB_ID);
+                            cmd.Parameters.AddWithValue("@AJTB_MasID", jeMasId);
+                            cmd.Parameters.AddWithValue("@AJTB_TranscNo", t.AJTB_TranscNo ?? "");
+                            cmd.Parameters.AddWithValue("@AJTB_CustId", t.AJTB_CustId);
+                            cmd.Parameters.AddWithValue("@AJTB_ScheduleTypeid", t.AJTB_ScheduleTypeid);
+                            cmd.Parameters.AddWithValue("@AJTB_Deschead", t.AJTB_Deschead ?? "");
+                            cmd.Parameters.AddWithValue("@AJTB_Desc", t.AJTB_Desc ?? "");
+                            cmd.Parameters.AddWithValue("@AJTB_Debit", t.AJTB_Debit);
+                            cmd.Parameters.AddWithValue("@AJTB_Credit", t.AJTB_Credit);
+                            cmd.Parameters.AddWithValue("@AJTB_CreatedBy", t.AJTB_CreatedBy ?? "");
+                            cmd.Parameters.AddWithValue("@AJTB_UpdatedBy", t.AJTB_UpdatedBy ?? "");
+                            cmd.Parameters.AddWithValue("@AJTB_Status", t.AJTB_Status ?? "");
+                            cmd.Parameters.AddWithValue("@AJTB_IPAddress", t.AJTB_IPAddress ?? "");
+                            cmd.Parameters.AddWithValue("@AJTB_CompID", t.AJTB_CompID);
+                            cmd.Parameters.AddWithValue("@AJTB_YearID", t.AJTB_YearID);
+                            cmd.Parameters.AddWithValue("@AJTB_BillType", t.AJTB_BillType);
+                            cmd.Parameters.AddWithValue("@AJTB_DescName", t.AJTB_DescName ?? "");
+                            cmd.Parameters.AddWithValue("@AJTB_BranchId", t.AJTB_BranchId);
+                            cmd.Parameters.AddWithValue("@AJTB_QuarterId", t.AJTB_QuarterId);
+
+                            // Output params
+                            var updateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            var iOper = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            cmd.Parameters.Add(updateOrSave);
+                            cmd.Parameters.Add(iOper);
+
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                    }
+
+
+                    resultIds.Add(uploadId);
             }
 
             transaction.Commit();

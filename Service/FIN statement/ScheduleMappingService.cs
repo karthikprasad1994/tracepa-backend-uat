@@ -348,7 +348,6 @@ ORDER BY ATBU_ID;";
 
         }
 
-
         //FreezeForPreviousDuration
         public async Task<int[]> FreezePreviousYearTrialBalanceAsync(FreezePreviousDurationRequestDto input)
         {

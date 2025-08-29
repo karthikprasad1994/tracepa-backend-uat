@@ -47,5 +47,7 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetGridViewAlias
         Task<IEnumerable<AliasDto>> LoadGridView1gridAsync(int CompId, int CustId, string lblText, int SelectedVal);
+        Task<CustomerDetailsDto> GetCustomerDetailsAsync(int custId, int compId);
+
     }
 }

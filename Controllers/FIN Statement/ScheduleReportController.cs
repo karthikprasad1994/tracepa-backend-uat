@@ -396,6 +396,30 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+        [HttpPost("SavePartner")]
+        public async Task<IActionResult> SaveCustomerStatutoryPartner([FromBody] StatutoryPartnerDto partnerDto)
+        {
+            var result = await _ScheduleReportService.SaveCustomerStatutoryPartnerAsync(partnerDto);
 
+            return Ok(new
+            {
+                Success = true,
+                UpdateOrSave = result.iUpdateOrSave,
+                Operation = result.iOper
+            });
+        }
+        [HttpPost("savestatutorydirector")]
+        public async Task<IActionResult> SaveCustomerStatutoryDirector([FromBody] StatutoryDirectorDto directorDto)
+        {
+         
+            var result = await _ScheduleReportService.SaveCustomerStatutoryDirectorAsync(directorDto);
+
+            return Ok(new
+            {
+                Success = true,
+                iUpdateOrSave = result.iUpdateOrSave,
+                iOper = result.iOper
+            });
+        }
     }
 }

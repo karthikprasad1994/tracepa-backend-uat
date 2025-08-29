@@ -604,5 +604,15 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+        [HttpGet("get-customer-details")]
+        public async Task<IActionResult> GetCustomerDetails(int custId, int compId)
+        {
+            var customer = await _ScheduleFormatService.GetCustomerDetailsAsync(custId, compId);
+
+            if (customer == null)
+                return NotFound("Customer not found.");
+
+            return Ok(customer);
+        }
     }
 }
