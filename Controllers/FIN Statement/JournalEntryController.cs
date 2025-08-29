@@ -367,6 +367,17 @@ namespace TracePca.Controllers.FIN_Statement
             var result = await _JournalEntryService.LoadTransactionDetailsAsync(companyId, yearId, custId, jeId, branchId, durationId);
             return Ok(result);
         }
-
+        [HttpPost("saveJEType")]
+        public async Task<IActionResult> SaveOrUpdate([FromBody] AdminMasterDto dto)
+        {
+            var result = await _JournalEntryService.SaveOrUpdateAsync(dto);
+            return Ok(new
+            {
+                UpdateOrSave = result.UpdateOrSave,
+                Oper = result.Oper,
+                FinalId = result.FinalId,
+                FinalCode = result.FinalCode
+            });
+        }
     }
 }

@@ -36,6 +36,7 @@ namespace TracePca.Interface.FIN_Statement
         Task<int> ApproveJournalEntriesAsync(ApproveRequestDto dto);
         Task<JERecordDto?> GetJERecordAsync(int jeId, int compId);
         Task<List<TransactionDetailDto>> LoadTransactionDetailsAsync(int companyId, int yearId, int custId, int jeId, int branchId, int durationId);
+        Task<(int UpdateOrSave, int Oper, int FinalId, string FinalCode)> SaveOrUpdateAsync(AdminMasterDto dto);
 
     }
 }

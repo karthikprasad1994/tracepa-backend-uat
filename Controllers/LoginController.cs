@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using NETCore.MailKit.Core;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
 using TracePca.Dto.Authentication;
+using TracePca.Dto.Email;
 using TracePca.Interface;
 using TracePca.Models;
 using TracePca.Models.CustomerRegistration;
@@ -17,11 +19,12 @@ namespace TracePca.Controllers
     public class LoginController : ControllerBase
     {
         private LoginInterface _LoginInterface;
+        private readonly EmailInterface _emailService;
         //private  IHttpContextAccessor _httpContextAccessor;
-        public LoginController(LoginInterface LoginInterface)
+        public LoginController(LoginInterface LoginInterface, EmailInterface emailService)
         {
             _LoginInterface = LoginInterface;
-
+            _emailService = emailService;
         }
         // GET: api/<LoginController>
         [HttpGet("get-users")]
@@ -32,39 +35,59 @@ namespace TracePca.Controllers
         }
 
 
+        //[HttpPost("sendOtp")]
+        //public async Task<IActionResult> SendOtp([FromBody] OtpReqDto request)
+        //{
+        //    if (string.IsNullOrEmpty(request.Email))
+        //    {
+        //        return BadRequest(new OtpResponseDto
+        //        {
+        //            StatusCode = 400,
+        //            Message = "Email cannot be empty."
+        //        });
+        //    }
+
+        //    var (success, message, otpToken) = await _LoginInterface.GenerateAndSendOtpJwtAsync(request.Email);
+
+        //    if (!success)
+        //    {
+        //        return Conflict(new OtpResponseDto
+        //        {
+        //            StatusCode = 409,
+        //            Message = message,
+        //            Token = null,
+        //            Otp = null
+        //        });
+        //    }
+
+        //    return Ok(new OtpResponseDto
+        //    {
+        //        StatusCode = 200,
+        //        Message = message,
+        //        Token = otpToken,
+        //        Otp = null // You can include OTP here only if needed
+        //    });
+        //}
+
+
         [HttpPost("sendOtp")]
         public async Task<IActionResult> SendOtp([FromBody] OtpReqDto request)
         {
-            if (string.IsNullOrEmpty(request.Email))
-            {
-                return BadRequest(new OtpResponseDto
-                {
-                    StatusCode = 400,
-                    Message = "Email cannot be empty."
-                });
-            }
+            // Validate request, generate OTP, etc.
 
-            var (success, message, otpToken) = await _LoginInterface.GenerateAndSendOtpJwtAsync(request.Email);
-
-            if (!success)
+            var dto = new CommonEmailDto
             {
-                return Conflict(new OtpResponseDto
-                {
-                    StatusCode = 409,
-                    Message = message,
-                    Token = null,
-                    Otp = null
-                });
-            }
+                ToEmails = new List<string> { request.Email },
+                EmailType = "OTP",
+                Parameters = new Dictionary<string, string> { { "OTP", "123456" } }
+            };
 
-            return Ok(new OtpResponseDto
-            {
-                StatusCode = 200,
-                Message = message,
-                Token = otpToken,
-                Otp = null // You can include OTP here only if needed
-            });
+            await _emailService.SendCommonEmailAsync(dto);
+
+            return Ok(new { Message = "OTP sent successfully" });
         }
+    
+
 
 
         //[HttpPost("sendOtp")]
@@ -94,7 +117,7 @@ namespace TracePca.Controllers
 
 
 
-        
+
         [HttpPost("VerifyOtp")]
             public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpReqDto request)
             {

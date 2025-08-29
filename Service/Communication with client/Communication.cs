@@ -7,6 +7,7 @@ using Azure.Core;
 using Dapper;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing.Diagrams;
+using DocumentFormat.OpenXml.Office2010.Word;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using DocumentFormat.OpenXml.Office2016.Excel;
 using DocumentFormat.OpenXml.Packaging;
@@ -19,6 +20,7 @@ using MailKit.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Playwright;
 using MimeKit;
 using MimeKit.Utils;
 using OfficeOpenXml.Table.PivotTable;
@@ -30,11 +32,15 @@ using QuestPDF.Infrastructure;
 using TracePca.Data;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
+using TracePca.Dto.Email;
+using TracePca.Interface;
 using TracePca.Interface.Audit;
+using TracePca.Models;
 using TracePca.Models;
 using TracePca.Models.UserModels;
 using Xceed.Document.NET;
 using Xceed.Words.NET;
+using Alignment = Xceed.Document.NET.Alignment;
 //using static Org.BouncyCastle.Math.EC.ECCurve;
 
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
@@ -53,11 +59,13 @@ using WorkpaperDto = TracePca.Dto.Audit.WorkpaperDto;
 
 
 
+
 using TracePca.Models;
 using DocumentFormat.OpenXml.Office2010.Word;
 using Microsoft.Playwright;
-using Alignment = Xceed.Document.NET.Alignment;
+//using Alignment = Xceed.Document.NET.Alignment;
 using Org.BouncyCastle.Asn1.Crmf;
+
 
 
 
@@ -81,16 +89,17 @@ namespace TracePca.Service.Communication_with_client
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IWebHostEnvironment _env;
         private readonly DbConnectionProvider _dbConnectionProvider;
+        private readonly EmailInterface _emailInterface;
 
 
-
-        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider)
+        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider, EmailInterface emailinterface)
         {
 
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
             _env = env;
             _dbConnectionProvider = dbConnectionProvider;
+            _emailInterface = emailinterface;
 
         }
 
@@ -565,7 +574,7 @@ WHERE LOET_CustomerId = @CustomerId
             var audRptType = await connection.ExecuteScalarAsync<int>(auditTypeQuery, new { AuditNo = auditNo });
 
 
-           var FremWorkId = await GetAuditFrameworkIdAsync(Convert.ToInt32(auditNo), companyId);
+            var FremWorkId = await GetAuditFrameworkIdAsync(Convert.ToInt32(auditNo), companyId);
 
             // Step 2: Get Report Types
             var sql = @"
@@ -2689,7 +2698,8 @@ SELECT
         WHEN Atch_Vstatus = 'A' THEN 'Shared'
         WHEN Atch_Vstatus = 'C' THEN 'Received'
         WHEN Atch_Vstatus = 'DS' THEN 'Received'
-    END AS Atch_Vstatus
+    END AS Atch_Vstatus,
+ATCH_AttachmentStatus as AttchStatus
 FROM edt_attachments
 LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ATCH_ReportType
 WHERE ATCH_CompID = @CompanyId 
@@ -2735,7 +2745,8 @@ ORDER BY Atch_DocID desc";
                     FileSize = $"{(Convert.ToDouble(row.ATCH_SIZE) / 1024):0.00} KB",
                     Extention = row.ATCH_EXT?.ToString(),
                     Type = row.ATCH_ReportType?.ToString(),
-                    Status = row.Atch_Vstatus?.ToString()
+                    Status = row.Atch_Vstatus?.ToString(),
+                    AttchStatus = row.AttchStatus?.ToString()
                 });
             }
 
@@ -4260,123 +4271,123 @@ ORDER BY RCM_Id";
         }
 
 
-    //    public byte[] GenerateWordByFormName(
-    //string formName,
-    //string title,
-    //List<LOEHeadingDto> headings,
-    //int reportTypeId,
-    //int loeTemplateId,
-    //int customerId)
-    //    {
-    //        string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-    //        if (string.IsNullOrEmpty(dbName))
-    //            throw new Exception("CustomerCode is missing in session. Please log in again.");
+        //    public byte[] GenerateWordByFormName(
+        //string formName,
+        //string title,
+        //List<LOEHeadingDto> headings,
+        //int reportTypeId,
+        //int loeTemplateId,
+        //int customerId)
+        //    {
+        //        string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //        if (string.IsNullOrEmpty(dbName))
+        //            throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-    //        var connectionString = _configuration.GetConnectionString(dbName);
+        //        var connectionString = _configuration.GetConnectionString(dbName);
 
-    //        using var connection = new SqlConnection(connectionString);
+        //        using var connection = new SqlConnection(connectionString);
 
-    //        // Fetch header data (same as your PDF)
-    //        var reportName = connection.QueryFirstOrDefault<string>(@"
-    //    SELECT RTM_ReportTypeName FROM SAD_ReportTypeMaster WHERE RTM_Id = @ReportTypeId",
-    //            new { ReportTypeId = reportTypeId });
+        //        // Fetch header data (same as your PDF)
+        //        var reportName = connection.QueryFirstOrDefault<string>(@"
+        //    SELECT RTM_ReportTypeName FROM SAD_ReportTypeMaster WHERE RTM_Id = @ReportTypeId",
+        //            new { ReportTypeId = reportTypeId });
 
-    //        var auditName = connection.QueryFirstOrDefault<string>(@"
-    //    SELECT SA_AuditNo FROM StandardAudit_Schedule WHERE SA_ID = @AuditId",
-    //            new { AuditId = loeTemplateId });
+        //        var auditName = connection.QueryFirstOrDefault<string>(@"
+        //    SELECT SA_AuditNo FROM StandardAudit_Schedule WHERE SA_ID = @AuditId",
+        //            new { AuditId = loeTemplateId });
 
-    //        var customerName = connection.QueryFirstOrDefault<string>(@"
-    //    SELECT CUST_Name FROM SAD_Customer_Master WHERE CUST_ID = @Id",
-    //            new { Id = customerId });
+        //        var customerName = connection.QueryFirstOrDefault<string>(@"
+        //    SELECT CUST_Name FROM SAD_Customer_Master WHERE CUST_ID = @Id",
+        //            new { Id = customerId });
 
-    //        using var ms = new MemoryStream();
+        //        using var ms = new MemoryStream();
 
-    //        // Create a Word document using Xceed.Words.NET
-    //        using var document = Xceed.Words.NET.DocX.Create(ms);
+        //        // Create a Word document using Xceed.Words.NET
+        //        using var document = Xceed.Words.NET.DocX.Create(ms);
 
-    //        // Title
-    //        document.InsertParagraph(reportName ?? "Report")
-    //                .FontSize(16)
-    //                .Bold()
-    //                .Alignment = Alignment.center;
+        //        // Title
+        //        document.InsertParagraph(reportName ?? "Report")
+        //                .FontSize(16)
+        //                .Bold()
+        //                .Alignment = Alignment.center;
 
-    //        document.InsertParagraph(); // empty line
+        //        document.InsertParagraph(); // empty line
 
-    //        // Info Block
-    //        var infoTable = document.AddTable(3, 2);
-    //        infoTable.Design = TableDesign.LightListAccent1;                   // preferred (requires: using Xceed.Document.NET;)
+        //        // Info Block
+        //        var infoTable = document.AddTable(3, 2);
+        //        infoTable.Design = TableDesign.LightListAccent1;                   // preferred (requires: using Xceed.Document.NET;)
 
-    //        infoTable.Rows[0].Cells[0].Paragraphs[0].Append("Client:").Bold();
-    //        infoTable.Rows[0].Cells[1].Paragraphs[0].Append(customerName ?? "N/A");
+        //        infoTable.Rows[0].Cells[0].Paragraphs[0].Append("Client:").Bold();
+        //        infoTable.Rows[0].Cells[1].Paragraphs[0].Append(customerName ?? "N/A");
 
-    //        infoTable.Rows[1].Cells[0].Paragraphs[0].Append("Audit No:").Bold();
-    //        infoTable.Rows[1].Cells[1].Paragraphs[0].Append(auditName ?? "N/A");
+        //        infoTable.Rows[1].Cells[0].Paragraphs[0].Append("Audit No:").Bold();
+        //        infoTable.Rows[1].Cells[1].Paragraphs[0].Append(auditName ?? "N/A");
 
-    //        infoTable.Rows[2].Cells[0].Paragraphs[0].Append("Date:").Bold();
-    //        infoTable.Rows[2].Cells[1].Paragraphs[0].Append(DateTime.Now.ToString("dd-MMM-yy"));
+        //        infoTable.Rows[2].Cells[0].Paragraphs[0].Append("Date:").Bold();
+        //        infoTable.Rows[2].Cells[1].Paragraphs[0].Append(DateTime.Now.ToString("dd-MMM-yy"));
 
-    //        document.InsertTable(infoTable);
-    //        document.InsertParagraph();
+        //        document.InsertTable(infoTable);
+        //        document.InsertParagraph();
 
-    //        // Loop through headings (like PDF)
-    //        for (int i = 0; i < headings.Count; i++)
-    //        {
-    //            var heading = headings[i];
+        //        // Loop through headings (like PDF)
+        //        for (int i = 0; i < headings.Count; i++)
+        //        {
+        //            var heading = headings[i];
 
-    //            // Heading Title
-    //            document.InsertParagraph((heading.LOEHeading ?? "N/A")
-    //                .Replace("\r", "").Replace("\n", " "))
-    //                .Bold()
-    //                .FontSize(12)
-    //                .SpacingAfter(5);
+        //            // Heading Title
+        //            document.InsertParagraph((heading.LOEHeading ?? "N/A")
+        //                .Replace("\r", "").Replace("\n", " "))
+        //                .Bold()
+        //                .FontSize(12)
+        //                .SpacingAfter(5);
 
-    //            // Description
-    //            if (!string.IsNullOrWhiteSpace(heading.LOEDesc))
-    //            {
-    //                var lines = heading.LOEDesc.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
-    //                foreach (var line in lines)
-    //                {
-    //                    document.InsertParagraph(line.Trim())
-    //                            .FontSize(11)
-    //                            .SpacingAfter(2);
-    //                }
-    //            }
-    //            else
-    //            {
-    //                document.InsertParagraph("No description available.")
-    //                        .Italic()
-    //                        .FontSize(11);
-    //            }
+        //            // Description
+        //            if (!string.IsNullOrWhiteSpace(heading.LOEDesc))
+        //            {
+        //                var lines = heading.LOEDesc.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        //                foreach (var line in lines)
+        //                {
+        //                    document.InsertParagraph(line.Trim())
+        //                            .FontSize(11)
+        //                            .SpacingAfter(2);
+        //                }
+        //            }
+        //            else
+        //            {
+        //                document.InsertParagraph("No description available.")
+        //                        .Italic()
+        //                        .FontSize(11);
+        //            }
 
-    //            // Divider (except after last heading)
-    //            // Divider (except after last heading)
-    //            if (i != headings.Count - 1)
-    //            {
-    //                // Option: insert a thin divider line using underscores (visual HR)
-    //                document.InsertParagraph(new string('_', 80))
-    //                        .SpacingBefore(5)
-    //                        .SpacingAfter(5);
-    //            }
-
-
-    //            document.InsertParagraph(); // Ending space
-
-    //            // Footer (simple text footer)
-    //            // Enable different footer for first page
-    //            document.AddFooters();
-    //            document.DifferentFirstPage = true;
-
-    //            // Footer for the first page
-    //            var footer = document.Footers.First;
-    //            footer.InsertParagraph($"Generated on {DateTime.Now:dd-MMM-yyyy HH:mm}")
-    //                  .FontSize(9)
-    //                  .Alignment = Alignment.center;
+        //            // Divider (except after last heading)
+        //            // Divider (except after last heading)
+        //            if (i != headings.Count - 1)
+        //            {
+        //                // Option: insert a thin divider line using underscores (visual HR)
+        //                document.InsertParagraph(new string('_', 80))
+        //                        .SpacingBefore(5)
+        //                        .SpacingAfter(5);
+        //            }
 
 
-    //            document.Save();
-    //            return ms.ToArray();
-    //        }
-    //    }
+        //            document.InsertParagraph(); // Ending space
+
+        //            // Footer (simple text footer)
+        //            // Enable different footer for first page
+        //            document.AddFooters();
+        //            document.DifferentFirstPage = true;
+
+        //            // Footer for the first page
+        //            var footer = document.Footers.First;
+        //            footer.InsertParagraph($"Generated on {DateTime.Now:dd-MMM-yyyy HH:mm}")
+        //                  .FontSize(9)
+        //                  .Alignment = Alignment.center;
+
+
+        //            document.Save();
+        //            return ms.ToArray();
+        //        }
+        //    }
 
 
 
@@ -5639,7 +5650,7 @@ VALUES (
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-           
+
 
             int iBA = await GetDRLBeginningoftheAuditIDAsync(compId);
             int iCA = await GetDRLNearingCompletionoftheAuditIDAsync(compId);
@@ -6404,7 +6415,7 @@ WHERE SA_ID = @AuditId";
 
 
 
-           // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             //await connection.OpenAsync();
 
             var result = await connection.QueryFirstOrDefaultAsync(query, new { AuditId = req.AuditNo });
@@ -6415,18 +6426,40 @@ WHERE SA_ID = @AuditId";
             }
 
 
-            if (req.SendeMailFlag == 1)
+            if (req.SendeMailFlag == 1 || req.SendeMailFlag == 3)
             {
-                NewSendAuditLifecycleEmailAsync(req.EmailIds, req.AuditNo, AuditName, req.Comments);
+                var dto = new CommonEmailDto
+                {
+                    ToEmails = req.EmailIds,   // list of recipients
+                    EmailType = "AuditLifecycle",
+                    Parameters = new Dictionary<string, string>
+        {
+            { "AuditNo", req.AuditNo.ToString() },
+            { "AuditName", AuditName },
+            { "Remarks", req.Comments }
+        }
+                };
+
+                await _emailInterface.SendCommonEmailAsync(dto);
             }
             else if (req.SendeMailFlag == 2)
             {
-                DuringSendDuringAuditEmailAsync(req.EmailIds, req.AuditNo, req.ReportType, req.RequestedOn, req.Comments);
+                var dto = new CommonEmailDto
+                {
+                    ToEmails = req.EmailIds,
+                    EmailType = "DuringAudit",
+                    Parameters = new Dictionary<string, string>
+        {
+            { "AuditNo", req.AuditNo.ToString() },
+            { "ReportType", req.ReportType.ToString() },
+            { "RequestedOn", req.RequestedOn }, // format if needed
+            { "Remarks", req.Comments }
+        }
+                };
+
+                await _emailInterface.SendCommonEmailAsync(dto);
             }
-            else if (req.SendeMailFlag == 3)
-            {
-                NewSendAuditLifecycleEmailAsync(req.EmailIds, req.AuditNo, AuditName, req.Comments);
-            }
+
 
             string Emails = string.Join(",", req.EmailIds);
 
@@ -6541,7 +6574,7 @@ WHERE SA_ID = @AuditId";
             });
 
         }
-        public async Task<bool> UpdateAuditOpinionDetailsAsync(int AuditNo,int custId ,int compid)
+        public async Task<bool> UpdateAuditOpinionDetailsAsync(int AuditNo, int custId, int compid)
         {
             try
             {
@@ -7001,8 +7034,37 @@ WHERE SA_ID = @AuditId";
             return Convert.ToInt32(result);
         }
 
+        public async Task<bool> UpdateAttachmentStatusAsync(UpdateAttachmentStatusDto dto)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            string baseConnectionString = _configuration.GetConnectionString(dbName);
+            string connectionString = string.Format(baseConnectionString, dbName);
 
 
+            using (var conn = new SqlConnection(connectionString))
+            {
+                await conn.OpenAsync();
+
+                var query = @"UPDATE EDT_Attachments 
+                          SET ATCH_AttachmentStatus = @Status 
+                          WHERE ATCH_DOCID = @DocId AND ATCH_CompID = @CompId";
+
+                using (var cmd = new SqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Status", dto.Status);
+                    cmd.Parameters.AddWithValue("@DocId", dto.DocId);
+                    cmd.Parameters.AddWithValue("@CompId", dto.CompId);
+
+                    int rowsAffected = await cmd.ExecuteNonQueryAsync();
+                    return rowsAffected > 0;
+                }
+            }
+
+        }
     }
 }
 

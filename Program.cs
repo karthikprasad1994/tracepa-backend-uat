@@ -205,6 +205,7 @@ builder.Services.AddScoped<ErrorLoggerInterface, ErrorLoggerService>();
 builder.Services.AddScoped<ApplicationMetricInterface, ApplicationMetric>();
 builder.Services.AddScoped<ErrorLogInterface, TracePca.Service.Master.ErrorLog>();
 builder.Services.AddScoped<PerformanceInterface, PerformanceService>();
+builder.Services.AddScoped<EmailInterface, EmailService>();
 
 
 builder.Services.AddScoped<ApiPerformanceTracker>();
@@ -283,9 +284,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnTokenValidated = async context =>
             {
                 var claimsIdentity = context.Principal?.Identity as ClaimsIdentity;
-                var token = claimsIdentity?.FindFirst("access_token")?.Value;
+               // var token = claimsIdentity?.FindFirst("access_token")?.Value;
+                var tokenId = claimsIdentity?.FindFirst("TokenId")?.Value;
 
-                if (string.IsNullOrEmpty(token))
+                if (string.IsNullOrEmpty(tokenId))
                 {
                     context.Fail("Token is missing.");
                     return;
@@ -297,8 +299,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 
                 var isRevoked = await db.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(1) FROM UserTokens WHERE AccessToken = @AccessToken AND IsRevoked = 1",
-                    new { AccessToken = token });
+                     "SELECT COUNT(1) FROM UserTokens WHERE Id = @TokenId AND IsRevoked = 1",
+                    new { AccessToken = tokenId });
 
                 if (isRevoked > 0)
                 {
