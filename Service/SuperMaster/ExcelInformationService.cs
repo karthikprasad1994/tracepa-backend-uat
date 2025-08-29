@@ -459,12 +459,7 @@ namespace TracePca.Service.SuperMaster
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
- 
-=======
->>>>>>> 8d1a98f9674450c6430b31dfce3183638f3ba424
+
     //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
     //    {
     //        if (file == null || file.Length == 0)
@@ -477,7 +472,6 @@ namespace TracePca.Service.SuperMaster
         //    if (file == null || file.Length == 0)
         //        throw new Exception("No file uploaded.");
 
->>>>>>> 669b6769bf9030f8240a88aa57afdd8c19c2da7e
             var connectionString = _configuration.GetConnectionString(dbName);
 
             // ✅ Parse Excel
