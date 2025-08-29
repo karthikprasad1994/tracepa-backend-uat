@@ -834,26 +834,26 @@ new { email = plainEmail });
       new { email = plainEmail });
 
                 // Step 5: Check if user already logged in on another system
-                var existingToken = await connection.QueryFirstOrDefaultAsync<string>(
-                    @"SELECT AccessToken 
-                   FROM UserTokens 
-           WHERE UserId = @UserId AND IsRevoked = 0
-           AND RefreshTokenExpiry > GETUTCDATE()", // still valid
+           //     var existingToken = await connection.QueryFirstOrDefaultAsync<string>(
+           //         @"SELECT AccessToken 
+           //        FROM UserTokens 
+           //WHERE UserId = @UserId AND IsRevoked = 0
+           //AND RefreshTokenExpiry > GETUTCDATE()", // still valid
 
 
 
-                    new { UserId = userId });
+                    //new { UserId = userId });
 
-                if (!string.IsNullOrEmpty(existingToken))
-                {
-                    return new LoginResponse
-                    {
-                        StatusCode = 409, // Conflict
-                        Message = "User already logged in from another system.",
-                        UsrId = userId,
+                //if (!string.IsNullOrEmpty(existingToken))
+                //{
+                //    return new LoginResponse
+                //    {
+                //        StatusCode = 409, // Conflict
+                //        Message = "User already logged in from another system.",
+                //        UsrId = userId,
 
-                    };
-                }
+                //    };
+                //}
 
 
 
