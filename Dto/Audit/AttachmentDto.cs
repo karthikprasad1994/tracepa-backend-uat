@@ -21,6 +21,8 @@
         public string Status { get; set; }
 
         public int? ReportType { get; set; }
+
+        public string AttchStatus { get; set; }
     }
     public class GetDocumentPathRequestDto
     {

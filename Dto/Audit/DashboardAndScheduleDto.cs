@@ -502,5 +502,11 @@ namespace TracePca.Dto.Audit
         public int LoeAuditFrameworkId { get; set; }
     }
 
+    public class UpdateAttachmentStatusDto
+    {
+        public int DocId { get; set; }
+        public int CompId { get; set; }
+        public string? Status { get; set; } 
+    }
 
 }

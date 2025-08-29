@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using OfficeOpenXml.Table.PivotTable;
+using OpenAI.Interfaces;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
@@ -1599,7 +1600,17 @@ namespace TracePca.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+        [HttpPost("update-AtchStatus")]
+        public async Task<IActionResult> UpdateAttachmentStatus(UpdateAttachmentStatusDto dto)
+        {
 
+            var result = await _AuditInterface.UpdateAttachmentStatusAsync(dto);
+
+            if (!result)
+                return NotFound("No record updated. Please check DocId and CompId.");
+
+            return Ok("Attachment status updated successfully.");
+        }
     }
 
 }
