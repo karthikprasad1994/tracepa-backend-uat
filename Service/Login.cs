@@ -834,31 +834,33 @@ new { email = plainEmail });
       new { email = plainEmail });
 
                 // Step 5: Check if user already logged in on another system
-                var existingToken = await connection.QueryFirstOrDefaultAsync<string>(
-                    @"SELECT AccessToken 
-                   FROM UserTokens 
-           WHERE UserId = @UserId AND IsRevoked = 0
-           AND RefreshTokenExpiry > GETUTCDATE()", // still valid
+           //     var existingToken = await connection.QueryFirstOrDefaultAsync<string>(
+           //         @"SELECT AccessToken 
+           //        FROM UserTokens 
+           //WHERE UserId = @UserId AND IsRevoked = 0
+           //AND RefreshTokenExpiry > GETUTCDATE()", // still valid
 
 
 
-                    new { UserId = userId });
+                    //new { UserId = userId });
 
-                if (!string.IsNullOrEmpty(existingToken))
-                {
-                    return new LoginResponse
-                    {
-                        StatusCode = 409, // Conflict
-                        Message = "User already logged in from another system.",
-                        UsrId = userId,
+                //if (!string.IsNullOrEmpty(existingToken))
+                //{
+                //    return new LoginResponse
+                //    {
+                //        StatusCode = 409, // Conflict
+                //        Message = "User already logged in from another system.",
+                //        UsrId = userId,
 
-                    };
-                }
+                //    };
+                //}
 
 
 
 
                 // Step 6: Generate JWT
+
+
                 string accessToken = GenerateJwtToken(email, customerCode, userId);
                 string refreshToken = Guid.NewGuid().ToString(); // Use JWT if you want, but GUID is fine too
                 DateTime accessExpiry = DateTime.UtcNow.AddMinutes(15);  // Match with JWT 'exp'
@@ -931,33 +933,78 @@ new { email = plainEmail });
 
 
 
+
+        //public async Task<bool> LogoutUserAsync(string accessToken)
+        //{
+        //    const string query = @"
+        //UPDATE UserTokens
+        //SET IsRevoked = 1,
+        //    RevokedAt = GETUTCDATE()
+        //WHERE AccessToken = @AccessToken 
+        //  AND IsRevoked = 0";
+
+        //    // ✅ Step 1: Get CustomerCode from Session
+        //    string customerCode = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //    if (string.IsNullOrEmpty(customerCode))
+        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //    // ✅ Step 2: Build customer-specific connection string
+        //    string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+        //    string customerDbConnection = string.Format(connectionStringTemplate, customerCode);
+
+        //    // ✅ Step 3: Run logout query
+        //    using var connection = new SqlConnection(customerDbConnection);
+        //    await connection.OpenAsync();
+
+        //    var rowsAffected = await connection.ExecuteAsync(query, new { AccessToken = accessToken });
+
+        //    return rowsAffected > 0;
+        //}
         public async Task<bool> LogoutUserAsync(string accessToken)
         {
             const string query = @"
-        UPDATE UserTokens
-        SET IsRevoked = 1,
-            RevokedAt = GETUTCDATE()
-        WHERE AccessToken = @AccessToken 
-          AND IsRevoked = 0";
+    UPDATE UserTokens
+    SET IsRevoked = 1,
+        RevokedAt = GETUTCDATE()
+    WHERE AccessToken = @AccessToken 
+      AND IsRevoked = 0";
 
             // ✅ Step 1: Get CustomerCode from Session
-            string customerCode = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext == null)
+                throw new InvalidOperationException("HttpContext is not available.");
 
-            if (string.IsNullOrEmpty(customerCode))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            string? customerCode = httpContext.Session.GetString("CustomerCode");
+            if (string.IsNullOrWhiteSpace(customerCode))
+                throw new InvalidOperationException("CustomerCode is missing in session. Please log in again.");
 
             // ✅ Step 2: Build customer-specific connection string
-            string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+            string? connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+            if (string.IsNullOrWhiteSpace(connectionStringTemplate))
+                throw new InvalidOperationException("NewDatabaseTemplate connection string is missing in configuration.");
+
             string customerDbConnection = string.Format(connectionStringTemplate, customerCode);
 
             // ✅ Step 3: Run logout query
-            using var connection = new SqlConnection(customerDbConnection);
+            await using var connection = new SqlConnection(customerDbConnection);
             await connection.OpenAsync();
 
-            var rowsAffected = await connection.ExecuteAsync(query, new { AccessToken = accessToken });
+            int rowsAffected;
+            try
+            {
+                rowsAffected = await connection.ExecuteAsync(query, new { AccessToken = accessToken });
+            }
+            catch (Exception ex)
+            {
+                // 🔎 Helps you debug why SQL didn't run
+                Console.WriteLine($"[LogoutUserAsync] SQL Error: {ex.Message}");
+                throw;
+            }
 
             return rowsAffected > 0;
         }
+
 
 
 

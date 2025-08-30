@@ -33,7 +33,7 @@ namespace TracePca.Service
                 <p>Dear User,</p>
                 <p>Your OTP code for verification is: <strong>{dto.Parameters["OTP"]}</strong></p>
                 <p>This OTP is valid for 10 minutes.</p>
-                <p>Best Regards,<br>Your Company Support Team</p>
+                <p>Best Regards,<br>Trace Pa Team</p>
             </body></html>";
                     break;
 
