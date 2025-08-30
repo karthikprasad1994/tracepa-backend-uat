@@ -1391,8 +1391,8 @@ namespace TracePca.Service.Audit
                         page.Content().Column(column =>
                         {
                             column.Item().AlignCenter().PaddingBottom(10).Text("Letter of Engagement").FontSize(16).Bold();
-                            column.Item().Text($"Ref.No.: {dtoEP.EngagementPlanNo}").FontSize(12).Bold();
-                            column.Item().Text($"Date: {dtoEP.CurrentDate:dd MMM yyyy}").FontSize(10);
+                            column.Item().PaddingBottom(5).Text($"Ref.No.: {dtoEP.EngagementPlanNo}").FontSize(12).Bold();
+                            column.Item().PaddingBottom(5).Text($"Date: {dtoEP.CurrentDate:dd MMM yyyy}").FontSize(10);
                             column.Item().PaddingBottom(10).Text(dtoEP.Customer ?? "N/A").FontSize(10);
 
 
@@ -2357,7 +2357,7 @@ namespace TracePca.Service.Audit
 
         public string GetTRACeConfigValue(string key)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            using (var connection = new SqlConnection(_connectionString))
             {
                 var query = "SELECT SAD_Config_Value FROM [dbo].[Sad_Config_Settings] WHERE SAD_Config_Key = @Key";
                 return connection.QueryFirstOrDefault<string>(query, new { Key = key });

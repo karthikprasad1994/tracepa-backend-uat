@@ -63,6 +63,7 @@ namespace TracePca.Interface.Audit
 
             Task<LoeAuditFrameworkResponse> GetLoeAuditFrameworkIdAsync(LoeAuditFrameworkRequest request);
 
+        Task<AuditStatusDto> GetAuditCompStatusAsync(int compId, int saId);
 
 
     }

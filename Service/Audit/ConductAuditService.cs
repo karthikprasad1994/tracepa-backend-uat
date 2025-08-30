@@ -786,7 +786,7 @@ namespace TracePca.Service.Audit
         
         public string GetTRACeConfigValue(string key)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            using (var connection = new SqlConnection(_connectionString))
             {
                 var query = "SELECT SAD_Config_Value FROM [dbo].[Sad_Config_Settings] WHERE SAD_Config_Key = @Key";
                 return connection.QueryFirstOrDefault<string>(query, new { Key = key });

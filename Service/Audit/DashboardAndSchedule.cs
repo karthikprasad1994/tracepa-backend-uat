@@ -2353,7 +2353,32 @@ ORDER BY SrNo";
                 };
             }
         }
-       
+        public async Task<AuditStatusDto> GetAuditCompStatusAsync(int compId, int saId)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Build full connection string using appsettings pattern
+            string baseConnectionString = _configuration.GetConnectionString(dbName);
+            string connectionString = string.Format(baseConnectionString, dbName);
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                string query = @"SELECT SA_Status 
+                             FROM StandardAudit_Schedule 
+                             WHERE SA_ID = @SA_ID AND SA_CompID = @CompID";
+
+                var result = await connection.QueryFirstOrDefaultAsync<AuditStatusDto>(query, new
+                {
+                    SA_ID = saId,
+                    CompID = compId
+                });
+
+                return result ?? new AuditStatusDto { SA_Status = "Not Found" };
+            }
+        }
 
     }
 }
