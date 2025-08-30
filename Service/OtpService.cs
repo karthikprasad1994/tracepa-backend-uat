@@ -33,32 +33,32 @@ public class OtpService
     public string GenerateOtpCode()
     {
         using var rng = RandomNumberGenerator.Create();
-        var bytes = new byte[6]; // 6 bytes gives a bigger random space
+        var bytes = new byte[4]; // 4 bytes for Int32
         rng.GetBytes(bytes);
 
-        // Convert to a large positive number
-        long value = BitConverter.ToInt64(bytes, 0) & long.MaxValue;
+        int value = BitConverter.ToInt32(bytes, 0) & int.MaxValue; // positive int
+        int otp = value % 1000000; // 6-digit
 
-        // Restrict to 6-digit OTP
-        int otp = (int)(value % 1000000);
-
-        return otp.ToString("D6"); // always 6 digits (with leading zeros if needed)
+        return otp.ToString("D6");
     }
 
 
 
-    public async Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email)
+
+    public async Task<(bool Success, string Message, string? OtpToken, int StatusCode)> GenerateAndSendOtpJwtAsync(string email)
     {
         using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
         await connection.OpenAsync();
 
         var existingUser = await connection.QueryFirstOrDefaultAsync<string>(
-            @"SELECT MCR_CustomerEmail FROM MMCS_CustomerRegistration WHERE LOWER(MCR_CustomerEmail) = LOWER(@Email)",
+            @"SELECT MCR_CustomerEmail
+          FROM MMCS_CustomerRegistration 
+          WHERE LOWER(MCR_CustomerEmail) = LOWER(@Email)",
             new { Email = email });
 
         if (existingUser != null)
         {
-            return (false, "User already exists with this email.", null);
+            return (false, "User already exists with this email.", null, 409); // 409 Conflict
         }
 
         // Generate OTP and JWT
@@ -79,8 +79,9 @@ public class OtpService
         // Send the OTP email using the new common method
         await _emailInterface.SendCommonEmailAsync(emailDto);
 
-        return (true, "OTP sent successfully.", otpJwt);
+        return (true, "OTP sent successfully. Your OTP will expire in 10 minutes.", otpJwt, 200); // 200 OK
     }
+
 
 
 

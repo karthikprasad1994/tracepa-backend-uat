@@ -663,11 +663,11 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
         //                .Select(a => a.UsrId)
         //                .FirstOrDefaultAsync();
 
-                
+
 
         //            // ✅ Step 7: Generate JWT Token
         //            //string token = GenerateJwtToken(userDto);
-                   
+
 
 
 
@@ -738,8 +738,16 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
 
         public async Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email)
         {
-            return await _otpService.GenerateAndSendOtpJwtAsync(email);
+            var (success, message, otpToken, _) = await _otpService.GenerateAndSendOtpJwtAsync(email);
+
+            return (success, message, otpToken);
         }
+
+
+        //public async Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email)
+        //{
+        //    return await _otpService.GenerateAndSendOtpJwtAsync(email);
+        //}
 
 
         //public async Task<(string Token, string Otp)> GenerateAndSendOtpJwtAsync(string email)
@@ -780,10 +788,10 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
 
                 var customerCode = await regConnection.QuerySingleOrDefaultAsync<string>(customerCodeSql, new { Email = email });
 
-                if (string.IsNullOrEmpty(customerCode))
-                {
-                    return new LoginResponse { StatusCode = 404, Message = "Email not found in customer registration." };
-                }
+                //if (string.IsNullOrEmpty(customerCode))
+                //{
+                //    return new LoginResponse { StatusCode = 404, Message = "Email not found in customer registration." };
+                //}
 
                 // Connect to customer's DB
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
@@ -810,17 +818,15 @@ new { email = plainEmail });
 
 
 
-                if (user == null)
+               if (user == null || DecryptPassword(user.UsrPassWord) != password)
                 {
-                    return new LoginResponse { StatusCode = 404, Message = "Invalid email." };
+                    return new LoginResponse
+                    {
+                        StatusCode = 401,
+                        Message = "Invalid username or password."
+                    };
                 }
 
-                bool isPasswordValid = DecryptPassword(user.UsrPassWord) == password;
-
-                if (!isPasswordValid)
-                {
-                    return new LoginResponse { StatusCode = 401, Message = "Invalid password." };
-                }
 
                 // Get user ID
                 var userId = await connection.QueryFirstOrDefaultAsync<int>(
