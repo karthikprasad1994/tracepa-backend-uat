@@ -18,6 +18,8 @@
             public string CredDescription { get; set; }
             public decimal Credit { get; set; }
             public string Status { get; set; }
+
+            public string acc_JE_QuarterId { get; set; }
             public string comments { get; set; }
         }
 

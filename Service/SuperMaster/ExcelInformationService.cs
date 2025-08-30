@@ -460,7 +460,10 @@ namespace TracePca.Service.SuperMaster
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
+
  
+
+
 
     //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
     //    {
@@ -473,6 +476,7 @@ namespace TracePca.Service.SuperMaster
         //{
         //    if (file == null || file.Length == 0)
         //        throw new Exception("No file uploaded.");
+
 
 
             var connectionString = _configuration.GetConnectionString(dbName);
