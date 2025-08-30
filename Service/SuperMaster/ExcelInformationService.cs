@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Text.Json;
 using Dapper;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -43,13 +44,26 @@ namespace TracePca.Service.SuperMaster
 
             // ✅ Parse Excel
             List<UploadEmployeeMasterDto> employees;
+            List<string> headerErrors;
             using (var stream = file.OpenReadStream())
             {
-                employees = ParseExcelToEmployees(stream);
+                employees = ParseExcelToEmployees(stream, out headerErrors);
             }
+        
 
-            // ✅ Step 1: Validate all (mandatory + duplicates)
+            // ✅ Step 3: Validate all (mandatory + duplicates)
             var errors = ValidateEmployees(employees);
+
+            // Merge header errors into validation errors
+            if (headerErrors.Any())
+            {
+                errors.AddRange(headerErrors.Select(h => new UploadEmployeeMasterDto
+                {
+                    EmpCode = "",
+                    EmployeeName = "",
+                    ErrorMessage = h
+                }));
+            }
             if (errors.Any())
             {
                 var groupedErrors = errors
@@ -69,7 +83,7 @@ namespace TracePca.Service.SuperMaster
             {
                 foreach (var emp in employees)
                 {
-                    // Step 2: Ensure Designation exists
+                    // Step 4: Ensure Designation exists
                     string designationSql = @"
             SELECT Mas_ID FROM SAD_GRPDESGN_General_Master
             WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
@@ -86,7 +100,7 @@ namespace TracePca.Service.SuperMaster
                             insertDesig, new { Name = emp.Designation, CompId = compId }, transaction);
                     }
 
-                    // Step 3: Ensure Role exists
+                    // Step 5: Ensure Role exists
                     string roleSql = @"
             SELECT Mas_ID FROM SAD_GrpOrLvl_General_Master
             WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
@@ -103,12 +117,12 @@ namespace TracePca.Service.SuperMaster
                             insertRole, new { Name = emp.Role, CompId = compId }, transaction);
                     }
 
-                    // Step 4: Check if employee exists
+                    // Step 6: Check if employee exists
                     string checkEmpSql = "SELECT COUNT(1) FROM Sad_UserDetails WHERE Usr_Code=@EmpCode AND Usr_CompId=@CompId";
                     bool exists = await connection.ExecuteScalarAsync<int>(
                         checkEmpSql, new { EmpCode = emp.EmpCode, CompId = compId }, transaction) > 0;
 
-                    // Step 5: Insert/Update using SP
+                    // Step 7: Insert/Update using SP
                     using var cmd = new SqlCommand("spEmployeeMaster", connection, transaction);
                     cmd.CommandType = CommandType.StoredProcedure;
 
@@ -195,12 +209,37 @@ namespace TracePca.Service.SuperMaster
         }
 
         //Parse Excel file into Employee DTO list
-        private List<UploadEmployeeMasterDto> ParseExcelToEmployees(Stream fileStream)
+        private List<UploadEmployeeMasterDto> ParseExcelToEmployees(Stream fileStream, out List<string> headerErrors)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             using var package = new ExcelPackage(fileStream);
             var worksheet = package.Workbook.Worksheets[0];
             int rowCount = worksheet.Dimension.Rows;
+            int colCount = worksheet.Dimension.Columns;
+
+            // Expected headers (exactly from template)
+            string[] expectedHeaders = new[]
+            {
+        "EmpCode","EmployeeName","LoginName","Email","OfficePhoneNo","Designation","Partner","Role","Password",
+        "LevelGrp","DutyStatus","PhoneNo","MobileNo","OfficePhoneExtn","OrgnId","GrpOrUserLvlPerm",
+        "MasterModule","AuditModule","RiskModule","ComplianceModule","BCMModule","DigitalOfficeModule",
+        "MasterRole","AuditRole","RiskRole","ComplianceRole","BCMRole","DigitalOfficeRole",
+        "CreatedBy","UpdatedBy","DelFlag","Status","IPAddress","CompId","Type","IsSuperuser",
+        "DeptID","MemberType","Levelcode","Suggestions"
+    };
+
+            headerErrors = new List<string>();
+
+            for (int col = 1; col <= expectedHeaders.Length; col++)
+            {
+                string actualHeader = worksheet.Cells[1, col].Text?.Trim();
+                string expectedHeader = expectedHeaders[col - 1];
+
+                if (!string.Equals(actualHeader, expectedHeader, StringComparison.OrdinalIgnoreCase))
+                {
+                    headerErrors.Add($"Expected header '{expectedHeader}' at column {col}, but found '{actualHeader}'");
+                }
+            }
 
             var employees = new List<UploadEmployeeMasterDto>();
             for (int row = 2; row <= rowCount; row++) // skip header
@@ -334,6 +373,7 @@ namespace TracePca.Service.SuperMaster
 
             return errors;
         }
+      
 
         //SaveEmployeeMaster
         public async Task<List<int[]>> SuperMasterSaveEmployeeDetailsAsync(int CompId, List<SuperMasterSaveEmployeeMasterDto> employees)
@@ -460,6 +500,12 @@ namespace TracePca.Service.SuperMaster
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
+
+
+ 
+
+
+
     //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
     //    {
     //        if (file == null || file.Length == 0)
@@ -471,6 +517,8 @@ namespace TracePca.Service.SuperMaster
         //{
         //    if (file == null || file.Length == 0)
         //        throw new Exception("No file uploaded.");
+
+
 
             var connectionString = _configuration.GetConnectionString(dbName);
 
