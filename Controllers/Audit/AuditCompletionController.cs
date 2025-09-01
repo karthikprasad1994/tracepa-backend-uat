@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using DocumentFormat.OpenXml.Bibliography;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
@@ -43,6 +44,28 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var result = await _auditCompletionInterface.GetReportTypeDetails(compId);
+                if (result == null || !result.Any())
+                    return NotFound(new { statusCode = 404, message = "No report type details found." });
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Report type details fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to fetch report type details.", error = ex.Message });
+            }
+        }
+
+        [HttpGet("GetReportTypeDetailsByAuditId")]
+        public async Task<IActionResult> GetReportTypeDetailsByAuditId(int compId, int auditId)
+        {
+            try
+            {
+                var result = await _auditCompletionInterface.GetReportTypeDetailsByAuditId(compId, auditId);
                 if (result == null || !result.Any())
                     return NotFound(new { statusCode = 404, message = "No report type details found." });
 

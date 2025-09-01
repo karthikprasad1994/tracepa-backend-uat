@@ -1024,7 +1024,7 @@ ORDER BY SrNo";
                     // Add input parameters
                     command.Parameters.AddWithValue("@CUST_ID", dto.CUST_ID);
                     command.Parameters.AddWithValue("@CUST_NAME", dto.CUST_NAME ?? string.Empty);
-                    command.Parameters.AddWithValue("@CUST_CODE", dto.CUST_CODE ?? string.Empty);
+                    command.Parameters.AddWithValue("@CUST_CODE", await GetCustomerCodeAsync(dbName));
                     command.Parameters.AddWithValue("@CUST_WEBSITE", dto.CUST_WEBSITE ?? string.Empty);
                     command.Parameters.AddWithValue("@CUST_EMAIL", dto.CUST_EMAIL ?? string.Empty);
                     command.Parameters.AddWithValue("@CUST_GROUPNAME", dto.CUST_GROUPNAME ?? string.Empty);
@@ -1103,7 +1103,20 @@ ORDER BY SrNo";
                 }
             }
         }
+        public async Task<string> GetCustomerCodeAsync(string dbName)
+        {
+            var connectionString = _configuration.GetConnectionString(dbName);
 
+            using (var connection = new SqlConnection(connectionString))
+            {
+                string query = @"
+            SELECT 'CUST' + RIGHT('0000' + CAST(ISNULL(MAX(Cust_ID), 0) + 1 AS VARCHAR(10)), 4)
+            FROM SAD_CUSTOMER_MASTER";
+
+                var result = await connection.ExecuteScalarAsync<string>(query);
+                return result; // default if table is empty
+            }
+        }
         public async Task<IEnumerable<AuditChecklistDto>> LoadAuditTypeCheckListAsync(
        int compId,
        int auditId,
@@ -2353,7 +2366,32 @@ ORDER BY SrNo";
                 };
             }
         }
-       
+        public async Task<AuditStatusDto> GetAuditCompStatusAsync(int compId, int saId)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Build full connection string using appsettings pattern
+            string baseConnectionString = _configuration.GetConnectionString(dbName);
+            string connectionString = string.Format(baseConnectionString, dbName);
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                string query = @"SELECT SA_Status 
+                             FROM StandardAudit_Schedule 
+                             WHERE SA_ID = @SA_ID AND SA_CompID = @CompID";
+
+                var result = await connection.QueryFirstOrDefaultAsync<AuditStatusDto>(query, new
+                {
+                    SA_ID = saId,
+                    CompID = compId
+                });
+
+                return result ?? new AuditStatusDto { SA_Status = "Not Found" };
+            }
+        }
 
     }
 }

@@ -414,16 +414,16 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
             }
         }
         public async Task UpdateJeDetAsync(
-          int compId,
-          int yearId,
-          int id,
-          int custId,
-          int transId,           // 0 = Debit, 1 = Credit
-          decimal transAmt,      // Amount to adjust
-          int branchId,
-          decimal transDbAmt,
-          decimal transCrAmt,
-          int durtnId)
+        int compId,
+        int yearId,
+        int id,            // <-- This is JE Master Id, not ATBU_ID
+        int custId,
+        int transId,       // 0 = Debit, 1 = Credit
+        decimal transAmt,  // Amount to adjust
+        int branchId,
+        decimal transDbAmt,
+        decimal transCrAmt,
+        int durtnId)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -435,22 +435,17 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
             await using var conn = new SqlConnection(connectionString);
             await conn.OpenAsync();
 
-            // 🔹 Select existing record
-            string sql = @"SELECT TOP 1 * 
-                   FROM Acc_TrailBalance_Upload 
-                   WHERE ATBU_ID=@Id 
-                     AND ATBU_CustId=@CustId 
-                     AND ATBU_CompID=@CompId 
-                     AND ATBU_QuarterId=@DurtnId";
-
-            if (branchId != 0)
-            {
-                sql += " AND ATBU_BranchId=@BranchId";
-            }
+            // 🔹 Select the Trail Balance row (do not filter by ATBU_ID = id)
+            string sql = @"
+        SELECT TOP 1 * 
+        FROM Acc_TrailBalance_Upload 
+        WHERE ATBU_CustId=@CustId 
+          AND ATBU_CompID=@CompId 
+          AND ATBU_QuarterId=@DurtnId
+          " + (branchId != 0 ? " AND ATBU_BranchId=@BranchId" : "");
 
             var row = await conn.QueryFirstOrDefaultAsync(sql, new
             {
-                Id = id,
                 CustId = custId,
                 CompId = compId,
                 DurtnId = durtnId,
@@ -459,90 +454,45 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
 
             if (row == null) return;
 
-            // 🔹 Cast safely
-            decimal debitAmt = row.ATBU_Closing_TotalDebit_Amount ?? 0m;
-            decimal creditAmt = row.ATBU_Closing_TotalCredit_Amount ?? 0m;
+            // 🔹 Safe cast
+            decimal debitAmt = (decimal?)row.ATBU_Closing_TotalDebit_Amount ?? 0m;
+            decimal creditAmt = (decimal?)row.ATBU_Closing_TotalCredit_Amount ?? 0m;
 
             string updateSql = string.Empty;
 
-            if (transId == 0) // Debit
+            if (transId == 0) // Debit transaction
             {
-                if (debitAmt != 0)
-                {
-                    transDbAmt = debitAmt + transAmt;
-                    updateSql = @"UPDATE Acc_TrailBalance_Upload 
-                          SET ATBU_Closing_TotalDebit_Amount=@TransDbAmt
-                          WHERE ATBU_ID=@Id AND ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
-                            AND ATBU_QuarterId=@DurtnId AND ATBU_BranchId=@BranchId";
-                }
-                else if (creditAmt != 0)
-                {
-                    transDbAmt = creditAmt - transAmt;
-                    if (transDbAmt >= 0)
-                    {
-                        updateSql = @"UPDATE Acc_TrailBalance_Upload 
-                              SET ATBU_Closing_TotalCredit_Amount=@TransDbAmt
-                              WHERE ATBU_ID=@Id AND ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
-                                AND ATBU_QuarterId=@DurtnId AND ATBU_BranchId=@BranchId";
-                    }
-                    else
-                    {
-                        updateSql = @"UPDATE Acc_TrailBalance_Upload 
-                              SET ATBU_Closing_TotalDebit_Amount=@PosAmt, 
-                                  ATBU_Closing_TotalCredit_Amount=0
-                              WHERE ATBU_ID=@Id AND ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
-                                AND ATBU_QuarterId=@DurtnId AND ATBU_BranchId=@BranchId";
-                    }
-                }
+                debitAmt += transAmt;
+                updateSql = @"UPDATE Acc_TrailBalance_Upload
+                      SET ATBU_Closing_TotalDebit_Amount=@DebitAmt
+                      WHERE ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
+                        AND ATBU_QuarterId=@DurtnId
+                        " + (branchId != 0 ? " AND ATBU_BranchId=@BranchId" : "");
             }
-            else if (transId == 1) // Credit
+            else if (transId == 1) // Credit transaction
             {
-                if (creditAmt != 0)
-                {
-                    transCrAmt = creditAmt + transAmt;
-                    updateSql = @"UPDATE Acc_TrailBalance_Upload 
-                          SET ATBU_Closing_TotalCredit_Amount=@TransCrAmt
-                          WHERE ATBU_ID=@Id AND ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
-                            AND ATBU_QuarterId=@DurtnId AND ATBU_BranchId=@BranchId";
-                }
-                else if (debitAmt != 0)
-                {
-                    transCrAmt = debitAmt - transAmt;
-                    if (transCrAmt >= 0)
-                    {
-                        updateSql = @"UPDATE Acc_TrailBalance_Upload 
-                              SET ATBU_Closing_TotalDebit_Amount=@TransCrAmt
-                              WHERE ATBU_ID=@Id AND ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
-                                AND ATBU_QuarterId=@DurtnId AND ATBU_BranchId=@BranchId";
-                    }
-                    else
-                    {
-                        updateSql = @"UPDATE Acc_TrailBalance_Upload 
-                              SET ATBU_Closing_TotalCredit_Amount=@PosAmt, 
-                                  ATBU_Closing_TotalDebit_Amount=0
-                              WHERE ATBU_ID=@Id AND ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
-                                AND ATBU_QuarterId=@DurtnId AND ATBU_BranchId=@BranchId";
-                    }
-                }
+                creditAmt += transAmt;
+                updateSql = @"UPDATE Acc_TrailBalance_Upload
+                      SET ATBU_Closing_TotalCredit_Amount=@CreditAmt
+                      WHERE ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
+                        AND ATBU_QuarterId=@DurtnId
+                        " + (branchId != 0 ? " AND ATBU_BranchId=@BranchId" : "");
             }
 
             if (!string.IsNullOrEmpty(updateSql))
             {
-                decimal posAmt = Math.Abs(transDbAmt != 0 ? transDbAmt : transCrAmt);
-
                 await conn.ExecuteAsync(updateSql, new
                 {
-                    Id = id,
                     CustId = custId,
                     CompId = compId,
                     DurtnId = durtnId,
                     BranchId = branchId,
-                    TransDbAmt = transDbAmt,
-                    TransCrAmt = transCrAmt,
-                    PosAmt = posAmt
+                    DebitAmt = debitAmt,
+                    CreditAmt = creditAmt
                 });
             }
         }
+
 
 
 
@@ -861,7 +811,7 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                 WHERE Acc_JE_YearID = {Yearid} 
                   AND Acc_JE_Party = {Custid} 
                   AND Acc_JE_QuarterId = {duration} 
-                  AND Acc_JE_BranchName = {branchid}";
+                  AND acc_JE_BranchId = {branchid}";
 
                 int iMax = await connection.ExecuteScalarAsync<int>(sql);
 

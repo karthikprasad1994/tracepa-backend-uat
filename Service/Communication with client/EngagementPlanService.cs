@@ -472,7 +472,7 @@ namespace TracePca.Service.Audit
 
         public string GetTRACeConfigValue(string key)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            using (var connection = new SqlConnection(_connectionString))
             {
                 var query = "SELECT SAD_Config_Value FROM [dbo].[Sad_Config_Settings] WHERE SAD_Config_Key = @Key";
                 return connection.QueryFirstOrDefault<string>(query, new { Key = key });
@@ -914,8 +914,8 @@ namespace TracePca.Service.Audit
                         page.Content().Column(column =>
                         {
                             column.Item().AlignCenter().PaddingBottom(10).Text("Letter of Engagement").FontSize(16).Bold();
-                            column.Item().Text($"Ref.No.: {dto.EngagementPlanNo}").FontSize(12).Bold();
-                            column.Item().Text($"Date: {dto.CurrentDate:dd MMM yyyy}").FontSize(10);
+                            column.Item().PaddingBottom(5).Text($"Ref.No.: {dto.EngagementPlanNo}").FontSize(12).Bold();
+                            column.Item().PaddingBottom(5).Text($"Date: {dto.CurrentDate:dd MMM yyyy}").FontSize(10);
                             column.Item().PaddingBottom(10).Text(dto.Customer ?? "N/A").FontSize(10);
                             column.Item().PaddingBottom(10).Text($"Dear: {dto.Customer ?? "Client"}").FontSize(10);
                             column.Item().PaddingBottom(10).Text($"{dto.Subject ?? "Sub: Engagement Letter"}").FontSize(10);
@@ -1007,7 +1007,7 @@ namespace TracePca.Service.Audit
                 mainPart.Document = new Document(new Body());
                 var body = mainPart.Document.Body;
 
-                void AddParagraph(string text, bool bold = false, bool italic = false)
+                void AddParagraph(string text, bool bold = false, bool italic = false, int spacingBefore = 0, int spacingAfter = 0)
                 {
                     var run = new Run(new Text(text ?? ""));
                     var props = new RunProperties();
@@ -1016,14 +1016,25 @@ namespace TracePca.Service.Audit
                     if (props.HasChildren) run.PrependChild(props);
 
                     var para = new Paragraph(run);
+                    var paraProps = new ParagraphProperties();
+                    if (spacingBefore > 0 || spacingAfter > 0)
+                    {
+                        paraProps.Append(new SpacingBetweenLines()
+                        {
+                            Before = (spacingBefore * 20).ToString(),
+                            After = (spacingAfter * 20).ToString()
+                        });
+                    }
+
+                    para.PrependChild(paraProps);
                     body.AppendChild(para);
                 }
 
                 void AddEmptyLine() => body.AppendChild(new Paragraph(new Run(new Text(""))));
 
                 AddParagraph("Letter of Engagement", bold: true);
-                AddParagraph($"Ref.No.: {dto.EngagementPlanNo}", bold: true);
-                AddParagraph($"Date: {dto.CurrentDate:dd MMM yyyy}");
+                AddParagraph($"Ref.No.: {dto.EngagementPlanNo}", bold: true, spacingAfter: 5);
+                AddParagraph($"Date: {dto.CurrentDate:dd MMM yyyy}", spacingAfter: 5);
                 AddParagraph(dto.Customer);
                 AddEmptyLine();
 
