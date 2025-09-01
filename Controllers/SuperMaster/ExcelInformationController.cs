@@ -57,7 +57,7 @@ namespace TracePca.Controllers.SuperMaster
                 {
                     statusCode = 500,
                     message = "Error processing employee master",
-                    error = errors
+                    data = errors
                 });
             }
         }
@@ -92,7 +92,7 @@ namespace TracePca.Controllers.SuperMaster
             }
         }
 
-        //UploadClientDetails
+        //   //UploadClientDetails
         [HttpPost("UploadClientDetails")]
         public async Task<IActionResult> UploadClientDetails([FromQuery] int compId, IFormFile file)
         {
@@ -131,6 +131,8 @@ namespace TracePca.Controllers.SuperMaster
                 });
             }
         }
+
+
 
         //SaveClientDetails
         [HttpPost("SaveClientDetails")]

@@ -1,11 +1,16 @@
 ﻿using System.Collections.Generic;
 using System.Data;
 using System.IO;
+using System.Net;
 using System.Text.Json;
 using Dapper;
 using DocumentFormat.OpenXml.Wordprocessing;
+using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Newtonsoft.Json;
 using OfficeOpenXml;
+using OfficeOpenXml.Packaging.Ionic.Zip;
 using OpenAI;
 using TracePca.Data;
 using TracePca.Dto.Audit;
@@ -44,34 +49,91 @@ namespace TracePca.Service.SuperMaster
 
             // ✅ Parse Excel
             List<UploadEmployeeMasterDto> employees;
-            List<string> headerErrors;
+            List<string> headerErrors = new List<string>();
             using (var stream = file.OpenReadStream())
             {
                 employees = ParseExcelToEmployees(stream, out headerErrors);
             }
-        
 
-            // ✅ Step 3: Validate all (mandatory + duplicates)
-            var errors = ValidateEmployees(employees);
 
-            // Merge header errors into validation errors
+            ////  ✅ Step 3: Validate all(mandatory +duplicates)
+            //var validationErrors = ValidateEmployees(employees);
+
+            //// ✅ Group errors
+            //var finalErrors = new List<string>();
+            //if (headerErrors.Any())
+            //{
+            //    finalErrors.Add("Missing column||[" + string.Join("||", headerErrors) + "] ");
+            //}
+
+            //if (validationErrors.Any())
+            //{
+            //    var groupedValidations = validationErrors
+            //        .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+            //        .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+
+            //    finalErrors.Add("Validation||[" + string.Join("||", groupedValidations) + "]");
+            //}
+
+            //// Extract duplicate errors separately
+            //var duplicateErrors = validationErrors.Where(e => e.ErrorMessage.StartsWith("Duplicate")).ToList();
+            //if (duplicateErrors.Any())
+            //{
+            //    var groupedDuplicates = duplicateErrors
+            //        .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+            //        .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+
+            //    finalErrors.Add("Duplication || [" + string.Join(" || ", groupedDuplicates) + "]");
+            //}
+
+            //// ✅ Throw if any errors (preserve line breaks)
+            //if (finalErrors.Any())
+            //{
+            //    throw new Exception(string.Join("||", finalErrors));
+            //}
+
+
+            // ✅ Step 3: Validate all(mandatory +duplicates)
+            var validationErrors = ValidateEmployees(employees);
+
+            // ✅ Group errors
+            var finalErrors = new List<string>();
             if (headerErrors.Any())
             {
-                errors.AddRange(headerErrors.Select(h => new UploadEmployeeMasterDto
-                {
-                    EmpCode = "",
-                    EmployeeName = "",
-                    ErrorMessage = h
-                }));
+                // Convert missing columns to JSON array format instead of || concatenation
+                //finalErrors.Add("Missing column: [" + string.Join(", ", headerErrors.Select(h => $"\"{h}\"")) + "]");
+                finalErrors.Add("Missing column : ||[" + string.Join("||", headerErrors.Select(h => $"{h}")) +"]");
+                    
             }
-            if (errors.Any())
+
+            if (validationErrors.Any())
             {
-                var groupedErrors = errors
+                var groupedValidations = validationErrors
                     .GroupBy(e => new { e.EmpCode, e.EmployeeName })
                     .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
 
-                throw new Exception(string.Join("||", groupedErrors));
+                // Convert validation errors to JSON array format
+                finalErrors.Add("Validation: [" + string.Join(", ", groupedValidations.Select(v => $"\"{v}\"")) + "]");
             }
+
+            // Extract duplicate errors separately
+            var duplicateErrors = validationErrors.Where(e => e.ErrorMessage.StartsWith("Duplicate")).ToList();
+            if (duplicateErrors.Any())
+            {
+                var groupedDuplicates = duplicateErrors
+                    .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+
+                // Convert duplicates to JSON array format
+                finalErrors.Add("Duplication: [" + string.Join(", ", groupedDuplicates.Select(d => $"\"{d}\"")) + "]");
+            }
+
+            // ✅ Throw if any errors (preserve line breaks)
+            if (finalErrors.Any())
+            {
+                throw new Exception("{" + string.Join(", ", finalErrors) + "}");
+            }
+
 
             var results = new List<string>();
 
@@ -220,8 +282,8 @@ namespace TracePca.Service.SuperMaster
             // Expected headers (exactly from template)
             string[] expectedHeaders = new[]
             {
-        "EmpCode","EmployeeName","LoginName","Email","OfficePhoneNo","Designation","Partner","Role","Password",
-        "LevelGrp","DutyStatus","PhoneNo","MobileNo","OfficePhoneExtn","OrgnId","GrpOrUserLvlPerm",
+        "Emp Code","Employee Name","Login Name","E-Mail","Office Phone No","Designation","Partner","Role","Password",
+        "LevelGrp","DutyStatus","PhoneNo","MobileNo","OffPhExtn","OrgID","GrpOrUserLvlPerm",
         "MasterModule","AuditModule","RiskModule","ComplianceModule","BCMModule","DigitalOfficeModule",
         "MasterRole","AuditRole","RiskRole","ComplianceRole","BCMRole","DigitalOfficeRole",
         "CreatedBy","UpdatedBy","DelFlag","Status","IPAddress","CompId","Type","IsSuperuser",
@@ -499,30 +561,6 @@ namespace TracePca.Service.SuperMaster
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
-<<<<<<< HEAD
-
-=======
-
-
- 
-
-
-
-    //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
-    //    {
-    //        if (file == null || file.Length == 0)
-    //            throw new Exception("No file uploaded.");
-
-
-        ////UploadClientDetails
-        //public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
-        //{
-        //    if (file == null || file.Length == 0)
-        //        throw new Exception("No file uploaded.");
-
-
-
->>>>>>> cc6b53b8400d80b2bd7c2cfc3a19b2ec46fdf864
             var connectionString = _configuration.GetConnectionString(dbName);
 
             // ✅ Parse Excel

@@ -1,4 +1,6 @@
-﻿namespace TracePca.Dto.SuperMaster
+﻿using Newtonsoft.Json;
+
+namespace TracePca.Dto.SuperMaster
 {
     public class ExcelInformationDto
     {
@@ -57,6 +59,25 @@
             //Validation
             public string ErrorMessage { get; set; }
         }
+        public class ErrorResponse
+        {
+            public int StatusCode { get; set; }
+            public string Message { get; set; } = string.Empty;
+            public ErrorGroups Error { get; set; } = new ErrorGroups();
+        }
+
+        public class ErrorGroups
+        {
+            [JsonProperty("Missing column")]
+            public List<string> MissingColumn { get; set; } = new();
+
+            [JsonProperty("Validation")]
+            public List<string> Validation { get; set; } = new();
+
+            [JsonProperty("Duplication")]
+            public List<string> Duplication { get; set; } = new();
+        }
+
 
         //SaveEmployeeMaster
         public class SuperMasterSaveEmployeeMasterDto
