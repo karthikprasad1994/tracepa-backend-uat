@@ -9,6 +9,7 @@ namespace TracePca.Interface.Audit
     {
         Task<AuditDropDownListDataDTO> LoadAllAuditDDLDataAsync(int compId);
         Task<IEnumerable<ReportTypeDetailsDTO>> GetReportTypeDetails(int compId);
+        Task<IEnumerable<ReportTypeDetailsDTO>> GetReportTypeDetailsByAuditId(int compId, int auditId);
         Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId);
         Task<AuditDropDownListDataDTO> LoadAuditWorkPaperDDLAsync(int compId, int auditId);
         Task<AuditCompletionDTO> GetAuditCompletionDetailsByIdAsync(int compId, int auditId);

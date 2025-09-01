@@ -181,7 +181,7 @@ namespace TracePca.Service.Audit
                 };
 
                 var sql = @"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master WHERE cmm_Delflag = 'A' AND cmm_Category = 'WCM' AND cmm_CompID = @CompId AND 
-            cms_KeyComponent IN (SELECT SA_AuditFrameworkId FROM StandardAudit_Schedule WHERE SA_ID = @AuditId AND SA_CompID = @CompId) ORDER BY cmm_Desc ASC";
+                        cms_KeyComponent IN (SELECT SA_AuditFrameworkId FROM StandardAudit_Schedule WHERE SA_ID = @AuditId AND SA_CompID = @CompId) ORDER BY cmm_Desc ASC";
 
                 var workpaperCheckList = await connection.QueryAsync<DropDownListData>(sql, parameters);
 
