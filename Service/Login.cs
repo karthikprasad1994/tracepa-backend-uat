@@ -976,6 +976,7 @@ WHERE UserId = @UserId
 
             // ✅ Step 3: Build customer-specific connection string
             string? connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+
             if (string.IsNullOrWhiteSpace(connectionStringTemplate))
                 throw new InvalidOperationException("NewDatabaseTemplate connection string is missing in configuration.");
 
