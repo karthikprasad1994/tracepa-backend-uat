@@ -65,7 +65,7 @@ namespace TracePca.Service.FIN_statement
             Acc_JE_BillType as BillType,
             Acc_JE_Party AS PartyID,
             Acc_JE_Status AS Status,
-Acc_JE_Comnments as comments
+Acc_JE_Comnments as comments,acc_JE_QuarterId
         FROM Acc_JE_Master
         WHERE Acc_JE_Party = @custId 
             AND Acc_JE_CompID = @compId 
@@ -383,10 +383,27 @@ Acc_JE_Comnments as comments
                                 cmdDetail.Parameters.Add(operDetail);
 
                                 await cmdDetail.ExecuteNonQueryAsync();
+                                if (dto.Acc_JE_Status == "A")
+                                {
+                                    await UpdateJeDetAsync(
+                                        t.AJTB_CompID,
+                                        t.AJTB_YearID,
+                                        oper,                  // ✅ use new Master ID
+                                        t.AJTB_CustId,
+                                        (t.AJTB_Debit > 0 ? 0 : 1),  // 0=Debit, 1=Credit
+                                        (t.AJTB_Debit > 0 ? t.AJTB_Debit : t.AJTB_Credit),
+                                        t.AJTB_BranchId,
+                                        t.AJTB_Debit,
+                                        t.AJTB_Credit,
+                                        t.AJTB_QuarterId
+                                    );
+                                }
+
                             }
                         }
                     }
                 }
+
                 transaction.Commit();
                 return new int[] { updateOrSave, oper };
             }
@@ -396,6 +413,88 @@ Acc_JE_Comnments as comments
                 throw;
             }
         }
+        public async Task UpdateJeDetAsync(
+        int compId,
+        int yearId,
+        int id,            // <-- This is JE Master Id, not ATBU_ID
+        int custId,
+        int transId,       // 0 = Debit, 1 = Credit
+        decimal transAmt,  // Amount to adjust
+        int branchId,
+        decimal transDbAmt,
+        decimal transCrAmt,
+        int durtnId)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            await using var conn = new SqlConnection(connectionString);
+            await conn.OpenAsync();
+
+            // 🔹 Select the Trail Balance row (do not filter by ATBU_ID = id)
+            string sql = @"
+        SELECT TOP 1 * 
+        FROM Acc_TrailBalance_Upload 
+        WHERE ATBU_CustId=@CustId 
+          AND ATBU_CompID=@CompId 
+          AND ATBU_QuarterId=@DurtnId
+          " + (branchId != 0 ? " AND ATBU_BranchId=@BranchId" : "");
+
+            var row = await conn.QueryFirstOrDefaultAsync(sql, new
+            {
+                CustId = custId,
+                CompId = compId,
+                DurtnId = durtnId,
+                BranchId = branchId
+            });
+
+            if (row == null) return;
+
+            // 🔹 Safe cast
+            decimal debitAmt = (decimal?)row.ATBU_Closing_TotalDebit_Amount ?? 0m;
+            decimal creditAmt = (decimal?)row.ATBU_Closing_TotalCredit_Amount ?? 0m;
+
+            string updateSql = string.Empty;
+
+            if (transId == 0) // Debit transaction
+            {
+                debitAmt += transAmt;
+                updateSql = @"UPDATE Acc_TrailBalance_Upload
+                      SET ATBU_Closing_TotalDebit_Amount=@DebitAmt
+                      WHERE ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
+                        AND ATBU_QuarterId=@DurtnId
+                        " + (branchId != 0 ? " AND ATBU_BranchId=@BranchId" : "");
+            }
+            else if (transId == 1) // Credit transaction
+            {
+                creditAmt += transAmt;
+                updateSql = @"UPDATE Acc_TrailBalance_Upload
+                      SET ATBU_Closing_TotalCredit_Amount=@CreditAmt
+                      WHERE ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
+                        AND ATBU_QuarterId=@DurtnId
+                        " + (branchId != 0 ? " AND ATBU_BranchId=@BranchId" : "");
+            }
+
+            if (!string.IsNullOrEmpty(updateSql))
+            {
+                await conn.ExecuteAsync(updateSql, new
+                {
+                    CustId = custId,
+                    CompId = compId,
+                    DurtnId = durtnId,
+                    BranchId = branchId,
+                    DebitAmt = debitAmt,
+                    CreditAmt = creditAmt
+                });
+            }
+        }
+
+
+
 
         //SaveGeneralLedger
         public async Task<int[]> SaveGeneralLedgerAsync(int CompId, List<GeneralLedgerDto> dtos)
@@ -712,7 +811,7 @@ Acc_JE_Comnments as comments
                 WHERE Acc_JE_YearID = {Yearid} 
                   AND Acc_JE_Party = {Custid} 
                   AND Acc_JE_QuarterId = {duration} 
-                  AND Acc_JE_BranchName = {branchid}";
+                  AND acc_JE_BranchId = {branchid}";
 
                 int iMax = await connection.ExecuteScalarAsync<int>(sql);
 

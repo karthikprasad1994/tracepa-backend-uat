@@ -35,58 +35,60 @@ namespace TracePca.Controllers
         }
 
 
-        //[HttpPost("sendOtp")]
-        //public async Task<IActionResult> SendOtp([FromBody] OtpReqDto request)
-        //{
-        //    if (string.IsNullOrEmpty(request.Email))
-        //    {
-        //        return BadRequest(new OtpResponseDto
-        //        {
-        //            StatusCode = 400,
-        //            Message = "Email cannot be empty."
-        //        });
-        //    }
-
-        //    var (success, message, otpToken) = await _LoginInterface.GenerateAndSendOtpJwtAsync(request.Email);
-
-        //    if (!success)
-        //    {
-        //        return Conflict(new OtpResponseDto
-        //        {
-        //            StatusCode = 409,
-        //            Message = message,
-        //            Token = null,
-        //            Otp = null
-        //        });
-        //    }
-
-        //    return Ok(new OtpResponseDto
-        //    {
-        //        StatusCode = 200,
-        //        Message = message,
-        //        Token = otpToken,
-        //        Otp = null // You can include OTP here only if needed
-        //    });
-        //}
-
-
         [HttpPost("sendOtp")]
         public async Task<IActionResult> SendOtp([FromBody] OtpReqDto request)
         {
-            // Validate request, generate OTP, etc.
-
-            var dto = new CommonEmailDto
+            if (string.IsNullOrEmpty(request.Email))
             {
-                ToEmails = new List<string> { request.Email },
-                EmailType = "OTP",
-                Parameters = new Dictionary<string, string> { { "OTP", "123456" } }
-            };
+                return BadRequest(new OtpResponseDto
+                {
+                    StatusCode = 400,
+                    Message = "Email cannot be empty."
+                });
+            }
 
-            await _emailService.SendCommonEmailAsync(dto);
+            var (success, message, otpToken) = await _LoginInterface.GenerateAndSendOtpJwtAsync(request.Email);
 
-            return Ok(new { Message = "OTP sent successfully" });
+            if (!success)
+            {
+                return Conflict(new OtpResponseDto
+                {
+                    StatusCode = 409,
+                    Message = message,
+                    Token = null,
+                    Otp = null
+                });
+            }
+
+            return Ok(new OtpResponseDto
+            {
+                StatusCode = 200,
+                Message = message,
+                Token = otpToken,
+               // Otp = null // You can include OTP here only if needed
+            });
         }
-    
+
+
+
+
+        //[HttpPost("sendOtp")]
+        //public async Task<IActionResult> SendOtp([FromBody] OtpReqDto request)
+        //{
+        //    // Validate request, generate OTP, etc.
+
+        //    var dto = new CommonEmailDto
+        //    {
+        //        ToEmails = new List<string> { request.Email },
+        //        EmailType = "OTP",
+        //        Parameters = new Dictionary<string, string> { { "OTP", "123456" } }
+        //    };
+
+        //    await _emailService.SendCommonEmailAsync(dto);
+
+        //    return Ok(new { Message = "OTP sent successfully" });
+        //}
+
 
 
 

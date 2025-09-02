@@ -1,104 +1,28 @@
-﻿//namespace TracePca.Middleware
-//{
-//    public class SessionTimeout
-//    {
-//        private readonly RequestDelegate _next;
+﻿using Microsoft.AspNetCore.Http;
+using System.Threading.Tasks;
 
-//        public SessionTimeout(RequestDelegate next)
-//        {
-//            _next = next;
-//        }
+public class SessionTimeoutMiddleware
+{
+    private readonly RequestDelegate _next;
 
- 
-//        public async Task InvokeAsync(HttpContext context)
-//        {
-//            var path = context.Request.Path.Value?.ToLower();
+    public SessionTimeoutMiddleware(RequestDelegate next)
+    {
+        _next = next;
+    }
 
-//            // Skip static files, login, Swagger UI and Swagger JSON endpoints
-//            if (path != null &&
-//                (path.Contains("/login")
-//                 || path.Contains("/static")
-//                 || path.Contains("/swagger")
-//                 || path.Contains("/favicon.ico")))
-//            {
-//                await _next(context);
-//                return;
-//            }
+    public async Task InvokeAsync(HttpContext context)
+    {
+        // Check if session exists
+        var customerCode = context.Session.GetString("CustomerCode");
+        if (string.IsNullOrWhiteSpace(customerCode))
+        {
+            context.Response.StatusCode = 401; // Unauthorized
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync("{\"success\": false, \"message\": \"Session timed out. Please login again.\"}");
+            return;
+        }
 
-//            var isLoggedIn = context.Session.GetString("IsLoggedIn");
-
-//            if (string.IsNullOrEmpty(isLoggedIn))
-//            {
-//                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-//                context.Response.ContentType = "application/json";
-
-//                await context.Response.WriteAsync("{\"message\": \"Session timed out, please login again.\"}");
-//                return;
-//            }
-
-//            await _next(context);
-//        }
-
-
-//        //public async Task InvokeAsync(HttpContext context)
-//        //{
-//        //    var path = context.Request.Path.Value?.ToLower();
-
-//        //    // Skip static files, login, Swagger UI and Swagger JSON endpoints
-//        //    if (path != null &&
-//        //        (path.Contains("/login")
-//        //         || path.Contains("/static")
-//        //         || path.Contains("/swagger")
-//        //         || path.Contains("/favicon.ico")))
-//        //    {
-//        //        await _next(context);
-//        //        return;
-//        //    }
-
-//        //    var isLoggedIn = context.Session.GetString("IsLoggedIn");
-
-//        //    if (string.IsNullOrEmpty(isLoggedIn))
-//        //    {
-//        //        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-//        //        context.Response.ContentType = "application/json";
-
-//        //        await context.Response.WriteAsync("{\"message\": \"Session timed out, please login again.\"}");
-//        //        return;
-//        //    }
-
-//        //    await _next(context);
-//        //}
-
-//        public async Task InvokeAsync(HttpContext context)
-//        {
-//            var path = context.Request.Path.Value?.ToLower();
-
-//            // Skip static files, login, Swagger UI and Swagger JSON endpoints
-//            if (path != null &&
-//                (path.Contains("/login")
-//                 || path.Contains("/static")
-//                 || path.Contains("/swagger")
-//                 || path.Contains("/favicon.ico")))
-//            {
-//                await _next(context);
-//                return;
-//            }
-
-//            var isLoggedIn = context.Session.GetString("IsLoggedIn");
-
-//            if (string.IsNullOrEmpty(isLoggedIn))
-//            {
-//                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-//                context.Response.ContentType = "application/json";
-
-//                await context.Response.WriteAsync("{\"message\": \"Session timed out, please login again.\"}");
-//                return;
-//            }
-
-//            await _next(context);
-//        }
-
-//    }
-//}
-
-
+        // Session is valid, continue
+        await _next(context);
+    }
+}
