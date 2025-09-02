@@ -65,7 +65,7 @@ namespace TracePca.Service.FIN_statement
             Acc_JE_BillType as BillType,
             Acc_JE_Party AS PartyID,
             Acc_JE_Status AS Status,
-Acc_JE_Comnments as comments
+Acc_JE_Comnments as comments,acc_JE_QuarterId
         FROM Acc_JE_Master
         WHERE Acc_JE_Party = @custId 
             AND Acc_JE_CompID = @compId 
@@ -383,10 +383,27 @@ Acc_JE_Comnments as comments
                                 cmdDetail.Parameters.Add(operDetail);
 
                                 await cmdDetail.ExecuteNonQueryAsync();
+                                if (dto.Acc_JE_Status == "A")
+                                {
+                                    await UpdateJeDetAsync(
+                                        t.AJTB_CompID,
+                                        t.AJTB_YearID,
+                                        oper,                  // ✅ use new Master ID
+                                        t.AJTB_CustId,
+                                        (t.AJTB_Debit > 0 ? 0 : 1),  // 0=Debit, 1=Credit
+                                        (t.AJTB_Debit > 0 ? t.AJTB_Debit : t.AJTB_Credit),
+                                        t.AJTB_BranchId,
+                                        t.AJTB_Debit,
+                                        t.AJTB_Credit,
+                                        t.AJTB_QuarterId
+                                    );
+                                }
+
                             }
                         }
                     }
                 }
+
                 transaction.Commit();
                 return new int[] { updateOrSave, oper };
             }
@@ -396,6 +413,88 @@ Acc_JE_Comnments as comments
                 throw;
             }
         }
+        public async Task UpdateJeDetAsync(
+        int compId,
+        int yearId,
+        int id,            // <-- This is JE Master Id, not ATBU_ID
+        int custId,
+        int transId,       // 0 = Debit, 1 = Credit
+        decimal transAmt,  // Amount to adjust
+        int branchId,
+        decimal transDbAmt,
+        decimal transCrAmt,
+        int durtnId)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            await using var conn = new SqlConnection(connectionString);
+            await conn.OpenAsync();
+
+            // 🔹 Select the Trail Balance row (do not filter by ATBU_ID = id)
+            string sql = @"
+        SELECT TOP 1 * 
+        FROM Acc_TrailBalance_Upload 
+        WHERE ATBU_CustId=@CustId 
+          AND ATBU_CompID=@CompId 
+          AND ATBU_QuarterId=@DurtnId
+          " + (branchId != 0 ? " AND ATBU_BranchId=@BranchId" : "");
+
+            var row = await conn.QueryFirstOrDefaultAsync(sql, new
+            {
+                CustId = custId,
+                CompId = compId,
+                DurtnId = durtnId,
+                BranchId = branchId
+            });
+
+            if (row == null) return;
+
+            // 🔹 Safe cast
+            decimal debitAmt = (decimal?)row.ATBU_Closing_TotalDebit_Amount ?? 0m;
+            decimal creditAmt = (decimal?)row.ATBU_Closing_TotalCredit_Amount ?? 0m;
+
+            string updateSql = string.Empty;
+
+            if (transId == 0) // Debit transaction
+            {
+                debitAmt += transAmt;
+                updateSql = @"UPDATE Acc_TrailBalance_Upload
+                      SET ATBU_Closing_TotalDebit_Amount=@DebitAmt
+                      WHERE ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
+                        AND ATBU_QuarterId=@DurtnId
+                        " + (branchId != 0 ? " AND ATBU_BranchId=@BranchId" : "");
+            }
+            else if (transId == 1) // Credit transaction
+            {
+                creditAmt += transAmt;
+                updateSql = @"UPDATE Acc_TrailBalance_Upload
+                      SET ATBU_Closing_TotalCredit_Amount=@CreditAmt
+                      WHERE ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
+                        AND ATBU_QuarterId=@DurtnId
+                        " + (branchId != 0 ? " AND ATBU_BranchId=@BranchId" : "");
+            }
+
+            if (!string.IsNullOrEmpty(updateSql))
+            {
+                await conn.ExecuteAsync(updateSql, new
+                {
+                    CustId = custId,
+                    CompId = compId,
+                    DurtnId = durtnId,
+                    BranchId = branchId,
+                    DebitAmt = debitAmt,
+                    CreditAmt = creditAmt
+                });
+            }
+        }
+
+
+
 
         //SaveGeneralLedger
         public async Task<int[]> SaveGeneralLedgerAsync(int CompId, List<GeneralLedgerDto> dtos)
@@ -712,7 +811,7 @@ Acc_JE_Comnments as comments
                 WHERE Acc_JE_YearID = {Yearid} 
                   AND Acc_JE_Party = {Custid} 
                   AND Acc_JE_QuarterId = {duration} 
-                  AND Acc_JE_BranchName = {branchid}";
+                  AND acc_JE_BranchId = {branchid}";
 
                 int iMax = await connection.ExecuteScalarAsync<int>(sql);
 
@@ -723,6 +822,102 @@ Acc_JE_Comnments as comments
             catch (Exception ex)
             {
                 throw; // or handle logging
+            }
+        }
+        public async Task<(int UpdateOrSave, int Oper, int FinalId, string FinalCode)> SaveOrUpdateAsync(AdminMasterDto dto)
+        {
+            try
+            {
+                // ✅ Get dbName from session first
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                if (string.IsNullOrEmpty(dbName))
+                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                // ✅ Get connection string
+                var connectionString = _configuration.GetConnectionString(dbName);
+                if (string.IsNullOrEmpty(connectionString))
+                    throw new Exception($"No connection string found for database: {dbName}");
+
+                // ✅ If new record → generate new Id & Code
+                if (dto.Id == 0)
+                {
+                    dto.Id = await GetMaxIdAsync(dto.CompId, "Content_Management_Master", "cmm_ID", "Cmm_CompID");
+                    dto.Code = "JE_" + dto.Id;
+                    // ⚠️ Don't reset dto.Id back to 0, let SP handle the logic
+                }
+
+                using var conn = new SqlConnection(connectionString);
+                using var cmd = new SqlCommand("spContent_Management_Master", conn)
+                {
+                    CommandType = CommandType.StoredProcedure
+                };
+
+                cmd.Parameters.AddWithValue("@cmm_ID", dto.Id);
+                cmd.Parameters.AddWithValue("@cmm_Code", dto.Code ?? "");
+                cmd.Parameters.AddWithValue("@cmm_Desc", dto.Desc ?? "");
+                cmd.Parameters.AddWithValue("@cmm_Category", dto.Category ?? "");
+                cmd.Parameters.AddWithValue("@cms_Remarks", dto.Remarks ?? "");
+                cmd.Parameters.AddWithValue("@cms_KeyComponent", dto.KeyComponent);
+                cmd.Parameters.AddWithValue("@cms_Module", dto.Module ?? "");
+                cmd.Parameters.AddWithValue("@CMM_RiskCategory", dto.RiskCategory);
+                cmd.Parameters.AddWithValue("@CMM_Status", dto.Status ?? "");
+                cmd.Parameters.AddWithValue("@cmm_Rate", dto.Rate);
+                cmd.Parameters.AddWithValue("@CMM_Act", dto.CMMAct ?? "");
+                cmd.Parameters.AddWithValue("@CMM_HSNSAC", dto.CMMHSNSAC ?? "");
+                cmd.Parameters.AddWithValue("@cmm_delflag", dto.Delflag ?? "");
+                cmd.Parameters.AddWithValue("@CMM_CrBy", dto.CreatedBy);
+                cmd.Parameters.AddWithValue("@CMM_UpdatedBy", dto.UpdatedBy);
+                cmd.Parameters.AddWithValue("@CMM_IpAddress", dto.IpAddress ?? "");
+                cmd.Parameters.AddWithValue("@CMM_CompId", dto.CompId);
+
+                var outUpdateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                var outOper = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+
+                cmd.Parameters.Add(outUpdateOrSave);
+                cmd.Parameters.Add(outOper);
+
+                await conn.OpenAsync();
+                await cmd.ExecuteNonQueryAsync();
+
+                return (
+                    Convert.ToInt32(outUpdateOrSave.Value),
+                    Convert.ToInt32(outOper.Value),
+                    dto.Id,
+                    dto.Code
+                );
+            }
+            catch (SqlException sqlEx)
+            {
+                // Database related errors
+                throw new Exception($"SQL Error in SaveOrUpdateAsync: {sqlEx.Message}", sqlEx);
+            }
+            catch (Exception ex)
+            {
+                // Any other unhandled error
+                throw new Exception($"Unexpected error in SaveOrUpdateAsync: {ex.Message}", ex);
+            }
+        }
+
+
+        private async Task<int> GetMaxIdAsync(int compId, string table, string column, string compColumn)
+        {
+            var sql = $"SELECT ISNULL(MAX({column}) + 1, 1) FROM {table} WHERE {compColumn} = @CompId";
+
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+            using var conn = new SqlConnection(connectionString);
+            using (SqlCommand cmd = new SqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("@CompId", compId);
+                await conn.OpenAsync();
+                var result = await cmd.ExecuteScalarAsync();
+                return result != DBNull.Value ? Convert.ToInt32(result) : 0;
             }
         }
     }

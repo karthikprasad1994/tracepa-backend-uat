@@ -3439,7 +3439,8 @@ CREATE TABLE [dbo].[Edt_Attachments](
 	[ATCH_Basename] [int] NULL,
 	[Atch_Vstatus] [varchar](2) NULL,
 	[ATCH_Status] [varchar](2) NULL,
-	[ATCH_CompID] [int] NULL
+	[ATCH_CompID] [int] NULL,
+	[ATCH_AttachmentStatus] VARCHAR(20) NOT NULL DEFAULT ('Accepted')
 ) ON [PRIMARY]
 GO
 /****** Object:  Table [dbo].[EDT_BIGDATA]    Script Date: 20-03-2025 15:55:21 ******/

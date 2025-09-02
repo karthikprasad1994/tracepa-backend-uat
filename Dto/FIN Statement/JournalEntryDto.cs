@@ -18,6 +18,8 @@
             public string CredDescription { get; set; }
             public decimal Credit { get; set; }
             public string Status { get; set; }
+
+            public string acc_JE_QuarterId { get; set; }
             public string comments { get; set; }
         }
 
@@ -208,6 +210,26 @@
             public int DurationID { get; set; }
             public int BranchID { get; set; }
         }
-
+        public class AdminMasterDto
+        {
+            public int Id { get; set; }
+            public string Code { get; set; } = string.Empty;
+            public string Desc { get; set; } = string.Empty;
+            public string Category { get; set; } = string.Empty;
+            public string Remarks { get; set; } = string.Empty;
+            public int KeyComponent { get; set; }
+            public string Module { get; set; } = string.Empty;
+            public int RiskCategory { get; set; }
+            public string Status { get; set; } = string.Empty;
+            public double Rate { get; set; }
+            public string CMMAct { get; set; } = string.Empty;
+            public string CMMHSNSAC { get; set; } = string.Empty;
+            public string Delflag { get; set; } = string.Empty;
+            public int CreatedBy { get; set; }
+            public int UpdatedBy { get; set; }
+            public string IpAddress { get; set; } = string.Empty;
+            public int CompId { get; set; }
+            public string MasterName { get; set; } = string.Empty; // to generate Code if new
+        }
     }
 }

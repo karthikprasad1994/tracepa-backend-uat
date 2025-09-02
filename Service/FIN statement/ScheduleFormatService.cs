@@ -1288,5 +1288,35 @@ WHERE
 
             return result;
         }
+            public async Task<CustomerDetailsDto> GetCustomerDetailsAsync(int custId, int compId)
+    {
+            // ✅ Connection string should use dynamic DBName
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+
+            using (var connection = new SqlConnection(connectionString))
+        {
+            string query = @"
+                SELECT 
+                    CUST_NAME,
+                    CUST_EMAIL,
+                    Cust_FY,
+                    CUST_ORGTYPEID,
+                    CUST_INDTYPEID,
+                    CUST_Amount_Type,
+                    CUST_RoundOff,
+                    Cust_DurtnId
+                FROM SAD_CUSTOMER_MASTER 
+                WHERE Cust_Id = @CustId AND CUST_CompID = @CompId";
+
+            return await connection.QueryFirstOrDefaultAsync<CustomerDetailsDto>(query, new { CustId = custId, CompId = compId });
+        }
+    }
     }
 }

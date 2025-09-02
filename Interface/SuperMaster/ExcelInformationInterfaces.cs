@@ -13,7 +13,7 @@ namespace TracePca.Interface.SuperMaster
         Task<List<int[]>> SuperMasterSaveEmployeeDetailsAsync(int CompId, List<SuperMasterSaveEmployeeMasterDto> employees);
 
         //UploadClientDetails
-        //Task<List<int>> UploadClientDetailsAsync(int CompId, IFormFile excelFile, string sheetName);
+        Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file);
 
         //SaveClientDetails
         Task<List<int[]>> SuperMasterSaveCustomerDetailsAsync(int CompId, List<SuperMasterSaveCustomerDto> customers);

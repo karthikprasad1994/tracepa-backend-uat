@@ -400,5 +400,17 @@
             public int HeadingId { get; set; }
             public string Alias { get; set; }
         }
+        public class CustomerDetailsDto
+        {
+            public string CUST_NAME { get; set; }
+            public string CUST_EMAIL { get; set; }
+            public string Cust_FY { get; set; }
+            public int CUST_ORGTYPEID { get; set; }
+            public int CUST_INDTYPEID { get; set; }
+            public string CUST_Amount_Type { get; set; }
+            public string CUST_RoundOff { get; set; }
+            public int Cust_DurtnId { get; set; }
+        }
+
     }
 }

@@ -820,8 +820,14 @@ namespace TracePca.Controllers.Audit
 
             return Ok(response);
         }
- 
 
+        [HttpGet("get-Compstatus")]
+        public async Task<IActionResult> GetAuditCompStatusAsync(int compId, int saId)
+        {
+         var status = await _DashboardAndScheduleInterface.GetAuditStatusAsync(compId, saId);
+
+            return Ok(status);
+        }
     }
 
 }

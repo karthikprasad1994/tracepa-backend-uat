@@ -111,27 +111,68 @@
         //UploadClientDetails
         public class UploadClientDetailsDto
         {
+            // DB / Stored Procedure fields
             public int CUST_ID { get; set; }
             public string CUST_NAME { get; set; }
             public string CUST_CODE { get; set; }
             public string CUST_WEBSITE { get; set; }
             public string CUST_EMAIL { get; set; }
-            public string OrgTypeName { get; set; }
-            public int CUST_ORGTYPEID { get; set; }
+            public string CUST_GROUPNAME { get; set; }
+            public int CUST_GROUPINDIVIDUAL { get; set; }
+            public string CUST_ORGTYPEID { get; set; }
+            public string CUST_INDTYPEID { get; set; }
+            public int CUST_MGMTTYPEID { get; set; }
+            public DateTime? CUST_CommitmentDate { get; set; }
+            public string CUSt_BranchId { get; set; }
+            public string CUST_COMM_ADDRESS { get; set; }
+            public string CUST_COMM_CITY { get; set; }
+            public string CUST_COMM_PIN { get; set; }
+            public string CUST_COMM_STATE { get; set; }
+            public string CUST_COMM_COUNTRY { get; set; }
+            public string CUST_COMM_FAX { get; set; }
+            public string CUST_COMM_TEL { get; set; }
+            public string CUST_COMM_Email { get; set; }
+            public string CUST_ADDRESS { get; set; }
+            public string CUST_CITY { get; set; }
+            public string CUST_PIN { get; set; }
+            public string CUST_STATE { get; set; }
+            public string CUST_COUNTRY { get; set; }
+            public string CUST_FAX { get; set; }
+            public string CUST_TELPHONE { get; set; }
+            public string CUST_ConEmailID { get; set; }
+            public string CUST_LOCATIONID { get; set; }
+            public string CUST_TASKS { get; set; }
+            public int CUST_ORGID { get; set; }
+            public int CUST_CRBY { get; set; }
+            public int CUST_UpdatedBy { get; set; }
+            public string CUST_BOARDOFDIRECTORS { get; set; }
+            public int CUST_DEPMETHOD { get; set; }
+            public string CUST_IPAddress { get; set; }
+            public int CUST_CompID { get; set; }
+            public decimal CUST_Amount_Type { get; set; }
+            public decimal CUST_RoundOff { get; set; }
+            public int Cust_DurtnId { get; set; }
+            public string Cust_FY { get; set; }
+            public string CIN { get; set; }
+            public string TAN { get; set; }
+            public string GST { get; set; }  
+            public string PAN { get; set; }
+            public string GSTN { get; set; }
+
+            //New fields for Location
+            public int Mas_Id { get; set; }
+            public string Mas_code { get; set; }
             public string LocationName { get; set; }
+            public string DelFlag { get; set; }
             public string Address { get; set; }
             public string ContactPerson { get; set; }
             public string Mobile { get; set; }
             public string Landline { get; set; }
             public string Email { get; set; }
-            public string CIN { get; set; }
-            public string TAN { get; set; }
-            public string GST { get; set; }
-            public int CUST_CRBY { get; set; }
-            public int CUST_UpdatedBy { get; set; }
-            public int CUST_CompID { get; set; }
+            public string Designation { get; set; }
+            // Validation helper
+            public string ErrorMessage { get; set; }
         }
-
 
         //SaveClientDetails
         public class SuperMasterSaveCustomerDto

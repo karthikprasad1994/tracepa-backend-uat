@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using NETCore.MailKit.Core;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
 using TracePca.Dto.Authentication;
+using TracePca.Dto.Email;
 using TracePca.Interface;
 using TracePca.Models;
 using TracePca.Models.CustomerRegistration;
@@ -17,11 +19,12 @@ namespace TracePca.Controllers
     public class LoginController : ControllerBase
     {
         private LoginInterface _LoginInterface;
+        private readonly EmailInterface _emailService;
         //private  IHttpContextAccessor _httpContextAccessor;
-        public LoginController(LoginInterface LoginInterface)
+        public LoginController(LoginInterface LoginInterface, EmailInterface emailService)
         {
             _LoginInterface = LoginInterface;
-
+            _emailService = emailService;
         }
         // GET: api/<LoginController>
         [HttpGet("get-users")]
@@ -62,9 +65,31 @@ namespace TracePca.Controllers
                 StatusCode = 200,
                 Message = message,
                 Token = otpToken,
-                Otp = null // You can include OTP here only if needed
+               // Otp = null // You can include OTP here only if needed
             });
         }
+
+
+
+
+        //[HttpPost("sendOtp")]
+        //public async Task<IActionResult> SendOtp([FromBody] OtpReqDto request)
+        //{
+        //    // Validate request, generate OTP, etc.
+
+        //    var dto = new CommonEmailDto
+        //    {
+        //        ToEmails = new List<string> { request.Email },
+        //        EmailType = "OTP",
+        //        Parameters = new Dictionary<string, string> { { "OTP", "123456" } }
+        //    };
+
+        //    await _emailService.SendCommonEmailAsync(dto);
+
+        //    return Ok(new { Message = "OTP sent successfully" });
+        //}
+
+
 
 
         //[HttpPost("sendOtp")]
@@ -94,7 +119,7 @@ namespace TracePca.Controllers
 
 
 
-        
+
         [HttpPost("VerifyOtp")]
             public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpReqDto request)
             {

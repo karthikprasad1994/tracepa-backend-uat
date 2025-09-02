@@ -211,6 +211,43 @@ namespace TracePca.Dto.FIN_Statement
             public string BranchId { get; set; }
             public int DurationId { get; set; }
         }
+        public class StatutoryPartnerDto
+        {
+            public int SSP_Id { get; set; }
+            public int SSP_CustID { get; set; }
+            public string SSP_PartnerName { get; set; }
+            public DateTime SSP_DOJ { get; set; }
+            public string SSP_PAN { get; set; }
+            public decimal SSP_ShareOfProfit { get; set; }
+            public decimal SSP_CapitalAmount { get; set; }
+            public DateTime SSP_CRON { get; set; }
+            public int SSP_CRBY { get; set; }
+            public DateTime SSP_UpdatedOn { get; set; }
+            public int SSP_UpdatedBy { get; set; }
+            public string SSP_DelFlag { get; set; }
+            public string SSP_STATUS { get; set; }
+            public string SSP_IPAddress { get; set; }
+            public int SSP_CompID { get; set; }
+        }
+        public class StatutoryDirectorDto
+        {
+            public int SSD_Id { get; set; }
+            public int SSD_CustID { get; set; }
+            public string SSD_DirectorName { get; set; }
+            public DateTime? SSD_DOB { get; set; }
+            public string SSD_DIN { get; set; }
+            public string SSD_MobileNo { get; set; }
+            public string SSD_Email { get; set; }
+            public string SSD_Remarks { get; set; }
+            public DateTime? SSD_CRON { get; set; }
+            public int SSD_CRBY { get; set; }
+            public DateTime? SSD_UpdatedOn { get; set; }
+            public int SSD_UpdatedBy { get; set; }
+            public string SSD_DelFlag { get; set; }
+            public string SSD_STATUS { get; set; }
+            public string SSD_IPAddress { get; set; }
+            public int SSD_CompID { get; set; }
+        }
 
     }
 }

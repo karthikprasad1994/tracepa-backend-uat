@@ -9,6 +9,7 @@ namespace TracePca.Interface.Audit
     {
         Task<AuditDropDownListDataDTO> LoadAllAuditDDLDataAsync(int compId);
         Task<IEnumerable<ReportTypeDetailsDTO>> GetReportTypeDetails(int compId);
+        Task<IEnumerable<ReportTypeDetailsDTO>> GetReportTypeDetailsByAuditId(int compId, int auditId);
         Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId);
         Task<AuditDropDownListDataDTO> LoadAuditWorkPaperDDLAsync(int compId, int auditId);
         Task<AuditCompletionDTO> GetAuditCompletionDetailsByIdAsync(int compId, int auditId);
@@ -17,6 +18,7 @@ namespace TracePca.Interface.Audit
         Task<int> SaveOrUpdateAuditCompletionSubPointDataAsync(AuditCompletionSingleDTO dto);
         Task<int> SaveOrUpdateAuditCompletionDataAsync(AuditCompletionDTO dto);        
         Task<int> UpdateSignedByUDINInAuditAsync(AuditSignedByUDINRequestDTO dto);
+        Task<int> UpdateAuditCompletionStatusAsync(int compId, int auditId);        
         Task<int> CheckCAEIndependentAuditorsReportSavedAsync(int compId, int auditId);
         Task<AuditSignedByUDINRequestDTO> GetSignedByUDINInAuditAsync(int compId, int auditId);
         Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndDownloadReportAsync(int compId, int auditId, string format);

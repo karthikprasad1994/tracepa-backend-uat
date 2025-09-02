@@ -205,6 +205,7 @@ builder.Services.AddScoped<ErrorLoggerInterface, ErrorLoggerService>();
 builder.Services.AddScoped<ApplicationMetricInterface, ApplicationMetric>();
 builder.Services.AddScoped<ErrorLogInterface, TracePca.Service.Master.ErrorLog>();
 builder.Services.AddScoped<PerformanceInterface, PerformanceService>();
+builder.Services.AddScoped<EmailInterface, EmailService>();
 
 
 builder.Services.AddScoped<ApiPerformanceTracker>();
@@ -283,22 +284,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnTokenValidated = async context =>
             {
                 var claimsIdentity = context.Principal?.Identity as ClaimsIdentity;
-                var token = claimsIdentity?.FindFirst("access_token")?.Value;
+                // Get the access token from the JWT claims
+                var accessToken = claimsIdentity?.FindFirst("AccessToken")?.Value;
 
-                if (string.IsNullOrEmpty(token))
+                if (string.IsNullOrEmpty(accessToken))
                 {
                     context.Fail("Token is missing.");
                     return;
                 }
 
-
                 using var scope = context.HttpContext.RequestServices.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
 
-
+                // Check if the access token has been revoked
                 var isRevoked = await db.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(1) FROM UserTokens WHERE AccessToken = @AccessToken AND IsRevoked = 1",
-                    new { AccessToken = token });
+                     "SELECT COUNT(1) FROM UserTokens WHERE AccessToken = @AccessToken AND IsRevoked = 1",
+                    new { AccessToken = accessToken });
 
                 if (isRevoked > 0)
                 {

@@ -83,10 +83,10 @@ namespace TracePca.Service.Audit
                 WHERE CUST_DELFLG = 'A' AND CUST_CompID = @CompId ORDER BY CUST_NAME ASC", parameters);
 
                 var auditCompletionCheckPointList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master
-                WHERE CMM_Category = 'ASF' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
+                WHERE CMM_Category = 'ASF' AND CMS_Keycomponent = 1 AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
 
                 var auditClosureCheckPointList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master
-                WHERE CMM_Category = 'ACP' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
+                WHERE CMM_Category = 'ASF' AND CMS_Keycomponent = 0 AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
 
                 var signedByList = connection.QueryAsync<DropDownListData>(@"SELECT Usr_ID AS ID, USr_FullName AS Name FROM sad_userdetails
                 WHERE usr_compID = @CompId AND Usr_Role IN (SELECT Mas_ID FROM SAD_GrpOrLvl_General_Master WHERE Mas_Delflag = 'A'
@@ -141,12 +141,57 @@ namespace TracePca.Service.Audit
             }
         }
 
+<<<<<<< HEAD
 		//public async Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId)
 		//{
 		//    try
 		//    {
 		//        using var connection = new SqlConnection(_connectionString);
 		//        await connection.OpenAsync();
+=======
+        public async Task<IEnumerable<ReportTypeDetailsDTO>> GetReportTypeDetailsByAuditId(int compId, int auditId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var frameworkId = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT SA_AuditFrameworkId FROM StandardAudit_Schedule WHERE SA_ID = @AuditId AND SA_CompID = @CompId", new { AuditId = auditId, CompId = compId });
+
+                int reportTypeId = (frameworkId == 1) ? 16 : 34;
+
+                var contentIds = await connection.QueryAsync<int>(@"SELECT TEM_ContentId FROM SAD_Finalisation_Report_Template WHERE TEM_FunctionId = @ReportTypeId AND TEM_Delflag = 'A' AND TEM_CompID = @CompId",
+                    new { CompId = compId, ReportTypeId = reportTypeId });
+
+                string query;
+                object parameters;
+                if (contentIds.Count() == 1)
+                {
+                    query = @"SELECT RCM_Id, RCM_ReportName, RCM_Heading, RCM_Description FROM SAD_ReportContentMaster WHERE RCM_Id = @ContentId AND RCM_ReportId = @ReportTypeId AND RCM_CompID = @CompId AND RCM_Delflag = 'A' ORDER BY RCM_Id";
+                    parameters = new { ContentId = contentIds.First(), CompId = compId, ReportTypeId = reportTypeId };
+                }
+                else
+                {
+                    query = @"SELECT RCM_Id, RCM_ReportName, RCM_Heading, RCM_Description FROM SAD_ReportContentMaster WHERE RCM_ReportId = @ReportTypeId AND RCM_CompID = @CompId AND RCM_Delflag = 'A' ORDER BY RCM_Id";
+                    parameters = new { CompId = compId, ReportTypeId = reportTypeId };
+                }
+
+                var result = await connection.QueryAsync<ReportTypeDetailsDTO>(query, parameters);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting report type details", ex);
+            }
+        }
+
+        public async Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+>>>>>>> a289bbd8d835a4582fc52ec670a6b5ef3707e1c0
 
 		//        var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
 		//            CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
@@ -260,7 +305,8 @@ namespace TracePca.Service.Audit
                 ASM_SubPoint AS SAC_SubPointName, SAC_Remarks AS SAC_Remarks, ISNULL(SAC_WorkPaperId, 0) AS SAC_WorkPaperId, WP.SSW_WorkpaperRef AS SAC_WorkPaperName, ISNULL(SAC_AttachmentId, 0) AS SAC_AttachmentId 
                 FROM AuditCompletion_SubPoint_Master ASM
                 LEFT JOIN StandardAudit_Audit_Completion SAC ON SAC.SAC_CheckPointId = ASM.ASM_CheckpointID AND SAC.SAC_SubPointId = ASM.ASM_ID AND SAC.SAC_AuditID = @AuditID
-                LEFT JOIN Content_Management_Master CMM ON CMM.cmm_ID = ASM.ASM_CheckpointID AND CMM.CMM_Category = 'ASF' AND CMM.CMM_CompID = @CompId 
+                LEFT JOIN Content_Management_Master CMM ON CMM.cmm_ID = ASM.ASM_CheckpointID AND CMM.CMM_Category = 'ASF' AND CMM.CMM_CompID = @CompId AND
+                    CMS_KeyComponent IN (SELECT SA_AuditFrameworkId FROM StandardAudit_Schedule WHERE SA_ID = @AuditId AND SA_CompID = @CompId)
                 LEFT JOIN StandardAudit_ScheduleConduct_WorkPaper WP ON WP.SSW_ID = SAC.SAC_WorkPaperId AND WP.SSW_CompID = @CompId
                 WHERE ASM.ASM_CheckpointID = @CheckPointId And ASM.ASM_CompId = @CompId";
 
@@ -520,9 +566,29 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                var query = @"UPDATE StandardAudit_Schedule SET SA_Status = 10, SA_SignedBy = @SignedBy, SA_UDIN = @UDIN, SA_UDINdate = @UDINDate WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
+                var query = @"UPDATE StandardAudit_Schedule SET SA_SignedBy = @SignedBy, SA_UDIN = @UDIN, SA_UDINdate = @UDINDate WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
 
                 var parameters = new { SignedBy = dto.SA_SignedBy, UDIN = dto.SA_UDIN, UDINDate = dto.SA_UDINdate, AuditID = dto.SA_ID, ACID = dto.SA_CompID };
+                var rowsAffected = await connection.ExecuteAsync(query, parameters);
+
+                return rowsAffected;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while updating the SignedBy and UDIN in the audit.", ex);
+            }
+        }
+
+        public async Task<int> UpdateAuditCompletionStatusAsync(int compId, int auditId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var query = @"UPDATE StandardAudit_Schedule SET SA_Status = 10 WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
+
+                var parameters = new { AuditID = auditId, ACID = compId };
                 var rowsAffected = await connection.ExecuteAsync(query, parameters);
 
                 return rowsAffected;
@@ -802,7 +868,7 @@ namespace TracePca.Service.Audit
             var templateDetails = await connection.QueryAsync<EngagementPlanTemplateReportDetailsDTO>(
                 @"SELECT LTD_ReportTypeID, LTD_Heading, LTD_Decription FROM LOE_Template_Details WHERE LTD_FormName = 'AC' AND LTD_LOE_ID = @LOEId AND LTD_CompID = @CompId;", new { CompId = compId, LOEId = auditId });
 
-            var checkpoints = await GetAuditCompletionCheckPointDetailsForReportAsync("", compId, auditId);
+            var checkpoints = await GetAuditCompletionCheckPointDetailsForReportAsync(compId, auditId);
 
             QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
             QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
@@ -885,7 +951,7 @@ namespace TracePca.Service.Audit
             });
         }
 
-        public async Task<DataTable> GetAuditCompletionCheckPointDetailsForReportAsync(string sAc, int iAcID, int iAuditID)
+        public async Task<DataTable> GetAuditCompletionCheckPointDetailsForReportAsync(int iAcID, int iAuditID)
         {
             try
             {
@@ -897,7 +963,8 @@ namespace TracePca.Service.Audit
                 dt.Columns.Add("Remarks");
                 dt.Columns.Add("WorkpaperRef");
 
-                string queryHeading = $@"SELECT CMM_ID, CMM_Desc AS Name FROM Content_Management_Master WHERE CMM_Category='ASF' AND CMM_CompID={iAcID} AND CMM_Delflag='A' AND CMS_KeyComponent=0 ORDER BY CMM_Desc ASC";
+                string queryHeading = $@"SELECT CMM_ID, CMM_Desc AS Name FROM Content_Management_Master WHERE CMM_Category='ASF' AND CMM_CompID={iAcID} AND CMM_Delflag='A' 
+                    AND CMS_KeyComponent IN (SELECT SA_AuditFrameworkId FROM StandardAudit_Schedule WHERE SA_ID = {iAuditID} AND SA_CompID = {iAcID}) ORDER BY CMM_Desc ASC";
                 var dtTab = await GetDataTableAsync(connection, queryHeading);
 
                 foreach (DataRow row in dtTab.Rows)
@@ -1418,8 +1485,8 @@ namespace TracePca.Service.Audit
                         page.Content().Column(column =>
                         {
                             column.Item().AlignCenter().PaddingBottom(10).Text("Letter of Engagement").FontSize(16).Bold();
-                            column.Item().Text($"Ref.No.: {dtoEP.EngagementPlanNo}").FontSize(12).Bold();
-                            column.Item().Text($"Date: {dtoEP.CurrentDate:dd MMM yyyy}").FontSize(10);
+                            column.Item().PaddingBottom(5).Text($"Ref.No.: {dtoEP.EngagementPlanNo}").FontSize(12).Bold();
+                            column.Item().PaddingBottom(5).Text($"Date: {dtoEP.CurrentDate:dd MMM yyyy}").FontSize(10);
                             column.Item().PaddingBottom(10).Text(dtoEP.Customer ?? "N/A").FontSize(10);
 
 
@@ -2390,7 +2457,7 @@ namespace TracePca.Service.Audit
 
         public string GetTRACeConfigValue(string key)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            using (var connection = new SqlConnection(_connectionString))
             {
                 var query = "SELECT SAD_Config_Value FROM [dbo].[Sad_Config_Settings] WHERE SAD_Config_Key = @Key";
                 return connection.QueryFirstOrDefault<string>(query, new { Key = key });

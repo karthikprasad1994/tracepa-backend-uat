@@ -1,7 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Text.Json;
 using Dapper;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.Data.SqlClient;
 using OfficeOpenXml;
 using OpenAI;
@@ -42,13 +44,26 @@ namespace TracePca.Service.SuperMaster
 
             // ✅ Parse Excel
             List<UploadEmployeeMasterDto> employees;
+            List<string> headerErrors;
             using (var stream = file.OpenReadStream())
             {
-                employees = ParseExcelToEmployees(stream);
+                employees = ParseExcelToEmployees(stream, out headerErrors);
             }
+        
 
-            // ✅ Step 1: Validate all (mandatory + duplicates)
+            // ✅ Step 3: Validate all (mandatory + duplicates)
             var errors = ValidateEmployees(employees);
+
+            // Merge header errors into validation errors
+            if (headerErrors.Any())
+            {
+                errors.AddRange(headerErrors.Select(h => new UploadEmployeeMasterDto
+                {
+                    EmpCode = "",
+                    EmployeeName = "",
+                    ErrorMessage = h
+                }));
+            }
             if (errors.Any())
             {
                 var groupedErrors = errors
@@ -68,6 +83,7 @@ namespace TracePca.Service.SuperMaster
             {
                 foreach (var emp in employees)
                 {
+<<<<<<< HEAD
  
                     // Step 4: Validate mandatory fields
                     if (string.IsNullOrWhiteSpace(emp.EmpCode) ||
@@ -83,6 +99,9 @@ namespace TracePca.Service.SuperMaster
                     }
 
  
+=======
+                    // Step 4: Ensure Designation exists
+>>>>>>> a289bbd8d835a4582fc52ec670a6b5ef3707e1c0
                     string designationSql = @"
             SELECT Mas_ID FROM SAD_GRPDESGN_General_Master
             WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
@@ -99,7 +118,7 @@ namespace TracePca.Service.SuperMaster
                             insertDesig, new { Name = emp.Designation, CompId = compId }, transaction);
                     }
 
-                    // Step 3: Ensure Role exists
+                    // Step 5: Ensure Role exists
                     string roleSql = @"
             SELECT Mas_ID FROM SAD_GrpOrLvl_General_Master
             WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
@@ -116,12 +135,12 @@ namespace TracePca.Service.SuperMaster
                             insertRole, new { Name = emp.Role, CompId = compId }, transaction);
                     }
 
-                    // Step 4: Check if employee exists
+                    // Step 6: Check if employee exists
                     string checkEmpSql = "SELECT COUNT(1) FROM Sad_UserDetails WHERE Usr_Code=@EmpCode AND Usr_CompId=@CompId";
                     bool exists = await connection.ExecuteScalarAsync<int>(
                         checkEmpSql, new { EmpCode = emp.EmpCode, CompId = compId }, transaction) > 0;
 
-                    // Step 5: Insert/Update using SP
+                    // Step 7: Insert/Update using SP
                     using var cmd = new SqlCommand("spEmployeeMaster", connection, transaction);
                     cmd.CommandType = CommandType.StoredProcedure;
 
@@ -208,12 +227,37 @@ namespace TracePca.Service.SuperMaster
         }
 
         //Parse Excel file into Employee DTO list
-        private List<UploadEmployeeMasterDto> ParseExcelToEmployees(Stream fileStream)
+        private List<UploadEmployeeMasterDto> ParseExcelToEmployees(Stream fileStream, out List<string> headerErrors)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             using var package = new ExcelPackage(fileStream);
             var worksheet = package.Workbook.Worksheets[0];
             int rowCount = worksheet.Dimension.Rows;
+            int colCount = worksheet.Dimension.Columns;
+
+            // Expected headers (exactly from template)
+            string[] expectedHeaders = new[]
+            {
+        "EmpCode","EmployeeName","LoginName","Email","OfficePhoneNo","Designation","Partner","Role","Password",
+        "LevelGrp","DutyStatus","PhoneNo","MobileNo","OfficePhoneExtn","OrgnId","GrpOrUserLvlPerm",
+        "MasterModule","AuditModule","RiskModule","ComplianceModule","BCMModule","DigitalOfficeModule",
+        "MasterRole","AuditRole","RiskRole","ComplianceRole","BCMRole","DigitalOfficeRole",
+        "CreatedBy","UpdatedBy","DelFlag","Status","IPAddress","CompId","Type","IsSuperuser",
+        "DeptID","MemberType","Levelcode","Suggestions"
+    };
+
+            headerErrors = new List<string>();
+
+            for (int col = 1; col <= expectedHeaders.Length; col++)
+            {
+                string actualHeader = worksheet.Cells[1, col].Text?.Trim();
+                string expectedHeader = expectedHeaders[col - 1];
+
+                if (!string.Equals(actualHeader, expectedHeader, StringComparison.OrdinalIgnoreCase))
+                {
+                    headerErrors.Add($"Expected header '{expectedHeader}' at column {col}, but found '{actualHeader}'");
+                }
+            }
 
             var employees = new List<UploadEmployeeMasterDto>();
             for (int row = 2; row <= rowCount; row++) // skip header
@@ -348,7 +392,7 @@ namespace TracePca.Service.SuperMaster
 
             return errors;
         }
-
+      
 
         //SaveEmployeeMaster
         public async Task<List<int[]>> SuperMasterSaveEmployeeDetailsAsync(int CompId, List<SuperMasterSaveEmployeeMasterDto> employees)
@@ -463,179 +507,469 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
+<<<<<<< HEAD
  
+=======
+        //UploadClientDetails
+        public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                throw new Exception("No file uploaded.");
+
+
+            // ✅ Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+
+
+ 
+
+
+
+    //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
+    //    {
+    //        if (file == null || file.Length == 0)
+    //            throw new Exception("No file uploaded.");
+
+
+>>>>>>> a289bbd8d835a4582fc52ec670a6b5ef3707e1c0
         ////UploadClientDetails
         //public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
         //{
         //    if (file == null || file.Length == 0)
         //        throw new Exception("No file uploaded.");
 
-        //    // ✅ Get DB name from session
-        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-        //    if (string.IsNullOrEmpty(dbName))
-        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-        //    var connectionString = _configuration.GetConnectionString(dbName);
 
-        //    // ✅ Parse Excel
-        //    List<UploadClientDetailsDto> clients;
-        //    using (var stream = file.OpenReadStream())
-        //    {
-        //        clients = ParseExcelToClients(stream);
-        //    }
+            var connectionString = _configuration.GetConnectionString(dbName);
 
-        //    // ✅ Step 1: Validate mandatory fields (collect all errors)
-        //    var errors = ValidateClients(clients);
-        //    if (errors.Any())
-        //    {
-        //        var groupedErrors = errors
-        //            .GroupBy(e => new { e.ClientName, e.ClientCode })
-        //            .Select(g => $"{g.Key.ClientName} ({g.Key.ClientCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+            // ✅ Parse Excel
+            List<UploadClientDetailsDto> clients;
+            using (var stream = file.OpenReadStream())
+            {
+                clients = ParseExcelToClients(stream);
+            }
 
-        //        throw new Exception("Validation failed:\n" + string.Join(Environment.NewLine, groupedErrors));
-        //    }
+            // ✅ Step 1: Validate mandatory fields (collect all errors)
+            var errors = ValidateClients(clients);
+            if (errors.Any())
+            {
+                var groupedErrors = errors
+                    .GroupBy(e => new { e.CUST_NAME, e.CUST_CODE })
+                    .Select(g =>
+                        $"{g.Key.CUST_NAME} ({g.Key.CUST_CODE}): {string.Join(", ", g.Select(e => e.ErrorMessage))}"
+                    );
 
-        //    // ✅ Step 2: Duplicate check inside file
-        //    var duplicateErrors = clients
-        //        .GroupBy(c => new { c.ClientName, c.PAN, c.GSTN })
-        //        .Where(g => g.Count() > 1)
-        //        .Select(g => new UploadClientDetailsDto
-        //        {
-        //            ClientCode = g.First().ClientCode,
-        //            ClientName = g.Key.ClientName,
-        //            ErrorMessage = $"Duplicate found for Client: {g.Key.ClientName}, PAN: {g.Key.PAN}, GSTN: {g.Key.GSTN}"
-        //        })
-        //        .ToList();
+                throw new Exception(string.Join("||", groupedErrors));
+            }
+           
+            var results = new List<string>();
 
-        //    if (duplicateErrors.Any())
-        //    {
-        //        var validationErrors = duplicateErrors
-        //            .Select(e => $"{e.ClientName} ({e.ClientCode}): {e.ErrorMessage}")
-        //            .ToList();
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
 
-        //        throw new Exception("Validation failed: " +
-        //            System.Text.Json.JsonSerializer.Serialize(validationErrors));
-        //    }
+            try
+            {
+                foreach (var client in clients)
+                {
 
-        //    var results = new List<string>();
+                    // Step 3: Ensure Industry Type exists
+                    string indTypeSql = @"
+SELECT Cmm_ID 
+FROM Content_Management_Master 
+WHERE cmm_Category = 'IND' 
+  AND CMM_CompID = @CompId 
+  AND UPPER(cmm_Desc) = UPPER(@Name) 
+  AND cmm_DelFlag = 'A'";
 
-        //    using var connection = new SqlConnection(connectionString);
-        //    await connection.OpenAsync();
-        //    using var transaction = connection.BeginTransaction();
+                    int? indTypeId = await connection.ExecuteScalarAsync<int?>(
+                        indTypeSql,
+                        new { Name = client.CUST_INDTYPEID, CompId = client.CUST_CompID },
+                        transaction
+                    );
 
-        //    try
-        //    {
-        //        foreach (var client in clients)
-        //        {
+                    if (!indTypeId.HasValue)
+                    {
+                        string insertIndType = @"
+                        INSERT INTO Content_Management_Master (cmm_ID, cmm_Code, cmm_Category, CMM_CompID, cmm_Desc, cmm_DelFlag)
+                        SELECT ISNULL(MAX(cmm_ID), 0) + 1,
+                               'IND' + CAST(ISNULL(MAX(cmm_ID), 0) + 1 AS VARCHAR),
+                               'IND',
+                               @CompId,
+                               @Name,
+                               'A'
+                        FROM Content_Management_Master;
 
-        //            // ✅ Step 3: Ensure client not already existing in DB
-        //            string checkClientSql = @"
-        //        SELECT COUNT(1) 
-        //        FROM Client_Master 
-        //        WHERE UPPER(Client_Name) = UPPER(@Name) AND Client_CompId = @CompId";
-        //            bool exists = await connection.ExecuteScalarAsync<int>(
-        //                checkClientSql, new { Name = client.ClientName, CompId = compId }, transaction) > 0;
+                        SELECT ISNULL(MAX(cmm_ID), 0) FROM Content_Management_Master;";
 
-        //            // ✅ Step 4: Call stored procedure
-        //            using var cmd = new SqlCommand("spSaveClientDetails", connection, transaction);
-        //            cmd.CommandType = CommandType.StoredProcedure;
+                        indTypeId = await connection.ExecuteScalarAsync<int>(
+                            insertIndType,
+                            new { Name = client.CUST_INDTYPEID, CompId = client.CUST_CompID },
+                            transaction
+                        );
+                    }
+               
+                    client.CUST_INDTYPEID = indTypeId?.ToString();
 
-        //            cmd.Parameters.AddWithValue("@Client_ID", (object?)client.ClientId ?? 0);
-        //            cmd.Parameters.AddWithValue("@Client_Code", client.ClientCode ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_Name", client.ClientName ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_PAN", client.PAN ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_GSTN", client.GSTN ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_Address", client.Address ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_Email", client.Email ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_Phone", client.Phone ?? "");
-        //            cmd.Parameters.AddWithValue("@Client_CompId", compId);
-        //            cmd.Parameters.AddWithValue("@CreatedBy", client.CreatedBy ?? 0);
-        //            cmd.Parameters.AddWithValue("@UpdatedBy", client.UpdatedBy ?? 0);
-        //            cmd.Parameters.AddWithValue("@DelFlag", client.DelFlag ?? "A");
-        //            cmd.Parameters.AddWithValue("@Status", client.Status ?? "N");
-        //            cmd.Parameters.AddWithValue("@IPAddress", client.IPAddress ?? "");
+                    //Step 4: Ensure Customer Code exists or activate it
+                    var custRecord = await connection.QueryFirstOrDefaultAsync<(int Id, string DelFlag)>(
+                        @"SELECT Cust_ID AS Id, CUST_DELFLG AS DelFlag
+      FROM SAD_CUSTOMER_MASTER
+      WHERE CUST_CODE = @CustCode",
+                        new { CustCode = client.CUST_CODE }, transaction
+                    );
 
-        //            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
-        //            {
-        //                Direction = ParameterDirection.Output
-        //            };
-        //            var operParam = new SqlParameter("@iOper", SqlDbType.Int)
-        //            {
-        //                Direction = ParameterDirection.Output
-        //            };
+                    if (custRecord.Id == 0) // Not found
+                    {
+                        client.CUST_CODE = await connection.ExecuteScalarAsync<string>(
+                            @"SELECT 'CUST' + CAST(COALESCE(MAX(Cust_ID), 0) + 1 AS VARCHAR)
+          FROM SAD_CUSTOMER_MASTER",
+                            transaction: transaction
+                        );
+                    }
+                    else
+                    {
+                        if (!string.Equals(custRecord.DelFlag, "A", StringComparison.OrdinalIgnoreCase))
+                        {
+                            await connection.ExecuteAsync(
+                                @"UPDATE SAD_CUSTOMER_MASTER
+              SET CUST_DELFLG = 'A'
+              WHERE Cust_ID = @Id",
+                                new { custRecord.Id }, transaction
+                            );
+                        }
+                    }
 
-        //            cmd.Parameters.Add(updateOrSaveParam);
-        //            cmd.Parameters.Add(operParam);
+                    // Step 5: Ensure Org Type exists
+                    string orgTypeSql = @"
+    SELECT Cmm_ID 
+    FROM Content_Management_Master 
+    WHERE cmm_Category = 'ORG' 
+      AND Cmm_CompID = @CompId 
+      AND UPPER(cmm_Desc) = UPPER(@Name) 
+      AND cmm_DelFlag = 'A'";
 
-        //            await cmd.ExecuteNonQueryAsync();
+                    int? orgTypeId = await connection.ExecuteScalarAsync<int?>(
+                        orgTypeSql, new { Name = client.CUST_ORGTYPEID, CompId = client.CUST_CompID }, transaction);
 
-        //            int updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
-        //            int oper = (int)(operParam.Value ?? 0);
+                    if (!orgTypeId.HasValue)
+                    {
+                        string insertOrgType = @"
+                        INSERT INTO Content_Management_Master (cmm_ID, cmm_Code, cmm_Category, Cmm_CompID, cmm_Desc, cmm_DelFlag)
+                        SELECT ISNULL(MAX(cmm_ID), 0) + 1,
+                         'ORG' + CAST(ISNULL(MAX(cmm_ID), 0) + 1 AS VARCHAR),
+                         'ORG',
+                         @CompId,
+                         @Name,
+                          'A'
+                         FROM Content_Management_Master;
+                         SELECT ISNULL(MAX(cmm_ID), 0) FROM Content_Management_Master;";
 
-        //            string action = updateOrSave == 2 ? "Updated" : "Inserted";
-        //            results.Add($"{action} client: {client.ClientCode} - {client.ClientName} (Client_ID={oper})");
-        //        }
+                        orgTypeId = await connection.ExecuteScalarAsync<int>(
+                            insertOrgType, new { Name = client.CUST_ORGTYPEID, CompId = client.CUST_CompID }, transaction);
+                    }
 
-        //        transaction.Commit();
-        //        return results;
-        //    }
-        //    catch
-        //    {
-        //        transaction.Rollback();
-        //        throw;
-        //    }
-        //}
+                    // ✅ Step 4: Call stored procedure
+                    using var cmd = new SqlCommand("spSAD_CUSTOMER_MASTER", connection, transaction);
+                    cmd.CommandType = CommandType.StoredProcedure;
 
-        //private List<UploadClientDetailsDto> ParseExcelToClients(Stream fileStream)
-        //{
-        //    ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-        //    using var package = new ExcelPackage(fileStream);
-        //    var worksheet = package.Workbook.Worksheets[0];
-        //    int rowCount = worksheet.Dimension.Rows;
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    cmd.Parameters.AddWithValue("@CUST_ID", client.CUST_ID);
+                    cmd.Parameters.AddWithValue("@CUST_NAME", client.CUST_NAME ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_CODE", client.CUST_CODE ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_WEBSITE", client.CUST_WEBSITE ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_EMAIL", client.CUST_EMAIL ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_GROUPNAME", client.CUST_GROUPNAME ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_GROUPINDIVIDUAL", client.CUST_GROUPINDIVIDUAL);
+                    cmd.Parameters.AddWithValue("@CUST_ORGTYPEID", orgTypeId);
+                    cmd.Parameters.AddWithValue("@CUST_INDTYPEID", indTypeId);
+                    cmd.Parameters.AddWithValue("@CUST_MGMTTYPEID", client.CUST_MGMTTYPEID);
+                    cmd.Parameters.AddWithValue("@CUST_CommitmentDate", client.CUST_CommitmentDate);
+                    cmd.Parameters.AddWithValue("@CUSt_BranchId", client.CUSt_BranchId ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_COMM_ADDRESS", client.CUST_COMM_ADDRESS ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_COMM_CITY", client.CUST_COMM_CITY ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_COMM_PIN", client.CUST_COMM_PIN ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_COMM_STATE", client.CUST_COMM_STATE ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_COMM_COUNTRY", client.CUST_COMM_COUNTRY ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_COMM_FAX", client.CUST_COMM_FAX ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_COMM_TEL", client.CUST_COMM_TEL ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_COMM_Email", client.CUST_COMM_Email ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_ADDRESS", client.CUST_ADDRESS ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_CITY", client.CUST_CITY ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_PIN", client.CUST_PIN ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_STATE", client.CUST_STATE ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_COUNTRY", client.CUST_COUNTRY ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_FAX", client.CUST_FAX ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_TELPHONE", client.CUST_TELPHONE ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_ConEmailID", client.CUST_ConEmailID ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_LOCATIONID", client.CUST_LOCATIONID ?? "0");
+                    cmd.Parameters.AddWithValue("@CUST_TASKS", client.CUST_TASKS ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_ORGID", orgTypeId);
+                    cmd.Parameters.AddWithValue("@CUST_CRBY", client.CUST_CRBY);
+                    cmd.Parameters.AddWithValue("@CUST_UpdatedBy", client.CUST_UpdatedBy);
+                    cmd.Parameters.AddWithValue("@CUST_BOARDOFDIRECTORS", client.CUST_BOARDOFDIRECTORS ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_DEPMETHOD", client.CUST_DEPMETHOD);
+                    cmd.Parameters.AddWithValue("@CUST_IPAddress", client.CUST_IPAddress ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@CUST_CompID", client.CUST_CompID);
+                    cmd.Parameters.AddWithValue("@CUST_Amount_Type", client.CUST_Amount_Type);
+                    cmd.Parameters.AddWithValue("@CUST_RoundOff", client.CUST_RoundOff);
+                    cmd.Parameters.AddWithValue("@Cust_DurtnId", client.Cust_DurtnId);
+                    cmd.Parameters.AddWithValue("@Cust_FY", client.Cust_FY);
 
-        //    var clients = new List<UploadClientDetailsDto>();
-        //    for (int row = 2; row <= rowCount; row++) // skip header
-        //    {
-        //        clients.Add(new UploadClientDetailsDto
-        //        {
-        //            ClientCode = worksheet.Cells[row, 1].Text,
-        //            ClientName = worksheet.Cells[row, 2].Text,
-        //            PAN = worksheet.Cells[row, 3].Text,
-        //            GSTN = worksheet.Cells[row, 4].Text,
-        //            Address = worksheet.Cells[row, 5].Text,
-        //            Email = worksheet.Cells[row, 6].Text,
-        //            Phone = worksheet.Cells[row, 7].Text,
-        //            CreatedBy = int.TryParse(worksheet.Cells[row, 8].Text, out var createdBy) ? createdBy : 0,
-        //            UpdatedBy = int.TryParse(worksheet.Cells[row, 9].Text, out var updatedBy) ? updatedBy : 0,
-        //            DelFlag = worksheet.Cells[row, 10].Text,
-        //            Status = worksheet.Cells[row, 11].Text,
-        //            IPAddress = worksheet.Cells[row, 12].Text
-        //        });
-        //    }
-        //    return clients;
-        //}
+                    var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
+                    {
+                        Direction = ParameterDirection.Output
+                    };
+                    var operParam = new SqlParameter("@iOper", SqlDbType.Int)
+                    {
+                        Direction = ParameterDirection.Output
+                    };
 
-        //private List<UploadClientDetailsDto> ValidateClients(List<UploadClientDetailsDto> clients)
-        //{
-        //    var errors = new List<UploadClientDetailsDto>();
+                    cmd.Parameters.Add(updateOrSaveParam);
+                    cmd.Parameters.Add(operParam);
 
-        //    foreach (var client in clients)
-        //    {
-        //        if (string.IsNullOrWhiteSpace(client.ClientCode))
-        //            errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "ClientCode missing" });
+                    await cmd.ExecuteNonQueryAsync();
 
-        //        if (string.IsNullOrWhiteSpace(client.ClientName))
-        //            errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "ClientName missing" });
+                    int updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+                    int oper = (int)(operParam.Value ?? 0);
 
-        //        if (string.IsNullOrWhiteSpace(client.PAN))
-        //            errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "PAN missing" });
+                    string action = updateOrSave == 2 ? "Updated" : "Inserted";
+                    results.Add($"{action} client: {client.CUST_CODE} - {client.CUST_NAME} (Client_ID={oper})");
 
-        //        if (string.IsNullOrWhiteSpace(client.GSTN))
-        //            errors.Add(new UploadClientDetailsDto { ClientCode = client.ClientCode, ClientName = client.ClientName, ErrorMessage = "GSTN missing" });
-        //    }
+                    // Step 6: Save Locations
+                    if (!string.IsNullOrWhiteSpace(client.LocationName))
+                    {
+                        int locationId;
+                        using (var cmdLoc = new SqlCommand("spSAD_CUST_LOCATION", connection, transaction))
+                        {
+                            cmdLoc.CommandType = CommandType.StoredProcedure;
+                            cmdLoc.Parameters.AddWithValue("@Mas_Id", client.Mas_Id);
+                            cmdLoc.Parameters.AddWithValue("@Mas_code", client.Mas_code ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_Description", client.LocationName ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_DelFlag", client.DelFlag ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_CustID", client.CUST_ID);
+                            cmdLoc.Parameters.AddWithValue("@Mas_Loc_Address", client.Address ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_Contact_Person", client.ContactPerson ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_Contact_MobileNo", client.Mobile ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_Contact_LandLineNo", client.Landline ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_Contact_Email", client.Email ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@mas_Designation", client.Designation ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_CRBY", client.CUST_CRBY);
+                            cmdLoc.Parameters.AddWithValue("@Mas_UpdatedBy", client.CUST_UpdatedBy);
+                            cmdLoc.Parameters.AddWithValue("@Mas_STATUS", "A");
+                            cmdLoc.Parameters.AddWithValue("@Mas_IPAddress", client.CUST_IPAddress ?? string.Empty);
+                            cmdLoc.Parameters.AddWithValue("@Mas_CompID", client.CUST_CompID);
 
-        //    return errors;
-        //}
+                            var updateOrSaveLoc = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            var operLoc = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            cmdLoc.Parameters.Add(updateOrSaveLoc);
+                            cmdLoc.Parameters.Add(operLoc);
+
+                            await cmdLoc.ExecuteNonQueryAsync();
+                            locationId = (int)(operLoc.Value ?? 0);
+                        }
+
+                        // Step 7: Save Statutory Refs
+                        async Task SaveStatutoryRef(string desc, string value)
+                        {
+                            if (string.IsNullOrWhiteSpace(value))
+                                return;
+
+                            using var cmdStat = new SqlCommand("spSAD_CUST_Accounting_Template", connection, transaction);
+                            cmdStat.CommandType = CommandType.StoredProcedure;
+                            cmdStat.Parameters.AddWithValue("@Cust_PKID", 0);
+                            cmdStat.Parameters.AddWithValue("@Cust_ID",client.CUST_ID);
+                            cmdStat.Parameters.AddWithValue("@Cust_Desc", desc);
+                            cmdStat.Parameters.AddWithValue("@Cust_Value", value);
+                            cmdStat.Parameters.AddWithValue("@Cust_Delflag", "A");
+                            cmdStat.Parameters.AddWithValue("@Cust_Status", "A");
+                            cmdStat.Parameters.AddWithValue("@Cust_AttchID", 0);
+                            cmdStat.Parameters.AddWithValue("@Cust_CrBy", client.CUST_CRBY);
+                            cmdStat.Parameters.AddWithValue("@Cust_UpdatedBy", client.CUST_UpdatedBy);
+                            cmdStat.Parameters.AddWithValue("@Cust_IPAddress", client.CUST_IPAddress ?? string.Empty);
+                            cmdStat.Parameters.AddWithValue("@Cust_Compid", client.CUST_CompID);
+                            cmdStat.Parameters.AddWithValue("@Cust_LocationId", locationId);
+
+                            var updateOrSaveStat = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            var operStat = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            cmdStat.Parameters.Add(updateOrSaveStat);
+                            cmdStat.Parameters.Add(operStat);
+
+                            await cmdStat.ExecuteNonQueryAsync();
+                        }
+                        await SaveStatutoryRef("CIN", client.CIN);
+                        await SaveStatutoryRef("TAN", client.TAN);
+                        await SaveStatutoryRef("GST", client.GST);
+                    }
+                    // keep your existing results.Add(...) logic
+                    results.Add($"{updateOrSave}, {client.CUST_ID}");
+                }
+                transaction.Commit();
+                return results;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+        private List<UploadClientDetailsDto> ParseExcelToClients(Stream fileStream)
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using var package = new ExcelPackage(fileStream);
+            var worksheet = package.Workbook.Worksheets[0];
+            int rowCount = worksheet.Dimension.Rows;
+
+            var clients = new List<UploadClientDetailsDto>();
+            for (int row = 2; row <= rowCount; row++) // skip header
+            {
+                clients.Add(new UploadClientDetailsDto
+                {
+                    CUST_ID = int.TryParse(worksheet.Cells[row, 1].Text, out var custId) ? custId : 0,
+                    CUST_NAME = worksheet.Cells[row, 2].Text,
+                    CUST_ORGTYPEID = worksheet.Cells[row, 3].Text,
+                    CUST_ADDRESS = worksheet.Cells[row, 4].Text,
+                    CUST_CITY = worksheet.Cells[row, 5].Text,
+                    CUST_EMAIL = worksheet.Cells[row, 6].Text,
+                    CUST_TELPHONE = worksheet.Cells[row, 7].Text,
+                    CUST_INDTYPEID = worksheet.Cells[row, 8].Text,
+                    CUST_LOCATIONID = worksheet.Cells[row, 9].Text?.Trim(),
+                    CUST_ConEmailID = worksheet.Cells[row, 10].Text?.Trim(),
+                    CUST_CODE = worksheet.Cells[row, 11].Text?.Trim(),                                       
+                    CUST_WEBSITE = worksheet.Cells[row, 12].Text?.Trim(),
+                    CUST_GROUPNAME = worksheet.Cells[row, 13].Text?.Trim(),
+                    CUST_GROUPINDIVIDUAL = int.TryParse(worksheet.Cells[row, 14].Text, out var custGrpIndividual) ? custGrpIndividual : 0,
+                    CUST_MGMTTYPEID = int.TryParse(worksheet.Cells[row, 15].Text, out var mgmTypeId) ? mgmTypeId : 0,
+                    CUST_CommitmentDate = worksheet.Cells[row, 16].GetValue<DateTime?>(),
+                    CUSt_BranchId = worksheet.Cells[row, 17].Text?.Trim(),
+                    CUST_COMM_ADDRESS = worksheet.Cells[row, 18].Text?.Trim(),
+                    CUST_COMM_CITY = worksheet.Cells[row, 19].Text?.Trim(),
+                    CUST_COMM_PIN = worksheet.Cells[row, 20].Text?.Trim(),
+                    CUST_COMM_STATE = worksheet.Cells[row, 21].Text?.Trim(),
+                    CUST_COMM_COUNTRY = worksheet.Cells[row, 22].Text?.Trim(),
+                    CUST_COMM_FAX = worksheet.Cells[row, 23].Text?.Trim(),
+                    CUST_COMM_TEL = worksheet.Cells[row, 24].Text?.Trim(),
+                    CUST_COMM_Email = worksheet.Cells[row, 25].Text?.Trim(),
+                    CUST_PIN = worksheet.Cells[row, 26].Text?.Trim(),
+                    CUST_STATE = worksheet.Cells[row, 27].Text?.Trim(),
+                    CUST_COUNTRY = worksheet.Cells[row, 28].Text?.Trim(),
+                    CUST_FAX = worksheet.Cells[row, 29].Text?.Trim(),
+                    CUST_TASKS = worksheet.Cells[row, 30].Text?.Trim(),
+                    CUST_ORGID = int.TryParse(worksheet.Cells[row, 31].Text, out var orgId) ? orgId : 0,       
+                    CUST_CRBY = int.TryParse(worksheet.Cells[row, 32].Text, out var createdBy) ? createdBy : 0,
+                    CUST_UpdatedBy = int.TryParse(worksheet.Cells[row, 33].Text, out var updatedBy) ? updatedBy : 0,
+                    CUST_BOARDOFDIRECTORS = worksheet.Cells[row, 34].Text?.Trim(),
+                    CUST_DEPMETHOD = int.TryParse(worksheet.Cells[row, 35].Text, out var custDepMethod) ? custDepMethod : 0,
+                    CUST_IPAddress = worksheet.Cells[row, 36].Text?.Trim(),
+                    CUST_CompID = int.TryParse(worksheet.Cells[row, 37].Text, out var compId) ? compId : 0,
+                    CUST_Amount_Type = int.TryParse(worksheet.Cells[row, 38].Text, out var custAmountType) ? custAmountType : 0,
+                    CUST_RoundOff = int.TryParse(worksheet.Cells[row, 39].Text, out var custRoundff) ? custRoundff : 0,
+                    Cust_DurtnId = int.TryParse(worksheet.Cells[row, 40].Text, out var durtnId) ? durtnId : 0,
+                    Cust_FY = worksheet.Cells[row, 41].Text?.Trim(),
+                    
+                });
+            }
+            return clients;
+        }
+        private List<UploadClientDetailsDto> ValidateClients(List<UploadClientDetailsDto> clients)
+        {
+            var errors = new List<UploadClientDetailsDto>();
+
+            foreach (var client in clients)
+            {
+                if (client.CUST_ID <= 0)
+                    errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_ID missing" });
+
+                if (string.IsNullOrWhiteSpace(client.CUST_NAME))
+                    errors.Add(new UploadClientDetailsDto{ CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_NAME missing" });
+
+                if (string.IsNullOrWhiteSpace(client.CUST_ORGTYPEID)) 
+                    errors.Add(new UploadClientDetailsDto{ CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_ORGTYPEID missing"  });
+
+                if (string.IsNullOrWhiteSpace(client.CUST_ADDRESS))
+                    errors.Add(new UploadClientDetailsDto{ CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_ADDRESS missing" });
+
+                if (string.IsNullOrWhiteSpace(client.CUST_CITY))
+                    errors.Add(new UploadClientDetailsDto{ CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_CITY missing" });
+
+                // ✅ CUST_EMAIL check (must be a valid Gmail address)
+                if (string.IsNullOrWhiteSpace(client.CUST_EMAIL))
+                {
+                    errors.Add(new UploadClientDetailsDto{ CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_EMAIL missing"
+                    });
+                }
+                else
+                {
+                    string trimmedEmail = client.CUST_EMAIL.Trim();
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(trimmedEmail, @"^[a-z0-9](\.?[a-z0-9]){1,}@gmail\.com$"))
+                    {
+                        errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "Invalid Gmail format. Must be like 'username@gmail.com'" });
+                    }
+                }
+
+                // ✅ CUST_TELPHONE check (must be exactly 10 digits)
+                if (string.IsNullOrWhiteSpace(client.CUST_TELPHONE))
+                {
+                    errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_TELPHONE missing" });
+                }
+                else
+                {
+                    string phone = client.CUST_TELPHONE.Trim();
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(phone, @"^[0-9]{10}$"))
+                    {
+                        errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_TELPHONE must be exactly 10 digits" });
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(client.CUST_INDTYPEID)) 
+                    errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_INDTYPEID missing" });
+
+                // ✅ CUST_ConEmailID check (must be a valid Gmail address)
+                if (string.IsNullOrWhiteSpace(client.CUST_ConEmailID))
+                {
+                    errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME,ErrorMessage = "CUST_ConEmailID missing"});
+                }
+                else
+                {
+                    string trimmedConEmail = client.CUST_ConEmailID.Trim();
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(trimmedConEmail, @"^[a-z0-9](\.?[a-z0-9]){1,}@gmail\.com$"))
+                    {
+                        errors.Add(new UploadClientDetailsDto{ CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "Invalid Gmail format for CUST_ConEmailID. Must be like 'username@gmail.com'"});
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(client.CUST_LOCATIONID))
+                    errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_LOCATIONID missing" });
+            }
+
+            void AddDuplicateErrors(Func<UploadClientDetailsDto, string> keySelector, string fieldName)
+            {
+                errors.AddRange(
+                    clients.GroupBy(keySelector)
+                    .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
+                    .Select(g => new UploadClientDetailsDto
+                    {
+                        CUST_CODE = g.First().CUST_CODE,
+                        CUST_NAME = g.First().CUST_NAME,
+                        ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
+                    })
+                );
+            }
+
+            AddDuplicateErrors(e => e.CUST_ID.ToString(), "CUST_ID");
+            AddDuplicateErrors(c => c.CUST_EMAIL, "CUST_EMAIL");
+            AddDuplicateErrors(c => c.CUST_TELPHONE, "CUST_TELPHONE");
+            AddDuplicateErrors(c => c.CUST_ConEmailID, "CUST_ConEmailID");
+            AddDuplicateErrors(c => c.CUST_CODE, "CUST_CODE");
+            AddDuplicateErrors(c => c.CUST_WEBSITE, "CUST_WEBSITE");
+            AddDuplicateErrors(c => c.CUST_FAX, "CUST_FAX");
+            AddDuplicateErrors(c => c.CUST_COMM_Email, "CUST_COMM_Email");
+
+            return errors;
+        }
 
  
         public async Task<List<int[]>> SuperMasterSaveCustomerDetailsAsync(int CompId, List<SuperMasterSaveCustomerDto> customers)
@@ -1124,14 +1458,14 @@ namespace TracePca.Service.SuperMaster
                 // ✅ Email check
                 if (string.IsNullOrWhiteSpace(emp.Email))
                 {
-                    errors.Add(new UploadClientUserDto{ EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Email missing"});
+                    errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Email missing" });
                 }
                 else
                 {
                     string trimmedEmail = emp.Email.Trim();
                     if (!System.Text.RegularExpressions.Regex.IsMatch(trimmedEmail, @"^[a-z0-9](\.?[a-z0-9]){1,}@gmail\.com$"))
                     {
-                        errors.Add(new UploadClientUserDto{ EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Invalid Gmail format. Must be like 'username@gmail.com'"});
+                        errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Invalid Gmail format. Must be like 'username@gmail.com'" });
                     }
                 }
 
