@@ -174,6 +174,8 @@ builder.Services.AddScoped<ScheduleNoteInterface, ScheduleNoteService>();
 builder.Services.AddScoped<ScheduleReportInterface, ScheduleReportService>();
 builder.Services.AddScoped<ScheduleExcelUploadInterface, ScheduleExcelUploadService>();
 builder.Services.AddScoped<ScheduleMastersInterface, ScheduleMastersService>();
+builder.Services.AddScoped<ScheduleAccountingRatioInterface, ScheduleAccountingRatioService>();
+
 
 
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
