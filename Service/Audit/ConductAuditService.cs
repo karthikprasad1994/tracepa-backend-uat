@@ -1464,7 +1464,7 @@ namespace TracePca.Service.Audit
                 var validHeadings = new[]
                 {
                     "Trade Receivables",
-                    "Cash & Bank",
+                    "Cash And Bank",
                     "Expenses",
                     "Employee Benefits",
                     "Inventories",
