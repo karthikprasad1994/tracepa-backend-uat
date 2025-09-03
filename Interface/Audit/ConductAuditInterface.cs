@@ -29,5 +29,6 @@ namespace TracePca.Interface.Audit
         Task<int> SaveConductAuditRemarksHistoryAsync(ConductAuditRemarksHistoryDTO dto);
         Task<int> CheckAuditMandatoryCheckpointsAsync(int compId, int auditId);
         Task<bool> SaveConductAuditCheckpointObservationAsync(List<ConductAuditCheckpointObservationsDTO> dtos);
+        Task<List<DropDownListData>> GetWorkpaperCheckListNotesByNameAsyn(DropDownListData data);
     }
 }

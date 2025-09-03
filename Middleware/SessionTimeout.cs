@@ -1,104 +1,38 @@
-﻿//namespace TracePca.Middleware
-//{
-//    public class SessionTimeout
-//    {
-//        private readonly RequestDelegate _next;
+﻿using Microsoft.AspNetCore.Http;
+using System;
+using System.Threading.Tasks;
 
-//        public SessionTimeout(RequestDelegate next)
-//        {
-//            _next = next;
-//        }
+public class SessionTimeoutMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly TimeSpan _idleTimeout = TimeSpan.FromMinutes(90);
 
- 
-//        public async Task InvokeAsync(HttpContext context)
-//        {
-//            var path = context.Request.Path.Value?.ToLower();
+    public SessionTimeoutMiddleware(RequestDelegate next)
+    {
+        _next = next;
+    }
 
-//            // Skip static files, login, Swagger UI and Swagger JSON endpoints
-//            if (path != null &&
-//                (path.Contains("/login")
-//                 || path.Contains("/static")
-//                 || path.Contains("/swagger")
-//                 || path.Contains("/favicon.ico")))
-//            {
-//                await _next(context);
-//                return;
-//            }
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var lastActivityStr = context.Session.GetString("LastActivity");
+        DateTime lastActivity;
 
-//            var isLoggedIn = context.Session.GetString("IsLoggedIn");
+        if (!string.IsNullOrWhiteSpace(lastActivityStr) &&
+            DateTime.TryParse(lastActivityStr, out lastActivity))
+        {
+            if (DateTime.UtcNow - lastActivity > _idleTimeout)
+            {
+                context.Session.Clear();
+                context.Response.StatusCode = 401; // Unauthorized
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync("{\"success\": false, \"message\": \"Session timed out. Please login again.\"}");
+                return;
+            }
+        }
 
-//            if (string.IsNullOrEmpty(isLoggedIn))
-//            {
-//                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-//                context.Response.ContentType = "application/json";
+        // Update last activity timestamp
+        context.Session.SetString("LastActivity", DateTime.UtcNow.ToString());
 
-//                await context.Response.WriteAsync("{\"message\": \"Session timed out, please login again.\"}");
-//                return;
-//            }
-
-//            await _next(context);
-//        }
-
-
-//        //public async Task InvokeAsync(HttpContext context)
-//        //{
-//        //    var path = context.Request.Path.Value?.ToLower();
-
-//        //    // Skip static files, login, Swagger UI and Swagger JSON endpoints
-//        //    if (path != null &&
-//        //        (path.Contains("/login")
-//        //         || path.Contains("/static")
-//        //         || path.Contains("/swagger")
-//        //         || path.Contains("/favicon.ico")))
-//        //    {
-//        //        await _next(context);
-//        //        return;
-//        //    }
-
-//        //    var isLoggedIn = context.Session.GetString("IsLoggedIn");
-
-//        //    if (string.IsNullOrEmpty(isLoggedIn))
-//        //    {
-//        //        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-//        //        context.Response.ContentType = "application/json";
-
-//        //        await context.Response.WriteAsync("{\"message\": \"Session timed out, please login again.\"}");
-//        //        return;
-//        //    }
-
-//        //    await _next(context);
-//        //}
-
-//        public async Task InvokeAsync(HttpContext context)
-//        {
-//            var path = context.Request.Path.Value?.ToLower();
-
-//            // Skip static files, login, Swagger UI and Swagger JSON endpoints
-//            if (path != null &&
-//                (path.Contains("/login")
-//                 || path.Contains("/static")
-//                 || path.Contains("/swagger")
-//                 || path.Contains("/favicon.ico")))
-//            {
-//                await _next(context);
-//                return;
-//            }
-
-//            var isLoggedIn = context.Session.GetString("IsLoggedIn");
-
-//            if (string.IsNullOrEmpty(isLoggedIn))
-//            {
-//                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-//                context.Response.ContentType = "application/json";
-
-//                await context.Response.WriteAsync("{\"message\": \"Session timed out, please login again.\"}");
-//                return;
-//            }
-
-//            await _next(context);
-//        }
-
-//    }
-//}
-
-
+        await _next(context);
+    }
+}

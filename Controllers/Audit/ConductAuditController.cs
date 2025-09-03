@@ -474,5 +474,19 @@ namespace TracePca.Controllers.Audit
                 return StatusCode(500, new { statusCode = 500, message = "Failed to save Audit Observation.", error = ex.Message });
             }
         }
+
+        [HttpGet("GetWorkpaperCheckListNotesByName")]
+        public async Task<IActionResult> GetWorkpaperCheckListNotesByName([FromQuery] DropDownListData data)
+        {
+            try
+            {
+                var result = await _conductAuditInterface.GetWorkpaperCheckListNotesByNameAsyn(data);
+                return Ok(new { statusCode = 200, message = "WorkpaperCheckList Notes data fetched successfully.", data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load WorkpaperCheckList dropdown data.", error = ex.Message });
+            }
+        }
     }
 }
