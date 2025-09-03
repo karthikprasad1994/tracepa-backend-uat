@@ -21,6 +21,7 @@ using TracePca.Interface.Audit;
 using TracePca.Interface.DatabaseConnection;
 using TracePca.Interface.DigitalFiling;
 using TracePca.Interface.DigitalFilling;
+using TracePca.Interface.EmployeeMaster;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.FixedAssetsInterface;
 using TracePca.Interface.LedgerReview;
@@ -33,6 +34,7 @@ using TracePca.Service.AssetService;
 using TracePca.Service.Audit;
 using TracePca.Service.Communication_with_client;
 using TracePca.Service.DigitalFiling;
+using TracePca.Service.EmployeeMaster;
 using TracePca.Service.FIN_statement;
 using TracePca.Service.FixedAssetsService;
 using TracePca.Service.LedgerReview;
@@ -86,8 +88,10 @@ builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddSession(options =>
 {
-    //options.IdleTimeout = TimeSpan.FromMinutes(90);
+    options.IdleTimeout = TimeSpan.FromHours(24);
     options.Cookie.Name = ".AspNetCore.Session";
+    options.Cookie.MaxAge = TimeSpan.FromHours(24);
+
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 
@@ -206,6 +210,8 @@ builder.Services.AddScoped<ApplicationMetricInterface, ApplicationMetric>();
 builder.Services.AddScoped<ErrorLogInterface, TracePca.Service.Master.ErrorLog>();
 builder.Services.AddScoped<PerformanceInterface, PerformanceService>();
 builder.Services.AddScoped<EmailInterface, EmailService>();
+builder.Services.AddScoped<EmployeeMasterInterface, EmployeeMaster>();
+
 
 
 builder.Services.AddScoped<ApiPerformanceTracker>();
