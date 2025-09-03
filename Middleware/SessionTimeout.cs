@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Http;
+using System;
 using System.Threading.Tasks;
 
 public class SessionTimeoutMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly TimeSpan _idleTimeout = TimeSpan.FromMinutes(90);
 
     public SessionTimeoutMiddleware(RequestDelegate next)
     {
@@ -12,17 +14,25 @@ public class SessionTimeoutMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Check if session exists
-        var customerCode = context.Session.GetString("CustomerCode");
-        if (string.IsNullOrWhiteSpace(customerCode))
+        var lastActivityStr = context.Session.GetString("LastActivity");
+        DateTime lastActivity;
+
+        if (!string.IsNullOrWhiteSpace(lastActivityStr) &&
+            DateTime.TryParse(lastActivityStr, out lastActivity))
         {
-            context.Response.StatusCode = 401; // Unauthorized
-            context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync("{\"success\": false, \"message\": \"Session timed out. Please login again.\"}");
-            return;
+            if (DateTime.UtcNow - lastActivity > _idleTimeout)
+            {
+                context.Session.Clear();
+                context.Response.StatusCode = 401; // Unauthorized
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync("{\"success\": false, \"message\": \"Session timed out. Please login again.\"}");
+                return;
+            }
         }
 
-        // Session is valid, continue
+        // Update last activity timestamp
+        context.Session.SetString("LastActivity", DateTime.UtcNow.ToString());
+
         await _next(context);
     }
 }
