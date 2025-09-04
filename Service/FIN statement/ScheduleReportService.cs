@@ -2288,10 +2288,20 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                         BranchId = selectedBranches,
                                         CustomerId = CustId
                                     });
+                                    decimal itemNet; decimal itemPrevNet;
                                     foreach (var itemDescription in itemDescriptions)
                                     {
-                                        decimal itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
-                                        decimal itemPrevNet = (itemDescription.CrTotalPrev ?? 0) - (itemDescription.DbTotalPrev ?? 0);
+                                        if ((itemDescription.CrTotal ?? 0) > (itemDescription.DbTotal ?? 0))
+                                        {
+                                            itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
+                                            itemPrevNet = (itemDescription.CrTotalPrev ?? 0) - (itemDescription.DbTotalPrev ?? 0);
+                                        }
+                                        else
+                                        {
+                                            itemNet = (itemDescription.DbTotal ?? 0) - (itemDescription.CrTotal ?? 0);
+                                            itemPrevNet = (itemDescription.DbTotalPrev ?? 0) - (itemDescription.CrTotalPrev ?? 0);
+                                        }
+
 
                                         totalIncome += itemNet;
                                         totalPrevIncome += itemPrevNet;
