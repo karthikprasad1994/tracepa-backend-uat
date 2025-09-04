@@ -325,11 +325,13 @@ ORDER BY ud.ATBUD_Subheading";
                 {
                     SrNo = (results.Count + 1).ToString(),
                     Name = "III Total Income",
+                    status = "1",
                     HeaderSLNo = totalIncome == 0 ? "-" : totalIncome.ToString($"N{RoundOff}"),
                     PrevYearTotal = totalPrevIncome == 0 ? "-" : totalPrevIncome.ToString($"N{RoundOff}")
                 });
                 results.Add(new SummaryReportPnLRow
                 {
+                    status = "2"
                 });
             }
             // 🟥 EXPENSE HEADINGS
@@ -401,7 +403,8 @@ ORDER BY ud.ATBUD_Headingid";
                                     SrNo = (results.Count + 1).ToString(),
                                     Name = heading.Name,
                                     HeaderSLNo = fallback == 0 ? "-" : fallback.ToString($"N{RoundOff}"),
-                                    PrevYearTotal = fallbackPrev == 0 ? "-" : fallbackPrev.ToString($"N{RoundOff}")
+                                    PrevYearTotal = fallbackPrev == 0 ? "-" : fallbackPrev.ToString($"N{RoundOff}"),
+                                    status = "1"
                                 });
                             }
                             subNet = 0; subPrevNet = 0;
@@ -472,6 +475,7 @@ ORDER BY ud.ATBUD_Subheading";
                                 {
                                     SrNo = (results.Count + 1).ToString(),
                                     Name = "Total ",
+                                    status = "1",
                                     HeaderSLNo = totalExpense == 0 ? "-" : totalExpense.ToString($"N{RoundOff}"),
                                     PrevYearTotal = totalPrevExpense == 0 ? "-" : totalPrevExpense.ToString($"N{RoundOff}")
                                 });
@@ -492,7 +496,8 @@ ORDER BY ud.ATBUD_Subheading";
                         SrNo = (results.Count + 1).ToString(),
                         Name = heading.Name,
                         HeaderSLNo = fallback == 0 ? "-" : fallback.ToString($"N{RoundOff}"),
-                        PrevYearTotal = fallbackPrev == 0 ? "-" : fallbackPrev.ToString($"N{RoundOff}")
+                        PrevYearTotal = fallbackPrev == 0 ? "-" : fallbackPrev.ToString($"N{RoundOff}"),
+                        status = "1"
                     });
                     subNet = 0; subPrevNet = 0;
                     var subSql = @"
@@ -688,7 +693,8 @@ ORDER BY ud.ATBUD_Subheading";
             });
             results.Add(new SummaryReportBalanceSheetRow
             {
-                SrNo = ""
+                SrNo = "",
+                status = "2"
             });
 
             // 🟥 EXPENSE HEADINGS
@@ -1663,7 +1669,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                             PrevYearTotal = totalPrevIncome.ToString($"N{RoundOff}")
                         });
                         results.Add(new DetailedReportPandLRow
-                        {
+                        {                         
                         });
                         totalIncome = 0; totalPrevIncome = 0;
                     }
