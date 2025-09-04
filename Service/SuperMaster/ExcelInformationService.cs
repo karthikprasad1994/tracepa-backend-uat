@@ -49,72 +49,28 @@ namespace TracePca.Service.SuperMaster
             {
                 employees = ParseExcelToEmployees(stream, out headerErrors);
             }
+        
 
+            // ✅ Step 3: Validate all (mandatory + duplicates)
+            var errors = ValidateEmployees(employees);
 
-
-            //  ✅ Step 3: Validate all(mandatory +duplicates)
-            var validationErrors = ValidateEmployees(employees);
-
-            //// ✅ Group errors
-            //var finalErrors = new List<string>();
-            //if (headerErrors.Any())
-            //{
-            //    finalErrors.Add("Missing column||[" + string.Join("||", headerErrors) + "] ");
-            //}
-
-            //if (validationErrors.Any())
-            //{
-            //    var groupedValidations = validationErrors
-            //        .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-            //        .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
-
-            //    finalErrors.Add("Validation||[" + string.Join("||", groupedValidations) + "]");
-            //}
-
-            //// Extract duplicate errors separately
-            //var duplicateErrors = validationErrors.Where(e => e.ErrorMessage.StartsWith("Duplicate")).ToList();
-            //if (duplicateErrors.Any())
-            //{
-            //    var groupedDuplicates = duplicateErrors
-            //        .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-            //       .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
-
-            //    finalErrors.Add("Duplication || [" + string.Join(" || ", groupedDuplicates) + "]");
-            //}
-
-            //// ✅ Throw if any errors (preserve line breaks)
-            //if (finalErrors.Any())
-            //{
-            //    throw new Exception(string.Join("||", finalErrors));
-            //}
-            // ✅ Group errors into dictionary
-            var errorDict = new Dictionary<string, List<string>>();
-
+            // Merge header errors into validation errors
             if (headerErrors.Any())
             {
-                errorDict["Missing column"] = headerErrors;
+                errors.AddRange(headerErrors.Select(h => new UploadEmployeeMasterDto
+                {
+                    EmpCode = "",
+                    EmployeeName = "",
+                    ErrorMessage = h
+                }));
             }
-
-            if (validationErrors.Any())
+            if (errors.Any())
             {
-                var groupedValidations = validationErrors
+                var groupedErrors = errors
                     .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}")
-                    .ToList();
+                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
 
-                errorDict["Validation"] = groupedValidations;
-            }
-
-            // ✅ Extract duplicate errors separately
-            var duplicateErrors = validationErrors
-                .Where(e => e.ErrorMessage.StartsWith("Duplicate"))
-                .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-                .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}")
-                .ToList();
-
-            if (duplicateErrors.Any())
-            {
-                errorDict["Duplication"] = duplicateErrors;
+                throw new Exception(string.Join("||", groupedErrors));
             }
 
             var results = new List<string>();
