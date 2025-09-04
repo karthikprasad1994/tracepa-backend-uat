@@ -2203,7 +2203,7 @@ namespace TracePca.Service.Audit
 
                 // 4. Workpaper
                 var workpaperTypes =
-                "SELECT wp.SSW_ID AS TypeId,0 As CheckReportType,'True' As CheckReportType,'WP - ' + wp.SSW_WorkpaperRef AS TypeName," +
+                "SELECT wp.SSW_ID AS TypeId,0 As CheckReportType,'WP - ' + wp.SSW_WorkpaperRef AS TypeName," +
                 " STUFF((SELECT ',' + CAST(SSW_AttachID AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper" +
                 " WHERE SSW_SA_ID=" + auditId + " AND SSW_ID=wp.SSW_ID AND SSW_AttachID>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
                 " FROM StandardAudit_ScheduleConduct_WorkPaper wp" +
