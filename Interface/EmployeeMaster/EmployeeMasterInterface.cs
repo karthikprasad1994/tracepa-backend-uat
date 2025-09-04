@@ -6,6 +6,7 @@ namespace TracePca.Interface.EmployeeMaster
     {
         Task<IEnumerable<Dto.EmployeeMaster.EmployeesDto>> GetUserFullNameAsync();
         Task<IEnumerable<EmployeeDetailsDto>> GetEmployeeDetailsAsync(int companyId);
+        Task<IEnumerable<RolesDto>> GetRolesAsync();
 
 
     }

@@ -1,5 +1,6 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
+using StackExchange.Redis;
 using TracePca.Dto.Audit;
 using TracePca.Dto.EmployeeMaster;
 using TracePca.Interface.EmployeeMaster;
@@ -50,7 +51,8 @@ namespace TracePca.Service.EmployeeMaster
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
 
             string query = @"
-    SELECT 
+    SELECT
+        u.usr_Id AS EmployeeId,
         u.usr_Code AS EmployeeCode,
         u.usr_FullName AS EmployeeName,
         u.usr_Email AS UserName,
@@ -70,6 +72,24 @@ namespace TracePca.Service.EmployeeMaster
 
             return await connection.QueryAsync<EmployeeDetailsDto>(query, new { CompanyId = companyId });
         }
+
+
+        public async Task<IEnumerable<RolesDto>> GetRolesAsync()
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
+
+            string query = @"
+        SELECT Mas_ID AS RoleId, Mas_Description AS RoleName
+        FROM SAD_GrpOrLvl_General_Master"; 
+
+      return await connection.QueryAsync<RolesDto>(query);
+        }
+
 
 
 
