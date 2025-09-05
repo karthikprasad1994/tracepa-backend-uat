@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TracePca.Interface.Audit;
 using TracePca.Interface.EmployeeMaster;
+using TracePca.Service.EmployeeMaster;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -11,7 +12,7 @@ namespace TracePca.Controllers
     public class EmployeeMasterController : ControllerBase
     {
 
-        private EmployeeMasterInterface _employeemaster;
+        private readonly EmployeeMasterInterface _employeemaster;
         public EmployeeMasterController(EmployeeMasterInterface EmployeeInterface)
         {
             _employeemaster = EmployeeInterface;
@@ -74,6 +75,33 @@ namespace TracePca.Controllers
                 });
             }
         }
+
+
+        [HttpGet("GetRoles")]
+        public async Task<IActionResult> GetRoles()
+        {
+            try
+            {
+                var result = await _employeemaster.GetRolesAsync();
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Roles fetched successfully.",
+                    roles = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while fetching roles.",
+                    error = ex.Message
+                });
+            }
+        }
+
 
 
 

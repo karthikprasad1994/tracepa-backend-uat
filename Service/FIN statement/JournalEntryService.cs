@@ -483,7 +483,7 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                     updateSql = @"
                 UPDATE Acc_TrailBalance_Upload
                 SET ATBU_Closing_TotalDebit_Amount = @DebitAmt,
-                    ATBU_Description = @DescName
+                    ATBU_Closing_TotalCredit_Amount = 0
                 WHERE ATBU_CustId = @CustId
                   AND ATBU_CompID = @CompId
                   AND ATBU_QuarterId = @DurtnId
@@ -495,8 +495,7 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                     updateSql = @"
                 UPDATE Acc_TrailBalance_Upload
                 SET ATBU_Closing_TotalCredit_Amount = @DebitAmt,
-                    ATBU_Closing_TotalDebit_Amount = 0,
-                    ATBU_Description = @DescName
+                    ATBU_Closing_TotalDebit_Amount = 0
                 WHERE ATBU_CustId = @CustId
                   AND ATBU_CompID = @CompId
                   AND ATBU_QuarterId = @DurtnId
@@ -518,7 +517,7 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                     updateSql = @"
                 UPDATE Acc_TrailBalance_Upload
                 SET ATBU_Closing_TotalCredit_Amount = @CreditAmt,
-                    ATBU_Description = @DescName
+                    ATBU_Closing_TotalDebit_Amount = 0
                 WHERE ATBU_CustId = @CustId
                   AND ATBU_CompID = @CompId
                   AND ATBU_QuarterId = @DurtnId
@@ -530,8 +529,7 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                     updateSql = @"
                 UPDATE Acc_TrailBalance_Upload
                 SET ATBU_Closing_TotalDebit_Amount = @CreditAmt,
-                    ATBU_Closing_TotalCredit_Amount = 0,
-                    ATBU_Description = @DescName
+                    ATBU_Closing_TotalCredit_Amount = 0                    
                 WHERE ATBU_CustId = @CustId
                   AND ATBU_CompID = @CompId
                   AND ATBU_QuarterId = @DurtnId
@@ -557,6 +555,7 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                 });
             }
         }
+
 
         //SaveGeneralLedger
         public async Task<int[]> SaveGeneralLedgerAsync(int CompId, List<GeneralLedgerDto> dtos)

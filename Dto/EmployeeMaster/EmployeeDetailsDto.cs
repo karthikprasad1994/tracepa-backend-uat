@@ -2,6 +2,7 @@
 {
     public class EmployeeDetailsDto
     {
+        public int EmployeeId { get; set; }
         public string EmployeeCode { get; set; }      // usr_Code
         public string EmployeeName { get; set; }   // usr_FullName
         public string UserName { get; set; }      // usr_LoginName
