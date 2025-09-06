@@ -9,5 +9,8 @@
         public string Role { get; set; }
         public string LastLoginDate { get; set; }
         public string Status { get; set; }
+        public string MobileNo { get; set; }
+        public int PermissionId { get; set; }
+
     }
 }
