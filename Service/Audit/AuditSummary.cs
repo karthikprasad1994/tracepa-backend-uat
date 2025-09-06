@@ -448,7 +448,8 @@ namespace TracePca.Service.Audit
                      FULL OUTER JOIN StandardAudit_ScheduleConduct_WorkPaper a ON cm.cmm_ID = a.SSW_WPCheckListID And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId 
                      LEFT JOIN sad_userdetails b on b.Usr_ID=a.SSW_CrBy 
                      LEFT JOIN sad_userdetails c on c.Usr_ID=a.SSW_ReviewedBy 
-                     WHERE (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') OR a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId) A
+                     WHERE cm.cms_KeyComponent IN (SELECT SA_AuditFrameworkId FROM StandardAudit_Schedule WHERE SA_ID = @AuditNo AND SA_CompID = @CompId) And
+					 (cm.cmm_Delflag = 'A' And cm.cmm_Category = 'WCM') OR a.SSW_ID Is Not Null And a.SSW_SA_ID=@AuditNo And a.SSW_CompID=@CompId) A
                      ORDER BY CASE WHEN A.cmm_Desc IS NULL THEN 1 ELSE 0 END, A.cmm_ID ASC";
 
 			var result = await connection.QueryAsync<WorkspaceSummaryDto>(query, new
