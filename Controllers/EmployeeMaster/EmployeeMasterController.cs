@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using TracePca.Dto.EmployeeMaster;
 using TracePca.Interface.Audit;
 using TracePca.Interface.EmployeeMaster;
 using TracePca.Service.EmployeeMaster;
@@ -103,10 +104,39 @@ namespace TracePca.Controllers
         }
 
 
+        [HttpPost("InsertUpdateEmployee")]
+        public async Task<IActionResult> SaveEmployee([FromBody] EmployeeBasicDetailsDto dto)
+        {
+            try
+            {
+                var result = await _employeemaster.SaveEmployeeBasicDetailsAsync(dto);
+
+                return Ok(new { StatusCode = 200, Message = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { StatusCode = 500, Message = ex.Message });
+            }
+        }
 
 
-        // GET: api/<EmployeeMasterController>
-        [HttpGet]
+        [HttpGet("GetEmployeeById")]
+       
+        public async Task<IActionResult> GetEmployeeById(int userId, int companyId)
+        {
+           
+
+            var employee = await _employeemaster.GetEmployeeInfoByIdAsync(userId, companyId);
+            if (employee == null)
+                return NotFound(new { StatusCode = 404, Message = "Employee not found." });
+
+            return Ok(new { StatusCode = 200, Message = "Employee fetched successfully.", EmployeeInfo = employee });
+        }
+
+
+
+            // GET: api/<EmployeeMasterController>
+            [HttpGet]
         public IEnumerable<string> Get()
         {
             return new string[] { "value1", "value2" };
