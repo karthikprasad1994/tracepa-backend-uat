@@ -1678,7 +1678,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
             return results;
         }
 
-        //GetDetailedReportBalanceSheet
+       //GetDetailedReportBalanceSheet
         public async Task<IEnumerable<DetailedReportBalanceSheetRow>> GetDetailedReportBalanceSheetAsync(int CompId, DetailedReportBalanceSheet p)
         {
             var results = new List<DetailedReportBalanceSheetRow>();
@@ -2293,15 +2293,15 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                     {
                                         if ((itemDescription.CrTotal ?? 0) > (itemDescription.DbTotal ?? 0))
                                         {
-                                            itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
-                                            itemPrevNet = (itemDescription.CrTotalPrev ?? 0) - (itemDescription.DbTotalPrev ?? 0);
+                                             itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
+                                             itemPrevNet = (itemDescription.CrTotalPrev ?? 0) - (itemDescription.DbTotalPrev ?? 0);
                                         }
                                         else
                                         {
-                                            itemNet = (itemDescription.DbTotal ?? 0) - (itemDescription.CrTotal ?? 0);
-                                            itemPrevNet = (itemDescription.DbTotalPrev ?? 0) - (itemDescription.CrTotalPrev ?? 0);
+                                             itemNet = (itemDescription.DbTotal ?? 0)-(itemDescription.CrTotal ?? 0)  ;
+                                             itemPrevNet = (itemDescription.DbTotalPrev ?? 0)-(itemDescription.CrTotalPrev ?? 0)  ;
                                         }
-
+                                           
 
                                         totalIncome += itemNet;
                                         totalPrevIncome += itemPrevNet;
