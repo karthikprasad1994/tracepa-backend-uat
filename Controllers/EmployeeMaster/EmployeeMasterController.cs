@@ -119,10 +119,26 @@ namespace TracePca.Controllers
         }
 
 
+       
 
 
-        // GET: api/<EmployeeMasterController>
-        [HttpGet]
+        [HttpGet("GetEmployeeById")]
+       
+        public async Task<IActionResult> GetEmployeeById(int userId, int companyId)
+        {
+           
+
+            var employee = await _employeemaster.GetEmployeeInfoByIdAsync(userId, companyId);
+            if (employee == null)
+                return NotFound(new { StatusCode = 404, Message = "Employee not found." });
+
+            return Ok(new { StatusCode = 200, Message = "Employee fetched successfully.", EmployeeInfo = employee });
+        }
+
+
+
+            // GET: api/<EmployeeMasterController>
+            [HttpGet]
         public IEnumerable<string> Get()
         {
             return new string[] { "value1", "value2" };
