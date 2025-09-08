@@ -319,7 +319,7 @@ namespace TracePca.Service.Audit
 
                 if (!templateDetails.Any())
                 {
-                    var reportTypeList = await GetReportTypeDetails(compId);
+                    var reportTypeList = await GetReportTypeDetailsByAuditId(compId, auditId);
                     foreach (var report in reportTypeList)
                     {
                         var fallbackTemplate = new AuditCompletionTemplateDetailsDTO

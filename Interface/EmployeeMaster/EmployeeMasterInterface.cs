@@ -8,7 +8,12 @@ namespace TracePca.Interface.EmployeeMaster
         Task<IEnumerable<EmployeeDetailsDto>> GetEmployeeDetailsAsync(int companyId);
         Task<IEnumerable<RolesDto>> GetRolesAsync();
         Task<string> SaveEmployeeBasicDetailsAsync(EmployeeBasicDetailsDto dto);
+
         Task<EmployeeInfo> GetEmployeeInfoByIdAsync(int userId, int companyId);
+
+
+
+
 
 
     }

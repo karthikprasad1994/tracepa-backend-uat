@@ -103,7 +103,6 @@ namespace TracePca.Controllers
             }
         }
 
-
         [HttpPost("InsertUpdateEmployee")]
         public async Task<IActionResult> SaveEmployee([FromBody] EmployeeBasicDetailsDto dto)
         {
@@ -118,6 +117,9 @@ namespace TracePca.Controllers
                 return StatusCode(500, new { StatusCode = 500, Message = ex.Message });
             }
         }
+
+
+       
 
 
         [HttpGet("GetEmployeeById")]
