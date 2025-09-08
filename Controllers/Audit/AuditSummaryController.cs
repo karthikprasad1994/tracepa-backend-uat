@@ -394,7 +394,7 @@ namespace TracePca.Controllers.Audit
         }
 
 
-        [HttpPut("UpdateStandardAuditASCAMdetails/{sacm_pkid}/{sacm_sa_id}")]
+        [HttpPost("UpdateStandardAuditASCAMdetails/{sacm_pkid}/{sacm_sa_id}")]
         public async Task<IActionResult> UpdateStandardAuditASCAMdetails(int sacm_pkid, int sacm_sa_id, [FromBody] UpdateStandardAuditASCAMdetailsDto updateDto)
         {
             if (updateDto == null)
