@@ -83,7 +83,6 @@ namespace TracePca.Service.SuperMaster
             {
                 foreach (var emp in employees)
                 {
-<<<<<<< HEAD
  
                     // Step 4: Validate mandatory fields
                     if (string.IsNullOrWhiteSpace(emp.EmpCode) ||
@@ -99,9 +98,9 @@ namespace TracePca.Service.SuperMaster
                     }
 
  
-=======
+ 
                     // Step 4: Ensure Designation exists
->>>>>>> a289bbd8d835a4582fc52ec670a6b5ef3707e1c0
+ 
                     string designationSql = @"
             SELECT Mas_ID FROM SAD_GRPDESGN_General_Master
             WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
@@ -507,9 +506,7 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
-<<<<<<< HEAD
  
-=======
         //UploadClientDetails
         public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
         {
@@ -534,7 +531,7 @@ namespace TracePca.Service.SuperMaster
     //            throw new Exception("No file uploaded.");
 
 
->>>>>>> a289bbd8d835a4582fc52ec670a6b5ef3707e1c0
+ 
         ////UploadClientDetails
         //public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
         //{

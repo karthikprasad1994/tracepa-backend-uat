@@ -141,14 +141,8 @@ namespace TracePca.Service.Audit
             }
         }
 
-<<<<<<< HEAD
-		//public async Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId)
-		//{
-		//    try
-		//    {
-		//        using var connection = new SqlConnection(_connectionString);
-		//        await connection.OpenAsync();
-=======
+  
+ 
         public async Task<IEnumerable<ReportTypeDetailsDTO>> GetReportTypeDetailsByAuditId(int compId, int auditId)
         {
             try
@@ -183,54 +177,7 @@ namespace TracePca.Service.Audit
             {
                 throw new ApplicationException("An error occurred while getting report type details", ex);
             }
-        }
-
-        public async Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId)
-        {
-            try
-            {
-                using var connection = new SqlConnection(_connectionString);
-                await connection.OpenAsync();
->>>>>>> a289bbd8d835a4582fc52ec670a6b5ef3707e1c0
-
-		//        var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
-		//            CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
-		//            CASE WHEN ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isReviewer,
-		//            CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, 
-		//            CASE WHEN ISNULL(SA.SA_IsArchived, 0) = 1 THEN 1 ELSE 0 END AS IsArchived,
-		//            SA_Status As Status, SA_AuditFrameworkId As AuditFrameworkId
-		//            CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, SA_Status As Status, SA_AuditFrameworkId As AuditFrameworkId,
-		//            CASE WHEN SA_IsArchived IS NULL THEN 0 ELSE SA_IsArchived END AS IsArchived
-
-		//            FROM StandardAudit_Schedule SA LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
-		//            WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId ";
-
-		//        if (custId > 0) { sql += " AND SA.SA_CustID = @CustId "; }
-
-		//        sql += @" AND (EXISTS (SELECT 1 FROM sad_userdetails WHERE usr_CompID = @CompId AND usr_ID = @UserId AND usr_Partner = 1 AND usr_DelFlag IN ('A','B','L'))
-		//        OR (',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' 
-		//        OR ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%')) ORDER BY SA.SA_ID DESC;";
-
-		//        var parameters = new
-		//        {
-		//            CompId = compId,
-		//            YearId = yearId,
-		//            CustId = custId,
-		//            UserId = userId
-		//        };
-
-		//        var auditNoList = await connection.QueryAsync<AuditDropDownListData>(sql, parameters);
-		//        return new AuditDropDownListDataDTO
-		//        {
-		//            ExistingAuditNoList = auditNoList.ToList()
-		//        };
-		//    }
-		//    catch (Exception ex)
-		//    {
-		//        throw new ApplicationException("An error occurred while loading audit no DDL data", ex);
-		//    }
-		//}       
-
+        } 
 
 		public async Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId)
 		{
