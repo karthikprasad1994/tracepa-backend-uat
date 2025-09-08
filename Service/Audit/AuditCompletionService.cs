@@ -1214,7 +1214,7 @@ namespace TracePca.Service.Audit
             }
             catch (Exception ex)
             {
-                throw new Exception("Error getting Conduct Audit Report details.", ex);
+                throw new Exception("Error getting Audit or Review - Testing Report details.", ex);
             }
         }
 
@@ -1278,7 +1278,7 @@ namespace TracePca.Service.Audit
             }
             catch (Exception ex)
             {
-                throw new Exception("Error loading Conduct Audit remarks report", ex);
+                throw new Exception("Error loading Audit or Review - Testing remarks report", ex);
             }
         }
 
@@ -1365,7 +1365,7 @@ namespace TracePca.Service.Audit
             }
             catch (Exception ex)
             {
-                throw new Exception("Error loading Conduct Audit Work Papers", ex);
+                throw new Exception("Error loading Audit or Review - Testing Work Papers", ex);
             }
         }
 
@@ -1563,7 +1563,7 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Workpaper Report").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Workpaper Report").FontSize(16).Bold();
                             column.Item().Text(text =>
                             {
                                 text.Span("Client Name: ").FontSize(10).Bold();
@@ -1640,7 +1640,7 @@ namespace TracePca.Service.Audit
 
                             if (dtoCA.Any() == true)
                             {
-                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Heading wise Checkpoints Report").FontSize(14).Bold();
+                                column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Heading wise Checkpoints Report").FontSize(14).Bold();
                                 column.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(columns =>
@@ -1680,7 +1680,7 @@ namespace TracePca.Service.Audit
 
                             if (dtoCAO.Any() == true)
                             {
-                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Observation Details").FontSize(14).Bold();
+                                column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Observation Details").FontSize(14).Bold();
                                 column.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(columns =>
@@ -1932,7 +1932,7 @@ namespace TracePca.Service.Audit
                         result.WorkpaperAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
-                // 4. Conduct Audit (Checkpoints)
+                // 4. Audit or Review - Testing (Checkpoints)
                 var conductTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
                 @"SELECT DISTINCT ACM_ID AS TypeId, ACM_CheckPoint AS TypeName,
                   STUFF((SELECT DISTINCT ',' + CAST(SAC_AttachID AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID=@AuditID AND SAC_CheckPointID=cp.SAC_CheckPointID AND SAC_AttachID>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
@@ -2210,7 +2210,7 @@ namespace TracePca.Service.Audit
                 " WHERE SSW_SA_ID=" + auditId +
                 " AND EXISTS(SELECT 1 FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID=" + auditId + " AND SSW_ID=wp.SSW_ID AND SSW_AttachID>0)";
 
-                // 5. Conduct Audit (Checkpoints)
+                // 5. Audit or Review - Testing (Checkpoints)
                 var conductTypes =
                 "SELECT DISTINCT ACM_ID AS TypeId,0 As CheckReportType,CAST('CheckPoint_' + CAST(ACM_ID AS VARCHAR(10)) + ' - ' + CAST(ACM_Heading AS VARCHAR(MAX)) AS VARCHAR(MAX)) AS TypeName," +
                 " STUFF((SELECT ',' + CAST(SAC_AttachID AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList" +
