@@ -520,16 +520,15 @@ namespace TracePca.Controllers.FIN_Statement
             if (string.IsNullOrWhiteSpace(fileName))
                 return BadRequest("File name is required.");
 
-            // Optional: validate file exists if needed (on the server side)
-            //string physicalPath = Path.Combine(
-            //    "C:\\inetpub\\vhosts\\multimedia.interactivedns.com\\tracelites.multimedia.interactivedns.com\\public\\SampleExcels",
-            //    fileName
-            //);
-
             string physicalPath = Path.Combine(
-    @"C:\Users\MMCS\Desktop\TracePa FrontEnd Updated - Copy\tracepa_nextjs\public\SampleExcels",
-    fileName
-);
+                "C:\\inetpub\\vhosts\\multimedia.interactivedns.com\\tracelites.multimedia.interactivedns.com\\public\\SampleExcels",
+                fileName
+            );
+
+//            string physicalPath = Path.Combine(
+//    @"C:\Users\MMCS\Desktop\TracePa FrontEnd Updated - Copy\tracepa_nextjs\public\SampleExcels",
+//    fileName
+//);
 
 
             if (!System.IO.File.Exists(physicalPath))
