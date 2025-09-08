@@ -352,7 +352,7 @@ namespace TracePca.Service.Audit
 
 			string query = @"
             SELECT ACM.ACM_Heading AS AuditProgram, COUNT(SAC_ID) AS TotalCheckpoints, COUNT(CASE WHEN SAC_Mandatory = 1 THEN 1 END) AS Mandatory,
-            COUNT(CASE WHEN SAC_SA_ID = @AuditNo AND SAC_TestResult IS NOT NULL AND SAC_TestResult = 1 THEN 1 END) AS Tested, COUNT(CASE WHEN SAC_SA_ID = @AuditNo AND 
+            COUNT(CASE WHEN SAC_SA_ID = @AuditNo AND SAC_TestResult IS NOT NULL THEN 1 END) AS Tested, COUNT(CASE WHEN SAC_SA_ID = @AuditNo AND 
             SAC_Annexure IS NOT NULL AND SAC_Annexure = 1 THEN 1 END) AS Annexures, COUNT(DISTINCT SCR.SCR_CheckPointID) AS Reviewed,  
             ISNULL(U.usr_FullName, '') As Employee FROM StandardAudit_ScheduleCheckPointList SASC  LEFT JOIN AuditType_Checklist_Master ACM ON 
             ACM.ACM_ID = SASC.SAC_CheckPointID  LEFT JOIN StandardAudit_Checklist_Details SACD ON SACD.SACD_AuditId = @AuditNo And ',' + 
