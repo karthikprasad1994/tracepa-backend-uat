@@ -88,9 +88,9 @@ namespace TracePca.Service.DigitalFilling
 
             //string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
 
-            //string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+            //string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
 
 
 
@@ -869,7 +869,40 @@ namespace TracePca.Service.DigitalFilling
                 throw;
             }
         }
-    }
+
+
+
+		public async Task<IEnumerable<CabinetDto>> LoadRententionDataAsync(int compID)
+		{
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+
+			//string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
+
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+             
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			// CheckandInsertMemberGroupAsync(userId, compID);
+			string query = @"
+            select CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,usr_FullName as CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag,CONVERT(varchar(10), CBN_DocumentExpiryDate, 103) as CBN_DocumentExpiryDate,CBN_ReminderDay
+            from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' and A.CBN_CompID=@CBN_CompID and CBN_DocumentExpiryDate != '' and CBN_ReminderDay != '' 
+            and  cbn_Parent = -1";
+
+			var result = await connection.QueryAsync<CabinetDto>(query, new
+			{
+				CBN_CompID = compID,
+			});
+			return result;
+		}
+	}
 }
 
 

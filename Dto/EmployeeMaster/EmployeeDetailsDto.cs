@@ -12,5 +12,6 @@
         public string MobileNo { get; set; }
         public int PermissionId { get; set; }
 
+
     }
 }

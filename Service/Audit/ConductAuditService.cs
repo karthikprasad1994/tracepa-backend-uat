@@ -570,7 +570,7 @@ namespace TracePca.Service.Audit
             }
             catch (Exception ex)
             {
-                throw new ApplicationException("An error occurred while loading conduct audit checkpoint headings", ex);
+                throw new ApplicationException("An error occurred while loading Audit or Review - Testing checkpoint headings", ex);
             }
         }
 
@@ -923,7 +923,7 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Workpaper Report").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Workpaper Report").FontSize(16).Bold();
                             column.Item().Text(text =>
                             {
                                 text.Span("Client Name: ").FontSize(10).Bold();
@@ -1052,7 +1052,7 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Heading wise Checkpoints Report").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Heading wise Checkpoints Report").FontSize(16).Bold();
                             column.Item().Text(text =>
                             {
                                 text.Span("Client Name: ").FontSize(10).Bold();
@@ -1107,7 +1107,7 @@ namespace TracePca.Service.Audit
 
                             if (dtoCAO.Any() == true)
                             {
-                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Check Point Observation Details").FontSize(14).Bold();
+                                column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Check Point Observation Details").FontSize(14).Bold();
                                 column.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(columns =>
@@ -1451,7 +1451,7 @@ namespace TracePca.Service.Audit
             }
             catch (Exception ex)
             {
-                throw new ApplicationException("An error occurred while getting Conduct Audit Checkpoint Observations by ID", ex);
+                throw new ApplicationException("An error occurred while getting Audit or Review - Testing Checkpoint Observations by ID", ex);
             }
         }
 
