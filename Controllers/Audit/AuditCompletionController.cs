@@ -557,7 +557,8 @@ namespace TracePca.Controllers.Audit
                     var res = await _auditCompletionInterface.UpdateArchiveInAuditAsync(dto);
                     if (res > 0)
                     {
-                        return Ok(new { statusCode = 200, message = "Audit Archive details updated successfully.", Data = res });
+                        return Ok(new { statusCode = 200, message = "Audit Archive details updated successfully.",
+                            Data = res });
                     }
                     else
                     {
