@@ -13,6 +13,8 @@ using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
 
+
+
 namespace TracePca.Service.SuperMaster
 {
     public class ExcelInformationService : ExcelInformationInterfaces
@@ -49,7 +51,7 @@ namespace TracePca.Service.SuperMaster
             {
                 employees = ParseExcelToEmployees(stream, out headerErrors);
             }
-        
+
 
             // ✅ Step 3: Validate all (mandatory + duplicates)
             var errors = ValidateEmployees(employees);
@@ -391,7 +393,6 @@ namespace TracePca.Service.SuperMaster
 
             return errors;
         }
-      
 
         //SaveEmployeeMaster
         public async Task<List<int[]>> SuperMasterSaveEmployeeDetailsAsync(int CompId, List<SuperMasterSaveEmployeeMasterDto> employees)
@@ -506,7 +507,14 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
+<<<<<<< HEAD
  
+=======
+
+
+
+
+>>>>>>> 8bce1df05cefd68ebfee4cc720ae5fcc10146248
         //UploadClientDetails
         public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
         {

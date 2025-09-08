@@ -395,7 +395,10 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                                         t.AJTB_BranchId,
                                         t.AJTB_Debit,
                                         t.AJTB_Credit,
-                                        t.AJTB_QuarterId
+                                        t.AJTB_QuarterId,
+                                        t.AJTB_Deschead,
+                                        t.AJTB_Desc,
+                                        t.AJTB_DescName
                                     );
                                 }
 
@@ -413,17 +416,162 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                 throw;
             }
         }
+
+        //        public async Task UpdateJeDetAsync(
+        //        int compId,
+        //        int yearId,
+        //        int id,                  // JE Master ID
+        //        int custId,
+        //        int transId,             // 0 = Debit, 1 = Credit
+        //        decimal transAmt,        // Net Transaction Amount
+        //        int branchId,
+        //        decimal transDbAmt,      // Transaction Debit
+        //        decimal transCrAmt,      // Transaction Credit
+        //        int durtnId,             // Quarter Id
+        //        int deschead,            // ATBU_ID → goes to AJTB_Deschead
+        //        int descId,              // Duplicate of ATBU_ID → goes to AJTB_Desc
+        //        string descName          // ATBU_Description → goes to AJTB_DescName
+        //)
+        //        {
+        //            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //            if (string.IsNullOrEmpty(dbName))
+        //                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //            var connectionString = _configuration.GetConnectionString(dbName);
+
+        //            await using var conn = new SqlConnection(connectionString);
+        //            await conn.OpenAsync();
+
+        //            // 🔹 Select the Trail Balance row for given parameters
+        //            string sql = @"
+        //        SELECT TOP 1 *
+        //        FROM Acc_TrailBalance_Upload
+        //        WHERE ATBU_CustId = @CustId
+        //          AND ATBU_CompID = @CompId
+        //          AND ATBU_QuarterId = @DurtnId
+        //          AND ATBU_ID = @Deschead
+        //          AND ATBU_BranchId = @BranchId";
+
+        //            var row = await conn.QueryFirstOrDefaultAsync(sql, new
+        //            {
+        //                CustId = custId,
+        //                CompId = compId,
+        //                DurtnId = durtnId,
+        //                BranchId = branchId,
+        //                Deschead = deschead
+        //            });
+
+        //            if (row == null) return;
+
+        //            // 🔹 Safe cast of values
+        //            decimal debitAmt = (decimal?)row.ATBU_Closing_TotalDebit_Amount ?? 0m;
+        //            decimal creditAmt = (decimal?)row.ATBU_Closing_TotalCredit_Amount ?? 0m;
+
+        //            string updateSql = string.Empty;
+
+        //            // 🔹 Handle Debit / Credit Posting
+        //            if (transId == 0) // Debit transaction
+        //            {
+        //                if (debitAmt != 0)
+        //                    debitAmt += transDbAmt;
+        //                else if (creditAmt != 0)
+        //                    debitAmt = creditAmt - transDbAmt;
+        //                else
+        //                    debitAmt += transDbAmt;
+        //                if (debitAmt >= 0)
+        //                {
+        //                    updateSql = @"
+        //                UPDATE Acc_TrailBalance_Upload
+        //                SET ATBU_Closing_TotalDebit_Amount = @DebitAmt,
+        //                    ATBU_Closing_TotalCredit_Amount = 0
+        //                WHERE ATBU_CustId = @CustId
+        //                  AND ATBU_CompID = @CompId
+        //                  AND ATBU_QuarterId = @DurtnId
+        //                  AND ATBU_ID = @Deschead
+        //                  AND ATBU_BranchId = @BranchId";
+        //                }
+        //                else
+        //                {
+        //                    updateSql = @"
+        //                UPDATE Acc_TrailBalance_Upload
+        //                SET ATBU_Closing_TotalCredit_Amount = @DebitAmt,
+        //                    ATBU_Closing_TotalDebit_Amount = 0
+        //                WHERE ATBU_CustId = @CustId
+        //                  AND ATBU_CompID = @CompId
+        //                  AND ATBU_QuarterId = @DurtnId
+        //                  AND ATBU_ID = @Deschead
+        //                  AND ATBU_BranchId = @BranchId";
+        //                    debitAmt = Math.Abs(debitAmt);
+        //                }
+        //            }
+        //            else if (transId == 1) // Credit transaction
+        //            {
+        //                if (creditAmt != 0)
+        //                    creditAmt += transCrAmt;
+        //                else if (debitAmt != 0)
+        //                    creditAmt = debitAmt - transCrAmt;
+        //                else
+        //                    creditAmt += transCrAmt;
+        //                if (creditAmt >= 0)
+        //                {
+        //                    updateSql = @"
+        //                UPDATE Acc_TrailBalance_Upload
+        //                SET ATBU_Closing_TotalCredit_Amount = @CreditAmt,
+        //                    ATBU_Closing_TotalDebit_Amount = 0
+        //                WHERE ATBU_CustId = @CustId
+        //                  AND ATBU_CompID = @CompId
+        //                  AND ATBU_QuarterId = @DurtnId
+        //                  AND ATBU_ID = @Deschead
+        //                  AND ATBU_BranchId = @BranchId";
+        //                }
+        //                else
+        //                {
+        //                    updateSql = @"
+        //                UPDATE Acc_TrailBalance_Upload
+        //                SET ATBU_Closing_TotalDebit_Amount = @CreditAmt,
+        //                    ATBU_Closing_TotalCredit_Amount = 0                    
+        //                WHERE ATBU_CustId = @CustId
+        //                  AND ATBU_CompID = @CompId
+        //                  AND ATBU_QuarterId = @DurtnId
+        //                  AND ATBU_ID = @Deschead
+        //                  AND ATBU_BranchId = @BranchId";
+        //                    creditAmt = Math.Abs(creditAmt);
+        //                }
+        //            }
+
+        //            if (!string.IsNullOrEmpty(updateSql))
+        //            {
+        //                await conn.ExecuteAsync(updateSql, new
+        //                {
+        //                    CustId = custId,
+        //                    CompId = compId,
+        //                    DurtnId = durtnId,
+        //                    BranchId = branchId,
+        //                    DebitAmt = debitAmt,
+        //                    CreditAmt = creditAmt,
+        //                    Deschead = deschead,
+        //                    DescId = descId,
+        //                    DescName = descName
+        //                });
+        //            }
+        //        }
+
         public async Task UpdateJeDetAsync(
-        int compId,
-        int yearId,
-        int id,            // <-- This is JE Master Id, not ATBU_ID
-        int custId,
-        int transId,       // 0 = Debit, 1 = Credit
-        decimal transAmt,  // Amount to adjust
-        int branchId,
-        decimal transDbAmt,
-        decimal transCrAmt,
-        int durtnId)
+int compId,
+int yearId,
+int id,                  // JE Master ID
+int custId,
+int transId,             // 0 = Debit, 1 = Credit
+decimal transAmt,        // Net Transaction Amount
+int branchId,
+decimal transDbAmt,      // Transaction Debit
+decimal transCrAmt,      // Transaction Credit
+int durtnId,             // Quarter Id
+int deschead,            // ATBU_ID → goes to AJTB_Deschead
+int descId,              // Duplicate of ATBU_ID → goes to AJTB_Desc
+string descName          // ATBU_Description → goes to AJTB_DescName
+)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -435,50 +583,225 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
             await using var conn = new SqlConnection(connectionString);
             await conn.OpenAsync();
 
-            // 🔹 Select the Trail Balance row (do not filter by ATBU_ID = id)
+            // 🔹 Select the Trail Balance row for given parameters
             string sql = @"
-        SELECT TOP 1 * 
-        FROM Acc_TrailBalance_Upload 
-        WHERE ATBU_CustId=@CustId 
-          AND ATBU_CompID=@CompId 
-          AND ATBU_QuarterId=@DurtnId
-          " + (branchId != 0 ? " AND ATBU_BranchId=@BranchId" : "");
+        SELECT TOP 1 *
+        FROM Acc_TrailBalance_Upload
+        WHERE ATBU_CustId = @CustId
+          AND ATBU_CompID = @CompId
+          AND ATBU_QuarterId = @DurtnId
+          AND ATBU_ID = @Deschead
+          AND ATBU_BranchId = @BranchId";
 
             var row = await conn.QueryFirstOrDefaultAsync(sql, new
             {
                 CustId = custId,
                 CompId = compId,
                 DurtnId = durtnId,
-                BranchId = branchId
+                BranchId = branchId,
+                Deschead = deschead
             });
 
             if (row == null) return;
 
-            // 🔹 Safe cast
+            // 🔹 Safe cast of values
             decimal debitAmt = (decimal?)row.ATBU_Closing_TotalDebit_Amount ?? 0m;
             decimal creditAmt = (decimal?)row.ATBU_Closing_TotalCredit_Amount ?? 0m;
 
             string updateSql = string.Empty;
 
-            if (transId == 0) // Debit transaction
+            // 🔹 Debit Transaction (transId = 0)
+            if (transId == 0)
             {
-                debitAmt += transAmt;
-                updateSql = @"UPDATE Acc_TrailBalance_Upload
-                      SET ATBU_Closing_TotalDebit_Amount=@DebitAmt
-                      WHERE ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
-                        AND ATBU_QuarterId=@DurtnId
-                        " + (branchId != 0 ? " AND ATBU_BranchId=@BranchId" : "");
-            }
-            else if (transId == 1) // Credit transaction
-            {
-                creditAmt += transAmt;
-                updateSql = @"UPDATE Acc_TrailBalance_Upload
-                      SET ATBU_Closing_TotalCredit_Amount=@CreditAmt
-                      WHERE ATBU_CustId=@CustId AND ATBU_CompID=@CompId 
-                        AND ATBU_QuarterId=@DurtnId
-                        " + (branchId != 0 ? " AND ATBU_BranchId=@BranchId" : "");
+                if (debitAmt != 0)
+                {
+                    // Case 1: Existing Debit ≠ 0 → Add incoming Debit
+                    debitAmt += transDbAmt;
+
+                    if (debitAmt >= 0)
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt,
+                        ATBU_Closing_TotalCredit_Amount = 0
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt,
+                        ATBU_Closing_TotalDebit_Amount = 0
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                        debitAmt = Math.Abs(debitAmt);
+                    }
+                }
+                else if (creditAmt != 0)
+                {
+                    // Case 2: Existing Credit ≠ 0 → Subtract incoming Debit
+                    debitAmt = creditAmt - transDbAmt;
+
+                    if (debitAmt >= 0)
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt,
+                        ATBU_Closing_TotalCredit_Amount = 0
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                        debitAmt = Math.Abs(debitAmt);
+                    }
+                }
+                else
+                {
+                    // Case 3: Both Debit & Credit = 0 → Just add to Debit
+                    debitAmt += transDbAmt;
+
+                    if (debitAmt >= 0)
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                        debitAmt = Math.Abs(debitAmt);
+                    }
+                }
             }
 
+
+            // 🔹 Credit Transaction (transId = 1)
+            else if (transId == 1)
+            {
+                if (creditAmt != 0)
+                {
+                    // Case 1: Existing Credit ≠ 0 → Add incoming Credit
+                    creditAmt += transCrAmt;
+
+                    if (creditAmt >= 0)
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt,
+                        ATBU_Closing_TotalCredit_Amount = 0.00
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                        creditAmt = Math.Abs(creditAmt);
+                    }
+                }
+                else if (debitAmt != 0)
+                {
+                    // Case 2: Existing Debit ≠ 0 → Subtract incoming Credit
+                    creditAmt = debitAmt - transCrAmt;
+
+                    if (creditAmt >= 0)
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt,
+                        ATBU_Closing_TotalDebit_Amount = 0.00
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                        creditAmt = Math.Abs(creditAmt);
+                    }
+                }
+                else
+                {
+                    // Case 3: Both Debit & Credit = 0 → Just add to Credit
+                    creditAmt += transCrAmt;
+
+                    if (creditAmt >= 0)
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                        creditAmt = Math.Abs(creditAmt);
+                    }
+                }
+            }
+
+
+            // 🔹 Execute Update if SQL was built
             if (!string.IsNullOrEmpty(updateSql))
             {
                 await conn.ExecuteAsync(updateSql, new
@@ -488,11 +811,13 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                     DurtnId = durtnId,
                     BranchId = branchId,
                     DebitAmt = debitAmt,
-                    CreditAmt = creditAmt
+                    CreditAmt = creditAmt,
+                    Deschead = deschead,
+                    DescId = descId,
+                    DescName = descName
                 });
             }
         }
-
 
 
 

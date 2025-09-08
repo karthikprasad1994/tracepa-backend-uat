@@ -774,7 +774,7 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
             try
             {
                 email = email?.Trim().ToLower();
-               password = password?.Trim();
+                password = password?.Trim();
 
                 using var regConnection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
                 await regConnection.OpenAsync();
@@ -878,7 +878,8 @@ new { email = plainEmail });
                     httpContext.Session.SetString("CustomerCode", customerCode);
                     httpContext.Session.SetInt32("UserId", userId);
                     _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
-                }
+
+                 }
 
                 await InsertUserTokenAsync(userId, email, accessToken, refreshToken, accessExpiry, refreshExpiry, customerCode);
                // _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
@@ -1046,7 +1047,7 @@ WHERE UserId = @UserId
         //    }
 
 
-
+        
 
         public async Task InsertUserTokenAsync(
     int userId,

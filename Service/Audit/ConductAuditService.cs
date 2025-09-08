@@ -1454,5 +1454,43 @@ namespace TracePca.Service.Audit
                 throw new ApplicationException("An error occurred while getting Conduct Audit Checkpoint Observations by ID", ex);
             }
         }
+
+        public async Task<List<DropDownListData>> GetWorkpaperCheckListNotesByNameAsyn(DropDownListData data)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+                var validHeadings = new[]
+                {
+                    "Trade Receivables",
+                    "Cash And Bank",
+                    "Expenses",
+                    "Employee Benefits",
+                    "Inventories",
+                    "Other Financial Assets",
+                    "Share Capital",
+                    "Other Equity",
+                    "Loans and Borrowings",
+                    "Finance Cost",
+                    "Lease Liabilities",
+                    "Trade payables",
+                    "Other Financial Liabilities",
+                    "Tax Liabilities",
+                    "Other Current Liabilities",
+                    "Deferred Tax Liabilities",
+                    "Revenue from Operations"
+                };
+
+                var sql = @"SELECT ACM_ID AS ID, ACM_Checkpoint AS Name FROM AuditType_Checklist_Master WHERE ACM_Heading = @ACM_Heading AND ACM_Heading IN @ValidHeadings Order By ACM_Checkpoint";
+                var parameters = new { ACM_Heading = data.Name, ValidHeadings = validHeadings };
+                var result = await connection.QueryAsync<DropDownListData>(sql, parameters);
+                return result.ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while loading Workpaper CheckList Notes data", ex);
+            }
+        }
     }
 }
