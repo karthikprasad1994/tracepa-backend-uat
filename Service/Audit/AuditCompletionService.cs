@@ -2100,8 +2100,7 @@ namespace TracePca.Service.Audit
                 String OrgName = result.CustName;
                 String Cabinet = result.CustName + "_" + result.YearName;
                 string downloadDirectoryPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString(), SanitizeName(Cabinet));
-<<<<<<< HEAD
-=======
+ 
                 if (Directory.Exists(downloadDirectoryPath))
                 {
                     DirectoryInfo dir = new DirectoryInfo(downloadDirectoryPath);
@@ -2120,8 +2119,8 @@ namespace TracePca.Service.Audit
                 {
                     Directory.CreateDirectory(downloadDirectoryPath);
                 }
->>>>>>> 8bce1df05cefd68ebfee4cc720ae5fcc10146248
-                Directory.CreateDirectory(downloadDirectoryPath);
+ 
+               
 
                 int orgNode = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(Org_Node, 0) FROM sad_org_structure WHERE Org_Name = @Org_Name AND Org_CompID = @Org_CompID;",
                     new { Org_Name = OrgName, Org_CompID = compId });
