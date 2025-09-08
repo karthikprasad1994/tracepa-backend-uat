@@ -59,6 +59,8 @@ SELECT
     u.usr_Code AS EmployeeCode,
     u.usr_FullName AS EmployeeName,
     u.usr_Email AS UserName,
+    u.usr_MobileNo AS MobileNo,
+    u.Usr_GrpOrUserLvlPerm AS  PermissionId,
     CASE 
         WHEN u.USR_LastLoginDate IS NULL THEN NULL
         ELSE FORMAT(u.USR_LastLoginDate, 'yyyy-MM-dd')
