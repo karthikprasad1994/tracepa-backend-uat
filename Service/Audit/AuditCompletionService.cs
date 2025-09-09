@@ -833,10 +833,10 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().PaddingBottom(10).AlignCenter().PaddingBottom(10).Text("PCA-CX-14.3: Engagement Completion Document").FontSize(16).Bold();
-                            column.Item().Text($"Company Name: {companyName}").FontSize(10);
-                            column.Item().Text($"Balance Sheet Date: {DateTime.Now.ToString("dd MMM yyyy")}").FontSize(10);
-                            column.Item().Text($"Completed By: {userName}").FontSize(10);
+                            column.Item().PaddingBottom(10).AlignCenter().PaddingBottom(10).Text("Audit Completion Document").FontSize(16).Bold();
+                            column.Item().PaddingBottom(5).Text($"Company Name: {companyName}").FontSize(10);
+                            column.Item().PaddingBottom(5).Text($"Balance Sheet Date: {DateTime.Now.ToString("dd MMM yyyy")}").FontSize(10);
+                            column.Item().PaddingBottom(5).Text($"Completed By: {userName}").FontSize(10);
                             column.Item().PaddingBottom(10).Text($"Date: {DateTime.Now.ToString("dd MMM yyyy")}").FontSize(10);
 
                             if (templateDetails?.Any() == true)
@@ -864,7 +864,7 @@ namespace TracePca.Service.Audit
                                     {
                                         header.Cell().Element(CellStyle).Text("SubPoint").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Remarks").FontSize(10).Bold();
-                                        header.Cell().Element(CellStyle).Text("WorkpaperRef").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Workpaper Ref").FontSize(10).Bold();
                                     });
 
                                     foreach (DataRow row in checkpoints.Rows)
