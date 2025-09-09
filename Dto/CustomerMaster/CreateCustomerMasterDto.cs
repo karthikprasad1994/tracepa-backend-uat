@@ -11,6 +11,7 @@ namespace TracePca.Dto.CustomerMaster
         public string CompanyUrl { get; set; }
         public string CompanyEmail { get; set; }
         public string GroupName { get; set; }
+        public string BoardofDirectors { get; set; }
         public int GroupIndividual { get; set; }
         public int GroupId { get; set; }
         public int ServiceTypeId { get; set; }

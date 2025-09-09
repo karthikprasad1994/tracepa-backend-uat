@@ -191,7 +191,7 @@ ORDER BY CUST_ID";
             parameters.Add("@CUST_ORGID", 0);
             parameters.Add("@CUST_CRBY", dto.CreatedBy);
             parameters.Add("@CUST_UpdatedBy", dto.CreatedBy);
-            parameters.Add("@CUST_BOARDOFDIRECTORS", "");
+            parameters.Add("@CUST_BOARDOFDIRECTORS", dto.BoardofDirectors);
             parameters.Add("@CUST_DEPMETHOD", 0);
             parameters.Add("@CUST_IPAddress", "127.0.0.1");
             parameters.Add("@CUST_CompID", dto.CompanyId);
