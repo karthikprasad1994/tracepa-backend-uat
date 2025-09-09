@@ -81,23 +81,24 @@ namespace TracePca.Service.DigitalFilling
             }
         }
 
-        public async Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int deptId, int userId, int compID)
-        {
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            //await connection.OpenAsync();
 
-            //string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
+		public async Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int compID)
+		{
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
 
-            //string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			//string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
 
-            string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			//string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
 
 
 
 
-           // string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+			// string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
 
-            if (string.IsNullOrEmpty(dbName))
+			if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
 
 			// ✅ Step 2: Get the connection string
@@ -109,17 +110,54 @@ namespace TracePca.Service.DigitalFilling
 			// CheckandInsertMemberGroupAsync(userId, compID);
 			string query = @"
             select CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,usr_FullName as CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag
-            from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' and A.cbn_Department=@cbn_Department and A.cbn_userID=@cbn_userID ";
+            from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' and CBN_Parent = -1 ";  //and A.cbn_Department=@cbn_Department and A.cbn_userID=@cbn_userID 
 
-            var result = await connection.QueryAsync<CabinetDto>(query, new
-            {
-                cbn_Department = deptId,
-                cbn_UserId = userId
-            });
-            return result;
-        }
+			var result = await connection.QueryAsync<CabinetDto>(query, new
+			{
+				CBN_CompID = compID
+			});
+			return result;
+		}
 
-        public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID, CabinetDto dto)
+		//     public async Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int deptId, int userId, int compID)
+		//     {
+		//         //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+		//         //await connection.OpenAsync();
+
+		//         //string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
+
+		//         string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+		//         //string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+
+
+
+
+		//        // string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+
+		//         if (string.IsNullOrEmpty(dbName))
+		//	throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+		//// ✅ Step 2: Get the connection string
+		//var connectionString = _configuration.GetConnectionString(dbName);
+
+		//using var connection = new SqlConnection(connectionString);
+		//await connection.OpenAsync();
+
+		//// CheckandInsertMemberGroupAsync(userId, compID);
+		//string query = @"
+		//         select CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,usr_FullName as CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag
+		//         from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' ";  //and A.cbn_Department=@cbn_Department and A.cbn_userID=@cbn_userID 
+
+		//var result = await connection.QueryAsync<CabinetDto>(query, new
+		//         {
+		//             cbn_Department = deptId,
+		//             cbn_UserId = userId
+		//         });
+		//         return result;
+		//     }
+
+		public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID, CabinetDto dto)
         {
             //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             //await connection.OpenAsync();
@@ -869,7 +907,40 @@ namespace TracePca.Service.DigitalFilling
                 throw;
             }
         }
-    }
+
+
+
+		public async Task<IEnumerable<CabinetDto>> LoadRententionDataAsync(int compID)
+		{
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+
+			//string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
+
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+             
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			// CheckandInsertMemberGroupAsync(userId, compID);
+			string query = @"
+            select CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,usr_FullName as CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag,CONVERT(varchar(10), CBN_DocumentExpiryDate, 103) as CBN_DocumentExpiryDate,CBN_ReminderDay
+            from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID join standardAudit_Schedule C On C.SA_ID = A.CBN_AuditID and C.SA_ForCompleteAudit = 1 where A.cbn_Status='A' and A.CBN_CompID=@CBN_CompID and CBN_DocumentExpiryDate != '' and CBN_ReminderDay != '' 
+            and  cbn_Parent = -1";
+
+			var result = await connection.QueryAsync<CabinetDto>(query, new
+			{
+				CBN_CompID = compID,
+			});
+			return result;
+		}
+	}
 }
 
 

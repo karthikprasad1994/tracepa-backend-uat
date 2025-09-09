@@ -352,7 +352,7 @@ namespace TracePca.Service.Audit
 
 			string query = @"
             SELECT ACM.ACM_Heading AS AuditProgram, COUNT(SAC_ID) AS TotalCheckpoints, COUNT(CASE WHEN SAC_Mandatory = 1 THEN 1 END) AS Mandatory,
-            COUNT(CASE WHEN SAC_SA_ID = @AuditNo AND SAC_TestResult IS NOT NULL AND SAC_TestResult = 1 THEN 1 END) AS Tested, COUNT(CASE WHEN SAC_SA_ID = @AuditNo AND 
+            COUNT(CASE WHEN SAC_SA_ID = @AuditNo AND SAC_TestResult IS NOT NULL THEN 1 END) AS Tested, COUNT(CASE WHEN SAC_SA_ID = @AuditNo AND 
             SAC_Annexure IS NOT NULL AND SAC_Annexure = 1 THEN 1 END) AS Annexures, COUNT(DISTINCT SCR.SCR_CheckPointID) AS Reviewed,  
             ISNULL(U.usr_FullName, '') As Employee FROM StandardAudit_ScheduleCheckPointList SASC  LEFT JOIN AuditType_Checklist_Master ACM ON 
             ACM.ACM_ID = SASC.SAC_CheckPointID  LEFT JOIN StandardAudit_Checklist_Details SACD ON SACD.SACD_AuditId = @AuditNo And ',' + 
@@ -435,7 +435,7 @@ namespace TracePca.Service.Audit
 			//Changed by steffi on 15-07-2025, Type of test data stroing multiple value.
 			string query = @"SELECT A.PKID,A.WorkpaperChecklist,A.WorkpaperNo,A.WorkpaperRef,A.Observation,A.Conclusion,A.ReviewerComments,
                      STUFF((SELECT ', ' + cmm_Desc FROM Content_Management_Master
-                     WHERE CHARINDEX(',' + CAST(cmm_ID AS VARCHAR) + ',', ',' + REPLACE(A.TypeOfTest, ' ', '') + ',') > 0
+                     WHERE cms_KeyComponent = 0 and cmm_Category = 'WCM' and CHARINDEX(',' + CAST(cmm_ID AS VARCHAR) + ',', ',' + REPLACE(A.TypeOfTest, ' ', '') + ',') > 0
                      FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS TypeOfTest,
                      A.Status,A.AttachID,A.CreatedBy,A.CreatedOn,A.ReviewedBy,A.ReviewedOn
                      FROM (SELECT ISNULL(cm.cmm_ID, a.SSW_ID) As PKID,IsNull(cm.cmm_Desc,'NA') As WorkpaperChecklist,
@@ -499,34 +499,65 @@ namespace TracePca.Service.Audit
 		}
 
 
- 
-        public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
-        {
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+		//      public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
+		//      {
+		//          string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            // ✅ Step 2: Get the connection string
-            var connectionString = _configuration.GetConnectionString(dbName);
+		//          if (string.IsNullOrEmpty(dbName))
+		//              throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            using var connection = new SqlConnection(connectionString);
+		//          // ✅ Step 2: Get the connection string
+		//          var connectionString = _configuration.GetConnectionString(dbName);
 
-            var query = @"
-     Update StandardAudit_AuditSummary_CAMDetails set SACAM_DescriptionOrReasonForSelectionAsCAM=@SACAM_DescriptionOrReasonForSelectionAsCAM,
-     SACAM_AuditProcedureUndertakenToAddressTheCAM=@SACAM_AuditProcedureUndertakenToAddressTheCAM  
-     Where SACAM_PKID=@SACAM_PKID and SACAM_SA_ID=@SACAM_SA_ID";
+		//          using var connection = new SqlConnection(connectionString);
 
-			var parameters = new DynamicParameters(dto);
-			parameters.Add("SACAM_PKID", sacm_pkid);
-			parameters.Add("SACAM_SA_ID", sacm_sa_id);
+		//          var query = @"
+		//	 Update StandardAudit_AuditSummary_CAMDetails set SACAM_DescriptionOrReasonForSelectionAsCAM=@SACAM_DescriptionOrReasonForSelectionAsCAM,
+		//	 SACAM_AuditProcedureUndertakenToAddressTheCAM=@SACAM_AuditProcedureUndertakenToAddressTheCAM  
+		//	 Where SACAM_PKID=@SACAM_PKID and SACAM_SA_ID=@SACAM_SA_ID";
+
+		//	var parameters = new DynamicParameters(dto);
+		//	parameters.Add("SACAM_PKID", sacm_pkid);
+		//	parameters.Add("SACAM_SA_ID", sacm_sa_id);
+
+		//	var rowsAffected = await connection.ExecuteAsync(query, parameters);
+
+		//	return rowsAffected > 0;
+		//}
+
+
+		public async Task<bool> UpdateStandardAuditASCAMdetailsAsync(int sacm_pkid, int sacm_sa_id, UpdateStandardAuditASCAMdetailsDto dto)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+
+			var query = @"UPDATE StandardAudit_AuditSummary_CAMDetails 
+			SET SACAM_DescriptionOrReasonForSelectionAsCAM = @SACAM_DescriptionOrReasonForSelectionAsCAM,
+            SACAM_AuditProcedureUndertakenToAddressTheCAM = @SACAM_AuditProcedureUndertakenToAddressTheCAM 
+			WHERE 
+            SACAM_PKID = @SACAM_PKID 
+            AND SACAM_SA_ID = @SACAM_SA_ID";
+
+			var parameters = new
+			{
+				SACAM_DescriptionOrReasonForSelectionAsCAM = dto.SACAM_DescriptionOrReasonForSelectionAsCAM,
+				SACAM_AuditProcedureUndertakenToAddressTheCAM = dto.SACAM_AuditProcedureUndertakenToAddressTheCAM,
+				SACAM_PKID = sacm_pkid,
+				SACAM_SA_ID = sacm_sa_id
+			};
 
 			var rowsAffected = await connection.ExecuteAsync(query, parameters);
-
 			return rowsAffected > 0;
 		}
 
-        public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
+		public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
         {
             if (!Directory.Exists(accessCodeDirectory))
             {
@@ -1001,7 +1032,10 @@ namespace TracePca.Service.Audit
                 // 4. Update audit details
                 UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
 
-                return "Success";
+				dto.AttachPKID = attachId;
+
+
+				return "Success" + '|' + attachId;
             }
             catch (Exception ex)
             {

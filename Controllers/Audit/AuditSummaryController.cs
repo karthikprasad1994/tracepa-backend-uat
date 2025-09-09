@@ -394,7 +394,7 @@ namespace TracePca.Controllers.Audit
         }
 
 
-        [HttpPut("UpdateStandardAuditASCAMdetails/{sacm_pkid}/{sacm_sa_id}")]
+        [HttpPost("UpdateStandardAuditASCAMdetails/{sacm_pkid}/{sacm_sa_id}")]
         public async Task<IActionResult> UpdateStandardAuditASCAMdetails(int sacm_pkid, int sacm_sa_id, [FromBody] UpdateStandardAuditASCAMdetailsDto updateDto)
         {
             if (updateDto == null)
@@ -430,12 +430,16 @@ namespace TracePca.Controllers.Audit
             {
                 var result = await _AuditSummaryInterface.UploadCMAAttachmentsAsync(dto);
 
-                if (result.StartsWith("Error"))
+			 
+
+				if (result.Contains("Error"))
                 {
                     return StatusCode(500, result); // Internal Server Error
                 }
+                dto.AttachPKID = Convert.ToInt32(result.Replace("Success|", "").ToString());
 
-                return Ok("File uploaded Successfully"); // Success
+
+				return Ok("File uploaded Successfully"); // Success
             }
             catch (Exception ex)
             {
