@@ -1032,7 +1032,10 @@ namespace TracePca.Service.Audit
                 // 4. Update audit details
                 UpdateStandardAuditASCAMAttachmentdetails(dto.CompId, dto.CAMDPKID, attachId);
 
-                return "Success";
+				dto.AttachPKID = attachId;
+
+
+				return "Success" + '|' + attachId;
             }
             catch (Exception ex)
             {

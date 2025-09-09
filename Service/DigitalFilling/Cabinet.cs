@@ -110,7 +110,7 @@ namespace TracePca.Service.DigitalFilling
 			// CheckandInsertMemberGroupAsync(userId, compID);
 			string query = @"
             select CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,usr_FullName as CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag
-            from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' ";  //and A.cbn_Department=@cbn_Department and A.cbn_userID=@cbn_userID 
+            from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' and CBN_Parent = -1 ";  //and A.cbn_Department=@cbn_Department and A.cbn_userID=@cbn_userID 
 
 			var result = await connection.QueryAsync<CabinetDto>(query, new
 			{
@@ -931,7 +931,7 @@ namespace TracePca.Service.DigitalFilling
 			// CheckandInsertMemberGroupAsync(userId, compID);
 			string query = @"
             select CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,usr_FullName as CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag,CONVERT(varchar(10), CBN_DocumentExpiryDate, 103) as CBN_DocumentExpiryDate,CBN_ReminderDay
-            from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' and A.CBN_CompID=@CBN_CompID and CBN_DocumentExpiryDate != '' and CBN_ReminderDay != '' 
+            from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID join standardAudit_Schedule C On C.SA_ID = A.CBN_AuditID and C.SA_ForCompleteAudit = 1 where A.cbn_Status='A' and A.CBN_CompID=@CBN_CompID and CBN_DocumentExpiryDate != '' and CBN_ReminderDay != '' 
             and  cbn_Parent = -1";
 
 			var result = await connection.QueryAsync<CabinetDto>(query, new
