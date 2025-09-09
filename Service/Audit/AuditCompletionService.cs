@@ -2138,10 +2138,10 @@ namespace TracePca.Service.Audit
                 if (cabinetId == 0)
                 {
                     cabinetId = await connection.ExecuteScalarAsync<int>(@"DECLARE @CBN_ID INT = (SELECT ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet);
-		                INSERT INTO edt_cabinet (CBN_ID, CBN_NAME, CBN_Note, CBN_PARENT, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_Status, CBN_DelFlag, CBN_CreatedBy, CBN_CreatedOn, CBN_CompID, CBN_DocumentExpiryDate, CBN_ReminderDay)
-		                VALUES (@CBN_ID, @CBN_NAME, @CBN_NAME, -1, @CBN_UserID, 0, 0, 0, 'A', 'A', @CBN_CreatedBy, GETDATE(), @CBN_CompID, @CBN_DocumentExpiryDate, @CBN_ReminderDay);
+		                INSERT INTO edt_cabinet (CBN_ID, CBN_NAME, CBN_Note, CBN_PARENT, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_Status, CBN_DelFlag, CBN_CreatedBy, CBN_CreatedOn, CBN_CompID, CBN_DocumentExpiryDate, CBN_ReminderDay, CBN_AuditID)
+		                VALUES (@CBN_ID, @CBN_NAME, @CBN_NAME, -1, @CBN_UserID, 0, 0, 0, 'A', 'A', @CBN_CreatedBy, GETDATE(), @CBN_CompID, @CBN_DocumentExpiryDate, @CBN_ReminderDay, @AuditId);
 		                SELECT @CBN_ID;",
-                        new { CBN_NAME = Cabinet, CBN_UserID = userId, CBN_CreatedBy = userId, CBN_CompID = compId, CBN_DocumentExpiryDate = result.DocumentExpiryDate, CBN_ReminderDay = result.ReminderDay });
+                        new { CBN_NAME = Cabinet, CBN_UserID = userId, CBN_CreatedBy = userId, CBN_CompID = compId, CBN_DocumentExpiryDate = result.DocumentExpiryDate, CBN_ReminderDay = result.ReminderDay, AuditId = auditId });
                 }
 
                 int subCabinetId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(CBN_ID, 0) FROM edt_cabinet WHERE CBN_Name = @Name AND CBN_Parent = @ParentId AND CBN_CompID = @CompId",

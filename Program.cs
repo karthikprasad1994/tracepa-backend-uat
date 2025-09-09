@@ -19,6 +19,7 @@ using TracePca.Interface;
 using TracePca.Interface.AssetMaserInterface;
 using TracePca.Interface.Audit;
 using TracePca.Interface.CustomerUserMaster;
+using TracePca.Interface.Dashboard;
 using TracePca.Interface.DatabaseConnection;
 using TracePca.Interface.DigitalFiling;
 using TracePca.Interface.DigitalFilling;
@@ -36,6 +37,7 @@ using TracePca.Service.Audit;
 using TracePca.Service.Communication_with_client;
 using TracePca.Service.CustomerMaster;
 using TracePca.Service.CustomerUserMaster;
+using TracePca.Service.Dashboard;
 using TracePca.Service.DigitalFiling;
 using TracePca.Service.EmployeeMaster;
 using TracePca.Service.FIN_statement;
@@ -45,10 +47,11 @@ using TracePca.Service.Master;
 using TracePca.Service.Miidleware;
 using TracePca.Service.ProfileSetting;
  
-//Change this in CustomerContextMiddleware.cs
 using TracePca.Service.SuperMaster;
  
+//Change this in CustomerContextMiddleware.cs
 using TracePca.Service.SuperMaster;
+using TracePca.Utility;
 // Change this in CustomerContextMiddleware.cs
 
 
@@ -183,6 +186,11 @@ builder.Services.AddScoped<ScheduleExcelUploadInterface, ScheduleExcelUploadServ
 builder.Services.AddScoped<ScheduleMastersInterface, ScheduleMastersService>();
 builder.Services.AddScoped<ScheduleAccountingRatioInterface, ScheduleAccountingRatioService>();
 
+// Register your custom DbConnectionFactory
+builder.Services.AddScoped<IDbConnectionFactory, DbConnectionFactory>();
+
+// Register your service
+builder.Services.AddScoped<DashboardInterface, DashboardService>();
 
 
 builder.Services.AddScoped<ProfileSettingInterface, ProfileSettingService>();
