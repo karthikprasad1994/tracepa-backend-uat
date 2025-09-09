@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using TracePca.Data;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
+using TracePca.Service.DigitalFilling;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
@@ -546,17 +547,36 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<int> CheckCAEIndependentAuditorsReportSavedAsync(int compId, int auditId)
+        public async Task<int> GetAuditFrameworkIdAsync(int compId, int auditId)
         {
-            const string CAEQuery = @"SELECT COUNT(*) FROM LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = 2 AND LTD_LOE_ID = @LOEId";
-            const string checkExistQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_CompID = @SAC_CompID";
-            const string incompleteMandatoryQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_Mandatory = 1 AND SAC_TestResult IS NULL AND SAC_CompID = @SAC_CompID";
             try
             {
                 using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                int caeCount = await connection.ExecuteScalarAsync<int>(CAEQuery, new { LOEId = auditId });
+                var frameworkId = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT SA_AuditFrameworkId FROM StandardAudit_Schedule WHERE SA_ID = @AuditId AND SA_CompID = @CompId", new { AuditId = auditId, CompId = compId });
+                return frameworkId;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred whilegettting Audit Framework Id.", ex);
+            }
+        }
+
+        public async Task<int> CheckCAEIndependentAuditorsReportSavedAsync(int compId, int auditId)
+        {            
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var frameworkId = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT SA_AuditFrameworkId FROM StandardAudit_Schedule WHERE SA_ID = @AuditId AND SA_CompID = @CompId", new { AuditId = auditId, CompId = compId });
+                int reportTypeId = (frameworkId == 1) ? 2 : 33;
+                const string CAEQuery = @"SELECT COUNT(*) FROM LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = @ReportTypeId AND LTD_LOE_ID = @LOEId";
+                const string checkExistQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_CompID = @SAC_CompID";
+                const string incompleteMandatoryQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_Mandatory = 1 AND SAC_TestResult IS NULL AND SAC_CompID = @SAC_CompID";
+
+                int caeCount = await connection.ExecuteScalarAsync<int>(CAEQuery, new { LOEId = auditId, ReportTypeId = reportTypeId });
                 if (caeCount == 0)
                 {
                     return 0; // CAE Report not saved

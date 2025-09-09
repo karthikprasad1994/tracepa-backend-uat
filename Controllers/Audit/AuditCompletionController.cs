@@ -1,4 +1,5 @@
 ﻿using DocumentFormat.OpenXml.Bibliography;
+using DocumentFormat.OpenXml.Drawing.Diagrams;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using TracePca.Dto.Audit;
@@ -224,11 +225,19 @@ namespace TracePca.Controllers.Audit
 
                 if (result == 0)
                 {
-                    return BadRequest(new { statusCode = 400, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                    int frameworkId = await _auditCompletionInterface.GetAuditFrameworkIdAsync(dto.SA_CompID, dto.SA_ID);
+                    if (frameworkId == 1)
+                    {
+                        return Ok(new { statusCode = 200, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                    }
+                    else
+                    {
+                        return Ok(new { statusCode = 200, message = "Independent Auditors Report details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                    }
                 }
                 else if (result == 1)
                 {
-                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
+                    return Ok(new { statusCode = 200, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
                 }
                 else if (result == 2)
                 {
@@ -239,7 +248,7 @@ namespace TracePca.Controllers.Audit
                     }
                     else
                     {
-                        return BadRequest(new { statusCode = 400, message = "No Audit Completion data was saved." });
+                        return Ok(new { statusCode = 200, message = "No Audit Completion data was saved." });
                     }
                 }
                 else if (result == 3)
@@ -266,11 +275,11 @@ namespace TracePca.Controllers.Audit
 
                 if (result == 0)
                 {
-                    return BadRequest(new { statusCode = 400, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                    return Ok(new { statusCode = 200, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
                 }
                 else if (result == 1)
                 {
-                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
+                    return Ok(new { statusCode = 200, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
                 }
                 else if (result == 2)
                 {
@@ -281,7 +290,7 @@ namespace TracePca.Controllers.Audit
                     }
                     else
                     {
-                        return BadRequest(new { statusCode = 400, message = "No Audit Completion data was saved." });
+                        return Ok(new { statusCode = 200, message = "No Audit Completion data was saved." });
                     }
                 }
                 else if (result == 3)
@@ -412,11 +421,11 @@ namespace TracePca.Controllers.Audit
 
                 if (result == 0)
                 {
-                    return BadRequest(new { statusCode = 400, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                    return Ok(new { statusCode = 200, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
                 }
                 else if (result == 1)
                 {
-                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
+                    return Ok(new { statusCode = 200, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
                 }
                 else if (result == 2)
                 {
@@ -448,14 +457,21 @@ namespace TracePca.Controllers.Audit
             try
             {
                 int result = await _auditCompletionInterface.CheckCAEIndependentAuditorsReportSavedAsync(compId, auditId);
-
                 if (result == 0)
                 {
-                    return BadRequest(new { statusCode = 400, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                    int frameworkId = await _auditCompletionInterface.GetAuditFrameworkIdAsync(compId, auditId);
+                    if (frameworkId == 1)
+                    {
+                        return Ok(new { statusCode = 200, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                    }
+                    else
+                    {
+                        return Ok(new { statusCode = 200, message = "Independent Auditors Report details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                    }
                 }
                 else if (result == 1)
                 {
-                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
+                    return Ok(new { statusCode = 200, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
                 }
                 else if (result == 2)
                 {
@@ -546,11 +562,19 @@ namespace TracePca.Controllers.Audit
 
                 if (result == 0)
                 {
-                    return BadRequest(new { statusCode = 400, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                    int frameworkId = await _auditCompletionInterface.GetAuditFrameworkIdAsync(dto.SA_CompID, dto.SA_ID);
+                    if (frameworkId == 1)
+                    {
+                        return Ok(new { statusCode = 200, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                    }
+                    else
+                    {
+                        return Ok(new { statusCode = 200, message = "Independent Auditors Report details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
+                    }
                 }
                 else if (result == 1)
                 {
-                    return BadRequest(new { statusCode = 400, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
+                    return Ok(new { statusCode = 200, message = "Please complete all mandatory checkpoints before saving Audit Completion." });
                 }
                 else if (result == 2)
                 {
@@ -562,7 +586,7 @@ namespace TracePca.Controllers.Audit
                     }
                     else
                     {
-                        return BadRequest(new { statusCode = 400, message = "No Audit Archive data was saved." });
+                        return Ok(new { statusCode = 200, message = "No Audit Archive data was saved." });
                     }
                 }
                 else if (result == 3)
