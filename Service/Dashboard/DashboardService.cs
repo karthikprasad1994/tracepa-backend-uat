@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using Dapper;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 using TracePca.Dto.Dashboard;
 using TracePca.Interface.Dashboard;
 using TracePca.Utility;
@@ -54,5 +56,49 @@ namespace TracePca.Service.Dashboard
             }
         }
 
+        public async Task<IEnumerable<StandardAuditF1DTO>> GetStandardAuditsAsync()
+        {
+
+            var query = @"
+            SELECT 
+                ISNULL(a.CusT_Name, '') AS CustName, 
+                SA_AuditNo, 
+                b.cmm_Desc AS AuditType, 
+                SA_AuditOpinionDate, 
+                SA_MRLDate, 
+                SA_FilingDatePCAOB, 
+                SA_BinderCompletedDate
+            FROM [dbo].[StandardAudit_Schedule]
+            LEFT JOIN SAD_CUSTOMER_MASTER a ON a.CUST_ID = SA_CustID
+            LEFT JOIN Content_Management_Master b ON b.cmm_ID = SA_AuditTypeID
+            WHERE SA_AuditFrameworkId = 1;
+        ";
+
+            using (var connection = _dbConnectionFactory.CreateConnection())
+            {
+                return await connection.QueryAsync<StandardAuditF1DTO>(query);
+            }
+        }
+        public async Task<IEnumerable<StandardAuditF2DTO>> GetStandardAuditsFramework0Async()
+        {
+            var query = @"
+            SELECT 
+                ISNULL(a.CusT_Name, '') AS CustName, 
+                SA_AuditNo, 
+                b.cmm_Desc AS AuditType,
+                SA_RptFilDate, 
+                SA_RptRvDate, 
+                SA_MRSDate
+            FROM [dbo].[StandardAudit_Schedule]
+            LEFT JOIN SAD_CUSTOMER_MASTER a ON a.CUST_ID = SA_CustID
+            LEFT JOIN Content_Management_Master b ON b.cmm_ID = SA_AuditTypeID
+            WHERE SA_AuditFrameworkId = 0;
+        ";
+
+            using (var connection = _dbConnectionFactory.CreateConnection())
+            {
+                return await connection.QueryAsync<StandardAuditF2DTO>(query);
+            }
+        }
     }
 }

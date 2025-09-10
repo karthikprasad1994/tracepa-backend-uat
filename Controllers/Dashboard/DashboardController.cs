@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using OpenAI.Interfaces;
 using TracePca.Interface.Dashboard;
 using static TracePca.Dto.Dashboard.DashboardDto;
 
@@ -38,6 +39,47 @@ namespace TracePca.Controllers.Dashboard
             catch (Exception ex)
             {
                 return StatusCode(500, new { StatusCode = 500, Message = $"Internal Server Error: {ex.Message}" });
+            }
+        }
+        public class ApiResponse<T>
+        {
+            public int StatusCode { get; set; }
+            public string Message { get; set; }
+            public T Data { get; set; }
+        }
+
+      
+
+        [HttpGet("PCOB")]
+        public async Task<IActionResult> GetStandardAudits()
+        {
+            try
+            {
+                var audits = await _dashboardService.GetStandardAuditsAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    data = audits
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+        [HttpGet("ICAI")]
+        public async Task<IActionResult> GetFramework0Audits()
+        {
+
+            try
+            {
+                var audits = await _dashboardService.GetStandardAuditsFramework0Async();
+                return Ok(new { success = true, data = audits });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
     }
