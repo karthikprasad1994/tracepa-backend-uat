@@ -225,9 +225,6 @@ namespace TracePca.Controllers.Audit
 
                 if (result == 0)
                 {
-<<<<<<< HEAD
-                    return Ok(new { statusCode = 200, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
-=======
                     int frameworkId = await _auditCompletionInterface.GetAuditFrameworkIdAsync(dto.SA_CompID, dto.SA_ID);
                     if (frameworkId == 1)
                     {
@@ -237,7 +234,6 @@ namespace TracePca.Controllers.Audit
                     {
                         return Ok(new { statusCode = 200, message = "Independent Auditors Report details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
                     }
->>>>>>> d98618c5bd0fedb03959a0cb6c1d43d798e3c573
                 }
                 else if (result == 1)
                 {
@@ -463,9 +459,6 @@ namespace TracePca.Controllers.Audit
                 int result = await _auditCompletionInterface.CheckCAEIndependentAuditorsReportSavedAsync(compId, auditId);
                 if (result == 0)
                 {
-<<<<<<< HEAD
-                    return Ok(new { statusCode = 200, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
-=======
                     int frameworkId = await _auditCompletionInterface.GetAuditFrameworkIdAsync(compId, auditId);
                     if (frameworkId == 1)
                     {
@@ -475,7 +468,6 @@ namespace TracePca.Controllers.Audit
                     {
                         return Ok(new { statusCode = 200, message = "Independent Auditors Report details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
                     }
->>>>>>> d98618c5bd0fedb03959a0cb6c1d43d798e3c573
                 }
                 else if (result == 1)
                 {
@@ -570,9 +562,6 @@ namespace TracePca.Controllers.Audit
 
                 if (result == 0)
                 {
-<<<<<<< HEAD
-                    return Ok(new { statusCode = 200, message = "Report of Independent Registered Public Accounting Firm details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
-=======
                     int frameworkId = await _auditCompletionInterface.GetAuditFrameworkIdAsync(dto.SA_CompID, dto.SA_ID);
                     if (frameworkId == 1)
                     {
@@ -582,7 +571,6 @@ namespace TracePca.Controllers.Audit
                     {
                         return Ok(new { statusCode = 200, message = "Independent Auditors Report details have not been generated for this audit. Please generate the report before saving Audit Completion data." });
                     }
->>>>>>> d98618c5bd0fedb03959a0cb6c1d43d798e3c573
                 }
                 else if (result == 1)
                 {
