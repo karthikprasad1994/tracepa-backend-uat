@@ -187,7 +187,9 @@ ORDER BY CUST_ID";
             parameters.Add("@CUST_TELPHONE", "");
             parameters.Add("@CUST_ConEmailID", "");
             parameters.Add("@CUST_LOCATIONID", "");
-            parameters.Add("@CUST_TASKS", dto.ServiceTypeId);
+            // parameters.Add("@CUST_TASKS", dto.ServiceTypeId);
+            parameters.Add("@CUST_TASKS", string.Join(",", dto.ServiceTypeId));
+
             parameters.Add("@CUST_ORGID", 0);
             parameters.Add("@CUST_CRBY", dto.CreatedBy);
             parameters.Add("@CUST_UpdatedBy", dto.CreatedBy);

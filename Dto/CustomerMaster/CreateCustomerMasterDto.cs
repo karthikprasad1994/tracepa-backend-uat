@@ -14,7 +14,9 @@ namespace TracePca.Dto.CustomerMaster
         public string BoardofDirectors { get; set; }
         public int GroupIndividual { get; set; }
         public int GroupId { get; set; }
-        public int ServiceTypeId { get; set; }
+        public List<int> ServiceTypeId { get; set; }
+
+
         public int OrganizationTypeId { get; set; }
         public int IndustryTypeId { get; set; }
         public int ManagementTypeId { get; set; }
