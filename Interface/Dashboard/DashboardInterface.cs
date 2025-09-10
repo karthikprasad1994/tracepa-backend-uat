@@ -9,5 +9,9 @@ namespace TracePca.Interface.Dashboard
     {
 
         Task<RemarksSummaryDto> GetRemarksSummaryAsync();
+        Task<IEnumerable<StandardAuditF1DTO>> GetStandardAuditsAsync();
+        Task<IEnumerable<StandardAuditF2DTO>> GetStandardAuditsFramework0Async();
+
+
     }
 }
