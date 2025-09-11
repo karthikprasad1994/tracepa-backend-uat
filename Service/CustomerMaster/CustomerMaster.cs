@@ -74,9 +74,9 @@ ORDER BY CUST_ID";
         public async Task<IEnumerable<ServicesDto>> GetServicesAsync(int companyId)
 {
     // ✅ Step 1: Get DB name from session
-    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+      string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-    if (string.IsNullOrEmpty(dbName))
+       if (string.IsNullOrEmpty(dbName))
         throw new Exception("CustomerCode is missing in session. Please log in again.");
 
     using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
