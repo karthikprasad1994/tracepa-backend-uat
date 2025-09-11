@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
-using Dapper;
+﻿using Dapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using TracePca.Dto.Audit;
 using TracePca.Dto.Dashboard;
 using TracePca.Interface.Dashboard;
 using TracePca.Utility;
@@ -98,6 +99,75 @@ namespace TracePca.Service.Dashboard
             using (var connection = _dbConnectionFactory.CreateConnection())
             {
                 return await connection.QueryAsync<StandardAuditF2DTO>(query);
+            }
+        }
+
+        public async Task<LOEStatusSummary> GetLOEProgressAsync(int compId, int yearId, int custId)
+        {
+            try
+            {
+                using (var connection = _dbConnectionFactory.CreateConnection())
+                {
+                    var parameters = new { CompId = compId, YearID = yearId, CustId = custId };
+
+                    var result = await connection.QueryFirstOrDefaultAsync<LOEStatusSummary>(@"SELECT COUNT(*) AS TotalLOEs, SUM(CASE WHEN LOE_STATUS = 'A' THEN 1 ELSE 0 END) AS ApprovedLOEs,
+                    SUM(CASE WHEN LOE_STATUS != 'A' THEN 1 ELSE 0 END) AS PendingLOEs FROM SAD_CUST_LOE WHERE LOE_CompID = @CompId And LOE_YearId = @YearId And (@CustId <= 0 OR LOE_CustomerId = @CustId)", parameters);
+                    return result ?? new LOEStatusSummary();
+                }               
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting LOE progress data.", ex);
+            }
+        }
+
+        public async Task<AuditStatusSummary> GetAuditProgressAsync(int compId, int yearId, int custId)
+        {
+            try
+            {
+                using (var connection = _dbConnectionFactory.CreateConnection())
+                {
+                    var parameters = new { CompId = compId, YearID = yearId, CustId = custId };
+
+                    var result = await connection.QueryFirstOrDefaultAsync<AuditStatusSummary>(@"SELECT
+                    COUNT(*) AS TotalAudits,
+                    SUM(CASE WHEN SA_Status = 1 THEN 1 ELSE 0 END) AS Scheduled,
+                    SUM(CASE WHEN SA_Status = 2 THEN 1 ELSE 0 END) AS CommunicationWithClient,
+                    SUM(CASE WHEN SA_Status = 3 THEN 1 ELSE 0 END) AS TBR,
+                    SUM(CASE WHEN SA_Status = 4 THEN 1 ELSE 0 END) AS ConductAudit,
+                    SUM(CASE WHEN SA_Status = 5 THEN 1 ELSE 0 END) AS Report,
+                    SUM(CASE WHEN SA_Status = 10 THEN 1 ELSE 0 END) AS Completed,
+                    SUM(CASE WHEN SA_Status = 0 THEN 1 ELSE 0 END) AS AuditStarted,
+                    SUM(CASE WHEN SA_Status <> 10 THEN 1 ELSE 0 END) AS InProgress
+                    FROM StandardAudit_Schedule WHERE SA_CompID = @CompId AND SA_YearID = @YearId AND (@CustId <= 0 OR SA_CustID = @CustId)", parameters);
+
+                    return result ?? new AuditStatusSummary();
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting Audit progress data.", ex);
+            }
+        }
+
+        public async Task<PassedDueDatesSummary> GetAuditPassedDueDatesAsync(int compId, int yearId, int custId)
+        {
+            try
+            {
+                using (var connection = _dbConnectionFactory.CreateConnection())
+                {
+                    await Task.CompletedTask;
+                    return new PassedDueDatesSummary
+                    {
+                        OverdueAudits = 0,
+                        LastDue = DateTime.MinValue,
+                        HighRisk = false
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while getting Audit Passed due dates data.", ex);
             }
         }
     }
