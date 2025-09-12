@@ -24,11 +24,11 @@ namespace TracePca.Controllers
 
 
         [HttpGet("GetUsers")]
-        public async Task<IActionResult> LoadExistingUsers(int companyId, string? search = "")
+        public async Task<IActionResult> LoadExistingUsers(int companyId)
         {
             try
             {
-                var result = await _customerusermaster.LoadExistingUsersAsync(companyId, search);
+                var result = await _customerusermaster.LoadExistingUsersAsync(companyId);
 
                 if (result == null || !result.Any())
                 {
