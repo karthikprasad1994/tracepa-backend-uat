@@ -48,7 +48,7 @@ namespace TracePca.Controllers.Dashboard
             public T Data { get; set; }
         }
 
-      
+
 
         [HttpGet("PCOB")]
         public async Task<IActionResult> GetStandardAudits()
@@ -80,6 +80,48 @@ namespace TracePca.Controllers.Dashboard
             catch (Exception ex)
             {
                 return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpGet("GetLOEProgress")]
+        public async Task<IActionResult> GetLOEProgress(int compId, int yearId, int custId = 0)
+        {
+            try
+            {
+                var progressData = await _dashboardService.GetLOEProgressAsync(compId, yearId, custId);
+                return Ok(new { statusCode = 200, message = "LOE progress data fetched successfully.", data = progressData });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load LOE progress data.", error = ex.Message });
+            }
+        }
+
+        [HttpGet("GetAuditProgress")]
+        public async Task<IActionResult> GetAuditProgress(int compId, int yearId, int custId = 0)
+        {
+            try
+            {
+                var progressData = await _dashboardService.GetAuditProgressAsync(compId, yearId, custId);
+                return Ok(new { statusCode = 200, message = "Audit progress data fetched successfully.", data = progressData });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load Audit progress data.", error = ex.Message });
+            }
+        }
+
+        [HttpGet("GetAuditPassedDueDates")]
+        public async Task<IActionResult> GetAuditPassedDueDates(int compId, int yearId, int custId = 0)
+        {
+            try
+            {
+                var progressData = await _dashboardService.GetAuditPassedDueDatesAsync(compId, yearId, custId);
+                return Ok(new { statusCode = 200, message = "Audit Passed due dates data fetched successfully.", data = progressData });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load Audit Passed due dates data.", error = ex.Message });
             }
         }
     }
