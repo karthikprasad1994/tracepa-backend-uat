@@ -23,7 +23,7 @@ namespace TracePca.Service.CustomerUserMaster
         }
 
 
-        public async Task<IEnumerable<UserDropdownDto>> LoadExistingUsersAsync(int companyId, string search = "")
+        public async Task<IEnumerable<UserDropdownDto>> LoadExistingUsersAsync(int companyId)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -32,31 +32,26 @@ namespace TracePca.Service.CustomerUserMaster
 
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
 
-            // ✅ Step 2: SQL query with optional search
+            // ✅ Step 2: SQL query without search filter
             string query = @"
-                SELECT 
-                    Usr_ID AS UserId,
-                    (Usr_FullName + ' - ' + Usr_Code) AS FullName
-                FROM Sad_UserDetails
-                WHERE Usr_CompID = @CompanyId
-                  AND Usr_Node = 0
-                  AND Usr_OrgnID = 0
-                  AND (
-                        @Search = '' 
-                        OR Usr_FullName LIKE @Search + '%' 
-                        OR Usr_Code LIKE @Search + '%'
-                      )
-                ORDER BY Usr_FullName";
+        SELECT 
+            Usr_ID AS UserId,
+            (Usr_FullName + ' - ' + Usr_Code) AS UserName
+        FROM Sad_UserDetails
+        WHERE Usr_CompID = @CompanyId
+          AND Usr_Node = 0
+          AND Usr_OrgnID = 0
+        ORDER BY Usr_FullName";
 
             // ✅ Step 3: Execute with Dapper
             var users = await connection.QueryAsync<UserDropdownDto>(query, new
             {
-                CompanyId = companyId,
-                Search = search ?? ""
+                CompanyId = companyId
             });
 
             return users;
         }
+
 
         public async Task<IEnumerable<CustomerDropdownDto>> LoadActiveCustomersAsync(int companyId)
         {
