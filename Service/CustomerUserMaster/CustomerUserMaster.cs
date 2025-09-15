@@ -131,6 +131,7 @@ ORDER BY a.usr_id";
 
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
 
+
             var parameters = new DynamicParameters();
 
             // Insert (new user, UserId = 0) or Update (existing user, UserId > 0)
