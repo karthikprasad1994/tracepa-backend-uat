@@ -14,6 +14,7 @@ using OfficeOpenXml.Packaging.Ionic.Zip;
 using OpenAI;
 using TracePca.Data;
 using TracePca.Dto.Audit;
+using Newtonsoft.Json;
 using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
@@ -32,6 +33,16 @@ namespace TracePca.Service.SuperMaster
             _configuration = configuration;
             _dbcontext = dbcontext;
             _httpContextAccessor = httpContextAccessor;
+        }
+        public class EmployeeUploadException : Exception
+        {
+            public Dictionary<string, List<string>> Errors { get; }
+
+            public EmployeeUploadException(Dictionary<string, List<string>> errors)
+                : base("Error processing employee master")
+            {
+                Errors = errors;
+            }
         }
 
         //UploadEmployeeMasters
@@ -55,85 +66,64 @@ namespace TracePca.Service.SuperMaster
                 employees = ParseExcelToEmployees(stream, out headerErrors);
             }
 
+            // ✅ Step 3: Validate (only missing + invalids)
+            var missingOrInvalidErrors = ValidateEmployees(employees);
 
-            ////  ✅ Step 3: Validate all(mandatory +duplicates)
-            //var validationErrors = ValidateEmployees(employees);
+            // ✅ Step 4: Collect duplicate errors separately
+            var duplicateErrors = new List<UploadEmployeeMasterDto>();
 
-            //// ✅ Group errors
-            //var finalErrors = new List<string>();
-            //if (headerErrors.Any())
-            //{
-            //    finalErrors.Add("Missing column||[" + string.Join("||", headerErrors) + "] ");
-            //}
+            void AddDuplicateErrors(Func<UploadEmployeeMasterDto, string> keySelector, string fieldName)
+            {
+                duplicateErrors.AddRange(
+                    employees.GroupBy(keySelector)
+                        .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
+                        .Select(g => new UploadEmployeeMasterDto
+                        {
+                            EmpCode = g.First().EmpCode,
+                            EmployeeName = g.First().EmployeeName,
+                            ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
+                        })
+                );
+            }
 
-            //if (validationErrors.Any())
-            //{
-            //    var groupedValidations = validationErrors
-            //        .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-            //        .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+            AddDuplicateErrors(e => e.EmpCode, "EmpCode");
+            AddDuplicateErrors(e => e.LoginName, "LoginName");
+            AddDuplicateErrors(e => e.Email, "Email");
+            AddDuplicateErrors(e => e.OfficePhoneNo, "OfficePhoneNo");
 
-            //    finalErrors.Add("Validation||[" + string.Join("||", groupedValidations) + "]");
-            //}
+            // ✅ Step 5: Group errors into structured dictionary
+            var finalErrors = new Dictionary<string, List<string>>();
 
-            //// Extract duplicate errors separately
-            //var duplicateErrors = validationErrors.Where(e => e.ErrorMessage.StartsWith("Duplicate")).ToList();
-            //if (duplicateErrors.Any())
-            //{
-            //    var groupedDuplicates = duplicateErrors
-            //        .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-            //        .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
-
-            //    finalErrors.Add("Duplication || [" + string.Join(" || ", groupedDuplicates) + "]");
-            //}
-
-            //// ✅ Throw if any errors (preserve line breaks)
-            //if (finalErrors.Any())
-            //{
-            //    throw new Exception(string.Join("||", finalErrors));
-            //}
-
-
-            // ✅ Step 3: Validate all(mandatory +duplicates)
-            var validationErrors = ValidateEmployees(employees);
-
-            // ✅ Group errors
-            var finalErrors = new List<string>();
             if (headerErrors.Any())
             {
-                // Convert missing columns to JSON array format instead of || concatenation
-                //finalErrors.Add("Missing column: [" + string.Join(", ", headerErrors.Select(h => $"\"{h}\"")) + "]");
-                finalErrors.Add("Missing column : ||[" + string.Join("||", headerErrors.Select(h => $"{h}")) +"]");
-                    
+                finalErrors["Missing column"] = headerErrors;
             }
 
-            if (validationErrors.Any())
+            if (missingOrInvalidErrors.Any())
             {
-                var groupedValidations = validationErrors
+                var groupedMissing = missingOrInvalidErrors
                     .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}")
+                    .ToList();
 
-                // Convert validation errors to JSON array format
-                finalErrors.Add("Validation: [" + string.Join(", ", groupedValidations.Select(v => $"\"{v}\"")) + "]");
+                finalErrors["Missing values"] = groupedMissing;
             }
 
-            // Extract duplicate errors separately
-            var duplicateErrors = validationErrors.Where(e => e.ErrorMessage.StartsWith("Duplicate")).ToList();
             if (duplicateErrors.Any())
             {
                 var groupedDuplicates = duplicateErrors
                     .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}")
+                    .ToList();
 
-                // Convert duplicates to JSON array format
-                finalErrors.Add("Duplication: [" + string.Join(", ", groupedDuplicates.Select(d => $"\"{d}\"")) + "]");
+                finalErrors["Duplication"] = groupedDuplicates;
             }
 
-            // ✅ Throw if any errors (preserve line breaks)
+            // ✅ Throw if any errors
             if (finalErrors.Any())
             {
-                throw new Exception("{" + string.Join(", ", finalErrors) + "}");
+                throw new EmployeeUploadException(finalErrors);
             }
-
 
             var results = new List<string>();
 
@@ -412,27 +402,7 @@ namespace TracePca.Service.SuperMaster
                 if (string.IsNullOrWhiteSpace(emp.Role))
                     errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Role missing" });
             }
-
-            // 🔹 Duplicate checks
-            void AddDuplicateErrors(Func<UploadEmployeeMasterDto, string> keySelector, string fieldName)
-            {
-                errors.AddRange(
-                    employees.GroupBy(keySelector)
-                    .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
-                    .Select(g => new UploadEmployeeMasterDto
-                    {
-                        EmpCode = g.First().EmpCode,
-                        EmployeeName = g.First().EmployeeName,
-                        ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
-                    })
-                );
-            }
-
-            AddDuplicateErrors(e => e.EmpCode, "EmpCode");
-            AddDuplicateErrors(e => e.LoginName, "LoginName");
-            AddDuplicateErrors(e => e.Email, "Email");
-            AddDuplicateErrors(e => e.OfficePhoneNo, "OfficePhoneNo");
-
+           
             return errors;
         }
       
@@ -561,30 +531,6 @@ namespace TracePca.Service.SuperMaster
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
-<<<<<<< HEAD
-=======
-
-
-
- 
-
-
-
-    //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
-    //    {
-    //        if (file == null || file.Length == 0)
-    //            throw new Exception("No file uploaded.");
-
-
-        ////UploadClientDetails
-        //public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
-        //{
-        //    if (file == null || file.Length == 0)
-        //        throw new Exception("No file uploaded.");
-
-
-
->>>>>>> f6322d1b5aee6c65ee9c08b0598575017e8f7d20
             var connectionString = _configuration.GetConnectionString(dbName);
 
             // ✅ Parse Excel

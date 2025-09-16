@@ -4,6 +4,7 @@ using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using TracePca.Service.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
+using static TracePca.Service.SuperMaster.ExcelInformationService;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -37,27 +38,28 @@ namespace TracePca.Controllers.SuperMaster
             {
                 var results = await _ExcelInformationService.UploadEmployeeDetailsAsync(compId, file);
 
-                // If no errors and employees inserted successfully
                 return Ok(new
                 {
                     statusCode = 200,
                     message = "Employee master processed successfully"
                 });
             }
-            catch (Exception ex)
+            catch (EmployeeUploadException ex) // <-- catch your structured exception
             {
-                List<string> errors;
-
-                if (ex.Message.Contains("||"))
-                    errors = ex.Message.Split("||").ToList();
-                else
-                    errors = new List<string> { ex.Message };
-
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 500,
+                    message = ex.Message,
+                    data = ex.Errors // <-- structured dictionary
+                });
+            }
+            catch (Exception ex) // fallback for other unexpected errors
+            {
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
                     statusCode = 500,
                     message = "Error processing employee master",
-                    data = errors
+                    data = new List<string> { ex.Message }
                 });
             }
         }
@@ -92,7 +94,7 @@ namespace TracePca.Controllers.SuperMaster
             }
         }
 
-        //   //UploadClientDetails
+        //UploadClientDetails
         [HttpPost("UploadClientDetails")]
         public async Task<IActionResult> UploadClientDetails([FromQuery] int compId, IFormFile file)
         {
