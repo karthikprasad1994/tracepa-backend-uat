@@ -31,6 +31,55 @@ namespace TracePca.Service.Master
         //WorkpaperChecklist - WCM
         //AuditCompletionCheckPoint - ASF
 
+        public async Task<(bool Success, string Message, List<ContentManagementMasterDTO> Data)> GetMasterDataByStatusAsync(string status, int compId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            try
+            {
+                var query = @"
+            SELECT CMM_ID, CMM_Code, CMM_Desc, CMM_Category, CMS_Remarks, CMS_KeyComponent, CMS_Module, 
+                   CMM_Delflag, CMM_Status, CMM_ApprovedBy, CMM_ApprovedOn, CMM_IPAddress, CMM_CompID, 
+                   CMM_RiskCategory, CMM_CrBy, CMM_CrOn, CMM_UpdatedBy, CMM_UpdatedOn, 
+                   CMM_Rate, CMM_Act, CMM_HSNSAC, CMM_AudrptType
+            FROM Content_Management_Master
+            WHERE CMM_Status = @Status AND CMM_CompID = @CompID AND CMM_Delflag = 'A'
+            ORDER BY CMM_Desc;";
+
+                var result = await connection.QueryAsync<ContentManagementMasterDTO>(query, new { Status = status, CompID = compId });
+                return (true, "Records fetched successfully.", result.ToList());
+            }
+            catch (Exception ex)
+            {
+                return (false, "Error while fetching records by status: " + ex.Message, new List<ContentManagementMasterDTO>());
+            }
+        }
+
+        public async Task<(bool Success, string Message, ContentManagementMasterDTO? Data)> GetMasterDataByIdAsync(int id, int compId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            try
+            {
+                var query = @"
+            SELECT CMM_ID, CMM_Code, CMM_Desc, CMM_Category, CMS_Remarks, CMS_KeyComponent, CMS_Module, 
+                   CMM_Delflag, CMM_Status, CMM_ApprovedBy, CMM_ApprovedOn, CMM_IPAddress, CMM_CompID, 
+                   CMM_RiskCategory, CMM_CrBy, CMM_CrOn, CMM_UpdatedBy, CMM_UpdatedOn, 
+                   CMM_Rate, CMM_Act, CMM_HSNSAC, CMM_AudrptType
+            FROM Content_Management_Master
+            WHERE CMM_ID = @Id AND CMM_CompID = @CompID AND CMM_Delflag = 'A';";
+
+                var result = await connection.QueryFirstOrDefaultAsync<ContentManagementMasterDTO>(query, new { Id = id, CompID = compId });
+
+                if (result == null)
+                    return (true, "No record found with the given Id.", null);
+
+                return (true, "Record fetched successfully.", result);
+            }
+            catch (Exception ex)
+            {
+                return (false, "Error while fetching record by Id: " + ex.Message, null);
+            }
+        }
+
         public async Task<(int Id, string Message, List<DropDownListData> MasterList)> SaveOrUpdateMasterDataAndGetRecordsAsync(ContentManagementMasterDTO dto)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -69,13 +118,15 @@ namespace TracePca.Service.Master
                     dto.CMM_Code = $"{dto.CMM_Category}_{maxId}";
                     dto.CMM_ID = await connection.ExecuteScalarAsync<int>(
                         @"DECLARE @NewId INT = ISNULL((SELECT MAX(CMM_ID) FROM Content_Management_Master), 0) + 1;
-                        INSERT INTO Content_Management_Master (CMM_ID, CMM_Code, CMM_Desc, CMM_Category, CMS_Remarks, CMS_KeyComponent, CMS_Module, CMM_Delflag, CMM_Status, CMM_ApprovedBy, CMM_ApprovedOn, CMM_IPAddress, CMM_CompID, CMM_RiskCategory, CMM_CrBy, CMM_CrOn, CMM_Rate, CMM_Act, CMM_HSNSAC, CMM_AudrptType)
-                        VALUES (@NewId, @CMM_Code, @CMM_Desc, @CMM_Category, @CMS_Remarks, @CMS_KeyComponent, @CMS_Module, 'A', 'A', @CMM_CrBy, GETDATE(), @CMM_IPAddress, @CMM_CompID, @CMM_RiskCategory, @CMM_CrBy, GETDATE(), @CMM_Rate, @CMM_Act, @CMM_HSNSAC, @CMM_AudrptType);
+                        INSERT INTO Content_Management_Master (CMM_ID, CMM_Code, CMM_Desc, CMM_Category, CMS_Remarks, CMS_KeyComponent, CMS_Module, CMM_Delflag, CMM_Status, CMM_ApprovedBy, CMM_ApprovedOn, 
+                        CMM_IPAddress, CMM_CompID, CMM_RiskCategory, CMM_CrBy, CMM_CrOn, CMM_Rate, CMM_Act, CMM_HSNSAC, CMM_AudrptType)
+                        VALUES (@NewId, @CMM_Code, @CMM_Desc, @CMM_Category, @CMS_Remarks, @CMS_KeyComponent, @CMS_Module, 'A', 'W', @CMM_CrBy, GETDATE(), @CMM_IPAddress, @CMM_CompID, @CMM_RiskCategory, 
+                        @CMM_CrBy, GETDATE(), @CMM_Rate, @CMM_Act, @CMM_HSNSAC, @CMM_AudrptType);
                         SELECT @NewId;", dto, transaction);
                 }
 
-                var masterList = (await connection.QueryAsync<DropDownListData>(@"SELECT CMM_ID AS ID, CMM_Desc AS Name FROM Content_Management_Master WHERE CMM_Category = @Category AND CMM_Delflag = 'A' 
-                AND CMM_CompID = @CompID ORDER BY CMM_Desc;", new { Category = dto.CMM_Category, CompID = dto.CMM_CompID }, transaction)).ToList();
+                var masterList = (await connection.QueryAsync<DropDownListData>(@"SELECT CMM_ID AS ID, CMM_Desc AS Name FROM Content_Management_Master WHERE CMM_Category = @Category AND CMM_Delflag = 'A' AND 
+                    CMM_CompID = @CompID ORDER BY CMM_Desc;", new { Category = dto.CMM_Category, CompID = dto.CMM_CompID }, transaction)).ToList();
 
                 await transaction.CommitAsync();
 
@@ -87,5 +138,65 @@ namespace TracePca.Service.Master
                 return (0, "An error occurred while saving or updating the master data: " + ex.Message, new List<DropDownListData>());
             }
         }
+
+        public async Task<(bool Success, string Message)> UpdateRecordsStatusAsync(List<int> ids, string action, int compId, int updatedBy, string ipAddress)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                if (ids == null || ids.Count == 0)
+                    return (false, "No IDs provided for update.");
+
+                string query = string.Empty;
+
+                switch (action.ToLower())
+                {
+                    case "approve":
+                        query = @"
+                    UPDATE Content_Management_Master
+                    SET CMM_Status = 'A', CMM_UpdatedBy = @UpdatedBy, CMM_UpdatedOn = GETDATE(), CMM_IPAddress = @IpAddress
+                    WHERE CMM_ID IN @Ids AND CMM_CompID = @CompID AND CMM_Delflag = 'A';";
+                        break;
+
+                    case "revert":
+                        query = @"
+                    UPDATE Content_Management_Master
+                    SET CMM_Status = 'R', CMM_UpdatedBy = @UpdatedBy, CMM_UpdatedOn = GETDATE(), CMM_IPAddress = @IpAddress
+                    WHERE CMM_ID IN @Ids AND CMM_CompID = @CompID AND CMM_Delflag = 'A';";
+                        break;
+
+                    case "delete":
+                        query = @"
+                    UPDATE Content_Management_Master
+                    SET CMM_Delflag = 'D', CMM_UpdatedBy = @UpdatedBy, CMM_UpdatedOn = GETDATE(), CMM_IPAddress = @IpAddress
+                    WHERE CMM_ID IN @Ids AND CMM_CompID = @CompID AND CMM_Delflag = 'A';";
+                        break;
+
+                    default:
+                        return (false, "Invalid action. Allowed actions: approve, revert, delete.");
+                }
+
+                var rowsAffected = await connection.ExecuteAsync(query, new
+                {
+                    UpdatedBy = updatedBy,
+                    IpAddress = ipAddress,
+                    Ids = ids,
+                    CompID = compId
+                }, transaction);
+
+                await transaction.CommitAsync();
+
+                return (true, $"{rowsAffected} record(s) updated successfully.");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return (false, "Error while updating records: " + ex.Message);
+            }
+        }
+
     }
 }

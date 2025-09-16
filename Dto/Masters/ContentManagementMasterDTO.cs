@@ -29,4 +29,13 @@
         public string? CMM_HSNSAC { get; set; }
         public int? CMM_AudrptType { get; set; }
     }
+
+    public class UpdateStatusRequest
+    {
+        public List<int> Ids { get; set; } = new();
+        public string Action { get; set; } = string.Empty; // approve, revert, delete
+        public int CompId { get; set; }
+        public int UpdatedBy { get; set; }
+        public string IpAddress { get; set; } = string.Empty;
+    }
 }

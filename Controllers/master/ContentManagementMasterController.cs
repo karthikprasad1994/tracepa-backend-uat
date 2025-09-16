@@ -18,6 +18,29 @@ namespace TracePca.Controllers.master
             _contentManagementMasterInterface = contentManagementMasterInterface;
         }
 
+        [HttpGet("GetMasterDataByStatus")]
+        public async Task<IActionResult> GetMasterDataByStatus([FromQuery] string status, [FromQuery] int compId)
+        {
+            var (success, message, data) = await _contentManagementMasterInterface.GetMasterDataByStatusAsync(status, compId);
+
+            if (!success)
+                return StatusCode(500, new { success, message });
+
+            return Ok(new { statusCode = 200, success, message, data });
+        }
+
+        [HttpGet("GetMasterDataById/{id}")]
+        public async Task<IActionResult> GetMasterDataById(int id, [FromQuery] int compId)
+        {
+            var (success, message, data) = await _contentManagementMasterInterface.GetMasterDataByIdAsync(id, compId);
+
+            if (!success)
+                return NotFound(new { statusCode = 404, success, message });
+
+            return Ok(new { statusCode = 200, success, message, data });
+        }
+
+
         [HttpPost("SaveOrUpdateMasterDataAndGetRecords")]
         public async Task<IActionResult> SaveOrUpdateMasterDataAndGetRecords([FromBody] ContentManagementMasterDTO dto)
         {
@@ -31,6 +54,17 @@ namespace TracePca.Controllers.master
             {
                 return StatusCode(500, new { success = false, message = $"An error occurred while saving/updating master data: {ex.Message}" });
             }
+        }
+
+        [HttpPost("UpdateRecordsStatus")]
+        public async Task<IActionResult> UpdateRecordsStatus([FromBody] UpdateStatusRequest request)
+        {
+            var (success, message) = await _contentManagementMasterInterface.UpdateRecordsStatusAsync(request.Ids, request.Action, request.CompId, request.UpdatedBy, request.IpAddress);
+
+            if (!success)
+                return StatusCode(500, new { success, message });
+
+            return Ok(new { statusCode = 200, success, message });
         }
     }
 }
