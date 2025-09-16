@@ -18,10 +18,21 @@ namespace TracePca.Controllers.master
             _contentManagementMasterInterface = contentManagementMasterInterface;
         }
 
-        [HttpGet("GetMasterDataByStatus")]
-        public async Task<IActionResult> GetMasterDataByStatus([FromQuery] string status, [FromQuery] int compId)
+        [HttpGet("GetAllMasterDDL")]
+        public async Task<IActionResult> GetAllMasterDDL([FromQuery] int compId)
         {
-            var (success, message, data) = await _contentManagementMasterInterface.GetMasterDataByStatusAsync(status, compId);
+            var (success, message, data) = await _contentManagementMasterInterface.LoadAllMasterDDLDataAsync(compId);
+
+            if (!success)
+                return StatusCode(500, new { success, message });
+
+            return Ok(new { statusCode = 200, success, message, data });
+        }
+
+        [HttpGet("GetMasterDataByStatus")]
+        public async Task<IActionResult> GetMasterDataByStatus([FromQuery] string type, [FromQuery] string status, [FromQuery] int compId)
+        {
+            var (success, message, data) = await _contentManagementMasterInterface.GetMasterDataByStatusAsync(type, status, compId);
 
             if (!success)
                 return StatusCode(500, new { success, message });

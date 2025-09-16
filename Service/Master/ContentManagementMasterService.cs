@@ -5,47 +5,89 @@ using Microsoft.Extensions.Configuration;
 using TracePca.Data;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
+using TracePca.Interface.Audit;
 using TracePca.Interface.Master;
 
 namespace TracePca.Service.Master
 {
     public class ContentManagementMasterService : ContentManagementMasterInterface
     {
-        private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
-        private readonly IHttpContextAccessor HttpContextAccessor;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly string _connectionString;
 
-        public ContentManagementMasterService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public ContentManagementMasterService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
-            _dbcontext = dbcontext;
-            _configuration = configuration;
-            HttpContextAccessor = httpContextAccessor;
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _connectionString = GetConnectionStringFromSession();
         }
 
-        //Frequency - FRE
-        //EngagementFees - OE
-        //TypeofReport - TOR
-        //TypeofTest - TOT
-        //ManagementRepresentations - MR
-        //AuditTaskOrAssignmentTask - AT
-        //WorkpaperChecklist - WCM
-        //AuditCompletionCheckPoint - ASF
+        private string GetConnectionStringFromSession()
+        {
+            var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrWhiteSpace(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-        public async Task<(bool Success, string Message, List<ContentManagementMasterDTO> Data)> GetMasterDataByStatusAsync(string status, int compId)
+            var connStr = _configuration.GetConnectionString(dbName);
+            if (string.IsNullOrWhiteSpace(connStr))
+                throw new Exception($"Connection string for '{dbName}' not found in configuration.");
+
+            return connStr;
+        }
+
+        public async Task<(bool Success, string Message, MasterDropDownListDataDTO? Data)> LoadAllMasterDDLDataAsync(int compId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var parameters = new { CompId = compId };
+
+                var MasterList = new List<MasterDropDownListData>
+                    {
+                        new MasterDropDownListData { ID = "ASF", Name = "AuditCompletionCheckPoint" },
+                        new MasterDropDownListData { ID = "AT", Name = "AuditTaskOrAssignmentTask" },
+                        new MasterDropDownListData { ID = "OE", Name = "EngagementFees" },
+                        new MasterDropDownListData { ID = "FRE", Name = "Frequency" },
+                        new MasterDropDownListData { ID = "MR", Name = "ManagementRepresentations" },
+                        new MasterDropDownListData { ID = "TOR", Name = "TypeofReport" },
+                        new MasterDropDownListData { ID = "TOT", Name = "TypeofTest" },
+                        new MasterDropDownListData { ID = "WCM", Name = "WorkpaperChecklist" },
+                    };
+
+                            var AuditFrameworkList = new List<DropDownListData>
+                    {
+                        new DropDownListData { ID = 0, Name = "ICAI" },
+                        new DropDownListData { ID = 1, Name = "PCAOB" },
+                    };
+
+                var dto = new MasterDropDownListDataDTO
+                {
+                    MasterList = MasterList,
+                    AuditFrameworkList = AuditFrameworkList,
+                };
+
+                return (true, "Master DDL data loaded successfully.", dto);
+            }
+            catch (Exception ex)
+            {
+                return (false, "An error occurred while loading all DDL data: " + ex.Message, null);
+            }
+        }
+
+        public async Task<(bool Success, string Message, List<ContentManagementMasterDTO> Data)> GetMasterDataByStatusAsync(string type, string status, int compId)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
             try
             {
                 var query = @"
-            SELECT CMM_ID, CMM_Code, CMM_Desc, CMM_Category, CMS_Remarks, CMS_KeyComponent, CMS_Module, 
-                   CMM_Delflag, CMM_Status, CMM_ApprovedBy, CMM_ApprovedOn, CMM_IPAddress, CMM_CompID, 
-                   CMM_RiskCategory, CMM_CrBy, CMM_CrOn, CMM_UpdatedBy, CMM_UpdatedOn, 
-                   CMM_Rate, CMM_Act, CMM_HSNSAC, CMM_AudrptType
-            FROM Content_Management_Master
-            WHERE CMM_Status = @Status AND CMM_CompID = @CompID AND CMM_Delflag = 'A'
-            ORDER BY CMM_Desc;";
+                SELECT CMM_ID, CMM_Code, CMM_Desc, CMM_Category, CMS_Remarks, CMS_KeyComponent, CMS_Module, CMM_Delflag, CMM_Status, CMM_ApprovedBy, CMM_ApprovedOn, CMM_IPAddress, CMM_CompID, 
+                CMM_RiskCategory, CMM_CrBy, CMM_CrOn, CMM_UpdatedBy, CMM_UpdatedOn, CMM_Rate, CMM_Act, CMM_HSNSAC, CMM_AudrptType FROM Content_Management_Master
+                WHERE CMM_Category = @CMM_Category And CMM_Status = @Status AND CMM_CompID = @CompID AND CMM_Delflag = 'A' ORDER BY CMM_Desc;";
 
-                var result = await connection.QueryAsync<ContentManagementMasterDTO>(query, new { Status = status, CompID = compId });
+                var result = await connection.QueryAsync<ContentManagementMasterDTO>(query, new { CMM_Category = type, Status = status, CompID = compId });
                 return (true, "Records fetched successfully.", result.ToList());
             }
             catch (Exception ex)
@@ -60,12 +102,9 @@ namespace TracePca.Service.Master
             try
             {
                 var query = @"
-            SELECT CMM_ID, CMM_Code, CMM_Desc, CMM_Category, CMS_Remarks, CMS_KeyComponent, CMS_Module, 
-                   CMM_Delflag, CMM_Status, CMM_ApprovedBy, CMM_ApprovedOn, CMM_IPAddress, CMM_CompID, 
-                   CMM_RiskCategory, CMM_CrBy, CMM_CrOn, CMM_UpdatedBy, CMM_UpdatedOn, 
-                   CMM_Rate, CMM_Act, CMM_HSNSAC, CMM_AudrptType
-            FROM Content_Management_Master
-            WHERE CMM_ID = @Id AND CMM_CompID = @CompID AND CMM_Delflag = 'A';";
+                SELECT CMM_ID, CMM_Code, CMM_Desc, CMM_Category, CMS_Remarks, CMS_KeyComponent, CMS_Module, CMM_Delflag, CMM_Status, CMM_ApprovedBy, CMM_ApprovedOn, CMM_IPAddress, CMM_CompID, 
+                CMM_RiskCategory, CMM_CrBy, CMM_CrOn, CMM_UpdatedBy, CMM_UpdatedOn, CMM_Rate, CMM_Act, CMM_HSNSAC, CMM_AudrptType FROM Content_Management_Master
+                WHERE CMM_ID = @Id AND CMM_CompID = @CompID AND CMM_Delflag = 'A';";
 
                 var result = await connection.QueryFirstOrDefaultAsync<ContentManagementMasterDTO>(query, new { Id = id, CompID = compId });
 
@@ -82,7 +121,7 @@ namespace TracePca.Service.Master
 
         public async Task<(int Id, string Message, List<DropDownListData> MasterList)> SaveOrUpdateMasterDataAndGetRecordsAsync(ContentManagementMasterDTO dto)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -141,7 +180,7 @@ namespace TracePca.Service.Master
 
         public async Task<(bool Success, string Message)> UpdateRecordsStatusAsync(List<int> ids, string action, int compId, int updatedBy, string ipAddress)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
 
@@ -197,6 +236,5 @@ namespace TracePca.Service.Master
                 return (false, "Error while updating records: " + ex.Message);
             }
         }
-
     }
 }
