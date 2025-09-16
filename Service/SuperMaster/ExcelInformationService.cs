@@ -19,6 +19,8 @@ using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
 
+
+
 namespace TracePca.Service.SuperMaster
 {
     public class ExcelInformationService : ExcelInformationInterfaces
@@ -65,6 +67,10 @@ namespace TracePca.Service.SuperMaster
             {
                 employees = ParseExcelToEmployees(stream, out headerErrors);
             }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 66e9a993e20c5ee805d37c923e3ce91653d7cbd8
 
             // ✅ Step 3: Validate (only missing + invalids)
             var missingOrInvalidErrors = ValidateEmployees(employees);
@@ -135,7 +141,24 @@ namespace TracePca.Service.SuperMaster
             {
                 foreach (var emp in employees)
                 {
+ 
+                    // Step 4: Validate mandatory fields
+                    if (string.IsNullOrWhiteSpace(emp.EmpCode) ||
+                        string.IsNullOrWhiteSpace(emp.EmployeeName) ||
+                        string.IsNullOrWhiteSpace(emp.LoginName) ||
+                        string.IsNullOrWhiteSpace(emp.Email) ||
+                        string.IsNullOrWhiteSpace(emp.OfficePhoneNo) ||
+                        string.IsNullOrWhiteSpace(emp.Designation) ||
+                        emp.Partner == "yes" ||       // int check
+                        string.IsNullOrWhiteSpace(emp.Role))
+                    {
+                        throw new Exception($"Mandatory fields missing for employee: {emp.EmployeeName}");
+                    }
+
+ 
+ 
                     // Step 4: Ensure Designation exists
+ 
                     string designationSql = @"
             SELECT Mas_ID FROM SAD_GRPDESGN_General_Master
             WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
@@ -312,6 +335,7 @@ namespace TracePca.Service.SuperMaster
                     },
                     Role = worksheet.Cells[row, 8].Text,  // Role
                     Password = worksheet.Cells[row, 9].Text,
+ 
                     LevelGrp = int.TryParse(worksheet.Cells[row, 10].Text, out var levelGrp) ? levelGrp : 0,
                     DutyStatus = worksheet.Cells[row, 11].Text,
                     PhoneNo = worksheet.Cells[row, 12].Text,
@@ -405,7 +429,6 @@ namespace TracePca.Service.SuperMaster
            
             return errors;
         }
-      
 
         //SaveEmployeeMaster
         public async Task<List<int[]>> SuperMasterSaveEmployeeDetailsAsync(int CompId, List<SuperMasterSaveEmployeeMasterDto> employees)
@@ -520,6 +543,7 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
+ 
         //UploadClientDetails
         public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
         {
@@ -531,6 +555,31 @@ namespace TracePca.Service.SuperMaster
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
+<<<<<<< HEAD
+=======
+
+
+
+ 
+
+
+
+    //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
+    //    {
+    //        if (file == null || file.Length == 0)
+    //            throw new Exception("No file uploaded.");
+
+
+ 
+        ////UploadClientDetails
+        //public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
+        //{
+        //    if (file == null || file.Length == 0)
+        //        throw new Exception("No file uploaded.");
+
+
+
+>>>>>>> 66e9a993e20c5ee805d37c923e3ce91653d7cbd8
             var connectionString = _configuration.GetConnectionString(dbName);
 
             // ✅ Parse Excel
@@ -959,7 +1008,7 @@ WHERE cmm_Category = 'IND'
             return errors;
         }
 
-        //SaveClientDetails
+ 
         public async Task<List<int[]>> SuperMasterSaveCustomerDetailsAsync(int CompId, List<SuperMasterSaveCustomerDto> customers)
         {
             // ✅ Step 1: Get DB name from session
@@ -1364,16 +1413,16 @@ WHERE cmm_Category = 'IND'
             int rowCount = worksheet.Dimension.Rows;
 
             var employees = new List<UploadClientUserDto>();
-            for (int row = 2; row <= rowCount; row++) 
+            for (int row = 2; row <= rowCount; row++)
             {
                 employees.Add(new UploadClientUserDto
                 {
                     CompanyId = worksheet.Cells[row, 1].Text,
-                    EmpCode = worksheet.Cells[row, 2].Text,   
-                    EmployeeName = worksheet.Cells[row, 3].Text,   
-                    LoginName = worksheet.Cells[row, 4].Text,  
-                    Email = worksheet.Cells[row, 5].Text,   
-                    PhoneNo = worksheet.Cells[row, 6].Text,   
+                    EmpCode = worksheet.Cells[row, 2].Text,
+                    EmployeeName = worksheet.Cells[row, 3].Text,
+                    LoginName = worksheet.Cells[row, 4].Text,
+                    Email = worksheet.Cells[row, 5].Text,
+                    PhoneNo = worksheet.Cells[row, 6].Text,
                     Password = worksheet.Cells[row, 7].Text,
                     //Optional / Numeric values
                     Partner = int.TryParse(worksheet.Cells[row, 8].Text, out var partner) ? partner : 0,
@@ -1583,7 +1632,7 @@ WHERE cmm_Category = 'IND'
                     int updateOrSave, oper;
                     using var command = new SqlCommand("spEmployeeMaster", connection, transaction);
                     command.CommandType = CommandType.StoredProcedure;
-                           
+
                     command.Parameters.AddWithValue("@Usr_ID", objEmp.iUserID);
                     command.Parameters.AddWithValue("@Usr_Node", objEmp.iUsrNode);
                     command.Parameters.AddWithValue("@Usr_Code", objEmp.sUsrCode ?? string.Empty);

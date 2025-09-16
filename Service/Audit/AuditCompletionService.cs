@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using TracePca.Data;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
+using TracePca.Service.DigitalFilling;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
@@ -141,6 +142,8 @@ namespace TracePca.Service.Audit
             }
         }
 
+  
+ 
         public async Task<IEnumerable<ReportTypeDetailsDTO>> GetReportTypeDetailsByAuditId(int compId, int auditId)
         {
             try
@@ -175,50 +178,51 @@ namespace TracePca.Service.Audit
             {
                 throw new ApplicationException("An error occurred while getting report type details", ex);
             }
-        }
+        } 
 
-        public async Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId)
-        {
-            try
-            {
-                using var connection = new SqlConnection(_connectionString);
-                await connection.OpenAsync();
+		public async Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId)
+		{
+			try
+			{
+				using var connection = new SqlConnection(_connectionString);
+				await connection.OpenAsync();
 
-                var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
+				var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
                     CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
                     CASE WHEN ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isReviewer,
-                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, SA_Status As Status, SA_AuditFrameworkId As AuditFrameworkId,
-                    CASE WHEN SA_IsArchived IS NULL THEN 0 ELSE SA_IsArchived END AS IsArchived
+                    CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, 
+                    CASE WHEN ISNULL(SA.SA_IsArchived, 0) = 1 THEN 1 ELSE 0 END AS IsArchived,
+                    SA_Status As Status, SA_AuditFrameworkId As AuditFrameworkId
                     FROM StandardAudit_Schedule SA LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
                     WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId ";
 
-                if (custId > 0) { sql += " AND SA.SA_CustID = @CustId "; }
+				if (custId > 0) { sql += " AND SA.SA_CustID = @CustId "; }
 
-                sql += @" AND (EXISTS (SELECT 1 FROM sad_userdetails WHERE usr_CompID = @CompId AND usr_ID = @UserId AND usr_Partner = 1 AND usr_DelFlag IN ('A','B','L'))
+				sql += @" AND (EXISTS (SELECT 1 FROM sad_userdetails WHERE usr_CompID = @CompId AND usr_ID = @UserId AND usr_Partner = 1 AND usr_DelFlag IN ('A','B','L'))
                 OR (',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' 
                 OR ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%')) ORDER BY SA.SA_ID DESC;";
 
-                var parameters = new
-                {
-                    CompId = compId,
-                    YearId = yearId,
-                    CustId = custId,
-                    UserId = userId
-                };
+				var parameters = new
+				{
+					CompId = compId,
+					YearId = yearId,
+					CustId = custId,
+					UserId = userId
+				};
 
-                var auditNoList = await connection.QueryAsync<AuditDropDownListData>(sql, parameters);
-                return new AuditDropDownListDataDTO
-                {
-                    ExistingAuditNoList = auditNoList.ToList()
-                };
-            }
-            catch (Exception ex)
-            {
-                throw new ApplicationException("An error occurred while loading audit no DDL data", ex);
-            }
-        }       
+				var auditNoList = await connection.QueryAsync<AuditDropDownListData>(sql, parameters);
+				return new AuditDropDownListDataDTO
+				{
+					ExistingAuditNoList = auditNoList.ToList()
+				};
+			}
+			catch (Exception ex)
+			{
+				throw new ApplicationException("An error occurred while loading audit no DDL data", ex);
+			}
+		}
 
-        public async Task<AuditDropDownListDataDTO> LoadAuditWorkPaperDDLAsync(int compId, int auditId)
+		public async Task<AuditDropDownListDataDTO> LoadAuditWorkPaperDDLAsync(int compId, int auditId)
         {
             try
             {
@@ -319,7 +323,7 @@ namespace TracePca.Service.Audit
 
                 if (!templateDetails.Any())
                 {
-                    var reportTypeList = await GetReportTypeDetails(compId);
+                    var reportTypeList = await GetReportTypeDetailsByAuditId(compId, auditId);
                     foreach (var report in reportTypeList)
                     {
                         var fallbackTemplate = new AuditCompletionTemplateDetailsDTO
@@ -543,17 +547,36 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task<int> CheckCAEIndependentAuditorsReportSavedAsync(int compId, int auditId)
+        public async Task<int> GetAuditFrameworkIdAsync(int compId, int auditId)
         {
-            const string CAEQuery = @"SELECT COUNT(*) FROM LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = 2 AND LTD_LOE_ID = @LOEId";
-            const string checkExistQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_CompID = @SAC_CompID";
-            const string incompleteMandatoryQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_Mandatory = 1 AND SAC_TestResult IS NULL AND SAC_CompID = @SAC_CompID";
             try
             {
                 using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                int caeCount = await connection.ExecuteScalarAsync<int>(CAEQuery, new { LOEId = auditId });
+                var frameworkId = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT SA_AuditFrameworkId FROM StandardAudit_Schedule WHERE SA_ID = @AuditId AND SA_CompID = @CompId", new { AuditId = auditId, CompId = compId });
+                return frameworkId;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred whilegettting Audit Framework Id.", ex);
+            }
+        }
+
+        public async Task<int> CheckCAEIndependentAuditorsReportSavedAsync(int compId, int auditId)
+        {            
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var frameworkId = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT SA_AuditFrameworkId FROM StandardAudit_Schedule WHERE SA_ID = @AuditId AND SA_CompID = @CompId", new { AuditId = auditId, CompId = compId });
+                int reportTypeId = (frameworkId == 1) ? 2 : 33;
+                const string CAEQuery = @"SELECT COUNT(*) FROM LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = @ReportTypeId AND LTD_LOE_ID = @LOEId";
+                const string checkExistQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_CompID = @SAC_CompID";
+                const string incompleteMandatoryQuery = @"SELECT COUNT(*) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_Mandatory = 1 AND SAC_TestResult IS NULL AND SAC_CompID = @SAC_CompID";
+
+                int caeCount = await connection.ExecuteScalarAsync<int>(CAEQuery, new { LOEId = auditId, ReportTypeId = reportTypeId });
                 if (caeCount == 0)
                 {
                     return 0; // CAE Report not saved
@@ -830,10 +853,10 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().PaddingBottom(10).AlignCenter().PaddingBottom(10).Text("PCA-CX-14.3: Engagement Completion Document").FontSize(16).Bold();
-                            column.Item().Text($"Company Name: {companyName}").FontSize(10);
-                            column.Item().Text($"Balance Sheet Date: {DateTime.Now.ToString("dd MMM yyyy")}").FontSize(10);
-                            column.Item().Text($"Completed By: {userName}").FontSize(10);
+                            column.Item().PaddingBottom(10).AlignCenter().PaddingBottom(10).Text("Audit Completion Document").FontSize(16).Bold();
+                            column.Item().PaddingBottom(5).Text($"Company Name: {companyName}").FontSize(10);
+                            column.Item().PaddingBottom(5).Text($"Balance Sheet Date: {DateTime.Now.ToString("dd MMM yyyy")}").FontSize(10);
+                            column.Item().PaddingBottom(5).Text($"Completed By: {userName}").FontSize(10);
                             column.Item().PaddingBottom(10).Text($"Date: {DateTime.Now.ToString("dd MMM yyyy")}").FontSize(10);
 
                             if (templateDetails?.Any() == true)
@@ -861,7 +884,7 @@ namespace TracePca.Service.Audit
                                     {
                                         header.Cell().Element(CellStyle).Text("SubPoint").FontSize(10).Bold();
                                         header.Cell().Element(CellStyle).Text("Remarks").FontSize(10).Bold();
-                                        header.Cell().Element(CellStyle).Text("WorkpaperRef").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Workpaper Ref").FontSize(10).Bold();
                                     });
 
                                     foreach (DataRow row in checkpoints.Rows)
@@ -1214,7 +1237,7 @@ namespace TracePca.Service.Audit
             }
             catch (Exception ex)
             {
-                throw new Exception("Error getting Conduct Audit Report details.", ex);
+                throw new Exception("Error getting Audit or Review - Testing Report details.", ex);
             }
         }
 
@@ -1278,7 +1301,7 @@ namespace TracePca.Service.Audit
             }
             catch (Exception ex)
             {
-                throw new Exception("Error loading Conduct Audit remarks report", ex);
+                throw new Exception("Error loading Audit or Review - Testing remarks report", ex);
             }
         }
 
@@ -1365,7 +1388,7 @@ namespace TracePca.Service.Audit
             }
             catch (Exception ex)
             {
-                throw new Exception("Error loading Conduct Audit Work Papers", ex);
+                throw new Exception("Error loading Audit or Review - Testing Work Papers", ex);
             }
         }
 
@@ -1563,7 +1586,7 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Workpaper Report").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Workpaper Report").FontSize(16).Bold();
                             column.Item().Text(text =>
                             {
                                 text.Span("Client Name: ").FontSize(10).Bold();
@@ -1640,7 +1663,7 @@ namespace TracePca.Service.Audit
 
                             if (dtoCA.Any() == true)
                             {
-                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Heading wise Checkpoints Report").FontSize(14).Bold();
+                                column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Heading wise Checkpoints Report").FontSize(14).Bold();
                                 column.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(columns =>
@@ -1680,7 +1703,7 @@ namespace TracePca.Service.Audit
 
                             if (dtoCAO.Any() == true)
                             {
-                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Observation Details").FontSize(14).Bold();
+                                column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Observation Details").FontSize(14).Bold();
                                 column.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(columns =>
@@ -1932,7 +1955,7 @@ namespace TracePca.Service.Audit
                         result.WorkpaperAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
-                // 4. Conduct Audit (Checkpoints)
+                // 4. Audit or Review - Testing (Checkpoints)
                 var conductTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
                 @"SELECT DISTINCT ACM_ID AS TypeId, ACM_CheckPoint AS TypeName,
                   STUFF((SELECT DISTINCT ',' + CAST(SAC_AttachID AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID=@AuditID AND SAC_CheckPointID=cp.SAC_CheckPointID AND SAC_AttachID>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
@@ -2088,26 +2111,45 @@ namespace TracePca.Service.Audit
 
             try
             {
-                var result = await connection.QueryFirstOrDefaultAsync<(string SubCabinet, string CustCode, string CustName, string YearName, string UserName, DateTime DocumentExpiryDate, int ReminderDay) >(
+                var result = await connection.QueryFirstOrDefaultAsync<(string SubCabinet, string CustCode, string CustName, string YearName, string UserName, DateTime DocumentExpiryDate, int ReminderDay)>(
                     @"Select SA_AuditNo + ' - ' + CMM.CMM_Desc, CUST_CODE, CUST_NAME, YMS_ID, usr_FullName, ISNULL(SA_ExpiryDate, DATEADD(YEAR, 7, GETDATE())) AS SA_ExpiryDate, ISNULL(SA_RetentionPeriod, 7) AS SA_RetentionPeriod
-                    from StandardAudit_Schedule JOIN SAD_CUSTOMER_MASTER On CUST_ID=SA_CustID JOIN Year_Master On YMS_YEARID = SA_YearID Join Sad_Userdetails On Usr_Id = @UserId 
-                    JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA_AuditTypeID Where SA_ID= @AuditId;",
+		            from StandardAudit_Schedule JOIN SAD_CUSTOMER_MASTER On CUST_ID=SA_CustID JOIN Year_Master On YMS_YEARID = SA_YearID Join Sad_Userdetails On Usr_Id = @UserId 
+		            JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA_AuditTypeID Where SA_ID= @AuditId;",
                     new { CompId = compId, AuditId = auditId, UserId = userId });
 
                 String OrgName = result.CustName;
                 String Cabinet = result.CustName + "_" + result.YearName;
-
                 string downloadDirectoryPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString(), SanitizeName(Cabinet));
-                Directory.CreateDirectory(downloadDirectoryPath);                
+ 
+                if (Directory.Exists(downloadDirectoryPath))
+                {
+                    DirectoryInfo dir = new DirectoryInfo(downloadDirectoryPath);
+
+                    foreach (FileInfo file in dir.GetFiles())
+                    {
+                        try { file.Delete(); } catch { continue; }
+                    }
+
+                    foreach (DirectoryInfo subDir in dir.GetDirectories())
+                    {
+                        try { subDir.Delete(true); } catch { continue; }
+                    }
+                }
+                else
+                {
+                    Directory.CreateDirectory(downloadDirectoryPath);
+                }
+ 
+               
 
                 int orgNode = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(Org_Node, 0) FROM sad_org_structure WHERE Org_Name = @Org_Name AND Org_CompID = @Org_CompID;",
                     new { Org_Name = OrgName, Org_CompID = compId });
                 if (orgNode == 0)
                 {
                     orgNode = await connection.ExecuteScalarAsync<int>(@"DECLARE @Org_Node INT = (SELECT ISNULL(MAX(Org_Node), 0) + 1 FROM sad_org_structure WHERE Org_CompID = @Org_CompID);
-                        INSERT INTO sad_org_structure (Org_Node, Org_Code, Org_Name, Org_Parent, Org_Delflag, Org_Note, Org_AppStrength, Org_CreatedBy, Org_CreatedOn, Org_Status, Org_LevelCode, Org_IPAddress, Org_CompID, Org_SalesUnitCode, Org_BranchCode) 
-                        VALUES (@Org_Node, @Org_Code, @Org_Name, 3, 'A', @Org_Name, 0, @Org_CreatedBy, GETDATE(), 'A', 3, @Org_IPAddress, @Org_CompID, '', '');
-                        SELECT @Org_Node;",
+		                INSERT INTO sad_org_structure (Org_Node, Org_Code, Org_Name, Org_Parent, Org_Delflag, Org_Note, Org_AppStrength, Org_CreatedBy, Org_CreatedOn, Org_Status, Org_LevelCode, Org_IPAddress, Org_CompID, Org_SalesUnitCode, Org_BranchCode) 
+		                VALUES (@Org_Node, @Org_Code, @Org_Name, 3, 'A', @Org_Name, 0, @Org_CreatedBy, GETDATE(), 'A', 3, @Org_IPAddress, @Org_CompID, '', '');
+		                SELECT @Org_Node;",
                         new { Org_Code = result.CustCode, Org_Name = OrgName, Org_CreatedBy = userId, Org_IPAddress = ipAddress, Org_CompID = compId });
                 }
 
@@ -2116,10 +2158,10 @@ namespace TracePca.Service.Audit
                 if (cabinetId == 0)
                 {
                     cabinetId = await connection.ExecuteScalarAsync<int>(@"DECLARE @CBN_ID INT = (SELECT ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet);
-                        INSERT INTO edt_cabinet (CBN_ID, CBN_NAME, CBN_Note, CBN_PARENT, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_Status, CBN_DelFlag, CBN_CreatedBy, CBN_CreatedOn, CBN_CompID, CBN_DocumentExpiryDate, CBN_ReminderDay)
-                        VALUES (@CBN_ID, @CBN_NAME, @CBN_NAME, -1, @CBN_UserID, 0, 0, 0, 'A', 'A', @CBN_CreatedBy, GETDATE(), @CBN_CompID, @CBN_DocumentExpiryDate, @CBN_ReminderDay);
-                        SELECT @CBN_ID;",
-                        new { CBN_NAME = Cabinet, CBN_UserID = userId, CBN_CreatedBy = userId, CBN_CompID = compId, CBN_DocumentExpiryDate = result.DocumentExpiryDate, CBN_ReminderDay = result.ReminderDay });
+		                INSERT INTO edt_cabinet (CBN_ID, CBN_NAME, CBN_Note, CBN_PARENT, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_Status, CBN_DelFlag, CBN_CreatedBy, CBN_CreatedOn, CBN_CompID, CBN_DocumentExpiryDate, CBN_ReminderDay, CBN_AuditID)
+		                VALUES (@CBN_ID, @CBN_NAME, @CBN_NAME, -1, @CBN_UserID, 0, 0, 0, 'A', 'A', @CBN_CreatedBy, GETDATE(), @CBN_CompID, @CBN_DocumentExpiryDate, @CBN_ReminderDay, @AuditId);
+		                SELECT @CBN_ID;",
+                        new { CBN_NAME = Cabinet, CBN_UserID = userId, CBN_CreatedBy = userId, CBN_CompID = compId, CBN_DocumentExpiryDate = result.DocumentExpiryDate, CBN_ReminderDay = result.ReminderDay, AuditId = auditId });
                 }
 
                 int subCabinetId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(CBN_ID, 0) FROM edt_cabinet WHERE CBN_Name = @Name AND CBN_Parent = @ParentId AND CBN_CompID = @CompId",
@@ -2127,9 +2169,9 @@ namespace TracePca.Service.Audit
                 if (subCabinetId == 0)
                 {
                     subCabinetId = await connection.ExecuteScalarAsync<int>(@"DECLARE @NewId INT = (SELECT ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet);
-                        INSERT INTO edt_cabinet (CBN_ID, CBN_NAME, CBN_NOTE, CBN_PARENT, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_Status, CBN_DelFlag, CBN_CreatedBy, CBN_CreatedOn, CBN_CompID)
-                        VALUES (@NewId, @Name, @Name, @ParentId, @UserId, 0, 0, 0, 'A', 'A', @UserId, GETDATE(), @CompId);
-                        SELECT @NewId;",
+		                INSERT INTO edt_cabinet (CBN_ID, CBN_NAME, CBN_NOTE, CBN_PARENT, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_Status, CBN_DelFlag, CBN_CreatedBy, CBN_CreatedOn, CBN_CompID)
+		                VALUES (@NewId, @Name, @Name, @ParentId, @UserId, 0, 0, 0, 'A', 'A', @UserId, GETDATE(), @CompId);
+		                SELECT @NewId;",
                         new { Name = result.SubCabinet, ParentId = cabinetId, UserId = userId, CompId = compId });
 
                     await connection.ExecuteAsync(@"UPDATE edt_cabinet SET CBN_SubCabCount = (SELECT COUNT(*) FROM edt_cabinet WHERE CBN_Parent = @ParentId AND CBN_DelFlag = 'A') WHERE CBN_ID = @ParentId AND CBN_CompID = @CompId",
@@ -2159,7 +2201,7 @@ namespace TracePca.Service.Audit
 
                 // 1. Beginning Audit (Pre-Audit)
                 var beginningTypes =
-                "SELECT RTM_Id AS TypeId,'Beginning of the Audit - ' + RTM_ReportTypeName AS TypeName," +
+                "SELECT RTM_Id AS TypeId,1 As CheckReportType,'Beginning of the Audit - ' + RTM_ReportTypeName AS TypeName," +
                 " STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory" +
                 " WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
                 " FROM SAD_ReportTypeMaster" +
@@ -2168,7 +2210,7 @@ namespace TracePca.Service.Audit
 
                 // 2. During Audit (DRL)
                 var duringTypes =
-                "SELECT CMM_ID AS TypeId,'DRL - ' + CMM_Desc AS TypeName," +
+                "SELECT CMM_ID AS TypeId,0 As CheckReportType,'DRL - ' + CMM_Desc AS TypeName," +
                 " STUFF((SELECT ',' + CAST(ADRL_AttachID AS VARCHAR) FROM Audit_DRLLog" +
                 " WHERE ADRL_AuditNo=" + auditId + " AND ADRL_RequestedListID=CMM_ID AND ADRL_AttachID>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
                 " FROM Content_Management_Master" +
@@ -2177,7 +2219,7 @@ namespace TracePca.Service.Audit
 
                 // 3. Nearing End Audit (Post-Audit)
                 var nearingEndTypes =
-                "SELECT RTM_Id AS TypeId,'Near end of the Audit - ' + RTM_ReportTypeName AS TypeName," +
+                "SELECT RTM_Id AS TypeId,1 As CheckReportType,'Near end of the Audit - ' + RTM_ReportTypeName AS TypeName," +
                 " STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory" +
                 " WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
                 " FROM SAD_ReportTypeMaster" +
@@ -2186,16 +2228,16 @@ namespace TracePca.Service.Audit
 
                 // 4. Workpaper
                 var workpaperTypes =
-                "SELECT wp.SSW_ID AS TypeId,'WP - ' + wp.SSW_WorkpaperRef AS TypeName," +
+                "SELECT wp.SSW_ID AS TypeId,0 As CheckReportType,'WP - ' + wp.SSW_WorkpaperRef AS TypeName," +
                 " STUFF((SELECT ',' + CAST(SSW_AttachID AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper" +
                 " WHERE SSW_SA_ID=" + auditId + " AND SSW_ID=wp.SSW_ID AND SSW_AttachID>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
                 " FROM StandardAudit_ScheduleConduct_WorkPaper wp" +
                 " WHERE SSW_SA_ID=" + auditId +
                 " AND EXISTS(SELECT 1 FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID=" + auditId + " AND SSW_ID=wp.SSW_ID AND SSW_AttachID>0)";
 
-                // 5. Conduct Audit (Checkpoints)
+                // 5. Audit or Review - Testing (Checkpoints)
                 var conductTypes =
-                "SELECT DISTINCT ACM_ID AS TypeId,CAST('CheckPoint_' + CAST(ACM_ID AS VARCHAR(10)) + ' - ' + CAST(ACM_Heading AS VARCHAR(MAX)) AS VARCHAR(MAX)) AS TypeName," +
+                "SELECT DISTINCT ACM_ID AS TypeId,0 As CheckReportType,CAST('CheckPoint_' + CAST(ACM_ID AS VARCHAR(10)) + ' - ' + CAST(ACM_Heading AS VARCHAR(MAX)) AS VARCHAR(MAX)) AS TypeName," +
                 " STUFF((SELECT ',' + CAST(SAC_AttachID AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList" +
                 " WHERE SAC_SA_ID=" + auditId + " AND SAC_CheckPointID=cp.SAC_CheckPointID AND SAC_AttachID>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
                 " FROM StandardAudit_ScheduleCheckPointList cp" +
@@ -2263,6 +2305,9 @@ namespace TracePca.Service.Audit
 
                 ZipFile.CreateFromDirectory(cleanedPath, zipFilePath);
 
+
+
+
                 var request = _httpContextAccessor.HttpContext.Request;
                 string baseUrl = $"{request.Scheme}://{request.Host}";
                 string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{SanitizeName(Cabinet) + ".zip"}";
@@ -2274,6 +2319,9 @@ namespace TracePca.Service.Audit
                 throw new Exception($"Failed to upload the attachment document.", ex);
             }
         }
+
+
+
 
         private async Task<DataTable> GetDataTableAsync(SqlConnection connection, string query)
         {
@@ -2300,7 +2348,8 @@ namespace TracePca.Service.Audit
                 foreach (DataRow row in dt.Rows)
                 {
                     bool folderExists = true;
-
+                    int checkReportType = row["CheckReportType"] == DBNull.Value ? 0 : Convert.ToInt32(row["CheckReportType"]);
+                    int typeId = checkReportType == 1 ? Convert.ToInt32(row["TypeId"]) : 0;
                     string folderName = row["TypeName"] == null ? "StandardAudit" : row["TypeName"]?.ToString() ?? "StandardAudit";
                     string folderPath = System.IO.Path.Combine(downloadDirectoryPath, mainFolder, SanitizeName(folderName));
 
@@ -2331,7 +2380,7 @@ namespace TracePca.Service.Audit
                     {
                         if (attachId > 0)
                         {
-                            await HandleFileProcessingAsync(connection, compId, userId, cabinetId, subCabinetId, folderId, module, folderPath, attachId.ToString(), folderExists);
+                            await HandleFileProcessingAsync(connection, compId, userId, cabinetId, subCabinetId, folderId, module, folderPath, attachId.ToString(), folderExists, typeId);
                         }
                     }
                 }
@@ -2402,7 +2451,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async Task HandleFileProcessingAsync(SqlConnection connection, int compId, int userId, int cabinetId, int subCabinetId, int folderId, string module, string folderPath, object attachId, bool shouldIndexFile)
+        public async Task HandleFileProcessingAsync(SqlConnection connection, int compId, int userId, int cabinetId, int subCabinetId, int folderId, string module, string folderPath, object attachId, bool shouldIndexFile, int typeId)
         {
             try
             {
@@ -2410,8 +2459,9 @@ namespace TracePca.Service.Audit
 
                 var attachments = new List<AttachmentDetailsDTO>();
                 var query = @"SELECT A.ATCH_ID, A.ATCH_DOCID, A.ATCH_FNAME, A.ATCH_EXT, A.ATCH_DESC, A.ATCH_CREATEDBY, U.Usr_FullName AS ATCH_CREATEDBYNAME, A.ATCH_CREATEDON, A.ATCH_SIZE FROM edt_attachments A 
-                LEFT JOIN Sad_Userdetails U ON A.ATCH_CREATEDBY = U.Usr_ID AND A.ATCH_COMPID = U.Usr_CompId WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID = @AttachId AND A.ATCH_Status <> 'D' ORDER BY A.ATCH_CREATEDON;";
-                attachments = (await connection.QueryAsync<AttachmentDetailsDTO>(query, new { CompId = compId, AttachId = attachId })).ToList();
+                LEFT JOIN Sad_Userdetails U ON A.ATCH_CREATEDBY = U.Usr_ID AND A.ATCH_COMPID = U.Usr_CompId WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID = @AttachId AND A.ATCH_Status <> 'D' AND 
+                (@CheckReportType <= 0 OR A.ATCH_ReportType = @CheckReportType) ORDER BY A.ATCH_CREATEDON;";
+                attachments = (await connection.QueryAsync<AttachmentDetailsDTO>(query, new { CompId = compId, AttachId = attachId, CheckReportType = typeId })).ToList();
 
                 foreach (var item in attachments)
                 {

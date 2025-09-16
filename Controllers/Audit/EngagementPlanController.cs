@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.SignalR.Protocol;
 using System;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
+using TracePca.Interface.Dashboard;
 
 namespace TracePca.Controllers.Audit
 {
@@ -11,10 +12,11 @@ namespace TracePca.Controllers.Audit
     public class EngagementPlanController : ControllerBase
     {
         private readonly EngagementPlanInterface _engagementInterface;
-
-        public EngagementPlanController(EngagementPlanInterface engagementInterface)
+        private readonly DashboardInterface _dashboardService;
+        public EngagementPlanController(EngagementPlanInterface engagementInterface, DashboardInterface dashboardService)
         {
             _engagementInterface = engagementInterface;
+            _dashboardService = dashboardService;
         }
 
         [HttpGet("LoadAllDDLData")]
@@ -286,7 +288,7 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var progressData = await _engagementInterface.GetLOEProgressAsync(compId, yearId, custId);
+                var progressData = await _dashboardService.GetLOEProgressAsync(compId, yearId, custId);
                 return Ok(new { statusCode = 200, message = "LOE progress data fetched successfully.", data = progressData });
             }
             catch (Exception ex)
@@ -300,7 +302,7 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var progressData = await _engagementInterface.GetAuditProgressAsync(compId, yearId, custId);
+                var progressData = await _dashboardService.GetAuditProgressAsync(compId, yearId, custId);
                 return Ok(new { statusCode = 200, message = "Audit progress data fetched successfully.", data = progressData });
             }
             catch (Exception ex)
@@ -314,7 +316,7 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var progressData = await _engagementInterface.GetAuditPassedDueDatesAsync(compId, yearId, custId);
+                var progressData = await _dashboardService.GetAuditPassedDueDatesAsync(compId, yearId, custId);
                 return Ok(new { statusCode = 200, message = "Audit Passed due dates data fetched successfully.", data = progressData });
             }
             catch (Exception ex)

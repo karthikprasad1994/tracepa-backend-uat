@@ -130,11 +130,11 @@ namespace TracePca.Controllers.Audit
                 }
 
                 var result = await _conductAuditInterface.SaveOrUpdateConductAuditWorkpaperAsync(dto);
-                return Ok(new { statusCode = 200, message = "Conduct Audit Workpaper saved/updated successfully.", data = result });
+                return Ok(new { statusCode = 200, message = "Audit or Review - Testing Workpaper saved/updated successfully.", data = result });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { statusCode = 500, message = "Failed to save/update Conduct Audit Workpaper.", error = ex.Message });
+                return StatusCode(500, new { statusCode = 500, message = "Failed to save/update Audit or Review - Testing Workpaper.", error = ex.Message });
             }
         }
 
@@ -355,7 +355,7 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var url = await _conductAuditInterface.GenerateWorkpapersReportAndGetURLPathAsync(compId, auditId, format);
-                return Ok(new { statusCode = 200, message = "Conduct Audit Workpaper report generated successfully. Download URL is available.", fileUrl = url });
+                return Ok(new { statusCode = 200, message = "Audit or Review - Testing Workpaper report generated successfully. Download URL is available.", fileUrl = url });
             }
             catch
             {
@@ -369,7 +369,7 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var url = await _conductAuditInterface.GenerateCheckPointsReportAndGetURLPathAsync(compId, auditId, format);
-                return Ok(new { statusCode = 200, message = "Conduct Audit CheckPoints report generated successfully. Download URL is available.", fileUrl = url });
+                return Ok(new { statusCode = 200, message = "Audit or Review - Testing CheckPoints report generated successfully. Download URL is available.", fileUrl = url });
             }
             catch
             {
@@ -425,11 +425,11 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var result = await _conductAuditInterface.SaveConductAuditRemarksHistoryAsync(dto);
-                return Ok(new { statusCode = 200, message = "Conduct Audit remarks history saved successfully.", data = result });
+                return Ok(new { statusCode = 200, message = "Audit or Review - Testing remarks history saved successfully.", data = result });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { statusCode = 500, message = "Failed to save Conduct remarks history.", error = ex.Message });
+                return StatusCode(500, new { statusCode = 500, message = "Failed to save Audit or Review - Testing remarks history.", error = ex.Message });
             }
         }
 
@@ -465,13 +465,27 @@ namespace TracePca.Controllers.Audit
             {
                 bool success = await _conductAuditInterface.SaveConductAuditCheckpointObservationAsync(dtos);
                 if (success)
-                    return Ok(new { Message = "Conduct Audit Checkpoint Observation saved successfully." });
+                    return Ok(new { Message = "Audit or Review - Testing Checkpoint Observation saved successfully." });
                 else
-                    return StatusCode(500, "Failed to save Conduct Audit Checkpoint Observation.");
+                    return StatusCode(500, "Failed to save Audit or Review - Testing Checkpoint Observation.");
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { statusCode = 500, message = "Failed to save Audit Observation.", error = ex.Message });
+            }
+        }
+
+        [HttpGet("GetWorkpaperCheckListNotesByName")]
+        public async Task<IActionResult> GetWorkpaperCheckListNotesByName([FromQuery] DropDownListData data)
+        {
+            try
+            {
+                var result = await _conductAuditInterface.GetWorkpaperCheckListNotesByNameAsyn(data);
+                return Ok(new { statusCode = 200, message = "WorkpaperCheckList Notes data fetched successfully.", data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Failed to load WorkpaperCheckList dropdown data.", error = ex.Message });
             }
         }
     }

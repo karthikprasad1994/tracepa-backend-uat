@@ -416,6 +416,10 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                 throw;
             }
         }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 66e9a993e20c5ee805d37c923e3ce91653d7cbd8
         //        public async Task UpdateJeDetAsync(
         //        int compId,
         //        int yearId,
@@ -442,7 +446,10 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
         //            await using var conn = new SqlConnection(connectionString);
         //            await conn.OpenAsync();
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 66e9a993e20c5ee805d37c923e3ce91653d7cbd8
         //            // 🔹 Select the Trail Balance row for given parameters
         //            string sql = @"
         //        SELECT TOP 1 *
@@ -557,6 +564,7 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
         //            }
         //        }
 
+<<<<<<< HEAD
 
 
         public async Task UpdateJeDetAsync(
@@ -573,6 +581,22 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
     int deschead,            // ATBU_ID → goes to AJTB_Deschead
     int descId,              // Duplicate of ATBU_ID → goes to AJTB_Desc
     string descName          // ATBU_Description → goes to AJTB_DescName
+=======
+        public async Task UpdateJeDetAsync(
+int compId,
+int yearId,
+int id,                  // JE Master ID
+int custId,
+int transId,             // 0 = Debit, 1 = Credit
+decimal transAmt,        // Net Transaction Amount
+int branchId,
+decimal transDbAmt,      // Transaction Debit
+decimal transCrAmt,      // Transaction Credit
+int durtnId,             // Quarter Id
+int deschead,            // ATBU_ID → goes to AJTB_Deschead
+int descId,              // Duplicate of ATBU_ID → goes to AJTB_Desc
+string descName          // ATBU_Description → goes to AJTB_DescName
+>>>>>>> 66e9a993e20c5ee805d37c923e3ce91653d7cbd8
 )
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -707,7 +731,11 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                 }
             }
 
+<<<<<<< HEAD
            
+=======
+
+>>>>>>> 66e9a993e20c5ee805d37c923e3ce91653d7cbd8
             // 🔹 Credit Transaction (transId = 1)
             else if (transId == 1)
             {
@@ -802,7 +830,11 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                 }
             }
 
+<<<<<<< HEAD
            
+=======
+
+>>>>>>> 66e9a993e20c5ee805d37c923e3ce91653d7cbd8
             // 🔹 Execute Update if SQL was built
             if (!string.IsNullOrEmpty(updateSql))
             {

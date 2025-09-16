@@ -570,7 +570,7 @@ namespace TracePca.Service.Audit
             }
             catch (Exception ex)
             {
-                throw new ApplicationException("An error occurred while loading conduct audit checkpoint headings", ex);
+                throw new ApplicationException("An error occurred while loading Audit or Review - Testing checkpoint headings", ex);
             }
         }
 
@@ -923,7 +923,7 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Workpaper Report").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Workpaper Report").FontSize(16).Bold();
                             column.Item().Text(text =>
                             {
                                 text.Span("Client Name: ").FontSize(10).Bold();
@@ -1052,7 +1052,7 @@ namespace TracePca.Service.Audit
 
                         page.Content().Column(column =>
                         {
-                            column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Heading wise Checkpoints Report").FontSize(16).Bold();
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Heading wise Checkpoints Report").FontSize(16).Bold();
                             column.Item().Text(text =>
                             {
                                 text.Span("Client Name: ").FontSize(10).Bold();
@@ -1107,7 +1107,7 @@ namespace TracePca.Service.Audit
 
                             if (dtoCAO.Any() == true)
                             {
-                                column.Item().AlignCenter().PaddingBottom(10).Text("Conduct Audit Check Point Observation Details").FontSize(14).Bold();
+                                column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Check Point Observation Details").FontSize(14).Bold();
                                 column.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(columns =>
@@ -1451,7 +1451,45 @@ namespace TracePca.Service.Audit
             }
             catch (Exception ex)
             {
-                throw new ApplicationException("An error occurred while getting Conduct Audit Checkpoint Observations by ID", ex);
+                throw new ApplicationException("An error occurred while getting Audit or Review - Testing Checkpoint Observations by ID", ex);
+            }
+        }
+
+        public async Task<List<DropDownListData>> GetWorkpaperCheckListNotesByNameAsyn(DropDownListData data)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+                var validHeadings = new[]
+                {
+                    "Trade Receivables",
+                    "Cash And Bank",
+                    "Expenses",
+                    "Employee Benefits",
+                    "Inventories",
+                    "Other Financial Assets",
+                    "Share Capital",
+                    "Other Equity",
+                    "Loans and Borrowings",
+                    "Finance Cost",
+                    "Lease Liabilities",
+                    "Trade payables",
+                    "Other Financial Liabilities",
+                    "Tax Liabilities",
+                    "Other Current Liabilities",
+                    "Deferred Tax Liabilities",
+                    "Revenue from Operations"
+                };
+
+                var sql = @"SELECT ACM_ID AS ID, ACM_Checkpoint AS Name FROM AuditType_Checklist_Master WHERE ACM_Heading = @ACM_Heading AND ACM_Heading IN @ValidHeadings Order By ACM_Checkpoint";
+                var parameters = new { ACM_Heading = data.Name, ValidHeadings = validHeadings };
+                var result = await connection.QueryAsync<DropDownListData>(sql, parameters);
+                return result.ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while loading Workpaper CheckList Notes data", ex);
             }
         }
     }

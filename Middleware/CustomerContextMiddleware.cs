@@ -12,15 +12,18 @@ namespace TracePca.Middleware
         }
         public async Task InvokeAsync(HttpContext context, ICustomerContext customerContext)
         {
+            // Read X-Customer-Code header if present
             if (context.Request.Headers.TryGetValue("X-Customer-Code", out var customerCode))
             {
                 customerContext.CustomerCode = customerCode.ToString()?.Trim();
             }
 
-            var _ = context.Session.GetString("KeepAlive");
+            // Keep session alive by writing a dummy value
+            context.Session.SetString("KeepAlive", DateTime.UtcNow.ToString());
 
             await _next(context);
         }
+
     }
 }
 

@@ -22,11 +22,36 @@ namespace TracePca.Controllers.DigitalFilling
             _CabinetInterface = CabinetInterface;
 
         }
-       
-        [HttpGet("LoadCabinet")]
-        public async Task<IActionResult> LoadCabinet(int deptId, int userId, int compID)
-        {
-            var dropdownData = await _CabinetInterface.LoadCabinetAsync(deptId, userId, compID);
+
+		//      [HttpGet("LoadCabinet")]
+		//      public async Task<IActionResult> LoadCabinet(int deptId, int userId, int compID)
+		//      {
+		//          var dropdownData = await _CabinetInterface.LoadCabinetAsync(deptId, userId, compID);
+
+		//	if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+		//	{
+		//		return Ok(new
+		//		{
+		//			statusCode = 200,
+		//			message = "Cabinet loaded successfully.",
+		//			data = dropdownData  // Return the actual data
+		//		});
+		//	}
+		//	else
+		//	{
+		//		return NotFound(new
+		//		{
+		//			statusCode = 404,
+		//			message = "No data found for the given criteria."
+		//		});
+		//	}
+		//}
+
+
+		[HttpGet("LoadCabinet")]
+		public async Task<IActionResult> LoadCabinet(int compID)
+		{
+			var dropdownData = await _CabinetInterface.LoadCabinetAsync(compID);
 
 			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
 			{
@@ -48,7 +73,7 @@ namespace TracePca.Controllers.DigitalFilling
 		}
 
 
-        [HttpPost("CreateCabinet")]
+		[HttpPost("CreateCabinet")]
         public async Task<IActionResult> CreateCabinet(string CabinetName, int deptId, int userId, int compID, [FromBody] CabinetDto dto)
         {
             var result = await _CabinetInterface.CreateCabinetAsync(CabinetName,deptId, userId, compID, dto);
@@ -229,6 +254,31 @@ namespace TracePca.Controllers.DigitalFilling
 				{
 					statusCode = 200,
 					message = "Search loaded successfully.",
+					data = dropdownData  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+		}
+
+
+		[HttpGet("LoadRententionData")]
+		public async Task<IActionResult> LoadRententionData(int compID)
+		{
+			var dropdownData = await _CabinetInterface.LoadRententionDataAsync(compID);
+
+			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Cabinet loaded successfully.",
 					data = dropdownData  // Return the actual data
 				});
 			}

@@ -774,7 +774,7 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
             try
             {
                 email = email?.Trim().ToLower();
-               password = password?.Trim();
+                password = password?.Trim();
 
                 using var regConnection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
                 await regConnection.OpenAsync();
@@ -878,7 +878,8 @@ new { email = plainEmail });
                     httpContext.Session.SetString("CustomerCode", customerCode);
                     httpContext.Session.SetInt32("UserId", userId);
                     _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
-                }
+
+                 }
 
                 await InsertUserTokenAsync(userId, email, accessToken, refreshToken, accessExpiry, refreshExpiry, customerCode);
                // _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
@@ -947,16 +948,7 @@ WHERE UserId = @UserId
   AND AccessToken = @AccessToken
   AND IsRevoked = 0";
 
-            // ✅ Step 1: Get HttpContext + session
-            var httpContext = _httpContextAccessor.HttpContext;
-            if (httpContext == null)
-                throw new InvalidOperationException("HttpContext is not available.");
-
-            string? customerCode = httpContext.Session.GetString("CustomerCode");
-            if (string.IsNullOrWhiteSpace(customerCode))
-                throw new InvalidOperationException("CustomerCode is missing in session. Please log in again.");
-
-            // ✅ Step 2: Decode JWT to get UserId
+            // ✅ Step 1: Decode JWT to get UserId + CustomerCode
             var handler = new JwtSecurityTokenHandler();
             JwtSecurityToken jwtToken;
 
@@ -970,11 +962,15 @@ WHERE UserId = @UserId
             }
 
             var userId = jwtToken.Claims.FirstOrDefault(c => c.Type == "UserId")?.Value
-          ?? jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+                      ?? jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrWhiteSpace(userId))
                 throw new InvalidOperationException("JWT token does not contain UserId.");
 
-            // ✅ Step 3: Build customer-specific connection string
+            var customerCode = jwtToken.Claims.FirstOrDefault(c => c.Type == "CustomerCode")?.Value;
+            if (string.IsNullOrWhiteSpace(customerCode))
+                throw new InvalidOperationException("JWT token does not contain CustomerCode.");
+
+            // ✅ Step 2: Build customer-specific connection string here
             string? connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
 
             if (string.IsNullOrWhiteSpace(connectionStringTemplate))
@@ -982,7 +978,7 @@ WHERE UserId = @UserId
 
             string customerDbConnection = string.Format(connectionStringTemplate, customerCode);
 
-            // ✅ Step 4: Run revoke query
+            // ✅ Step 3: Run revoke query
             await using var connection = new SqlConnection(customerDbConnection);
             await connection.OpenAsync();
 
@@ -999,6 +995,7 @@ WHERE UserId = @UserId
 
             return rowsAffected > 0;
         }
+
 
 
         //    public async Task<bool> LogoutUserAsync(string accessToken)
