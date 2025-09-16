@@ -67,10 +67,6 @@ namespace TracePca.Service.SuperMaster
             {
                 employees = ParseExcelToEmployees(stream, out headerErrors);
             }
-<<<<<<< HEAD
-=======
-
->>>>>>> 66e9a993e20c5ee805d37c923e3ce91653d7cbd8
 
             // ✅ Step 3: Validate (only missing + invalids)
             var missingOrInvalidErrors = ValidateEmployees(employees);
@@ -555,31 +551,8 @@ namespace TracePca.Service.SuperMaster
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
-<<<<<<< HEAD
-=======
 
 
-
- 
-
-
-
-    //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
-    //    {
-    //        if (file == null || file.Length == 0)
-    //            throw new Exception("No file uploaded.");
-
-
- 
-        ////UploadClientDetails
-        //public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
-        //{
-        //    if (file == null || file.Length == 0)
-        //        throw new Exception("No file uploaded.");
-
-
-
->>>>>>> 66e9a993e20c5ee805d37c923e3ce91653d7cbd8
             var connectionString = _configuration.GetConnectionString(dbName);
 
             // ✅ Parse Excel
