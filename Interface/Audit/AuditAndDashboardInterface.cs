@@ -59,11 +59,12 @@ namespace TracePca.Interface.Audit
 
         Task<IEnumerable<CustomerDto1>> GetCustomersAsync(int companyId);
 
-        Task<DiscoveryResponseDto> GetAnswerAsync(string question);
 
             Task<LoeAuditFrameworkResponse> GetLoeAuditFrameworkIdAsync(LoeAuditFrameworkRequest request);
 
         Task<AuditStatusDto> GetAuditCompStatusAsync(int compId, int saId);
+        Task<DiscoveryResponseDto> GetAnswerAsync(string question);
+
 
 
     }

@@ -481,6 +481,7 @@ namespace TracePca.Dto.Audit
         public string YearName { get; set; }
         public string Format { get; set; } = "dd-MMM-yyyy";
     }
+
     public class DiscoveryRequestDto
     {
         public string Question { get; set; }
@@ -489,7 +490,10 @@ namespace TracePca.Dto.Audit
     {
         public string Answer { get; set; }
         public string RedirectLinkText { get; set; }
+        public string Summary { get; set; }
+
     }
+
     public class LoeAuditFrameworkRequest
     {
         public int CustomerId { get; set; }
