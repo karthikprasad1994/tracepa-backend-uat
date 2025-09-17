@@ -18,7 +18,7 @@ namespace TracePca.Interface.FIN_Statement
         Task<int[]> SaveOrUpdatePartnershipFirmAsync(UpdatePartnershipFirmDto dto);
 
         //GetSelectedPartnershipFirms
-        Task<IEnumerable<SelectedPartnershipFirmRowDto>> LoadSelectedPartnershipFirmAsync(int partnershipFirmId, int compId);
+        Task<IEnumerable<SelectedPartnershipFirmRowDto>> LoadSelectedPartnershipFirmAsync(int partnershipFirmId, int compId, int yearId);
 
         //UpdateAndCalculate
         Task<decimal> UpdateAndCalculateAsync(PartnershipFirmCalculationDto dto);

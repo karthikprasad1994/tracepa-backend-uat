@@ -505,7 +505,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetSelectedPartnershipFirms
-        public async Task<IEnumerable<SelectedPartnershipFirmRowDto>> LoadSelectedPartnershipFirmAsync(int partnershipFirmId, int compId)
+        public async Task<IEnumerable<SelectedPartnershipFirmRowDto>> LoadSelectedPartnershipFirmAsync(int partnershipFirmId, int compId, int yearId)
         {
             // Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -521,13 +521,14 @@ namespace TracePca.Service.FIN_statement
             await connection.OpenAsync();
 
             var query = @"SELECT * 
-                   FROM ACC_Partnership_Firms 
-                   WHERE APF_ID = @PartnershipFirmId 
-                     AND APF_CompID = @CompId";
+      FROM ACC_Partnership_Firms 
+      WHERE APF_Partner_ID = @PartnershipFirmId AND APF_YearID= @YearId
+        AND APF_CompID = @CompId";
 
-            return await connection.QueryAsync<SelectedPartnershipFirmRowDto>(query, new { PartnershipFirmId = partnershipFirmId, CompId = compId });
-              
+            return await connection.QueryAsync<SelectedPartnershipFirmRowDto>(query, new { PartnershipFirmId = partnershipFirmId, CompId = compId, YearId = yearId });
+
         }
+
 
         //UpdateAndCalculate
         public async Task<decimal> UpdateAndCalculateAsync(PartnershipFirmCalculationDto dto)
