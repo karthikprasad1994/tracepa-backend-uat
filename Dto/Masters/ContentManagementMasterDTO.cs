@@ -1,4 +1,6 @@
-﻿namespace TracePca.Dto
+﻿using TracePca.Dto.Audit;
+
+namespace TracePca.Dto
 {
     public class ContentManagementMasterDTO
     {
@@ -28,5 +30,26 @@
         public string? CMM_Act { get; set; }
         public string? CMM_HSNSAC { get; set; }
         public int? CMM_AudrptType { get; set; }
+    }
+
+    public class MasterDropDownListDataDTO
+    {
+        public List<MasterDropDownListData> MasterList { get; set; }
+        public List<DropDownListData> AuditFrameworkList { get; set; }
+    }
+
+    public class MasterDropDownListData
+    {
+        public string ID { get; set; }
+        public string Name { get; set; }
+    }
+
+    public class UpdateStatusRequest
+    {
+        public List<int> Ids { get; set; } = new();
+        public string Action { get; set; } = string.Empty;
+        public int CompId { get; set; }
+        public int UpdatedBy { get; set; }
+        public string IpAddress { get; set; } = string.Empty;
     }
 }

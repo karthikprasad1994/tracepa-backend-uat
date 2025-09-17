@@ -1,4 +1,6 @@
-﻿namespace TracePca.Dto.SuperMaster
+﻿using Newtonsoft.Json;
+
+namespace TracePca.Dto.SuperMaster
 {
     public class ExcelInformationDto
     {
@@ -56,6 +58,12 @@
             public int? UpdatedBy { get; set; }
             //Validation
             public string ErrorMessage { get; set; }
+        }
+        // small helper DTO for validation results
+        public class ValidationResult
+        {
+            public List<UploadEmployeeMasterDto> MissingOrInvalid { get; set; } = new();
+            public List<UploadEmployeeMasterDto> Duplicates { get; set; } = new();
         }
 
         //SaveEmployeeMaster

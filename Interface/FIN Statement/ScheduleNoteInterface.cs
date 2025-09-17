@@ -28,5 +28,39 @@ namespace TracePca.Interface.FIN_Statement
 
         //SaveOrUpdate
         Task<int> SaveFirstScheduleNoteDetailsAsync(FirstScheduleNoteDto dto);
+
+        // --PreDefinied Notes //
+        //SaveShareCapital(Particulars)
+        Task<int> SaveAuthorisedShareCapitalAsync(AuthorisedShareCapitalDto dto);
+
+        //SaveIssuedSubscribedandFullyPaidupShareCapital
+        Task<int> SaveIssuedSubscribedandFullyPaidupShareCapitalAsync(IssuedSubscribedandFullyPaidupShareCapitalAsyncDto dto);
+
+        //Save(A)Issued
+        Task<int> SaveIssuedAsync(IssuedDto dto);
+
+        //Save(B)SubscribedandPaid-up
+        Task<int> SaveSubscribedandPaidupAsync(SubscribedandPaidupDto dto);
+
+        //SaveCallsUnpaid
+        Task<int> SaveCallsUnpaidAsync(CallsUnpaidDto dto);
+
+        //SaveForfeitedShares
+        Task<int> SaveForfeitedSharesAsync(ForfeitedSharesDto dto);
+
+        //Save(i)EquityShares
+        Task<int> SaveEquitySharesAsync(EquitySharesDto dto);
+
+        //Save(ii)PreferenceShares
+        Task<int> SavePreferenceSharesAsync(PreferenceSharesDto dto);
+
+        //Save(iii)EquityShares
+        Task<int> SaveiiiEquitySharesAsync(iiiEquitySharesDto dto);
+
+        //Save(iv)PreferenceShares
+        Task<int> SaveivPreferenceSharesAsync(ivPreferenceSharesDto dto);
+
+        //Save(b)EquityShareCapital
+        Task<int> SaveThirdScheduleNoteDetailsAsync(EquityShareCapitalDto dto);
     }
 }

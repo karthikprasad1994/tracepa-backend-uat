@@ -22,26 +22,28 @@ namespace TracePca.Service.Dashboard
 
 
 
-        public async Task<RemarksSummaryDto> GetRemarksSummaryAsync()
+        public async Task<RemarksSummaryDto> GetRemarksSummaryAsync(int yearId, int compId)
         {
             using (var connection = _dbConnectionFactory.CreateConnection())
             {
                 string sql = @"
-            SELECT 
-                CASE 
-                    WHEN SAR_RemarksType = 'C' THEN 'Sent'
-                    WHEN SAR_RemarksType = 'RC' THEN 'Received'
-                END AS RemarkStatus,
-                COUNT(*) AS RemarkCount
-            FROM [dbo].[StandardAudit_Audit_DRLLog_RemarksHistory]
-            WHERE SAR_RemarksType IN ('C', 'RC')
-            GROUP BY 
-                CASE 
-                    WHEN SAR_RemarksType = 'C' THEN 'Sent'
-                    WHEN SAR_RemarksType = 'RC' THEN 'Received'
-                END;";
+        SELECT 
+            CASE 
+                WHEN SAR_RemarksType = 'C' THEN 'Sent'
+                WHEN SAR_RemarksType = 'RC' THEN 'Received'
+            END AS RemarkStatus,
+            COUNT(*) AS RemarkCount
+        FROM [dbo].[StandardAudit_Audit_DRLLog_RemarksHistory]
+        WHERE SAR_RemarksType IN ('C', 'RC') 
+          AND sar_Yearid = @YearId 
+          AND SAR_CompID = @CompId
+        GROUP BY 
+            CASE 
+                WHEN SAR_RemarksType = 'C' THEN 'Sent'
+                WHEN SAR_RemarksType = 'RC' THEN 'Received'
+            END;";
 
-                var results = await connection.QueryAsync<RemarksCountDto>(sql);
+                var results = await connection.QueryAsync<RemarksCountDto>(sql, new { YearId = yearId, CompId = compId });
 
                 var summary = new RemarksSummaryDto();
 
@@ -57,50 +59,53 @@ namespace TracePca.Service.Dashboard
             }
         }
 
-        public async Task<IEnumerable<StandardAuditF1DTO>> GetStandardAuditsAsync()
+        public async Task<IEnumerable<StandardAuditF1DTO>> GetStandardAuditsAsync(int yearId, int compId)
         {
-
             var query = @"
-            SELECT 
-                ISNULL(a.CusT_Name, '') AS CustName, 
-                SA_AuditNo, 
-                b.cmm_Desc AS AuditType, 
-                SA_AuditOpinionDate, 
-                SA_MRLDate, 
-                SA_FilingDatePCAOB, 
-                SA_BinderCompletedDate
-            FROM [dbo].[StandardAudit_Schedule]
-            LEFT JOIN SAD_CUSTOMER_MASTER a ON a.CUST_ID = SA_CustID
-            LEFT JOIN Content_Management_Master b ON b.cmm_ID = SA_AuditTypeID
-            WHERE SA_AuditFrameworkId = 1;
-        ";
+    SELECT 
+        ISNULL(a.CusT_Name, '') AS CustName, 
+        SA_AuditNo, 
+        b.cmm_Desc AS AuditType, 
+        SA_AuditOpinionDate, 
+        SA_MRLDate, 
+        SA_FilingDatePCAOB, 
+        SA_BinderCompletedDate
+    FROM [dbo].[StandardAudit_Schedule]
+    LEFT JOIN SAD_CUSTOMER_MASTER a ON a.CUST_ID = SA_CustID
+    LEFT JOIN Content_Management_Master b ON b.cmm_ID = SA_AuditTypeID
+    WHERE SA_AuditFrameworkId = 1 
+      AND SA_YearID = @YearId 
+      AND SA_Compid = @CompId;";
 
             using (var connection = _dbConnectionFactory.CreateConnection())
             {
-                return await connection.QueryAsync<StandardAuditF1DTO>(query);
+                return await connection.QueryAsync<StandardAuditF1DTO>(query, new { YearId = yearId, CompId = compId });
             }
         }
-        public async Task<IEnumerable<StandardAuditF2DTO>> GetStandardAuditsFramework0Async()
+
+        public async Task<IEnumerable<StandardAuditF2DTO>> GetStandardAuditsFramework0Async(int yearId, int compId)
         {
             var query = @"
-            SELECT 
-                ISNULL(a.CusT_Name, '') AS CustName, 
-                SA_AuditNo, 
-                b.cmm_Desc AS AuditType,
-                SA_RptFilDate, 
-                SA_RptRvDate, 
-                SA_MRSDate
-            FROM [dbo].[StandardAudit_Schedule]
-            LEFT JOIN SAD_CUSTOMER_MASTER a ON a.CUST_ID = SA_CustID
-            LEFT JOIN Content_Management_Master b ON b.cmm_ID = SA_AuditTypeID
-            WHERE SA_AuditFrameworkId = 0;
-        ";
+    SELECT 
+        ISNULL(a.CusT_Name, '') AS CustName, 
+        SA_AuditNo, 
+        b.cmm_Desc AS AuditType,
+        SA_RptFilDate, 
+        SA_RptRvDate, 
+        SA_MRSDate
+    FROM [dbo].[StandardAudit_Schedule]
+    LEFT JOIN SAD_CUSTOMER_MASTER a ON a.CUST_ID = SA_CustID
+    LEFT JOIN Content_Management_Master b ON b.cmm_ID = SA_AuditTypeID
+    WHERE SA_AuditFrameworkId = 0 
+      AND SA_YearID = @YearId 
+      AND SA_Compid = @CompId;";
 
             using (var connection = _dbConnectionFactory.CreateConnection())
             {
-                return await connection.QueryAsync<StandardAuditF2DTO>(query);
+                return await connection.QueryAsync<StandardAuditF2DTO>(query, new { YearId = yearId, CompId = compId });
             }
         }
+
 
         public async Task<LOEStatusSummary> GetLOEProgressAsync(int compId, int yearId, int custId)
         {

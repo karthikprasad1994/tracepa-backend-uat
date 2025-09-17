@@ -7,9 +7,9 @@ namespace TracePca.Interface.Dashboard
 {
     public interface DashboardInterface
     {
-        Task<RemarksSummaryDto> GetRemarksSummaryAsync();
-        Task<IEnumerable<StandardAuditF1DTO>> GetStandardAuditsAsync();
-        Task<IEnumerable<StandardAuditF2DTO>> GetStandardAuditsFramework0Async();
+        Task<RemarksSummaryDto> GetRemarksSummaryAsync(int yearId, int compId);
+        Task<IEnumerable<StandardAuditF1DTO>> GetStandardAuditsAsync(int yearId, int compId);
+        Task<IEnumerable<StandardAuditF2DTO>> GetStandardAuditsFramework0Async(int yearId, int compId);
         Task<LOEStatusSummary> GetLOEProgressAsync(int compId, int yearId, int custId);
         Task<AuditStatusSummary> GetAuditProgressAsync(int compId, int yearId, int custId);
         Task<PassedDueDatesSummary> GetAuditPassedDueDatesAsync(int compId, int yearId, int custId);

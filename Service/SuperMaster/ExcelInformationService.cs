@@ -1,14 +1,20 @@
 ﻿using System.Collections.Generic;
 using System.Data;
 using System.IO;
+using System.Net;
 using System.Text.Json;
 using Dapper;
 using DocumentFormat.OpenXml.Wordprocessing;
+using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Newtonsoft.Json;
 using OfficeOpenXml;
+using OfficeOpenXml.Packaging.Ionic.Zip;
 using OpenAI;
 using TracePca.Data;
 using TracePca.Dto.Audit;
+using Newtonsoft.Json;
 using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
@@ -30,6 +36,16 @@ namespace TracePca.Service.SuperMaster
             _dbcontext = dbcontext;
             _httpContextAccessor = httpContextAccessor;
         }
+        public class EmployeeUploadException : Exception
+        {
+            public Dictionary<string, List<string>> Errors { get; }
+
+            public EmployeeUploadException(Dictionary<string, List<string>> errors)
+                : base("Error processing employee master")
+            {
+                Errors = errors;
+            }
+        }
 
         //UploadEmployeeMasters
         public async Task<List<string>> UploadEmployeeDetailsAsync(int compId, IFormFile file)
@@ -46,33 +62,69 @@ namespace TracePca.Service.SuperMaster
 
             // ✅ Parse Excel
             List<UploadEmployeeMasterDto> employees;
-            List<string> headerErrors;
+            List<string> headerErrors = new List<string>();
             using (var stream = file.OpenReadStream())
             {
                 employees = ParseExcelToEmployees(stream, out headerErrors);
             }
 
+            // ✅ Step 3: Validate (only missing + invalids)
+            var missingOrInvalidErrors = ValidateEmployees(employees);
 
-            // ✅ Step 3: Validate all (mandatory + duplicates)
-            var errors = ValidateEmployees(employees);
+            // ✅ Step 4: Collect duplicate errors separately
+            var duplicateErrors = new List<UploadEmployeeMasterDto>();
 
-            // Merge header errors into validation errors
+            void AddDuplicateErrors(Func<UploadEmployeeMasterDto, string> keySelector, string fieldName)
+            {
+                duplicateErrors.AddRange(
+                    employees.GroupBy(keySelector)
+                        .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
+                        .Select(g => new UploadEmployeeMasterDto
+                        {
+                            EmpCode = g.First().EmpCode,
+                            EmployeeName = g.First().EmployeeName,
+                            ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
+                        })
+                );
+            }
+
+            AddDuplicateErrors(e => e.EmpCode, "EmpCode");
+            AddDuplicateErrors(e => e.LoginName, "LoginName");
+            AddDuplicateErrors(e => e.Email, "Email");
+            AddDuplicateErrors(e => e.OfficePhoneNo, "OfficePhoneNo");
+
+            // ✅ Step 5: Group errors into structured dictionary
+            var finalErrors = new Dictionary<string, List<string>>();
+
             if (headerErrors.Any())
             {
-                errors.AddRange(headerErrors.Select(h => new UploadEmployeeMasterDto
-                {
-                    EmpCode = "",
-                    EmployeeName = "",
-                    ErrorMessage = h
-                }));
+                finalErrors["Missing column"] = headerErrors;
             }
-            if (errors.Any())
-            {
-                var groupedErrors = errors
-                    .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
 
-                throw new Exception(string.Join("||", groupedErrors));
+            if (missingOrInvalidErrors.Any())
+            {
+                var groupedMissing = missingOrInvalidErrors
+                    .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}")
+                    .ToList();
+
+                finalErrors["Missing values"] = groupedMissing;
+            }
+
+            if (duplicateErrors.Any())
+            {
+                var groupedDuplicates = duplicateErrors
+                    .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}")
+                    .ToList();
+
+                finalErrors["Duplication"] = groupedDuplicates;
+            }
+
+            // ✅ Throw if any errors
+            if (finalErrors.Any())
+            {
+                throw new EmployeeUploadException(finalErrors);
             }
 
             var results = new List<string>();
@@ -239,8 +291,8 @@ namespace TracePca.Service.SuperMaster
             // Expected headers (exactly from template)
             string[] expectedHeaders = new[]
             {
-        "EmpCode","EmployeeName","LoginName","Email","OfficePhoneNo","Designation","Partner","Role","Password",
-        "LevelGrp","DutyStatus","PhoneNo","MobileNo","OfficePhoneExtn","OrgnId","GrpOrUserLvlPerm",
+        "Emp Code","Employee Name","Login Name","E-Mail","Office Phone No","Designation","Partner","Role","Password",
+        "LevelGrp","DutyStatus","PhoneNo","MobileNo","OffPhExtn","OrgID","GrpOrUserLvlPerm",
         "MasterModule","AuditModule","RiskModule","ComplianceModule","BCMModule","DigitalOfficeModule",
         "MasterRole","AuditRole","RiskRole","ComplianceRole","BCMRole","DigitalOfficeRole",
         "CreatedBy","UpdatedBy","DelFlag","Status","IPAddress","CompId","Type","IsSuperuser",
@@ -370,27 +422,7 @@ namespace TracePca.Service.SuperMaster
                 if (string.IsNullOrWhiteSpace(emp.Role))
                     errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Role missing" });
             }
-
-            // 🔹 Duplicate checks
-            void AddDuplicateErrors(Func<UploadEmployeeMasterDto, string> keySelector, string fieldName)
-            {
-                errors.AddRange(
-                    employees.GroupBy(keySelector)
-                    .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
-                    .Select(g => new UploadEmployeeMasterDto
-                    {
-                        EmpCode = g.First().EmpCode,
-                        EmployeeName = g.First().EmployeeName,
-                        ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
-                    })
-                );
-            }
-
-            AddDuplicateErrors(e => e.EmpCode, "EmpCode");
-            AddDuplicateErrors(e => e.LoginName, "LoginName");
-            AddDuplicateErrors(e => e.Email, "Email");
-            AddDuplicateErrors(e => e.OfficePhoneNo, "OfficePhoneNo");
-
+           
             return errors;
         }
 
@@ -519,26 +551,6 @@ namespace TracePca.Service.SuperMaster
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-
-
- 
-
-
-
-    //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
-    //    {
-    //        if (file == null || file.Length == 0)
-    //            throw new Exception("No file uploaded.");
-
-
- 
-        ////UploadClientDetails
-        //public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
-        //{
-        //    if (file == null || file.Length == 0)
-        //        throw new Exception("No file uploaded.");
-
 
 
             var connectionString = _configuration.GetConnectionString(dbName);
