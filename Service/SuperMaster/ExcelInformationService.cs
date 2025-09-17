@@ -538,7 +538,6 @@ namespace TracePca.Service.SuperMaster
                 throw;
             }
         }
-
  
         //UploadClientDetails
         public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)

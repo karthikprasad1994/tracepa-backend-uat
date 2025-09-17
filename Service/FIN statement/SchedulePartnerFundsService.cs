@@ -67,7 +67,7 @@ namespace TracePca.Service.FIN_statement
                 FinancialYearID = request.iFinancialYearID,
                 PreviousFinancialYearID = request.iFinancialYearID - 1,
                 CustomerID = request.iCustomerID,
-                AcID = request.iAcID
+                AcID = 1
             })).ToList();
 
             var result = new List<PartnershipFirmRowDto>();
