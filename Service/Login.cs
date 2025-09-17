@@ -959,6 +959,7 @@ WHERE UserId = @UserId
             catch
             {
                 throw new InvalidOperationException("Invalid JWT token.");
+
             }
 
             var userId = jwtToken.Claims.FirstOrDefault(c => c.Type == "UserId")?.Value
