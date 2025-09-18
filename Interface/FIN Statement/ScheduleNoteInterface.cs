@@ -28,5 +28,66 @@ namespace TracePca.Interface.FIN_Statement
 
         //SaveOrUpdate
         Task<int> SaveFirstScheduleNoteDetailsAsync(FirstScheduleNoteDto dto);
+
+        // --PreDefinied Notes //
+        //SaveShareCapital(Particulars)
+        Task<int> SaveAuthorisedShareCapitalAsync(AuthorisedShareCapitalDto dto);
+
+        //SaveIssuedSubscribedandFullyPaidupShareCapital
+        Task<int> SaveIssuedSubscribedandFullyPaidupShareCapitalAsync(IssuedSubscribedandFullyPaidupShareCapitalAsyncDto dto);
+
+        //Save(A)Issued
+        Task<int> SaveIssuedAsync(IssuedDto dto);
+
+        //Save(B)SubscribedandPaid-up
+        Task<int> SaveSubscribedandPaidupAsync(SubscribedandPaidupDto dto);
+
+        //SaveCallsUnpaid
+        Task<int> SaveCallsUnpaidAsync(CallsUnpaidDto dto);
+
+        //SaveForfeitedShares
+        Task<int> SaveForfeitedSharesAsync(ForfeitedSharesDto dto);
+
+        //Save(i)EquityShares
+        Task<int> SaveEquitySharesAsync(EquitySharesDto dto);
+
+        //Save(ii)PreferenceShares
+        Task<int> SavePreferenceSharesAsync(PreferenceSharesDto dto);
+
+        //Save(iii)EquityShares
+        Task<int> SaveiiiEquitySharesAsync(iiiEquitySharesDto dto);
+
+        //Save(iv)PreferenceShares
+        Task<int> SaveivPreferenceSharesAsync(ivPreferenceSharesDto dto);
+
+        //Save(b)EquityShareCapital
+        Task<int> SavebEquityShareCapitalAsync(EquityShareCapitalDto dto);
+
+        //Save(b)PreferenceShareCapital
+        Task<int> SavebPreferenceShareCapitalAsync(PreferenceShareCapitalDto dto);
+
+        //Save(c)Terms/rights attached to equity shares
+        Task<int> SaveTermsToEquityShareAsync(TermsToEquityShareeDto dto);
+
+        //Save(d)Terms/Rights attached to preference shares
+        Task<int> SaveTermsToPreferenceShareAsync(TermsToPreferenceShareDto dto);
+
+        //Save(e)Nameofthesharholder
+        Task<int> SaveeNameofthesharholderAsync(NameofthesharholderDto dto);
+
+        //Save(e)PreferenceShares
+        Task<int> SaveePreferenceSharesAsync(ePreferenceSharesDto dto);
+
+        //Save(f)SharesAllotted
+        Task<int> SavefSharesAllottedAsync(FSahresAllottedDto dto);
+
+        //SaveEquityShares(Promoter name)
+        Task<int> SaveEquitySharesPromoterNameAsync(SaveEquitySharesPromoterNameDto dto);
+
+        //SavePreferenceShares(Promoter name)
+        Task<int> SavePreferenceSharesPromoterNameAsync(SavePreferenceSharesPromoterNameDto dto);
+
+        //SaveFootNote
+        Task<int> SaveFootNoteAsync(FootNoteDto dto);
     }
 }

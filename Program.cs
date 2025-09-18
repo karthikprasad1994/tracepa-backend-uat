@@ -177,6 +177,7 @@ builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
 builder.Services.AddScoped<ExcelInformationInterfaces, ExcelInformationService>();
 
+
 builder.Services.AddScoped<ScheduleMappingInterface, ScheduleMappingService>();
 builder.Services.AddScoped<ScheduleFormatInterface, ScheduleFormatService>();
 builder.Services.AddScoped<JournalEntryInterface, JournalEntryService>();
@@ -185,6 +186,10 @@ builder.Services.AddScoped<ScheduleReportInterface, ScheduleReportService>();
 builder.Services.AddScoped<ScheduleExcelUploadInterface, ScheduleExcelUploadService>();
 builder.Services.AddScoped<ScheduleMastersInterface, ScheduleMastersService>();
 builder.Services.AddScoped<ScheduleAccountingRatioInterface, ScheduleAccountingRatioService>();
+builder.Services.AddScoped<LedgerMaterialityInterface, LedgerMaterialityService>();
+builder.Services.AddScoped<LedgerDifferenceInterface, LedgerDifferenceService>();
+builder.Services.AddScoped<SchedulePartnerFundsInterface, SchedulePartnerFundsService>();
+
 
 // Register your custom DbConnectionFactory
 builder.Services.AddScoped<IDbConnectionFactory, DbConnectionFactory>();
@@ -206,10 +211,7 @@ builder.Services.AddScoped<ReportanIssueInterface, ReportanIssueService>();
 
 builder.Services.AddScoped<ConductAuditInterface, TracePca.Service.Audit.ConductAuditService>();
 
-
-
 builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMasterService>();
-
 
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();

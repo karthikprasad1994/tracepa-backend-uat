@@ -1,14 +1,20 @@
 ﻿using System.Collections.Generic;
 using System.Data;
 using System.IO;
+using System.Net;
 using System.Text.Json;
 using Dapper;
 using DocumentFormat.OpenXml.Wordprocessing;
+using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Newtonsoft.Json;
 using OfficeOpenXml;
+using OfficeOpenXml.Packaging.Ionic.Zip;
 using OpenAI;
 using TracePca.Data;
 using TracePca.Dto.Audit;
+using Newtonsoft.Json;
 using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
@@ -32,6 +38,16 @@ namespace TracePca.Service.SuperMaster
         }
 
         //UploadEmployeeMasters
+        public class EmployeeUploadException : Exception
+        {
+            public Dictionary<string, List<string>> Errors { get; }
+
+            public EmployeeUploadException(Dictionary<string, List<string>> errors)
+                : base("Error processing employee master")
+            {
+                Errors = errors;
+            }
+        }
         public async Task<List<string>> UploadEmployeeDetailsAsync(int compId, IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -46,33 +62,69 @@ namespace TracePca.Service.SuperMaster
 
             // ✅ Parse Excel
             List<UploadEmployeeMasterDto> employees;
-            List<string> headerErrors;
+            List<string> headerErrors = new List<string>();
             using (var stream = file.OpenReadStream())
             {
                 employees = ParseExcelToEmployees(stream, out headerErrors);
             }
 
+            // ✅ Step 3: Validate (only missing + invalids)
+            var missingOrInvalidErrors = ValidateEmployees(employees);
 
-            // ✅ Step 3: Validate all (mandatory + duplicates)
-            var errors = ValidateEmployees(employees);
+            // ✅ Step 4: Collect duplicate errors separately
+            var duplicateErrors = new List<UploadEmployeeMasterDto>();
 
-            // Merge header errors into validation errors
+            void AddDuplicateErrors(Func<UploadEmployeeMasterDto, string> keySelector, string fieldName)
+            {
+                duplicateErrors.AddRange(
+                    employees.GroupBy(keySelector)
+                        .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
+                        .Select(g => new UploadEmployeeMasterDto
+                        {
+                            EmpCode = g.First().EmpCode,
+                            EmployeeName = g.First().EmployeeName,
+                            ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
+                        })
+                );
+            }
+
+            AddDuplicateErrors(e => e.EmpCode, "EmpCode");
+            AddDuplicateErrors(e => e.LoginName, "LoginName");
+            AddDuplicateErrors(e => e.Email, "Email");
+            AddDuplicateErrors(e => e.OfficePhoneNo, "OfficePhoneNo");
+
+            // ✅ Step 5: Group errors into structured dictionary
+            var finalErrors = new Dictionary<string, List<string>>();
+
             if (headerErrors.Any())
             {
-                errors.AddRange(headerErrors.Select(h => new UploadEmployeeMasterDto
-                {
-                    EmpCode = "",
-                    EmployeeName = "",
-                    ErrorMessage = h
-                }));
+                finalErrors["Missing column"] = headerErrors;
             }
-            if (errors.Any())
-            {
-                var groupedErrors = errors
-                    .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
 
-                throw new Exception(string.Join("||", groupedErrors));
+            if (missingOrInvalidErrors.Any())
+            {
+                var groupedMissing = missingOrInvalidErrors
+                    .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}")
+                    .ToList();
+
+                finalErrors["Missing values"] = groupedMissing;
+            }
+
+            if (duplicateErrors.Any())
+            {
+                var groupedDuplicates = duplicateErrors
+                    .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}")
+                    .ToList();
+
+                finalErrors["Duplication"] = groupedDuplicates;
+            }
+
+            // ✅ Throw if any errors
+            if (finalErrors.Any())
+            {
+                throw new EmployeeUploadException(finalErrors);
             }
 
             var results = new List<string>();
@@ -239,8 +291,8 @@ namespace TracePca.Service.SuperMaster
             // Expected headers (exactly from template)
             string[] expectedHeaders = new[]
             {
-        "EmpCode","EmployeeName","LoginName","Email","OfficePhoneNo","Designation","Partner","Role","Password",
-        "LevelGrp","DutyStatus","PhoneNo","MobileNo","OfficePhoneExtn","OrgnId","GrpOrUserLvlPerm",
+        "Emp Code","Employee Name","Login Name","E-Mail","Office Phone No","Designation","Partner","Role","Password",
+        "LevelGrp","DutyStatus","PhoneNo","MobileNo","OffPhExtn","OrgID","GrpOrUserLvlPerm",
         "MasterModule","AuditModule","RiskModule","ComplianceModule","BCMModule","DigitalOfficeModule",
         "MasterRole","AuditRole","RiskRole","ComplianceRole","BCMRole","DigitalOfficeRole",
         "CreatedBy","UpdatedBy","DelFlag","Status","IPAddress","CompId","Type","IsSuperuser",
@@ -370,27 +422,7 @@ namespace TracePca.Service.SuperMaster
                 if (string.IsNullOrWhiteSpace(emp.Role))
                     errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Role missing" });
             }
-
-            // 🔹 Duplicate checks
-            void AddDuplicateErrors(Func<UploadEmployeeMasterDto, string> keySelector, string fieldName)
-            {
-                errors.AddRange(
-                    employees.GroupBy(keySelector)
-                    .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
-                    .Select(g => new UploadEmployeeMasterDto
-                    {
-                        EmpCode = g.First().EmpCode,
-                        EmployeeName = g.First().EmployeeName,
-                        ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
-                    })
-                );
-            }
-
-            AddDuplicateErrors(e => e.EmpCode, "EmpCode");
-            AddDuplicateErrors(e => e.LoginName, "LoginName");
-            AddDuplicateErrors(e => e.Email, "Email");
-            AddDuplicateErrors(e => e.OfficePhoneNo, "OfficePhoneNo");
-
+           
             return errors;
         }
 
@@ -507,8 +539,18 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
- 
         //UploadClientDetails
+        public class ClientDetailsUploadException : Exception
+        {
+            public Dictionary<string, List<string>> Errors { get; }
+
+            public ClientDetailsUploadException(Dictionary<string, List<string>> errors)
+                : base("Error processing client details")
+            {
+                Errors = errors;
+            }
+        }
+
         public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -521,48 +563,75 @@ namespace TracePca.Service.SuperMaster
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
 
-
- 
-
-
-
-    //    public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
-    //    {
-    //        if (file == null || file.Length == 0)
-    //            throw new Exception("No file uploaded.");
-
-
- 
-        ////UploadClientDetails
-        //public async Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file)
-        //{
-        //    if (file == null || file.Length == 0)
-        //        throw new Exception("No file uploaded.");
-
-
-
             var connectionString = _configuration.GetConnectionString(dbName);
 
             // ✅ Parse Excel
             List<UploadClientDetailsDto> clients;
+            List<string> headerErrors = new List<string>();
             using (var stream = file.OpenReadStream())
             {
-                clients = ParseExcelToClients(stream);
+                clients = ParseExcelToClients(stream, out headerErrors);
             }
 
-            // ✅ Step 1: Validate mandatory fields (collect all errors)
-            var errors = ValidateClients(clients);
-            if (errors.Any())
+            // ✅ Validate missing/invalid values
+            var missingOrInvalidErrors = ValidateClients(clients);
+
+            // ✅ Duplicate errors
+            var duplicateErrors = new List<UploadClientDetailsDto>();
+            void AddDuplicateErrors(Func<UploadClientDetailsDto, string> keySelector, string fieldName)
             {
-                var groupedErrors = errors
-                    .GroupBy(e => new { e.CUST_NAME, e.CUST_CODE })
-                    .Select(g =>
-                        $"{g.Key.CUST_NAME} ({g.Key.CUST_CODE}): {string.Join(", ", g.Select(e => e.ErrorMessage))}"
-                    );
-
-                throw new Exception(string.Join("||", groupedErrors));
+                duplicateErrors.AddRange(
+                    clients.GroupBy(keySelector)
+                        .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
+                        .Select(g => new UploadClientDetailsDto
+                        {
+                            CUST_CODE = g.First().CUST_CODE,
+                            CUST_NAME = g.First().CUST_NAME,
+                            ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
+                        })
+                );
             }
-           
+
+            AddDuplicateErrors(e => e.CUST_ID.ToString(), "CUST_ID");
+            AddDuplicateErrors(c => c.CUST_EMAIL, "CUST_EMAIL");
+            AddDuplicateErrors(c => c.CUST_TELPHONE, "CUST_TELPHONE");
+            AddDuplicateErrors(c => c.CUST_ConEmailID, "CUST_ConEmailID");
+            AddDuplicateErrors(c => c.CUST_CODE, "CUST_CODE");
+            AddDuplicateErrors(c => c.CUST_WEBSITE, "CUST_WEBSITE");
+            AddDuplicateErrors(c => c.CUST_FAX, "CUST_FAX");
+            AddDuplicateErrors(c => c.CUST_COMM_Email, "CUST_COMM_Email");
+
+            // ✅ Group errors
+            var finalErrors = new Dictionary<string, List<string>>();
+
+            if (headerErrors.Any())
+                finalErrors["Missing column"] = headerErrors;
+
+            if (missingOrInvalidErrors.Any())
+            {
+                var groupedMissing = missingOrInvalidErrors
+                    .GroupBy(e => new { e.CUST_CODE, e.CUST_NAME })
+                    .Select(g => $"{g.Key.CUST_NAME} ({g.Key.CUST_CODE}): {string.Join(", ", g.Select(e => e.ErrorMessage))}")
+                    .ToList();
+
+                finalErrors["Missing values"] = groupedMissing;
+            }
+
+            if (duplicateErrors.Any())
+            {
+                var groupedDuplicates = duplicateErrors
+                    .GroupBy(e => new { e.CUST_CODE, e.CUST_NAME })
+                    .Select(g => $"{g.Key.CUST_NAME} ({g.Key.CUST_CODE}): {string.Join(", ", g.Select(e => e.ErrorMessage))}")
+                    .ToList();
+
+                finalErrors["Duplication"] = groupedDuplicates;
+            }
+
+            if (finalErrors.Any())
+                throw new ClientDetailsUploadException(finalErrors);
+
+            // ✅ No validation errors → proceed with DB transaction
+
             var results = new List<string>();
 
             using var connection = new SqlConnection(connectionString);
@@ -572,7 +641,19 @@ namespace TracePca.Service.SuperMaster
             try
             {
                 foreach (var client in clients)
-                {
+                {// --- Quick mandatory check (fail-fast) ---
+                    if (client.CUST_ID == 0 ||
+                        string.IsNullOrWhiteSpace(client.CUST_NAME) ||
+                        string.IsNullOrWhiteSpace(client.CUST_ORGTYPEID) ||
+                        string.IsNullOrWhiteSpace(client.CUST_ADDRESS) ||
+                        string.IsNullOrWhiteSpace(client.CUST_CITY) ||
+                        string.IsNullOrWhiteSpace(client.CUST_EMAIL) ||
+                        string.IsNullOrWhiteSpace(client.CUST_TELPHONE) ||
+                        string.IsNullOrWhiteSpace(client.CUST_INDTYPEID) ||
+                        string.IsNullOrWhiteSpace(client.CUST_LOCATIONID))
+                    {
+                        throw new Exception($"Mandatory fields missing for client: {client.CUST_NAME?.Trim() ?? "<unknown>"} ({client.CUST_CODE?.Trim() ?? "<no code>"})");
+                    }
 
                     // Step 3: Ensure Industry Type exists
                     string indTypeSql = @"
@@ -814,12 +895,37 @@ WHERE cmm_Category = 'IND'
                 throw;
             }
         }
-        private List<UploadClientDetailsDto> ParseExcelToClients(Stream fileStream)
+        private List<UploadClientDetailsDto> ParseExcelToClients(Stream fileStream, out List<string> headerErrors)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             using var package = new ExcelPackage(fileStream);
             var worksheet = package.Workbook.Worksheets[0];
             int rowCount = worksheet.Dimension.Rows;
+
+            // ✅ Define expected headers (based on your template)
+            string[] expectedHeaders =
+            {
+        "CustId","Cust Name","Cust Organisation Type","Cust Address","Cust City",
+        "Cust E-mail","Cust Telephone","Cust IndustryType","Cust LocationName","ConEmailId/Contact Person",
+        "Cust Code","Cust Website","Cust grpName","Cust GrpIndividual","Cust MgmTypeId",
+        "Commitment Date","BranchId","Comm_Address","Comm_City","Comm_Pin",
+        "Comm_State","Comm_Country","Comm_Fax","Comm_TelphoneNo","Comm_Email",
+        "Cust  Pin","Cust State","Cust Country","Cust Fax","Cust Task",
+        "Cust OrgId","Cust CrBy","Cust UpdatedBy","Cust Board Of Derectors","Cust Dep Method",
+        "Cust Ip Address","Cust CompId","Cust Amount Type","Cust Round Off","Cust DurtnId","Cust Fy"
+    };
+
+            headerErrors = new List<string>();
+            for (int col = 1; col <= expectedHeaders.Length; col++)
+            {
+                string actualHeader = worksheet.Cells[1, col].Text?.Trim();
+                string expectedHeader = expectedHeaders[col - 1];
+
+                if (!string.Equals(actualHeader, expectedHeader, StringComparison.OrdinalIgnoreCase))
+                {
+                    headerErrors.Add($"Expected header '{expectedHeader}' at column {col}, but found '{actualHeader}'");
+                }
+            }
 
             var clients = new List<UploadClientDetailsDto>();
             for (int row = 2; row <= rowCount; row++) // skip header
@@ -836,7 +942,7 @@ WHERE cmm_Category = 'IND'
                     CUST_INDTYPEID = worksheet.Cells[row, 8].Text,
                     CUST_LOCATIONID = worksheet.Cells[row, 9].Text?.Trim(),
                     CUST_ConEmailID = worksheet.Cells[row, 10].Text?.Trim(),
-                    CUST_CODE = worksheet.Cells[row, 11].Text?.Trim(),                                       
+                    CUST_CODE = worksheet.Cells[row, 11].Text?.Trim(),
                     CUST_WEBSITE = worksheet.Cells[row, 12].Text?.Trim(),
                     CUST_GROUPNAME = worksheet.Cells[row, 13].Text?.Trim(),
                     CUST_GROUPINDIVIDUAL = int.TryParse(worksheet.Cells[row, 14].Text, out var custGrpIndividual) ? custGrpIndividual : 0,
@@ -856,7 +962,7 @@ WHERE cmm_Category = 'IND'
                     CUST_COUNTRY = worksheet.Cells[row, 28].Text?.Trim(),
                     CUST_FAX = worksheet.Cells[row, 29].Text?.Trim(),
                     CUST_TASKS = worksheet.Cells[row, 30].Text?.Trim(),
-                    CUST_ORGID = int.TryParse(worksheet.Cells[row, 31].Text, out var orgId) ? orgId : 0,       
+                    CUST_ORGID = int.TryParse(worksheet.Cells[row, 31].Text, out var orgId) ? orgId : 0,
                     CUST_CRBY = int.TryParse(worksheet.Cells[row, 32].Text, out var createdBy) ? createdBy : 0,
                     CUST_UpdatedBy = int.TryParse(worksheet.Cells[row, 33].Text, out var updatedBy) ? updatedBy : 0,
                     CUST_BOARDOFDIRECTORS = worksheet.Cells[row, 34].Text?.Trim(),
@@ -867,9 +973,10 @@ WHERE cmm_Category = 'IND'
                     CUST_RoundOff = int.TryParse(worksheet.Cells[row, 39].Text, out var custRoundff) ? custRoundff : 0,
                     Cust_DurtnId = int.TryParse(worksheet.Cells[row, 40].Text, out var durtnId) ? durtnId : 0,
                     Cust_FY = worksheet.Cells[row, 41].Text?.Trim(),
-                    
+
                 });
             }
+            
             return clients;
         }
         private List<UploadClientDetailsDto> ValidateClients(List<UploadClientDetailsDto> clients)
@@ -942,34 +1049,10 @@ WHERE cmm_Category = 'IND'
                 if (string.IsNullOrWhiteSpace(client.CUST_LOCATIONID))
                     errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_LOCATIONID missing" });
             }
-
-            void AddDuplicateErrors(Func<UploadClientDetailsDto, string> keySelector, string fieldName)
-            {
-                errors.AddRange(
-                    clients.GroupBy(keySelector)
-                    .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
-                    .Select(g => new UploadClientDetailsDto
-                    {
-                        CUST_CODE = g.First().CUST_CODE,
-                        CUST_NAME = g.First().CUST_NAME,
-                        ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
-                    })
-                );
-            }
-
-            AddDuplicateErrors(e => e.CUST_ID.ToString(), "CUST_ID");
-            AddDuplicateErrors(c => c.CUST_EMAIL, "CUST_EMAIL");
-            AddDuplicateErrors(c => c.CUST_TELPHONE, "CUST_TELPHONE");
-            AddDuplicateErrors(c => c.CUST_ConEmailID, "CUST_ConEmailID");
-            AddDuplicateErrors(c => c.CUST_CODE, "CUST_CODE");
-            AddDuplicateErrors(c => c.CUST_WEBSITE, "CUST_WEBSITE");
-            AddDuplicateErrors(c => c.CUST_FAX, "CUST_FAX");
-            AddDuplicateErrors(c => c.CUST_COMM_Email, "CUST_COMM_Email");
-
             return errors;
         }
 
- 
+        //SaveClientDetails
         public async Task<List<int[]>> SuperMasterSaveCustomerDetailsAsync(int CompId, List<SuperMasterSaveCustomerDto> customers)
         {
             // ✅ Step 1: Get DB name from session
@@ -1211,6 +1294,15 @@ WHERE cmm_Category = 'IND'
         }
 
         //UploadClientUser
+        public class ClientUserUploadException : Exception
+        {
+            public Dictionary<string, List<string>> Errors { get; }
+
+            public ClientUserUploadException(Dictionary<string, List<string>> errors)
+            {
+                Errors = errors;
+            }
+        }
         public async Task<List<string>> UploadClientUserAsync(int compId, IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -1223,26 +1315,75 @@ WHERE cmm_Category = 'IND'
 
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Parse Excel
+            // ✅ Parse Excel + Header Validation
             List<UploadClientUserDto> employees;
+            List<string> headerErrors = new List<string>();
             using (var stream = file.OpenReadStream())
             {
-                employees = ParseExcelToClientUser(stream);
+                employees = ParseExcelToClientUser(stream, out headerErrors);
             }
 
-            // ✅ Step 1: Validate all (mandatory + duplicates)
-            var errors = ValidateClientUser(employees);
-            if (errors.Any())
-            {
-                var groupedErrors = errors
-                   .GroupBy(e => new { e.EmpCode, e.EmployeeName })
-                   .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}");
+            // ✅ Step 1: Validate (only missing + invalids)
+            var missingOrInvalidErrors = ValidateClientUser(employees);
 
-                throw new Exception(string.Join("||", groupedErrors));
+            // ✅ Step 2: Collect duplicate errors separately
+            var duplicateErrors = new List<UploadClientUserDto>();
+
+            void AddDuplicateErrors(Func<UploadClientUserDto, string> keySelector, string fieldName)
+            {
+                duplicateErrors.AddRange(
+                    employees.GroupBy(keySelector)
+                        .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
+                        .Select(g => new UploadClientUserDto
+                        {
+                            EmpCode = g.First().EmpCode,
+                            EmployeeName = g.First().EmployeeName,
+                            ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
+                        })
+                );
+            }
+
+            AddDuplicateErrors(e => e.EmpCode, "EmpCode");
+            AddDuplicateErrors(e => e.LoginName, "LoginName");
+            AddDuplicateErrors(e => e.Email, "Email");
+            AddDuplicateErrors(e => e.PhoneNo, "PhoneNo");
+
+            // ✅ Step 3: Group errors into structured dictionary
+            var finalErrors = new Dictionary<string, List<string>>();
+
+            if (headerErrors.Any())
+            {
+                finalErrors["Missing column"] = headerErrors;
+            }
+
+            if (missingOrInvalidErrors.Any())
+            {
+                var groupedMissing = missingOrInvalidErrors
+                    .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}")
+                    .ToList();
+
+                finalErrors["Missing values"] = groupedMissing;
+            }
+
+            if (duplicateErrors.Any())
+            {
+                var groupedDuplicates = duplicateErrors
+                    .GroupBy(e => new { e.EmpCode, e.EmployeeName })
+                    .Select(g => $"{g.Key.EmployeeName} ({g.Key.EmpCode}): {string.Join(", ", g.Select(e => e.ErrorMessage))}")
+                    .ToList();
+
+                finalErrors["Duplication"] = groupedDuplicates;
+            }
+
+            // ✅ Throw structured error
+            if (finalErrors.Any())
+            {
+                throw new ClientUserUploadException(finalErrors);
             }
 
             var results = new List<string>();
-            
+
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
@@ -1251,13 +1392,22 @@ WHERE cmm_Category = 'IND'
             {
                 foreach (var emp in employees)
                 {
+                    // Step 4: Validate mandatory fields
+                    if (string.IsNullOrWhiteSpace(emp.EmpCode) ||
+                        string.IsNullOrWhiteSpace(emp.EmployeeName) ||
+                        string.IsNullOrWhiteSpace(emp.LoginName) ||
+                        string.IsNullOrWhiteSpace(emp.Email) ||
+                        string.IsNullOrWhiteSpace(emp.PhoneNo))
+                    {
+                        throw new Exception($"Mandatory fields missing for Client: {emp.EmployeeName}");
+                    }
 
-                    // Step 2: Ensure ComapnyId exists
+                    // Step 2: Ensure CompanyId exists
                     string customerSql = @"
-    SELECT CUST_ID 
-    FROM SAD_CUSTOMER_MASTER 
-    WHERE UPPER(CUST_NAME) = UPPER(@CustomerName) 
-      AND CUST_CompID = @CompId";
+SELECT CUST_ID 
+FROM SAD_CUSTOMER_MASTER 
+WHERE UPPER(CUST_NAME) = UPPER(@CustomerName) 
+  AND CUST_CompID = @CompId";
 
                     int? CompanyId = await connection.ExecuteScalarAsync<int?>(
                         customerSql, new { CustomerName = emp.CompanyId, CompId = compId }, transaction);
@@ -1267,9 +1417,7 @@ WHERE cmm_Category = 'IND'
                         throw new Exception($"Customer '{emp.CompanyId}' does not exist in master table.");
                     }
 
-                    // Assign the looked-up ID
                     emp.CompanyId = CompanyId.Value.ToString();
-
 
                     // Step 7: Check if ClientUser exists
                     string checkEmpSql = "SELECT COUNT(1) FROM Sad_UserDetails WHERE Usr_Code=@EmpCode AND Usr_CompId=@CompId";
@@ -1297,11 +1445,7 @@ WHERE cmm_Category = 'IND'
                     cmd.Parameters.AddWithValue("@Usr_OfficePhone", emp.OfficePhoneNo ?? "");
                     cmd.Parameters.AddWithValue("@Usr_OffPhExtn", emp.OfficePhoneExtn ?? "");
                     cmd.Parameters.AddWithValue("@Usr_Designation", emp.Designation ?? 0);
-
-                    //cmd.Parameters.AddWithValue("@Usr_CompanyID", vendorId);
-
                     cmd.Parameters.AddWithValue("@Usr_CompanyID", CompanyId);
-
                     cmd.Parameters.AddWithValue("@Usr_OrgnID", emp.OrgnId ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_GrpOrUserLvlPerm", emp.GrpOrUserLvlPerm ?? 0);
                     cmd.Parameters.AddWithValue("@Usr_Role", emp.Role ?? 0);
@@ -1365,16 +1509,42 @@ WHERE cmm_Category = 'IND'
                 throw;
             }
         }
+
         //Parse Excel file into Employee DTO list
-        private List<UploadClientUserDto> ParseExcelToClientUser(Stream fileStream)
+        private List<UploadClientUserDto> ParseExcelToClientUser(Stream fileStream, out List<string> headerErrors)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             using var package = new ExcelPackage(fileStream);
             var worksheet = package.Workbook.Worksheets[0];
             int rowCount = worksheet.Dimension.Rows;
+            int colCount = worksheet.Dimension.Columns;
+
+            // Expected headers (from template)
+            string[] expectedHeaders = new[]
+            {
+        "Customer","Emp Code","Employee Name","Login Name","E-Mail","PhoneNo","Password","Partner","LevelGrp","DutyStatus",
+        "MobileNo","OfficePhoneNo","OffPhExtn","Designation","OrgID","GrpOrUserLvlPerm","Role",
+        "MasterModule","AuditModule","RiskModule","ComplianceModule","BCMModule","DigitalOfficeModule",
+        "MasterRole","AuditRole","RiskRole","ComplianceRole","BCMRole","DigitalOfficeRole",
+        "CreatedBy","UpdatedBy","DelFlag","Status","IPAddress","CompId","Type","IsSuperuser",
+        "DeptID","MemberType","Levelcode","Suggestions"
+    };
+
+            headerErrors = new List<string>();
+
+            for (int col = 1; col <= expectedHeaders.Length; col++)
+            {
+                string actualHeader = worksheet.Cells[1, col].Text?.Trim();
+                string expectedHeader = expectedHeaders[col - 1];
+
+                if (!string.Equals(actualHeader, expectedHeader, StringComparison.OrdinalIgnoreCase))
+                {
+                    headerErrors.Add($"Expected header '{expectedHeader}' at column {col}, but found '{actualHeader}'");
+                }
+            }
 
             var employees = new List<UploadClientUserDto>();
-            for (int row = 2; row <= rowCount; row++)
+            for (int row = 2; row <= rowCount; row++) // skip header
             {
                 employees.Add(new UploadClientUserDto
                 {
@@ -1385,7 +1555,6 @@ WHERE cmm_Category = 'IND'
                     Email = worksheet.Cells[row, 5].Text,
                     PhoneNo = worksheet.Cells[row, 6].Text,
                     Password = worksheet.Cells[row, 7].Text,
-                    //Optional / Numeric values
                     Partner = int.TryParse(worksheet.Cells[row, 8].Text, out var partner) ? partner : 0,
                     LevelGrp = int.TryParse(worksheet.Cells[row, 9].Text, out var levelGrp) ? levelGrp : 0,
                     DutyStatus = worksheet.Cells[row, 10].Text,
@@ -1422,8 +1591,10 @@ WHERE cmm_Category = 'IND'
                     Suggestions = int.TryParse(worksheet.Cells[row, 41].Text, out var sug2) ? sug2 : 0
                 });
             }
+
             return employees;
         }
+
         private List<UploadClientUserDto> ValidateClientUser(List<UploadClientUserDto> employees)
         {
             var errors = new List<UploadClientUserDto>();
@@ -1481,26 +1652,6 @@ WHERE cmm_Category = 'IND'
                     }
                 }
             }
-            // 🔹 Duplicate checks
-            void AddDuplicateErrors(Func<UploadClientUserDto, string> keySelector, string fieldName)
-            {
-                errors.AddRange(
-                    employees.GroupBy(keySelector)
-                    .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
-                    .Select(g => new UploadClientUserDto
-                    {
-                        EmpCode = g.First().EmpCode,
-                        EmployeeName = g.First().EmployeeName,
-                        ErrorMessage = $"Duplicate {fieldName} found: {g.Key}"
-                    })
-                );
-            }
-
-            AddDuplicateErrors(e => e.EmpCode, "EmpCode");
-            AddDuplicateErrors(e => e.LoginName, "LoginName");
-            AddDuplicateErrors(e => e.Email, "Email");
-            AddDuplicateErrors(e => e.OfficePhoneNo, "OfficePhoneNo");
-
             return errors;
         }
 

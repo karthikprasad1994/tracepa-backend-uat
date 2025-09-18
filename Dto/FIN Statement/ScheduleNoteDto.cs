@@ -92,5 +92,348 @@
             public int SNF_CrBy { get; set; }
             public string SNF_IPAddress { get; set; }
         }
+
+        // --PreDefinied Notes //
+        //SaveShareCapital(Particulars)
+        public class AuthorisedShareCapitalDto
+        {
+            public int Id { get; set; } // SNF_ID (0 for new, >0 for update)
+            public int CustomerId { get; set; } // SNF_CustId
+            public string Description { get; set; } = string.Empty; 
+            public decimal CurrentYearAmount { get; set; }        
+            public decimal PreviousYearAmount { get; set; }         
+            public int FinancialYearId { get; set; }  
+            public int CompanyId { get; set; } // SNF_CompId
+            public int UserId { get; set; } // SNF_CRBy
+            public string IpAddress { get; set; } = string.Empty;   
+        }
+
+        //SaveIssuedSubscribedandFullyPaidupShareCapital
+        public class IssuedSubscribedandFullyPaidupShareCapitalAsyncDto
+        {
+            public int Id { get; set; } // SNF_ID (0 for new, >0 for update)
+            public int CustomerId { get; set; } // SNF_CustId
+            public string Description { get; set; } = string.Empty;
+            public decimal CurrentYearAmount { get; set; }
+            public decimal PreviousYearAmount { get; set; }
+            public int FinancialYearId { get; set; }
+            public int CompanyId { get; set; } // SNF_CompId
+            public int UserId { get; set; } // SNF_CRBy
+            public string IpAddress { get; set; } = string.Empty;
+        }
+
+        //Save(A)Issued
+        public class IssuedDto
+        {
+            public int Id { get; set; } // SNF_ID (0 for new, >0 for update)
+            public int CustomerId { get; set; } // SNF_CustId
+            public string Description { get; set; } = string.Empty;
+            public decimal CurrentYearAmount { get; set; }
+            public decimal PreviousYearAmount { get; set; }
+            public int FinancialYearId { get; set; }
+            public int CompanyId { get; set; } // SNF_CompId
+            public int UserId { get; set; } // SNF_CRBy
+            public string IpAddress { get; set; } = string.Empty;
+        }
+
+        //Save(B)SubscribedandPaid-up
+        public class SubscribedandPaidupDto
+        {
+            public int Id { get; set; } // SNF_ID (0 for new, >0 for update)
+            public int CustomerId { get; set; } // SNF_CustId
+            public string Description { get; set; } = string.Empty;
+            public decimal CurrentYearAmount { get; set; }
+            public decimal PreviousYearAmount { get; set; }
+            public int FinancialYearId { get; set; }
+            public int CompanyId { get; set; } // SNF_CompId
+            public int UserId { get; set; } // SNF_CRBy
+            public string IpAddress { get; set; } = string.Empty;
+        }
+
+        //SaveCallsUnpaid
+        public class CallsUnpaidDto
+        {
+            public int Id { get; set; } // SNF_ID (0 for new, >0 for update)
+            public int CustomerId { get; set; } // SNF_CustId
+            public string Description { get; set; } = string.Empty;
+            public decimal CurrentYearAmount { get; set; }
+            public decimal PreviousYearAmount { get; set; }
+            public int FinancialYearId { get; set; }
+            public int CompanyId { get; set; } // SNF_CompId
+            public int UserId { get; set; } // SNF_CRBy
+            public string IpAddress { get; set; } = string.Empty;
+        }
+
+        //SaveForfeitedShares
+        public class ForfeitedSharesDto
+        {
+            public int Id { get; set; } // SNF_ID (0 for new, >0 for update)
+            public int CustomerId { get; set; } // SNF_CustId
+            public string Description { get; set; } = string.Empty;
+            public decimal CurrentYearAmount { get; set; }
+            public decimal PreviousYearAmount { get; set; }
+            public int FinancialYearId { get; set; }
+            public int CompanyId { get; set; } // SNF_CompId
+            public int UserId { get; set; } // SNF_CRBy
+            public string IpAddress { get; set; } = string.Empty;
+        }
+
+        //Save(i)EquityShares
+        public class EquitySharesDto
+        {
+            public int SNS_ID { get; set; }
+            public int SNS_CustId { get; set; }
+            public string SNS_Description { get; set; }
+
+            public decimal SNS_CYear_BegShares { get; set; }
+            public decimal SNS_CYear_BegAmount { get; set; }
+            public decimal SNS_PYear_BegShares { get; set; }
+            public decimal SNS_PYear_BegAmount { get; set; }
+
+            public decimal SNS_CYear_AddShares { get; set; }
+            public decimal SNS_CYear_AddAmount { get; set; }
+            public decimal SNS_PYear_AddShares { get; set; }
+            public decimal SNS_PYear_AddAmount { get; set; }
+
+            public decimal SNS_CYear_EndShares { get; set; }
+            public decimal SNS_CYear_EndAmount { get; set; }
+            public decimal SNS_PYear_EndShares { get; set; }
+            public decimal SNS_PYear_EndAmount { get; set; }
+
+            public int SNS_YearID { get; set; }
+            public int SNS_CompID { get; set; }
+
+            public int SNS_CrBy { get; set; }
+            public string SNS_IPAddress { get; set; }
+        }
+
+        //Save(ii)PreferenceShares
+        public class PreferenceSharesDto
+        {
+            public int SNS_ID { get; set; }
+            public int SNS_CustId { get; set; }
+            public string SNS_Description { get; set; }
+
+            public decimal SNS_CYear_BegShares { get; set; }
+            public decimal SNS_CYear_BegAmount { get; set; }
+            public decimal SNS_PYear_BegShares { get; set; }
+            public decimal SNS_PYear_BegAmount { get; set; }
+
+            public decimal SNS_CYear_AddShares { get; set; }
+            public decimal SNS_CYear_AddAmount { get; set; }
+            public decimal SNS_PYear_AddShares { get; set; }
+            public decimal SNS_PYear_AddAmount { get; set; }
+
+            public decimal SNS_CYear_EndShares { get; set; }
+            public decimal SNS_CYear_EndAmount { get; set; }
+            public decimal SNS_PYear_EndShares { get; set; }
+            public decimal SNS_PYear_EndAmount { get; set; }
+
+            public int SNS_YearID { get; set; }
+            public int SNS_CompID { get; set; }
+
+            public int SNS_CrBy { get; set; }
+            public string SNS_IPAddress { get; set; }
+        }
+
+        //Save(iii)EquityShares
+        public class iiiEquitySharesDto
+        {
+            public int SNS_ID { get; set; }
+            public int SNS_CustId { get; set; }
+            public string SNS_Description { get; set; }
+
+            public decimal SNS_CYear_BegShares { get; set; }
+            public decimal SNS_CYear_BegAmount { get; set; }
+            public decimal SNS_PYear_BegShares { get; set; }
+            public decimal SNS_PYear_BegAmount { get; set; }
+
+            public decimal SNS_CYear_AddShares { get; set; }
+            public decimal SNS_CYear_AddAmount { get; set; }
+            public decimal SNS_PYear_AddShares { get; set; }
+            public decimal SNS_PYear_AddAmount { get; set; }
+
+            public decimal SNS_CYear_EndShares { get; set; }
+            public decimal SNS_CYear_EndAmount { get; set; }
+            public decimal SNS_PYear_EndShares { get; set; }
+            public decimal SNS_PYear_EndAmount { get; set; }
+
+            public int SNS_YearID { get; set; }
+            public int SNS_CompID { get; set; }
+
+            public int SNS_CrBy { get; set; }
+            public string SNS_IPAddress { get; set; }
+        }
+
+        //Save(iv)PreferenceShares
+        public class ivPreferenceSharesDto
+        {
+            public int SNS_ID { get; set; }
+            public int SNS_CustId { get; set; }
+            public string SNS_Description { get; set; }
+
+            public decimal SNS_CYear_BegShares { get; set; }
+            public decimal SNS_CYear_BegAmount { get; set; }
+            public decimal SNS_PYear_BegShares { get; set; }
+            public decimal SNS_PYear_BegAmount { get; set; }
+
+            public decimal SNS_CYear_AddShares { get; set; }
+            public decimal SNS_CYear_AddAmount { get; set; }
+            public decimal SNS_PYear_AddShares { get; set; }
+            public decimal SNS_PYear_AddAmount { get; set; }
+
+            public decimal SNS_CYear_EndShares { get; set; }
+            public decimal SNS_CYear_EndAmount { get; set; }
+            public decimal SNS_PYear_EndShares { get; set; }
+            public decimal SNS_PYear_EndAmount { get; set; }
+
+            public int SNS_YearID { get; set; }
+            public int SNS_CompID { get; set; }
+
+            public int SNS_CrBy { get; set; }
+            public string SNS_IPAddress { get; set; }
+        }
+
+        //Save(b)EquityShareCapital
+        public class EquityShareCapitalDto
+        {
+            public int Id { get; set; }                 // SNT_ID (0 for new, >0 for update)
+            public int CustomerId { get; set; }         // SNT_CustId
+            public string Description { get; set; } = string.Empty; // SNT_Description
+            public int CYearShares { get; set; }        // SNT_CYear_Shares
+            public decimal CYearAmount { get; set; }    // SNT_CYear_Amount
+            public int PYearShares { get; set; }        // SNT_PYear_Shares
+            public decimal PYearAmount { get; set; }    // SNT_PYear_Amount
+            public int FinancialYearId { get; set; }    // SNT_YearId
+            public int CompanyId { get; set; }          // SNT_CompId
+            public int UserId { get; set; }             // SNT_CRBY
+            public string IpAddress { get; set; } = string.Empty; // SNT_IPAddress
+        }
+
+        //Save(b)PreferenceShareCapital
+        public class PreferenceShareCapitalDto
+        {
+            public int Id { get; set; }                 // SNT_ID (0 for new, >0 for update)
+            public int CustomerId { get; set; }         // SNT_CustId
+            public string Description { get; set; } = string.Empty; // SNT_Description
+            public int CYearShares { get; set; }        // SNT_CYear_Shares
+            public decimal CYearAmount { get; set; }    // SNT_CYear_Amount
+            public int PYearShares { get; set; }        // SNT_PYear_Shares
+            public decimal PYearAmount { get; set; }    // SNT_PYear_Amount
+            public int FinancialYearId { get; set; }    // SNT_YearId
+            public int CompanyId { get; set; }          // SNT_CompId
+            public int UserId { get; set; }             // SNT_CRBY
+            public string IpAddress { get; set; } = string.Empty; // SNT_IPAddress
+        }
+
+        //Save(c)Terms/rights attached to equity shares
+        public class TermsToEquityShareeDto
+        {
+            public int Id { get; set; }              // SND_ID (not really used since we always delete+insert)
+            public int CustomerId { get; set; }      // SND_CustId
+            public string Description { get; set; } = string.Empty; // SND_Description
+            public int FinancialYearId { get; set; } // SND_YearId
+            public int CompanyId { get; set; }       // SND_CompId
+            public int UserId { get; set; }          // SND_CRBY
+            public string IpAddress { get; set; } = string.Empty;   // SND_IPAddress
+        }
+
+        //Save(d)Terms/Rights attached to preference shares
+        public class TermsToPreferenceShareDto
+        {
+            public int Id { get; set; }              // SND_ID (not really used since we always delete+insert)
+            public int CustomerId { get; set; }      // SND_CustId
+            public string Description { get; set; } = string.Empty; // SND_Description
+            public int FinancialYearId { get; set; } // SND_YearId
+            public int CompanyId { get; set; }       // SND_CompId
+            public int UserId { get; set; }          // SND_CRBY
+            public string IpAddress { get; set; } = string.Empty;   // SND_IPAddress
+        }
+
+        //Save(e)Nameofthesharholder
+        public class NameofthesharholderDto
+        {
+            public int Id { get; set; }                 // SNT_ID (0 for new, >0 for update)
+            public int CustomerId { get; set; }         // SNT_CustId
+            public string Description { get; set; } = string.Empty; // SNT_Description
+            public int CYearShares { get; set; }        // SNT_CYear_Shares
+            public decimal CYearAmount { get; set; }    // SNT_CYear_Amount
+            public int PYearShares { get; set; }        // SNT_PYear_Shares
+            public decimal PYearAmount { get; set; }    // SNT_PYear_Amount
+            public int FinancialYearId { get; set; }    // SNT_YearId
+            public int CompanyId { get; set; }          // SNT_CompId
+            public int UserId { get; set; }             // SNT_CRBY
+            public string IpAddress { get; set; } = string.Empty; // SNT_IPAddress
+        }
+
+        //Save(e)PreferenceShares
+        public class ePreferenceSharesDto
+        {
+            public int Id { get; set; }                 // SNT_ID (0 for new, >0 for update)
+            public int CustomerId { get; set; }         // SNT_CustId
+            public string Description { get; set; } = string.Empty; // SNT_Description
+            public int CYearShares { get; set; }        // SNT_CYear_Shares
+            public decimal CYearAmount { get; set; }    // SNT_CYear_Amount
+            public int PYearShares { get; set; }        // SNT_PYear_Shares
+            public decimal PYearAmount { get; set; }    // SNT_PYear_Amount
+            public int FinancialYearId { get; set; }    // SNT_YearId
+            public int CompanyId { get; set; }          // SNT_CompId
+            public int UserId { get; set; }             // SNT_CRBY
+            public string IpAddress { get; set; } = string.Empty; // SNT_IPAddress
+        }
+
+        //Save(f)SharesAllotted
+        public class FSahresAllottedDto
+        {
+            public int Id { get; set; }              // SND_ID (not really used since we always delete+insert)
+            public int CustomerId { get; set; }      // SND_CustId
+            public string Description { get; set; } = string.Empty; // SND_Description
+            public int FinancialYearId { get; set; } // SND_YearId
+            public int CompanyId { get; set; }       // SND_CompId
+            public int UserId { get; set; }          // SND_CRBY
+            public string IpAddress { get; set; } = string.Empty;   // SND_IPAddress
+        }
+
+        //SaveEquityShares(Promoter name)
+        public class SaveEquitySharesPromoterNameDto
+        {
+            public int Id { get; set; }               // SNFT_ID
+            public int CustomerId { get; set; }       // SNFT_CustId
+            public string Description { get; set; } = string.Empty; // SNFT_Description
+            public int NumShares { get; set; }        // SNFT_NumShares
+            public decimal TotalShares { get; set; }  // SNFT_TotalShares
+            public decimal ChangedShares { get; set; } // SNFT_ChangedShares
+            public int FinancialYearId { get; set; }  // SNFT_YearId
+            public int CompanyId { get; set; }        // SNFT_CompId
+            public int UserId { get; set; }           // SNFT_CRBY
+            public string IpAddress { get; set; } = string.Empty;   // SNFT_IPAddress
+        }
+
+        //SavePreferenceShares(Promoter name)
+        public class SavePreferenceSharesPromoterNameDto
+        {
+            public int Id { get; set; }               // SNFT_ID
+            public int CustomerId { get; set; }       // SNFT_CustId
+            public string Description { get; set; } = string.Empty; // SNFT_Description
+            public int NumShares { get; set; }        // SNFT_NumShares
+            public decimal TotalShares { get; set; }  // SNFT_TotalShares
+            public decimal ChangedShares { get; set; } // SNFT_ChangedShares
+            public int FinancialYearId { get; set; }  // SNFT_YearId
+            public int CompanyId { get; set; }        // SNFT_CompId
+            public int UserId { get; set; }           // SNFT_CRBY
+            public string IpAddress { get; set; } = string.Empty;   // SNFT_IPAddress
+        }
+
+        //SaveFootNote
+        public class FootNoteDto
+        {
+            public int Id { get; set; }              // SND_ID (not really used since we always delete+insert)
+            public int CustomerId { get; set; }      // SND_CustId
+            public string Description { get; set; } = string.Empty; // SND_Description
+            public int FinancialYearId { get; set; } // SND_YearId
+            public int CompanyId { get; set; }       // SND_CompId
+            public int UserId { get; set; }          // SND_CRBY
+            public string IpAddress { get; set; } = string.Empty;   // SND_IPAddress
+        }
     }
 }

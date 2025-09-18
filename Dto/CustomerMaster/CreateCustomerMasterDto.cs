@@ -15,14 +15,12 @@ namespace TracePca.Dto.CustomerMaster
         public int GroupIndividual { get; set; }
         public int GroupId { get; set; }
         public List<int> ServiceTypeId { get; set; }
-
-
-        public int OrganizationTypeId { get; set; }
+       public int OrganizationTypeId { get; set; }
         public int IndustryTypeId { get; set; }
         public int ManagementTypeId { get; set; }
         public string CINNO { get; set; }
         public int FinancialYearId { get; set; }
-        public DateTime? CommitmentDate { get; set; }
+        public string CommitmentDate { get; set; }
         public int CreatedBy { get; set; }
     }
 }

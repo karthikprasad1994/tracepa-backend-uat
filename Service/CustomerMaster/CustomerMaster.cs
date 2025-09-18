@@ -12,12 +12,12 @@ namespace TracePca.Service.CustomerMaster
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-
         public CustomerMaster(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
         }
+
         public async Task<IEnumerable<CustomerDetailsDto>> GetCustomersWithStatusAsync(int companyId)
         {
             // ✅ Step 1: Get DB name from session
@@ -32,11 +32,19 @@ namespace TracePca.Service.CustomerMaster
 SELECT 
     CUST_ID AS CustId,
     CUST_NAME AS CustName,
-    CUST_EMAIL AS CustomerEmail,
     CUST_CODE AS CustomerCode,
-   CUST_CommitmentDate AS CommitmentDate,
-   CUST_INDTYPEID AS IndustrytypeId,
-   CUST_ORGTYPEID AS OrganizationtypeId,
+    CUST_EMAIL AS CustomerEmail,
+    CUST_WEBSITE AS CompanyUrl,
+    CUST_GROUPNAME AS GroupName,
+    CUST_GROUPINDIVIDUAL AS GroupIndividual,
+    CUST_ORGTYPEID AS OrganizationTypeId,
+    CUST_INDTYPEID AS IndustryTypeId,
+    CUST_MGMTTYPEID AS ManagementTypeId,
+    CONVERT(VARCHAR(10), CUST_CommitmentDate, 105) AS CommitmentDate, -- ✅ dd-MM-yyyy
+    CUST_BranchId AS CINNO,
+    CUST_TASKS AS ServiceTypeIdCsv,  -- stored as comma-separated values
+    CUST_BOARDOFDIRECTORS AS BoardOfDirectors,
+    Cust_FY AS FinancialYearId,
     CASE CUST_Delflg
         WHEN 'A' THEN 'Activated'
         WHEN 'D' THEN 'De-Activated'
@@ -48,15 +56,27 @@ WHERE CUST_CompID = @CompanyId
 ORDER BY CUST_ID";
 
 
-            return await connection.QueryAsync<CustomerDetailsDto>(query, new { CompanyId = companyId });
+            var customers = await connection.QueryAsync<CustomerDetailsDto>(query, new { CompanyId = companyId });
+
+            // ✅ Step 2: Convert comma-separated ServiceTypeIdCsv to list
+            foreach (var customer in customers)
+            {
+                customer.ServiceTypeId = string.IsNullOrWhiteSpace(customer.ServiceTypeIdCsv)
+                    ? new List<int>()
+                    : customer.ServiceTypeIdCsv.Split(',').Select(int.Parse).ToList();
+            }
+
+            return customers;
         }
 
-    public async Task<IEnumerable<ServicesDto>> GetServicesAsync(int companyId)
+
+
+        public async Task<IEnumerable<ServicesDto>> GetServicesAsync(int companyId)
 {
     // ✅ Step 1: Get DB name from session
-    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+      string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-    if (string.IsNullOrEmpty(dbName))
+       if (string.IsNullOrEmpty(dbName))
         throw new Exception("CustomerCode is missing in session. Please log in again.");
 
     using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));

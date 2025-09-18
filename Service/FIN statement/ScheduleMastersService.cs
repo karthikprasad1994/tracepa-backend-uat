@@ -1,4 +1,4 @@
-﻿using Dapper;
+﻿ using Dapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
@@ -264,7 +264,7 @@ namespace TracePca.Service.FIN_statement
         FROM SAD_CUSTOMER_MASTER
         LEFT JOIN Content_Management_Master 
             ON Content_Management_Master.cmm_id = SAD_CUSTOMER_MASTER.CUST_ORGTYPEID
-        WHERE SAD_CUSTOMER_MASTER.CUST_ID = @CustId AND SAD_CUSTOMER_MASTER.CUST_CompID = @CompId";
+        WHERE SAD_CUSTOMER_MASTER.CUST_ID = @CustId AND SAD_CUSTOMER_MASTER.CUST_CompID = @CompId and cmm_Category='org'";
 
             var result = await connection.QueryFirstOrDefaultAsync<string>(query, new { CustId, CompId });
 
