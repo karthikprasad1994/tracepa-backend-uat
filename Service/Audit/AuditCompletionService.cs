@@ -1253,7 +1253,7 @@ namespace TracePca.Service.Audit
                     FROM StandardAudit_ConductAudit_RemarksHistory a 
 					JOIN AuditType_Checklist_Master x ON x.ACM_ID = a.SCR_CheckPointID
                     Left Join sad_userdetails c on c.Usr_ID = a.SCR_RemarksBy 
-                    Left Join StandardAudit_ConductAudit_RemarksHistory b on a.SCR_ID=b.SCR_IsIssueRaised And b.SCR_RemarksType = 3 And b.SCR_IsIssueRaised > 1
+                    Left Join StandardAudit_ConductAudit_RemarksHistory b on a.SCR_ID=b.SCR_IsIssueRaised And b.SCR_IsIssueRaised > 1
                     Left Join sad_userdetails d on d.Usr_ID=b.SCR_RemarksBy 
                     Left Join SAD_GrpOrLvl_General_Master e on e.Mas_ID=c.Usr_Role 
                     Where a.SCR_SA_ID = @AuditID And a.SCR_CompID = @CompID And a.SCR_IsIssueRaised <= 1
