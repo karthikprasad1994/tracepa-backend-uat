@@ -938,7 +938,7 @@ new { email = plainEmail });
 
 
 
-        public async Task<bool> LogoutUserAsync(string accessToken)
+     public async Task<bool> LogoutUserAsync(string accessToken)
         {
             const string query = @"
 UPDATE UserTokens
@@ -950,6 +950,7 @@ WHERE UserId = @UserId
 
             // ✅ Step 1: Decode JWT to get UserId + CustomerCode
             var handler = new JwtSecurityTokenHandler();
+
             JwtSecurityToken jwtToken;
 
             try
@@ -961,6 +962,7 @@ WHERE UserId = @UserId
                 throw new InvalidOperationException("Invalid JWT token.");
 
             }
+
 
             var userId = jwtToken.Claims.FirstOrDefault(c => c.Type == "UserId")?.Value
                       ?? jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
