@@ -1,5 +1,7 @@
 ﻿using System.Data;
 using Dapper;
+using DocumentFormat.OpenXml.Wordprocessing;
+using iText.Commons.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
@@ -339,5 +341,1244 @@ INSERT INTO ScheduleNote_First (
                 return newId;
             }
         }
+
+
+        // --PreDefinied Notes //
+        //SaveShareCapital(Particulars)
+        public async Task<int> SaveAuthorisedShareCapitalAsync(AuthorisedShareCapitalDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id != 0)
+            {
+                // ✅ Update existing record
+                var updateQuery = @"
+                UPDATE ScheduleNote_First 
+                SET SNF_Description = @Description,
+                    SNF_CYear_Amount = @CurrentYearAmount,
+                    SNF_PYear_Amount = @PreviousYearAmount,
+                    SNF_CRBY = @UserId,
+                    SNF_CRON = GETDATE()
+                WHERE SNF_ID = @Id 
+                  AND SNF_Category = 'AU'
+                  AND SNF_CustId = @CustomerId 
+                  AND SNF_YearId = @FinancialYearId";
+
+                await connection.ExecuteAsync(updateQuery, dto);
+                return dto.Id;
+            }
+            else
+            {
+                // ✅ Insert new record
+                var insertQuery = @"
+                DECLARE @NextId INT;
+                SELECT @NextId = ISNULL(MAX(SNF_ID), 0) + 1 FROM ScheduleNote_First;
+
+                INSERT INTO ScheduleNote_First
+                (SNF_ID, SNF_CustId, SNF_Description, SNF_Category, SNF_CYear_Amount, SNF_PYear_Amount, 
+                 SNF_YearId, SNF_CompId, SNF_Status, SNF_DelFlag, SNF_CRON, SNF_CRBY, SNF_IPAddress)
+                VALUES
+                (@NextId, @CustomerId, @Description, 'AU', @CurrentYearAmount, @PreviousYearAmount,
+                 @FinancialYearId, @CompanyId, 'W', 'X', GETDATE(), @UserId, @IpAddress);
+
+                SELECT @NextId;";
+
+
+                var newId = await connection.ExecuteScalarAsync<int>(insertQuery, dto);
+                return newId;
+            }
+        }
+
+        //SaveIssuedSubscribedandFullyPaidupShareCapital
+        public async Task<int> SaveIssuedSubscribedandFullyPaidupShareCapitalAsync(IssuedSubscribedandFullyPaidupShareCapitalAsyncDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id != 0)
+            {
+                // ✅ Update existing record
+                var updateQuery = @"
+                UPDATE ScheduleNote_First 
+                SET SNF_Description = @Description,
+                    SNF_CYear_Amount = @CurrentYearAmount,
+                    SNF_PYear_Amount = @PreviousYearAmount,
+                    SNF_CRBY = @UserId,
+                    SNF_CRON = GETDATE()
+                WHERE SNF_ID = @Id 
+                  AND SNF_Category = 'IS'
+                  AND SNF_CustId = @CustomerId 
+                  AND SNF_YearId = @FinancialYearId";
+
+                await connection.ExecuteAsync(updateQuery, dto);
+                return dto.Id;
+            }
+            else
+            {
+                // ✅ Insert new record
+                var insertQuery = @"
+                DECLARE @NextId INT;
+                SELECT @NextId = ISNULL(MAX(SNF_ID), 0) + 1 FROM ScheduleNote_First;
+
+                INSERT INTO ScheduleNote_First
+                (SNF_ID, SNF_CustId, SNF_Description, SNF_Category, SNF_CYear_Amount, SNF_PYear_Amount, 
+                 SNF_YearId, SNF_CompId, SNF_Status, SNF_DelFlag, SNF_CRON, SNF_CRBY, SNF_IPAddress)
+                VALUES
+                (@NextId, @CustomerId, @Description, 'IS', @CurrentYearAmount, @PreviousYearAmount,
+                 @FinancialYearId, @CompanyId, 'W', 'X', GETDATE(), @UserId, @IpAddress);
+
+                SELECT @NextId;";
+
+
+                var newId = await connection.ExecuteScalarAsync<int>(insertQuery, dto);
+                return newId;
+            }
+        }
+
+        //Save(A)Issued
+        public async Task<int> SaveIssuedAsync(IssuedDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id != 0)
+            {
+                // ✅ Update existing record
+                var updateQuery = @"
+                UPDATE ScheduleNote_First 
+                SET SNF_Description = @Description,
+                    SNF_CYear_Amount = @CurrentYearAmount,
+                    SNF_PYear_Amount = @PreviousYearAmount,
+                    SNF_CRBY = @UserId,
+                    SNF_CRON = GETDATE()
+                WHERE SNF_ID = @Id 
+                  AND SNF_Category = 'AI'
+                  AND SNF_CustId = @CustomerId 
+                  AND SNF_YearId = @FinancialYearId";
+
+                await connection.ExecuteAsync(updateQuery, dto);
+                return dto.Id;
+            }
+            else
+            {
+                // ✅ Insert new record
+                var insertQuery = @"
+                DECLARE @NextId INT;
+                SELECT @NextId = ISNULL(MAX(SNF_ID), 0) + 1 FROM ScheduleNote_First;
+
+                INSERT INTO ScheduleNote_First
+                (SNF_ID, SNF_CustId, SNF_Description, SNF_Category, SNF_CYear_Amount, SNF_PYear_Amount, 
+                 SNF_YearId, SNF_CompId, SNF_Status, SNF_DelFlag, SNF_CRON, SNF_CRBY, SNF_IPAddress)
+                VALUES
+                (@NextId, @CustomerId, @Description, 'AI', @CurrentYearAmount, @PreviousYearAmount,
+                 @FinancialYearId, @CompanyId, 'W', 'X', GETDATE(), @UserId, @IpAddress);
+
+                SELECT @NextId;";
+
+
+                var newId = await connection.ExecuteScalarAsync<int>(insertQuery, dto);
+                return newId;
+            }
+        }
+
+        //Save(B)SubscribedandPaid-up
+        public async Task<int> SaveSubscribedandPaidupAsync(SubscribedandPaidupDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id != 0)
+            {
+                // ✅ Update existing record
+                var updateQuery = @"
+                UPDATE ScheduleNote_First 
+                SET SNF_Description = @Description,
+                    SNF_CYear_Amount = @CurrentYearAmount,
+                    SNF_PYear_Amount = @PreviousYearAmount,
+                    SNF_CRBY = @UserId,
+                    SNF_CRON = GETDATE()
+                WHERE SNF_ID = @Id 
+                  AND SNF_Category = 'BS'
+                  AND SNF_CustId = @CustomerId 
+                  AND SNF_YearId = @FinancialYearId";
+
+                await connection.ExecuteAsync(updateQuery, dto);
+                return dto.Id;
+            }
+            else
+            {
+                // ✅ Insert new record
+                var insertQuery = @"
+                DECLARE @NextId INT;
+                SELECT @NextId = ISNULL(MAX(SNF_ID), 0) + 1 FROM ScheduleNote_First;
+
+                INSERT INTO ScheduleNote_First
+                (SNF_ID, SNF_CustId, SNF_Description, SNF_Category, SNF_CYear_Amount, SNF_PYear_Amount, 
+                 SNF_YearId, SNF_CompId, SNF_Status, SNF_DelFlag, SNF_CRON, SNF_CRBY, SNF_IPAddress)
+                VALUES
+                (@NextId, @CustomerId, @Description, 'BS', @CurrentYearAmount, @PreviousYearAmount,
+                 @FinancialYearId, @CompanyId, 'W', 'X', GETDATE(), @UserId, @IpAddress);
+
+                SELECT @NextId;";
+
+
+                var newId = await connection.ExecuteScalarAsync<int>(insertQuery, dto);
+                return newId;
+            }
+        }
+
+        //SaveCallsUnpaid
+        public async Task<int> SaveCallsUnpaidAsync(CallsUnpaidDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id != 0)
+            {
+                // ✅ Update existing record
+                var updateQuery = @"
+                UPDATE ScheduleNote_First 
+                SET SNF_Description = @Description,
+                    SNF_CYear_Amount = @CurrentYearAmount,
+                    SNF_PYear_Amount = @PreviousYearAmount,
+                    SNF_CRBY = @UserId,
+                    SNF_CRON = GETDATE()
+                WHERE SNF_ID = @Id 
+                  AND SNF_Category = 'CC'
+                  AND SNF_CustId = @CustomerId 
+                  AND SNF_YearId = @FinancialYearId";
+
+                await connection.ExecuteAsync(updateQuery, dto);
+                return dto.Id;
+            }
+            else
+            {
+                // ✅ Insert new record
+                var insertQuery = @"
+                DECLARE @NextId INT;
+                SELECT @NextId = ISNULL(MAX(SNF_ID), 0) + 1 FROM ScheduleNote_First;
+
+                INSERT INTO ScheduleNote_First
+                (SNF_ID, SNF_CustId, SNF_Description, SNF_Category, SNF_CYear_Amount, SNF_PYear_Amount, 
+                 SNF_YearId, SNF_CompId, SNF_Status, SNF_DelFlag, SNF_CRON, SNF_CRBY, SNF_IPAddress)
+                VALUES
+                (@NextId, @CustomerId, @Description, 'CC', @CurrentYearAmount, @PreviousYearAmount,
+                 @FinancialYearId, @CompanyId, 'W', 'X', GETDATE(), @UserId, @IpAddress);
+
+                SELECT @NextId;";
+
+
+                var newId = await connection.ExecuteScalarAsync<int>(insertQuery, dto);
+                return newId;
+            }
+        }
+
+        //SaveForfeitedShares
+        public async Task<int> SaveForfeitedSharesAsync(ForfeitedSharesDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id != 0)
+            {
+                // ✅ Update existing record
+                var updateQuery = @"
+                UPDATE ScheduleNote_First 
+                SET SNF_Description = @Description,
+                    SNF_CYear_Amount = @CurrentYearAmount,
+                    SNF_PYear_Amount = @PreviousYearAmount,
+                    SNF_CRBY = @UserId,
+                    SNF_CRON = GETDATE()
+                WHERE SNF_ID = @Id 
+                  AND SNF_Category = 'FD'
+                  AND SNF_CustId = @CustomerId 
+                  AND SNF_YearId = @FinancialYearId";
+
+                await connection.ExecuteAsync(updateQuery, dto);
+                return dto.Id;
+            }
+            else
+            {
+                // ✅ Insert new record
+                var insertQuery = @"
+                DECLARE @NextId INT;
+                SELECT @NextId = ISNULL(MAX(SNF_ID), 0) + 1 FROM ScheduleNote_First;
+
+                INSERT INTO ScheduleNote_First
+                (SNF_ID, SNF_CustId, SNF_Description, SNF_Category, SNF_CYear_Amount, SNF_PYear_Amount, 
+                 SNF_YearId, SNF_CompId, SNF_Status, SNF_DelFlag, SNF_CRON, SNF_CRBY, SNF_IPAddress)
+                VALUES
+                (@NextId, @CustomerId, @Description, 'FD', @CurrentYearAmount, @PreviousYearAmount,
+                 @FinancialYearId, @CompanyId, 'W', 'X', GETDATE(), @UserId, @IpAddress);
+
+                SELECT @NextId;";
+
+
+                var newId = await connection.ExecuteScalarAsync<int>(insertQuery, dto);
+                return newId;
+            }
+        }
+
+        //Save(i)EquityShares
+        public async Task<int> SaveEquitySharesAsync(EquitySharesDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.SNS_ID != 0)
+            {
+                // ✅ Delete existing record (to maintain only one per customer-year-category)
+                var deleteQuery = @"
+        DELETE FROM ScheduleNote_Second
+        WHERE SNS_CustId = @CustomerId
+          AND SNS_YEARId = @FinancialYearId
+          AND SNS_Category = 'SF'";
+                await connection.ExecuteAsync(deleteQuery, new { CustomerId = dto.SNS_CustId, FinancialYearId = dto.SNS_YearID });
+            }
+
+            // ✅ Insert new record
+            var insertQuery = @"
+    DECLARE @NextId INT;
+    SELECT @NextId = ISNULL(MAX(SNS_ID), 0) + 1 FROM ScheduleNote_Second;
+
+    INSERT INTO ScheduleNote_Second
+    (SNS_ID, SNS_CustId, SNS_Description, SNS_Category,
+     SNS_CYear_BegShares, SNS_CYear_BegAmount, SNS_PYear_BegShares, SNS_PYear_BegAmount,
+     SNS_CYear_AddShares, SNS_CYear_AddAmount, SNS_PYear_AddShares, SNS_PYear_AddAmount,
+     SNS_CYear_EndShares, SNS_CYear_EndAmount, SNS_PYear_EndShares, SNS_PYear_EndAmount,
+     SNS_YearId, SNS_CompId, SNS_Status, SNS_DelFlag, SNS_CRON, SNS_CRBY, SNS_IPAddress)
+    VALUES
+    (@NextId, @SNS_CustId, @SNS_Description, 'SF',
+     @SNS_CYear_BegShares, @SNS_CYear_BegAmount, @SNS_PYear_BegShares, @SNS_PYear_BegAmount,
+     @SNS_CYear_AddShares, @SNS_CYear_AddAmount, @SNS_PYear_AddShares, @SNS_PYear_AddAmount,
+     @SNS_CYear_EndShares, @SNS_CYear_EndAmount, @SNS_PYear_EndShares, @SNS_PYear_EndAmount,
+     @SNS_YearID, @SNS_CompID, 'W', 'X', GETDATE(), @SNS_CrBy, @SNS_IPAddress);
+
+    SELECT @NextId;";
+
+            var newId = await connection.ExecuteScalarAsync<int>(insertQuery, dto);
+            return newId;
+        }
+
+        //Save(ii)PreferenceShares
+        public async Task<int> SavePreferenceSharesAsync(PreferenceSharesDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.SNS_ID != 0)
+            {
+                // ✅ Delete existing record (to maintain only one per customer-year-category)
+                var deleteQuery = @"
+        DELETE FROM ScheduleNote_Second
+        WHERE SNS_CustId = @CustomerId
+          AND SNS_YEARId = @FinancialYearId
+          AND SNS_Category = 'SS'";
+                await connection.ExecuteAsync(deleteQuery, new { CustomerId = dto.SNS_CustId, FinancialYearId = dto.SNS_YearID });
+            }
+
+            // ✅ Insert new record
+            var insertQuery = @"
+    DECLARE @NextId INT;
+    SELECT @NextId = ISNULL(MAX(SNS_ID), 0) + 1 FROM ScheduleNote_Second;
+
+    INSERT INTO ScheduleNote_Second
+    (SNS_ID, SNS_CustId, SNS_Description, SNS_Category,
+     SNS_CYear_BegShares, SNS_CYear_BegAmount, SNS_PYear_BegShares, SNS_PYear_BegAmount,
+     SNS_CYear_AddShares, SNS_CYear_AddAmount, SNS_PYear_AddShares, SNS_PYear_AddAmount,
+     SNS_CYear_EndShares, SNS_CYear_EndAmount, SNS_PYear_EndShares, SNS_PYear_EndAmount,
+     SNS_YearId, SNS_CompId, SNS_Status, SNS_DelFlag, SNS_CRON, SNS_CRBY, SNS_IPAddress)
+    VALUES
+    (@NextId, @SNS_CustId, @SNS_Description, 'SS',
+     @SNS_CYear_BegShares, @SNS_CYear_BegAmount, @SNS_PYear_BegShares, @SNS_PYear_BegAmount,
+     @SNS_CYear_AddShares, @SNS_CYear_AddAmount, @SNS_PYear_AddShares, @SNS_PYear_AddAmount,
+     @SNS_CYear_EndShares, @SNS_CYear_EndAmount, @SNS_PYear_EndShares, @SNS_PYear_EndAmount,
+     @SNS_YearID, @SNS_CompID, 'W', 'X', GETDATE(), @SNS_CrBy, @SNS_IPAddress);
+
+    SELECT @NextId;";
+
+            var newId = await connection.ExecuteScalarAsync<int>(insertQuery, dto);
+            return newId;
+        }
+
+        //Save(iii)EquityShares
+        public async Task<int> SaveiiiEquitySharesAsync(iiiEquitySharesDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.SNS_ID != 0)
+            {
+                // ✅ Delete existing record (to maintain only one per customer-year-category)
+                var deleteQuery = @"
+        DELETE FROM ScheduleNote_Second
+        WHERE SNS_CustId = @CustomerId
+          AND SNS_YEARId = @FinancialYearId
+          AND SNS_Category = 'ST'";
+                await connection.ExecuteAsync(deleteQuery, new { CustomerId = dto.SNS_CustId, FinancialYearId = dto.SNS_YearID });
+            }
+
+            // ✅ Insert new record
+            var insertQuery = @"
+    DECLARE @NextId INT;
+    SELECT @NextId = ISNULL(MAX(SNS_ID), 0) + 1 FROM ScheduleNote_Second;
+
+    INSERT INTO ScheduleNote_Second
+    (SNS_ID, SNS_CustId, SNS_Description, SNS_Category,
+     SNS_CYear_BegShares, SNS_CYear_BegAmount, SNS_PYear_BegShares, SNS_PYear_BegAmount,
+     SNS_CYear_AddShares, SNS_CYear_AddAmount, SNS_PYear_AddShares, SNS_PYear_AddAmount,
+     SNS_CYear_EndShares, SNS_CYear_EndAmount, SNS_PYear_EndShares, SNS_PYear_EndAmount,
+     SNS_YearId, SNS_CompId, SNS_Status, SNS_DelFlag, SNS_CRON, SNS_CRBY, SNS_IPAddress)
+    VALUES
+    (@NextId, @SNS_CustId, @SNS_Description, 'ST',
+     @SNS_CYear_BegShares, @SNS_CYear_BegAmount, @SNS_PYear_BegShares, @SNS_PYear_BegAmount,
+     @SNS_CYear_AddShares, @SNS_CYear_AddAmount, @SNS_PYear_AddShares, @SNS_PYear_AddAmount,
+     @SNS_CYear_EndShares, @SNS_CYear_EndAmount, @SNS_PYear_EndShares, @SNS_PYear_EndAmount,
+     @SNS_YearID, @SNS_CompID, 'W', 'X', GETDATE(), @SNS_CrBy, @SNS_IPAddress);
+
+    SELECT @NextId;";
+
+            var newId = await connection.ExecuteScalarAsync<int>(insertQuery, dto);
+            return newId;
+        }
+
+        //Save(iv)PreferenceShares
+        public async Task<int> SaveivPreferenceSharesAsync(ivPreferenceSharesDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.SNS_ID != 0)
+            {
+                // ✅ Delete existing record (to maintain only one per customer-year-category)
+                var deleteQuery = @"
+        DELETE FROM ScheduleNote_Second
+        WHERE SNS_CustId = @CustomerId
+          AND SNS_YEARId = @FinancialYearId
+          AND SNS_Category = 'SV'";
+                await connection.ExecuteAsync(deleteQuery, new { CustomerId = dto.SNS_CustId, FinancialYearId = dto.SNS_YearID });
+            }
+
+            // ✅ Insert new record
+            var insertQuery = @"
+    DECLARE @NextId INT;
+    SELECT @NextId = ISNULL(MAX(SNS_ID), 0) + 1 FROM ScheduleNote_Second;
+
+    INSERT INTO ScheduleNote_Second
+    (SNS_ID, SNS_CustId, SNS_Description, SNS_Category,
+     SNS_CYear_BegShares, SNS_CYear_BegAmount, SNS_PYear_BegShares, SNS_PYear_BegAmount,
+     SNS_CYear_AddShares, SNS_CYear_AddAmount, SNS_PYear_AddShares, SNS_PYear_AddAmount,
+     SNS_CYear_EndShares, SNS_CYear_EndAmount, SNS_PYear_EndShares, SNS_PYear_EndAmount,
+     SNS_YearId, SNS_CompId, SNS_Status, SNS_DelFlag, SNS_CRON, SNS_CRBY, SNS_IPAddress)
+    VALUES
+    (@NextId, @SNS_CustId, @SNS_Description, 'SV',
+     @SNS_CYear_BegShares, @SNS_CYear_BegAmount, @SNS_PYear_BegShares, @SNS_PYear_BegAmount,
+     @SNS_CYear_AddShares, @SNS_CYear_AddAmount, @SNS_PYear_AddShares, @SNS_PYear_AddAmount,
+     @SNS_CYear_EndShares, @SNS_CYear_EndAmount, @SNS_PYear_EndShares, @SNS_PYear_EndAmount,
+     @SNS_YearID, @SNS_CompID, 'W', 'X', GETDATE(), @SNS_CrBy, @SNS_IPAddress);
+
+    SELECT @NextId;";
+
+            var newId = await connection.ExecuteScalarAsync<int>(insertQuery, dto);
+            return newId;
+        }
+
+        //Save(b)EquityShareCapital
+        public async Task<int> SavebEquityShareCapitalAsync(EquityShareCapitalDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id != 0)
+            {
+                // ✅ Update existing record (category hardcoded to 'TBE')
+                var updateQuery = @"
+        UPDATE ScheduleNote_Third 
+        SET SNT_Description   = @Description,
+            SNT_CYear_Shares  = @CYearShares,
+            SNT_CYear_Amount  = @CYearAmount,
+            SNT_PYear_Shares  = @PYearShares,
+            SNT_PYear_Amount  = @PYearAmount,
+            SNT_CRBY          = @UserId,
+            SNT_CRON          = GETDATE()
+        WHERE SNT_ID = @Id 
+          AND SNT_Category = 'TBE'
+          AND SNT_CustId = @CustomerId 
+          AND SNT_YearId = @FinancialYearId;";
+
+                await connection.ExecuteAsync(updateQuery, new
+                {
+                    Id = dto.Id,
+                    Description = dto.Description,
+                    CYearShares = dto.CYearShares,
+                    CYearAmount = dto.CYearAmount,
+                    PYearShares = dto.PYearShares,
+                    PYearAmount = dto.PYearAmount,
+                    CustomerId = dto.CustomerId,
+                    FinancialYearId = dto.FinancialYearId,
+                    UserId = dto.UserId
+                });
+
+                return dto.Id;
+            }
+            else
+            {
+                // ✅ Insert new record (manual ID generation - category/status/delflg hardcoded)
+                var insertQuery = @"
+        DECLARE @NextId INT;
+        SELECT @NextId = ISNULL(MAX(SNT_ID), 0) + 1 FROM ScheduleNote_Third;
+
+        INSERT INTO ScheduleNote_Third
+        (SNT_ID, SNT_CustId, SNT_Description, SNT_Category, 
+         SNT_CYear_Shares, SNT_CYear_Amount, SNT_PYear_Shares, SNT_PYear_Amount,
+         SNT_YearId, SNT_CompId, SNT_Status, SNT_DelFlag, SNT_CRON, SNT_CRBY, SNT_IPAddress)
+        VALUES
+        (@NextId, @CustomerId, @Description, 'TBE',
+         @CYearShares, @CYearAmount, @PYearShares, @PYearAmount,
+         @FinancialYearId, @CompanyId, 'W', 'X', GETDATE(), @UserId, @IpAddress);
+
+        SELECT @NextId;";
+
+                var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
+                {
+                    CustomerId = dto.CustomerId,
+                    Description = dto.Description,
+                    CYearShares = dto.CYearShares,
+                    CYearAmount = dto.CYearAmount,
+                    PYearShares = dto.PYearShares,
+                    PYearAmount = dto.PYearAmount,
+                    FinancialYearId = dto.FinancialYearId,
+                    CompanyId = dto.CompanyId,
+                    UserId = dto.UserId,
+                    IpAddress = dto.IpAddress ?? string.Empty
+                });
+                return newId;
+            }
+        }
+
+        //Save(b)PreferenceShareCapital
+        public async Task<int> SavebPreferenceShareCapitalAsync(PreferenceShareCapitalDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id != 0)
+            {
+                // ✅ Update existing record (category hardcoded to 'TBE')
+                var updateQuery = @"
+        UPDATE ScheduleNote_Third 
+        SET SNT_Description   = @Description,
+            SNT_CYear_Shares  = @CYearShares,
+            SNT_CYear_Amount  = @CYearAmount,
+            SNT_PYear_Shares  = @PYearShares,
+            SNT_PYear_Amount  = @PYearAmount,
+            SNT_CRBY          = @UserId,
+            SNT_CRON          = GETDATE()
+        WHERE SNT_ID = @Id 
+          AND SNT_Category = 'TBp'
+          AND SNT_CustId = @CustomerId 
+          AND SNT_YearId = @FinancialYearId;";
+
+                await connection.ExecuteAsync(updateQuery, new
+                {
+                    Id = dto.Id,
+                    Description = dto.Description,
+                    CYearShares = dto.CYearShares,
+                    CYearAmount = dto.CYearAmount,
+                    PYearShares = dto.PYearShares,
+                    PYearAmount = dto.PYearAmount,
+                    CustomerId = dto.CustomerId,
+                    FinancialYearId = dto.FinancialYearId,
+                    UserId = dto.UserId
+                });
+
+                return dto.Id;
+            }
+            else
+            {
+                // ✅ Insert new record (manual ID generation - category/status/delflg hardcoded)
+                var insertQuery = @"
+        DECLARE @NextId INT;
+        SELECT @NextId = ISNULL(MAX(SNT_ID), 0) + 1 FROM ScheduleNote_Third;
+
+        INSERT INTO ScheduleNote_Third
+        (SNT_ID, SNT_CustId, SNT_Description, SNT_Category, 
+         SNT_CYear_Shares, SNT_CYear_Amount, SNT_PYear_Shares, SNT_PYear_Amount,
+         SNT_YearId, SNT_CompId, SNT_Status, SNT_DelFlag, SNT_CRON, SNT_CRBY, SNT_IPAddress)
+        VALUES
+        (@NextId, @CustomerId, @Description, 'TBp',
+         @CYearShares, @CYearAmount, @PYearShares, @PYearAmount,
+         @FinancialYearId, @CompanyId, 'W', 'X', GETDATE(), @UserId, @IpAddress);
+
+        SELECT @NextId;";
+
+                var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
+                {
+                    CustomerId = dto.CustomerId,
+                    Description = dto.Description,
+                    CYearShares = dto.CYearShares,
+                    CYearAmount = dto.CYearAmount,
+                    PYearShares = dto.PYearShares,
+                    PYearAmount = dto.PYearAmount,
+                    FinancialYearId = dto.FinancialYearId,
+                    CompanyId = dto.CompanyId,
+                    UserId = dto.UserId,
+                    IpAddress = dto.IpAddress ?? string.Empty
+                });
+                return newId;
+            }
+        }
+
+        //Save(c)Terms/rights attached to equity shares
+        public async Task<int> SaveTermsToEquityShareAsync(TermsToEquityShareeDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 3: Delete existing rows for Customer + Year + Category
+            var deleteQuery = @"
+        DELETE FROM ScheduleNote_Desc
+        WHERE SND_CustId = @CustomerId
+          AND SND_YearId = @FinancialYearId
+          AND SND_Category = 'cEquity';";
+
+            await connection.ExecuteAsync(deleteQuery, new
+            {
+                CustomerId = dto.CustomerId,
+                FinancialYearId = dto.FinancialYearId
+            });
+
+            // ✅ Step 4: Generate next ID
+            var nextIdQuery = "SELECT ISNULL(MAX(SND_ID), 0) + 1 FROM ScheduleNote_Desc";
+            var nextId = await connection.ExecuteScalarAsync<int>(nextIdQuery);
+
+            // ✅ Step 5: Insert new record (Category, Status, DelFlag hardcoded)
+            var insertQuery = @"
+        INSERT INTO ScheduleNote_Desc
+        (SND_ID, SND_CustId, SND_Description, SND_Category,
+         SND_YearId, SND_CompId, SND_Status, SND_DelFlag,
+         SND_CRON, SND_CRBY, SND_IPAddress)
+        VALUES
+        (@NextId, @CustomerId, @Description, 'cEquity',
+         @FinancialYearId, @CompanyId, 'W', 'X',
+         GETDATE(), @UserId, @IpAddress);
+
+        SELECT @NextId;";
+
+            var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
+            {
+                NextId = nextId,
+                CustomerId = dto.CustomerId,
+                Description = dto.Description,
+                FinancialYearId = dto.FinancialYearId,
+                CompanyId = dto.CompanyId,
+                UserId = dto.UserId,
+                IpAddress = dto.IpAddress ?? string.Empty
+            });
+
+            return newId;
+        }
+
+        //Save(d)Terms/Rights attached to preference shares
+        public async Task<int> SaveTermsToPreferenceShareAsync(TermsToPreferenceShareDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 3: Delete existing rows for Customer + Year + Category
+            var deleteQuery = @"
+        DELETE FROM ScheduleNote_Desc
+        WHERE SND_CustId = @CustomerId
+          AND SND_YearId = @FinancialYearId
+          AND SND_Category = 'dPref';";
+
+            await connection.ExecuteAsync(deleteQuery, new
+            {
+                CustomerId = dto.CustomerId,
+                FinancialYearId = dto.FinancialYearId
+            });
+
+            // ✅ Step 4: Generate next ID
+            var nextIdQuery = "SELECT ISNULL(MAX(SND_ID), 0) + 1 FROM ScheduleNote_Desc";
+            var nextId = await connection.ExecuteScalarAsync<int>(nextIdQuery);
+
+            // ✅ Step 5: Insert new record (Category, Status, DelFlag hardcoded)
+            var insertQuery = @"
+        INSERT INTO ScheduleNote_Desc
+        (SND_ID, SND_CustId, SND_Description, SND_Category,
+         SND_YearId, SND_CompId, SND_Status, SND_DelFlag,
+         SND_CRON, SND_CRBY, SND_IPAddress)
+        VALUES
+        (@NextId, @CustomerId, @Description, 'dPref',
+         @FinancialYearId, @CompanyId, 'W', 'X',
+         GETDATE(), @UserId, @IpAddress);
+
+        SELECT @NextId;";
+
+            var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
+            {
+                NextId = nextId,
+                CustomerId = dto.CustomerId,
+                Description = dto.Description,
+                FinancialYearId = dto.FinancialYearId,
+                CompanyId = dto.CompanyId,
+                UserId = dto.UserId,
+                IpAddress = dto.IpAddress ?? string.Empty
+            });
+
+            return newId;
+        }
+
+        //Save(e)Nameofthesharholder
+        public async Task<int> SaveeNameofthesharholderAsync(NameofthesharholderDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id != 0)
+            {
+                // ✅ Update existing record (category hardcoded to 'TBE')
+                var updateQuery = @"
+        UPDATE ScheduleNote_Third 
+        SET SNT_Description   = @Description,
+            SNT_CYear_Shares  = @CYearShares,
+            SNT_CYear_Amount  = @CYearAmount,
+            SNT_PYear_Shares  = @PYearShares,
+            SNT_PYear_Amount  = @PYearAmount,
+            SNT_CRBY          = @UserId,
+            SNT_CRON          = GETDATE()
+        WHERE SNT_ID = @Id 
+          AND SNT_Category = 'TEE'
+          AND SNT_CustId = @CustomerId 
+          AND SNT_YearId = @FinancialYearId;";
+
+                await connection.ExecuteAsync(updateQuery, new
+                {
+                    Id = dto.Id,
+                    Description = dto.Description,
+                    CYearShares = dto.CYearShares,
+                    CYearAmount = dto.CYearAmount,
+                    PYearShares = dto.PYearShares,
+                    PYearAmount = dto.PYearAmount,
+                    CustomerId = dto.CustomerId,
+                    FinancialYearId = dto.FinancialYearId,
+                    UserId = dto.UserId
+                });
+
+                return dto.Id;
+            }
+            else
+            {
+                // ✅ Insert new record (manual ID generation - category/status/delflg hardcoded)
+                var insertQuery = @"
+        DECLARE @NextId INT;
+        SELECT @NextId = ISNULL(MAX(SNT_ID), 0) + 1 FROM ScheduleNote_Third;
+
+        INSERT INTO ScheduleNote_Third
+        (SNT_ID, SNT_CustId, SNT_Description, SNT_Category, 
+         SNT_CYear_Shares, SNT_CYear_Amount, SNT_PYear_Shares, SNT_PYear_Amount,
+         SNT_YearId, SNT_CompId, SNT_Status, SNT_DelFlag, SNT_CRON, SNT_CRBY, SNT_IPAddress)
+        VALUES
+        (@NextId, @CustomerId, @Description, 'TEE',
+         @CYearShares, @CYearAmount, @PYearShares, @PYearAmount,
+         @FinancialYearId, @CompanyId, 'W', 'X', GETDATE(), @UserId, @IpAddress);
+
+        SELECT @NextId;";
+
+                var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
+                {
+                    CustomerId = dto.CustomerId,
+                    Description = dto.Description,
+                    CYearShares = dto.CYearShares,
+                    CYearAmount = dto.CYearAmount,
+                    PYearShares = dto.PYearShares,
+                    PYearAmount = dto.PYearAmount,
+                    FinancialYearId = dto.FinancialYearId,
+                    CompanyId = dto.CompanyId,
+                    UserId = dto.UserId,
+                    IpAddress = dto.IpAddress ?? string.Empty
+                });
+                return newId;
+            }
+        }
+
+        //Save(e)PreferenceShares
+        public async Task<int> SaveePreferenceSharesAsync(ePreferenceSharesDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id != 0)
+            {
+                // ✅ Update existing record (category hardcoded to 'TBE')
+                var updateQuery = @"
+        UPDATE ScheduleNote_Third 
+        SET SNT_Description   = @Description,
+            SNT_CYear_Shares  = @CYearShares,
+            SNT_CYear_Amount  = @CYearAmount,
+            SNT_PYear_Shares  = @PYearShares,
+            SNT_PYear_Amount  = @PYearAmount,
+            SNT_CRBY          = @UserId,
+            SNT_CRON          = GETDATE()
+        WHERE SNT_ID = @Id 
+          AND SNT_Category = 'TEP'
+          AND SNT_CustId = @CustomerId 
+          AND SNT_YearId = @FinancialYearId;";
+
+                await connection.ExecuteAsync(updateQuery, new
+                {
+                    Id = dto.Id,
+                    Description = dto.Description,
+                    CYearShares = dto.CYearShares,
+                    CYearAmount = dto.CYearAmount,
+                    PYearShares = dto.PYearShares,
+                    PYearAmount = dto.PYearAmount,
+                    CustomerId = dto.CustomerId,
+                    FinancialYearId = dto.FinancialYearId,
+                    UserId = dto.UserId
+                });
+
+                return dto.Id;
+            }
+            else
+            {
+                // ✅ Insert new record (manual ID generation - category/status/delflg hardcoded)
+                var insertQuery = @"
+        DECLARE @NextId INT;
+        SELECT @NextId = ISNULL(MAX(SNT_ID), 0) + 1 FROM ScheduleNote_Third;
+
+        INSERT INTO ScheduleNote_Third
+        (SNT_ID, SNT_CustId, SNT_Description, SNT_Category, 
+         SNT_CYear_Shares, SNT_CYear_Amount, SNT_PYear_Shares, SNT_PYear_Amount,
+         SNT_YearId, SNT_CompId, SNT_Status, SNT_DelFlag, SNT_CRON, SNT_CRBY, SNT_IPAddress)
+        VALUES
+        (@NextId, @CustomerId, @Description, 'TEP',
+         @CYearShares, @CYearAmount, @PYearShares, @PYearAmount,
+         @FinancialYearId, @CompanyId, 'W', 'X', GETDATE(), @UserId, @IpAddress);
+
+        SELECT @NextId;";
+
+                var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
+                {
+                    CustomerId = dto.CustomerId,
+                    Description = dto.Description,
+                    CYearShares = dto.CYearShares,
+                    CYearAmount = dto.CYearAmount,
+                    PYearShares = dto.PYearShares,
+                    PYearAmount = dto.PYearAmount,
+                    FinancialYearId = dto.FinancialYearId,
+                    CompanyId = dto.CompanyId,
+                    UserId = dto.UserId,
+                    IpAddress = dto.IpAddress ?? string.Empty
+                });
+                return newId;
+            }
+        }
+
+        //Save(f)SharesAllotted
+        public async Task<int> SavefSharesAllottedAsync(FSahresAllottedDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 3: Delete existing rows for Customer + Year + Category
+            var deleteQuery = @"
+        DELETE FROM ScheduleNote_Desc
+        WHERE SND_CustId = @CustomerId
+          AND SND_YearId = @FinancialYearId
+          AND SND_Category = 'fShares';";
+
+            await connection.ExecuteAsync(deleteQuery, new
+            {
+                CustomerId = dto.CustomerId,
+                FinancialYearId = dto.FinancialYearId
+            });
+
+            // ✅ Step 4: Generate next ID
+            var nextIdQuery = "SELECT ISNULL(MAX(SND_ID), 0) + 1 FROM ScheduleNote_Desc";
+            var nextId = await connection.ExecuteScalarAsync<int>(nextIdQuery);
+
+            // ✅ Step 5: Insert new record (Category, Status, DelFlag hardcoded)
+            var insertQuery = @"
+        INSERT INTO ScheduleNote_Desc
+        (SND_ID, SND_CustId, SND_Description, SND_Category,
+         SND_YearId, SND_CompId, SND_Status, SND_DelFlag,
+         SND_CRON, SND_CRBY, SND_IPAddress)
+        VALUES
+        (@NextId, @CustomerId, @Description, 'fShares',
+         @FinancialYearId, @CompanyId, 'W', 'X',
+         GETDATE(), @UserId, @IpAddress);
+
+        SELECT @NextId;";
+
+            var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
+            {
+                NextId = nextId,
+                CustomerId = dto.CustomerId,
+                Description = dto.Description,
+                FinancialYearId = dto.FinancialYearId,
+                CompanyId = dto.CompanyId,
+                UserId = dto.UserId,
+                IpAddress = dto.IpAddress ?? string.Empty
+            });
+            return newId;
+        }
+
+        //SaveEquityShares(Promoter name)
+        public async Task<int> SaveEquitySharesPromoterNameAsync(SaveEquitySharesPromoterNameDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id != 0)
+            {
+                // ✅ Update existing record
+                var updateQuery = @"
+            UPDATE ScheduleNote_Fourth
+            SET SNFT_Description  = @Description,
+                SNFT_NumShares    = @NumShares,
+                SNFT_TotalShares  = @TotalShares,
+                SNFT_ChangedShares = @ChangedShares,
+                SNFT_CRBY         = @UserId,
+                SNFT_CRON         = GETDATE()
+            WHERE SNFT_ID = @Id
+              AND SNFT_Category = 'FSC'
+              AND SNFT_CustId = @CustomerId
+              AND SNFT_YearId = @FinancialYearId;";
+
+                await connection.ExecuteAsync(updateQuery, new
+                {
+                    Id = dto.Id,
+                    Description = dto.Description,
+                    NumShares = dto.NumShares,
+                    TotalShares = dto.TotalShares,
+                    ChangedShares = dto.ChangedShares,
+                    CustomerId = dto.CustomerId,
+                    FinancialYearId = dto.FinancialYearId,
+                    UserId = dto.UserId
+                });
+
+                return dto.Id;
+            }
+            else
+            {
+                // ✅ Insert new record (manual ID generation)
+                var insertQuery = @"
+            DECLARE @NextId INT;
+            SELECT @NextId = ISNULL(MAX(SNFT_ID), 0) + 1 FROM ScheduleNote_Fourth;
+
+            INSERT INTO ScheduleNote_Fourth
+            (SNFT_ID, SNFT_CustId, SNFT_Description, SNFT_Category,
+             SNFT_NumShares, SNFT_TotalShares, SNFT_ChangedShares,
+             SNFT_YearId, SNFT_CompId,
+             SNFT_Status, SNFT_DelFlag, SNFT_CRON, SNFT_CRBY, SNFT_IPAddress)
+            VALUES
+            (@NextId, @CustomerId, @Description, 'FSC',
+             @NumShares, @TotalShares, @ChangedShares,
+             @FinancialYearId, @CompanyId,
+             'W', 'X', GETDATE(), @UserId, @IpAddress);
+
+            SELECT @NextId;";
+
+                var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
+                {
+                    CustomerId = dto.CustomerId,
+                    Description = dto.Description,
+                    NumShares = dto.NumShares,
+                    TotalShares = dto.TotalShares,
+                    ChangedShares = dto.ChangedShares,
+                    FinancialYearId = dto.FinancialYearId,
+                    CompanyId = dto.CompanyId,
+                    UserId = dto.UserId,
+                    IpAddress = dto.IpAddress ?? string.Empty
+                });
+
+                return newId;
+            }
+        }
+
+        //SavePreferenceShares(Promoter name)
+        public async Task<int> SavePreferenceSharesPromoterNameAsync(SavePreferenceSharesPromoterNameDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            if (dto.Id != 0)
+            {
+                // ✅ Update existing record
+                var updateQuery = @"
+            UPDATE ScheduleNote_Fourth
+            SET SNFT_Description  = @Description,
+                SNFT_NumShares    = @NumShares,
+                SNFT_TotalShares  = @TotalShares,
+                SNFT_ChangedShares = @ChangedShares,
+                SNFT_CRBY         = @UserId,
+                SNFT_CRON         = GETDATE()
+            WHERE SNFT_ID = @Id
+              AND SNFT_Category = 'FSP'
+              AND SNFT_CustId = @CustomerId
+              AND SNFT_YearId = @FinancialYearId;";
+
+                await connection.ExecuteAsync(updateQuery, new
+                {
+                    Id = dto.Id,
+                    Description = dto.Description,
+                    NumShares = dto.NumShares,
+                    TotalShares = dto.TotalShares,
+                    ChangedShares = dto.ChangedShares,
+                    CustomerId = dto.CustomerId,
+                    FinancialYearId = dto.FinancialYearId,
+                    UserId = dto.UserId
+                });
+
+                return dto.Id;
+            }
+            else
+            {
+                // ✅ Insert new record (manual ID generation)
+                var insertQuery = @"
+            DECLARE @NextId INT;
+            SELECT @NextId = ISNULL(MAX(SNFT_ID), 0) + 1 FROM ScheduleNote_Fourth;
+
+            INSERT INTO ScheduleNote_Fourth
+            (SNFT_ID, SNFT_CustId, SNFT_Description, SNFT_Category,
+             SNFT_NumShares, SNFT_TotalShares, SNFT_ChangedShares,
+             SNFT_YearId, SNFT_CompId,
+             SNFT_Status, SNFT_DelFlag, SNFT_CRON, SNFT_CRBY, SNFT_IPAddress)
+            VALUES
+            (@NextId, @CustomerId, @Description, 'FSP',
+             @NumShares, @TotalShares, @ChangedShares,
+             @FinancialYearId, @CompanyId,
+             'W', 'X', GETDATE(), @UserId, @IpAddress);
+
+            SELECT @NextId;";
+
+                var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
+                {
+                    CustomerId = dto.CustomerId,
+                    Description = dto.Description,
+                    NumShares = dto.NumShares,
+                    TotalShares = dto.TotalShares,
+                    ChangedShares = dto.ChangedShares,
+                    FinancialYearId = dto.FinancialYearId,
+                    CompanyId = dto.CompanyId,
+                    UserId = dto.UserId,
+                    IpAddress = dto.IpAddress ?? string.Empty
+                });
+
+                return newId;
+            }
+        }
+
+        //SaveFootNote
+        public async Task<int> SaveFootNoteAsync(FootNoteDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 3: Delete existing rows for Customer + Year + Category
+            var deleteQuery = @"
+        DELETE FROM ScheduleNote_Desc
+        WHERE SND_CustId = @CustomerId
+          AND SND_YearId = @FinancialYearId
+          AND SND_Category = 'footNote';";
+
+            await connection.ExecuteAsync(deleteQuery, new
+            {
+                CustomerId = dto.CustomerId,
+                FinancialYearId = dto.FinancialYearId
+            });
+
+            // ✅ Step 4: Generate next ID
+            var nextIdQuery = "SELECT ISNULL(MAX(SND_ID), 0) + 1 FROM ScheduleNote_Desc";
+            var nextId = await connection.ExecuteScalarAsync<int>(nextIdQuery);
+
+            // ✅ Step 5: Insert new record (Category, Status, DelFlag hardcoded)
+            var insertQuery = @"
+        INSERT INTO ScheduleNote_Desc
+        (SND_ID, SND_CustId, SND_Description, SND_Category,
+         SND_YearId, SND_CompId, SND_Status, SND_DelFlag,
+         SND_CRON, SND_CRBY, SND_IPAddress)
+        VALUES
+        (@NextId, @CustomerId, @Description, 'footNote',
+         @FinancialYearId, @CompanyId, 'W', 'X',
+         GETDATE(), @UserId, @IpAddress);
+
+        SELECT @NextId;";
+
+            var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
+            {
+                NextId = nextId,
+                CustomerId = dto.CustomerId,
+                Description = dto.Description,
+                FinancialYearId = dto.FinancialYearId,
+                CompanyId = dto.CompanyId,
+                UserId = dto.UserId,
+                IpAddress = dto.IpAddress ?? string.Empty
+            });
+            return newId;
+        }
     }
 }
+

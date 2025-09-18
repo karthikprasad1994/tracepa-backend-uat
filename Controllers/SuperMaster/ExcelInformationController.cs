@@ -4,6 +4,7 @@ using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using TracePca.Service.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
+using static TracePca.Service.SuperMaster.ExcelInformationService;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -37,27 +38,28 @@ namespace TracePca.Controllers.SuperMaster
             {
                 var results = await _ExcelInformationService.UploadEmployeeDetailsAsync(compId, file);
 
-                // If no errors and employees inserted successfully
                 return Ok(new
                 {
                     statusCode = 200,
                     message = "Employee master processed successfully"
                 });
             }
-            catch (Exception ex)
+            catch (EmployeeUploadException ex) // <-- catch your structured exception
             {
-                List<string> errors;
-
-                if (ex.Message.Contains("||"))
-                    errors = ex.Message.Split("||").ToList();
-                else
-                    errors = new List<string> { ex.Message };
-
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    statusCode = 500,
+                    statusCode = 404,
+                    message = ex.Message,
+                    data = ex.Errors // <-- structured dictionary
+                });
+            }
+            catch (Exception ex) // fallback for other unexpected errors
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 404,
                     message = "Error processing employee master",
-                    error = errors
+                    data = new List<string> { ex.Message }
                 });
             }
         }
@@ -105,29 +107,30 @@ namespace TracePca.Controllers.SuperMaster
 
             try
             {
-                var results = await _ExcelInformationService.UploadClientDetailsAsync(compId, file);
+                await _ExcelInformationService.UploadClientDetailsAsync(compId, file);
 
-                // If no errors and clients inserted successfully
                 return Ok(new
                 {
                     statusCode = 200,
                     message = "Client details processed successfully"
                 });
             }
-            catch (Exception ex)
+            catch (ClientDetailsUploadException ex)
             {
-                List<string> errors;
-
-                if (ex.Message.Contains("||"))
-                    errors = ex.Message.Split("||").ToList();
-                else
-                    errors = new List<string> { ex.Message };
-
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    statusCode = 500,
+                    statusCode = 404,
                     message = "Error processing client details",
-                    error = errors
+                    data = ex.Errors
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 404,
+                    message = "Error processing client details",
+                    data = new List<string> { ex.Message }
                 });
             }
         }
@@ -180,20 +183,22 @@ namespace TracePca.Controllers.SuperMaster
                     message = "Client user processed successfully"
                 });
             }
-            catch (Exception ex)
+            catch (ClientUserUploadException ex) // <-- catch your structured exception
             {
-                List<string> errors;
-
-                if (ex.Message.Contains("||"))
-                    errors = ex.Message.Split("||").ToList();
-                else
-                    errors = new List<string> { ex.Message };
-
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    statusCode = 500,
+                    statusCode = 404,
+                    message = "Error processing client user",  // custom message for client users
+                    data = ex.Errors // <-- structured dictionary (Missing column, Missing values, Duplication)
+                });
+            }
+            catch (Exception ex) // fallback for other unexpected errors
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 404,
                     message = "Error processing client user",
-                    error = errors
+                    data = new List<string> { ex.Message }
                 });
             }
         }

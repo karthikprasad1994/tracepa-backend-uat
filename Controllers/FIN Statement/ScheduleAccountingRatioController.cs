@@ -27,7 +27,7 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //GetAccoutingRatio
-        [HttpPost("GetRatio")]
+        [HttpGet("GetRatio")]
         public async Task<IActionResult> GetRatio([FromQuery] int yearId, [FromQuery] int customerId)
         {
             if (yearId <= 0 || customerId <= 0)
@@ -53,5 +53,36 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+        //GetAccoutingRatio2
+        [HttpGet("GetBorrowingsVsShareholders")]
+        public async Task<IActionResult> GetBorrowingsVsShareholders([FromQuery] int yearId, [FromQuery] int customerId, [FromQuery] int branchId)
+        {
+            if (yearId <= 0 || customerId <= 0 || branchId <= 0)
+                return BadRequest("Invalid yearId, customerId, or branchId.");
+
+            try
+            {
+                var result = await _ScheduleAccountingRatioService.GetBorrowingsVsShareholdersAsync(yearId, customerId, branchId);
+
+                return Ok(new
+                {
+                    Success = true,
+                    Message = "Borrowings vs Shareholders Funds ratio calculated successfully",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    Success = false,
+                    Message = "Error calculating Borrowings vs Shareholders Funds ratio",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetAccoutingRatio3
     }
 }
