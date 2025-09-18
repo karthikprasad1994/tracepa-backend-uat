@@ -48,7 +48,7 @@ namespace TracePca.Controllers.SuperMaster
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    statusCode = 500,
+                    statusCode = 404,
                     message = ex.Message,
                     data = ex.Errors // <-- structured dictionary
                 });
@@ -57,7 +57,7 @@ namespace TracePca.Controllers.SuperMaster
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    statusCode = 500,
+                    statusCode = 404,
                     message = "Error processing employee master",
                     data = new List<string> { ex.Message }
                 });
@@ -107,34 +107,33 @@ namespace TracePca.Controllers.SuperMaster
 
             try
             {
-                var results = await _ExcelInformationService.UploadClientDetailsAsync(compId, file);
+                await _ExcelInformationService.UploadClientDetailsAsync(compId, file);
 
-                // If no errors and clients inserted successfully
                 return Ok(new
                 {
                     statusCode = 200,
                     message = "Client details processed successfully"
                 });
             }
-            catch (Exception ex)
+            catch (ClientDetailsUploadException ex)
             {
-                List<string> errors;
-
-                if (ex.Message.Contains("||"))
-                    errors = ex.Message.Split("||").ToList();
-                else
-                    errors = new List<string> { ex.Message };
-
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    statusCode = 500,
+                    statusCode = 404,
                     message = "Error processing client details",
-                    error = errors
+                    error = ex.Errors
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 404,
+                    message = "Error processing client details",
+                    error = new List<string> { ex.Message }
                 });
             }
         }
-
-
 
         //SaveClientDetails
         [HttpPost("SaveClientDetails")]
@@ -188,7 +187,7 @@ namespace TracePca.Controllers.SuperMaster
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    statusCode = 500,
+                    statusCode = 404,
                     message = "Error processing client user",  // custom message for client users
                     data = ex.Errors // <-- structured dictionary (Missing column, Missing values, Duplication)
                 });
@@ -197,7 +196,7 @@ namespace TracePca.Controllers.SuperMaster
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    statusCode = 500,
+                    statusCode = 404,
                     message = "Error processing client user",
                     data = new List<string> { ex.Message }
                 });

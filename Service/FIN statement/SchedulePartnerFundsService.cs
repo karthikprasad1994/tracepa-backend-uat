@@ -529,7 +529,6 @@ namespace TracePca.Service.FIN_statement
 
         }
 
-
         //UpdateAndCalculate
         public async Task<decimal> UpdateAndCalculateAsync(PartnershipFirmCalculationDto dto)
         {
