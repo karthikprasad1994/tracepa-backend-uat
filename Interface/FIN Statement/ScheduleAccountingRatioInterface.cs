@@ -10,5 +10,7 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetAccoutingRatio2
         Task<Ratio2Dto> GetBorrowingsVsShareholdersAsync(int yearId, int customerId, int branchId);
+
+        //GetAccoutingRatio3
     }
 }

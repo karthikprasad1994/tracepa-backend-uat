@@ -121,7 +121,7 @@ namespace TracePca.Controllers.SuperMaster
                 {
                     statusCode = 404,
                     message = "Error processing client details",
-                    error = ex.Errors
+                    data = ex.Errors
                 });
             }
             catch (Exception ex)
@@ -130,7 +130,7 @@ namespace TracePca.Controllers.SuperMaster
                 {
                     statusCode = 404,
                     message = "Error processing client details",
-                    error = new List<string> { ex.Message }
+                    data = new List<string> { ex.Message }
                 });
             }
         }
