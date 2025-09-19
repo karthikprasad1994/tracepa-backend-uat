@@ -10,7 +10,7 @@ namespace TracePca.Interface
         Task<IEnumerable<IndustryTypeDto>> GetIndustryTypesAsync(int companyId);
         Task<IEnumerable<ManagementTypeDto>> GetManagementTypesAsync(int companyId);
         Task<string> SaveCustomerMasterAsync(CreateCustomerMasterDto dto);
-        Task<(bool IsSuccess, string Message)> ToggleCustomerStatusAsync(int customerId);
+        Task<(bool IsSuccess, string Message)> ToggleCustomerStatusAsync(int CustId);
 
     }
 }

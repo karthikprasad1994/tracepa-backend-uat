@@ -169,9 +169,9 @@ namespace TracePca.Controllers.CustomerMaster
 
 
         [HttpPut("UpdateStatusByCustomerId")]
-        public async Task<IActionResult> ToggleCustomerStatus(int customerId)
+        public async Task<IActionResult> ToggleCustomerStatus(int CustId)
         {
-            var (isSuccess, message) = await _customermaster.ToggleCustomerStatusAsync(customerId);
+            var (isSuccess, message) = await _customermaster.ToggleCustomerStatusAsync(CustId);
 
             if (isSuccess)
                 return Ok(new { StatusCode = 200, Message = message });
