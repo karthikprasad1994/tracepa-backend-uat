@@ -211,10 +211,7 @@ builder.Services.AddScoped<ReportanIssueInterface, ReportanIssueService>();
 
 builder.Services.AddScoped<ConductAuditInterface, TracePca.Service.Audit.ConductAuditService>();
 
-
-
 builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMasterService>();
-
 
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();

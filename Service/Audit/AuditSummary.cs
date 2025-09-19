@@ -253,11 +253,30 @@ namespace TracePca.Service.Audit
 
 			//WHERE ADRL_AuditNo = @AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and ADRL_RequestedListID = @RequestId ORDER BY  ADRL_UpdatedOn DESC
 
-			string query = @"select ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(cmm_Desc,'Unknown Report Type') AS ReportTypeText,
-							ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId
-							FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy  Left Join content_Management_Master on ADRL_RequestedListID = 
-							cmm_ID and cmm_Category='DRL' WHERE ADRL_AuditNo=@AuditNo AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId  
-							ORDER BY ADRL_UpdatedOn DESC";
+			//string query = @"select ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(cmm_Desc,'Unknown Report Type') AS ReportTypeText,
+			//				ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId
+			//				FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy  Left Join content_Management_Master on ADRL_RequestedListID = 
+			//				cmm_ID and cmm_Category='DRL' WHERE ADRL_AuditNo=@AuditNo AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId  
+			//				ORDER BY ADRL_UpdatedOn DESC";
+
+			//string query = @"SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(RTM_ReportTypeName,'N/A')
+			//ReportTypeText,ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId  
+			//FROM Audit_DRLLog
+			//LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
+			//LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType
+			//LEFT JOIN content_Management_Master b on b.cmm_ID = ADRL_RequestedListID
+			//WHERE ADRL_AuditNo=@AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and b.cmm_Desc = 'Beginning of the Audit' ORDER BY  ADRL_UpdatedOn DESC";
+
+
+			string query = @"SELECT distinct ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(E.RTM_ReportTypeName,'N/A')
+			ReportTypeText,ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId  
+			FROM Audit_DRLLog
+			LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
+			LEFT JOIN SAD_ReportTypeMaster C ON RTM_Id = ADRL_ReportType
+			LEFT JOIN content_Management_Master b on b.cmm_ID = ADRL_RequestedListID
+			Left join edt_attachments D on D.atch_id = ADRL_AttachID  
+			 left join SAD_ReportTypeMaster E on E.RTM_ID = ATCH_ReportType
+			WHERE ADRL_AuditNo=@AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and b.cmm_Desc = 'Beginning of the Audit' ORDER BY  REportTypeText asc";
 
 			var result = await connection.QueryAsync<DocumentRequestSummaryDto>(query, new
 			{
@@ -285,13 +304,19 @@ namespace TracePca.Service.Audit
 
 			using var connection = new SqlConnection(connectionString);
 
-			string query = @"
-            SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(RTM_ReportTypeName,'Unknown Report Type') AS ReportTypeText,
-            ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId 
-            FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy  LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType 
-            WHERE ADRL_AuditNo = @AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and ADRL_RequestedListID = @RequestId ORDER BY  ADRL_UpdatedOn DESC";
+			//string query = @"
+			//         SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(RTM_ReportTypeName,'Unknown Report Type') AS ReportTypeText,
+			//         ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId 
+			//         FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy  LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType 
+			//         WHERE ADRL_AuditNo = @AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and ADRL_RequestedListID = @RequestId ORDER BY  ADRL_UpdatedOn DESC";
 
-
+			string query = @"SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(RTM_ReportTypeName,'N/A')
+			ReportTypeText,ADRL_Comments, ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId  
+			FROM Audit_DRLLog
+			LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
+			LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType
+			LEFT JOIN content_Management_Master b on b.cmm_ID = ADRL_RequestedListID
+			WHERE ADRL_AuditNo=@AuditNo  AND ADRL_YearID = @YearId   AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and b.cmm_Desc = 'Nearing completion of the Audit' ORDER BY  ADRL_UpdatedOn DESC";
 			var result = await connection.QueryAsync<DocumentRequestSummaryDto>(query, new
 			{
 				CompId = compId,
@@ -326,11 +351,19 @@ namespace TracePca.Service.Audit
 			//         LEFT JOIN AuditType_Checklist_Master ON ACM_ID = ADRL_FunID 
 			//         WHERE ADRL_AuditNo =@AuditNo  AND ADRL_YearID =@YearId  AND ADRL_CompID =@CompId and ADRL_CustID = @CustomerId and (ADRL_ReportType Is NULL or ADRL_ReportType = 0) ORDER BY ADRL_UpdatedOn";
 
-			string query = @"SELECT ADRL_Id, IsNull(RTM_ReportTypeName,'Unknown Report Type') AS ReportTypeText,ADRL_Comments,ADRL_RequestedOn,usr_FullName,
-							ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId   
-							FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType 
-							LEFT JOIN AuditType_Checklist_Master ON ACM_ID = ADRL_FunID 
-							WHERE ADRL_AuditNo = @AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId ORDER BY ADRL_UpdatedOn";
+			//string query = @"SELECT ADRL_Id, IsNull(RTM_ReportTypeName,'Unknown Report Type') AS ReportTypeText,ADRL_Comments,ADRL_RequestedOn,usr_FullName,
+			//				ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId   
+			//				FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType 
+			//				LEFT JOIN AuditType_Checklist_Master ON ACM_ID = ADRL_FunID 
+			//				WHERE ADRL_AuditNo = @AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId ORDER BY ADRL_UpdatedOn";
+
+			string query = @"SELECT ADRL_Id,ADRL_ReportType ,ADRL_AuditNo,IsNull(cmm_Desc,'N/A') as reportTypeText,
+			ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId  
+			FROM Audit_DRLLog
+			LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
+			LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType
+			LEFT JOIN content_Management_Master b on b.cmm_ID = ADRL_RequestedListID
+			WHERE ADRL_AuditNo=@AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and ADRL_ReportType = 0 ORDER BY  ADRL_UpdatedOn DESC";
 
 			var result = await connection.QueryAsync<DocumentRequestSummaryDto>(query, new
 			{
@@ -591,7 +624,7 @@ namespace TracePca.Service.Audit
         }
 
 
-  //      private async Task<int> GenerateNextAttachmentIdAsync(int compId)
+		 //      private async Task<int> GenerateNextAttachmentIdAsync(int compId)
   //      {
 
 		//	string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1045,8 +1078,8 @@ namespace TracePca.Service.Audit
 				dto.AttachPKID = attachId;
 
 
-				return "Success" + '|' + attachId;
-            }
+				return attachId.ToString();
+			}
             catch (Exception ex)
             {
                 // Log the exception for better error handling

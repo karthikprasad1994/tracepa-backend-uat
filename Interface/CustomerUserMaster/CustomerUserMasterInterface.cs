@@ -8,5 +8,6 @@ namespace TracePca.Interface.CustomerUserMaster
         Task<IEnumerable<UserDropdownDto>> LoadExistingUsersAsync(int companyId);
         Task<IEnumerable<CustomerDropdownDto>> LoadActiveCustomersAsync(int companyId);
         Task<string> InsertCustomerUsersDetailsAsync(CreateCustomerUsersDto dto);
+        
     }
 }
