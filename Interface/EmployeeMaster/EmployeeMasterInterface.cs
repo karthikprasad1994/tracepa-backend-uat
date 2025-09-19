@@ -10,6 +10,7 @@ namespace TracePca.Interface.EmployeeMaster
         Task<string> SaveEmployeeBasicDetailsAsync(EmployeeBasicDetailsDto dto);
 
         Task<EmployeeInfo> GetEmployeeInfoByIdAsync(int userId, int companyId);
+        Task<(bool IsSuccess, string Message)> ToggleUserStatusAsync(int userId);
 
 
 

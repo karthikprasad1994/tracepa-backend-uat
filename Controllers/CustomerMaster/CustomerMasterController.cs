@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TracePca.Interface;
 using TracePca.Interface.EmployeeMaster;
+using TracePca.Service.CustomerUserMaster;
 using TracePca.Service.EmployeeMaster;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -167,8 +168,18 @@ namespace TracePca.Controllers.CustomerMaster
         }
 
 
+        [HttpPut("UpdateStatusByCustomerId")]
+        public async Task<IActionResult> ToggleCustomerStatus(int customerId)
+        {
+            var (isSuccess, message) = await _customermaster.ToggleCustomerStatusAsync(customerId);
+
+            if (isSuccess)
+                return Ok(new { StatusCode = 200, Message = message });
+
+            return BadRequest(new { StatusCode = 400, Message = message });
+        }
 
 
-      
+
     }
 }

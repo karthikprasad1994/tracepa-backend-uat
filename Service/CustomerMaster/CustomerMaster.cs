@@ -7,7 +7,7 @@ using TracePca.Interface.EmployeeMaster;
 
 namespace TracePca.Service.CustomerMaster
 {
-    public class CustomerMaster: CustomerMasterInterface
+    public class CustomerMaster : CustomerMasterInterface
     {
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -72,17 +72,17 @@ ORDER BY CUST_ID";
 
 
         public async Task<IEnumerable<ServicesDto>> GetServicesAsync(int companyId)
-{
-    // ✅ Step 1: Get DB name from session
-      string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-       if (string.IsNullOrEmpty(dbName))
-        throw new Exception("CustomerCode is missing in session. Please log in again.");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-    using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
 
-    // ✅ Step 2: SQL Query (converted from VB code)
-    string query = @"
+            // ✅ Step 2: SQL Query (converted from VB code)
+            string query = @"
         SELECT 
             cmm_ID AS ServiceId,
             cmm_Desc AS  Service
@@ -92,9 +92,9 @@ ORDER BY CUST_ID";
           AND cmm_Delflag = 'A'
         ORDER BY cmm_Desc ASC";
 
-    // ✅ Step 3: Execute query with parameters
-    return await connection.QueryAsync<ServicesDto>(query, new { CompanyId = companyId });
-}
+            // ✅ Step 3: Execute query with parameters
+            return await connection.QueryAsync<ServicesDto>(query, new { CompanyId = companyId });
+        }
 
         public async Task<IEnumerable<OrganizationDto>> GetOrganizationsAsync(int companyId)
         {
@@ -236,6 +236,45 @@ ORDER BY CUST_ID";
                 : "Customer created successfully";
         }
 
+        public async Task<(bool IsSuccess, string Message)> ToggleCustomerStatusAsync(int CustId)
+        {
+            try
+            {
+                // ✅ Step 1: Get DB name from session
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+                if (string.IsNullOrEmpty(dbName))
+                    return (false, "CustomerCode is missing in session. Please log in again.");
 
+                // ✅ Step 2: Open connection
+                await using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
+                await connection.OpenAsync();
+
+                // ✅ Step 3: Toggle only between A <-> D (leave W unchanged)
+                const string query = @"
+UPDATE SAD_CUSTOMER_MASTER
+SET CUST_Delflg = 
+    CASE 
+        WHEN CUST_Delflg = 'W' THEN 'A'  -- Waiting → Activate
+        WHEN CUST_Delflg = 'A' THEN 'D'  -- Activate → Deactivate
+        WHEN CUST_Delflg = 'D' THEN 'A'  -- Deactivate → Activate
+        ELSE CUST_Delflg                 -- No change
+    END
+WHERE CUST_ID = @CustomerId";
+
+                var rowsAffected = await connection.ExecuteAsync(query, new { CustomerId = CustId});
+
+                if (rowsAffected > 0)
+                    return (true, "Customer status updated successfully");
+
+                return (false, "Customer not found");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Error updating customer status: {ex.Message}");
+            }
+
+
+        }
     }
+
 }
