@@ -270,7 +270,7 @@ WHERE u.usr_ID = @UserId
             return employee;
         }
 
-        public async Task<(bool IsSuccess, string Message)> ToggleUserStatusAsync(int EmployeeId)
+        public async Task<(bool IsSuccess, string Message)> ToggleUserStatusAsync(int employeeId)
         {
             try
             {
@@ -293,9 +293,9 @@ SET Usr_DutyStatus =
         WHEN Usr_DutyStatus = 'D' THEN 'A'
         ELSE Usr_DutyStatus
     END
-WHERE usr_Id = @UserId";
+WHERE usr_Id = @EmployeeId";
 
-                var rowsAffected = await connection.ExecuteAsync(query, new { UserId = EmployeeId });
+                var rowsAffected = await connection.ExecuteAsync(query, new { EmployeeId = employeeId });
 
                 if (rowsAffected > 0)
                     return (true, "User status updated successfully");

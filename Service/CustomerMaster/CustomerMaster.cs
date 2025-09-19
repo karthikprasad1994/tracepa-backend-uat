@@ -236,7 +236,7 @@ ORDER BY CUST_ID";
                 : "Customer created successfully";
         }
 
-        public async Task<(bool IsSuccess, string Message)> ToggleCustomerStatusAsync(int CustId)
+        public async Task<(bool IsSuccess, string Message)> ToggleCustomerStatusAsync(int custId)
         {
             try
             {
@@ -249,7 +249,7 @@ ORDER BY CUST_ID";
                 await using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
                 await connection.OpenAsync();
 
-                // ✅ Step 3: Toggle only between A <-> D (leave W unchanged)
+                // ✅ Step 3: Toggle status
                 const string query = @"
 UPDATE SAD_CUSTOMER_MASTER
 SET CUST_Delflg = 
@@ -259,9 +259,10 @@ SET CUST_Delflg =
         WHEN CUST_Delflg = 'D' THEN 'A'  -- Deactivate → Activate
         ELSE CUST_Delflg                 -- No change
     END
-WHERE CUST_ID = @CustomerId";
+WHERE CUST_ID = @CustId";
 
-                var rowsAffected = await connection.ExecuteAsync(query, new { CustomerId = CustId});
+                // ✅ Pass correct param name
+                var rowsAffected = await connection.ExecuteAsync(query, new { CustId = custId });
 
                 if (rowsAffected > 0)
                     return (true, "Customer status updated successfully");
@@ -272,9 +273,9 @@ WHERE CUST_ID = @CustomerId";
             {
                 return (false, $"Error updating customer status: {ex.Message}");
             }
-
-
         }
     }
-
 }
+
+
+    
