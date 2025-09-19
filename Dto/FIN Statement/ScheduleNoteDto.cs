@@ -94,7 +94,7 @@
         }
 
         // --PreDefinied Notes //
-        //SaveShareCapital(Particulars)
+        //SaveAuthorisedShareCapital(Particulars)
         public class AuthorisedShareCapitalDto
         {
             public int Id { get; set; } // SNF_ID (0 for new, >0 for update)
@@ -434,6 +434,64 @@
             public int CompanyId { get; set; }       // SND_CompId
             public int UserId { get; set; }          // SND_CRBY
             public string IpAddress { get; set; } = string.Empty;   // SND_IPAddress
+        }
+
+        //GetFirstNote
+        public class FirstNoteDto
+        {
+            public int SNF_ID { get; set; }              // Primary Key
+            public int SNF_CustId { get; set; }          // Customer ID
+            public string SNF_Description { get; set; }  // Description
+            public decimal SNF_CYear_Amount { get; set; } // Current Year Amount
+            public decimal SNF_PYear_Amount { get; set; } // Previous Year Amount
+        }
+
+        //GetThirdNote
+        public class ThirdNoteDto
+        {
+            public int SNT_ID { get; set; }              // Primary Key
+            public int SNT_CustId { get; set; }          // Customer ID
+            public string SNT_Description { get; set; }  // Description
+            public decimal SNT_CYear_Amount { get; set; } // Current Year Amount
+            public decimal SNT_PYear_Amount { get; set; } // Previous Year Amount
+        }
+
+        //GetFourthNote
+        public class FourthNoteDto
+        {
+            public int SNFT_ID { get; set; }             // Primary Key
+            public int SNFT_CustId { get; set; }         // Customer ID
+            public string SNFT_Description { get; set; } // Description
+            public int SNFT_NumShares { get; set; }      // Number of Shares
+            public decimal SNFT_TotalShares { get; set; } // Total Shares
+            public decimal SNFT_ChangedShares { get; set; } // Changed Shares
+        }
+
+        //DeleteFirstNote
+        public class DeleteFirstNoteDto
+        {
+            public int Id { get; set; }          // SNF_ID
+            public int CustomerId { get; set; }  // SNF_CustId
+            public int CompId { get; set; }      // SNF_CompId
+            public int YearId { get; set; }      // SNF_YearId
+        }
+
+        //DeleteThirdNote
+        public class DeleteThirdNoteDto
+        {
+            public int Id { get; set; }          // SNT_ID
+            public int CustomerId { get; set; }  // SNT_CustId
+            public int CompId { get; set; }      // SNT_CompId
+            public int YearId { get; set; }      // SNT_YearId
+        }
+
+        //DeleteFourthNote
+        public class DeleteFourthNoteDto
+        {
+            public int Id { get; set; }          // SNFT_ID
+            public int CustomerId { get; set; }  // SNFT_CustId
+            public int CompId { get; set; }      // SNFT_CompId
+            public int YearId { get; set; }      // SNFT_YearId
         }
     }
 }
