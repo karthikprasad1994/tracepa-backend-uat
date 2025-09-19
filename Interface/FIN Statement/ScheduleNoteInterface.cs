@@ -30,7 +30,7 @@ namespace TracePca.Interface.FIN_Statement
         Task<int> SaveFirstScheduleNoteDetailsAsync(FirstScheduleNoteDto dto);
 
         // --PreDefinied Notes //
-        //SaveShareCapital(Particulars)
+        //SaveAuthorisedShareCapital(Particulars)
         Task<int> SaveAuthorisedShareCapitalAsync(AuthorisedShareCapitalDto dto);
 
         //SaveIssuedSubscribedandFullyPaidupShareCapital
@@ -89,5 +89,23 @@ namespace TracePca.Interface.FIN_Statement
 
         //SaveFootNote
         Task<int> SaveFootNoteAsync(FootNoteDto dto);
+
+        //GetFirstNote
+        Task<IEnumerable<FirstNoteDto>> GetFirstNoteAsync(int compId, string category);
+
+        //GetThirdNote
+        Task<IEnumerable<ThirdNoteDto>> GetThirdNoteAsync(int compId, string category);
+
+        //GetFourthNote
+        Task<IEnumerable<FourthNoteDto>> GetFourthNoteAsync(int compId, string category);
+
+        //DeleteFirstNote
+        Task<int> DeleteSchedFirstNoteDetailsAsync(int id, int customerId, int compId, int yearId);
+
+        //DeleteThirdNote
+        Task<int> DeleteSchedThirdNoteDetailsAsync(int id, int customerId, int compId, int yearId);
+
+        //DeleteFourthNote
+        Task<int> DeleteSchedFourthNoteDetailsAsync(int id, int customerId, int compId, int yearId);
     }
 }

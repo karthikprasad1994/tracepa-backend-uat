@@ -290,7 +290,7 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         // --PreDefinied Notes //
-        //SaveShareCapital(Particulars)
+        //SaveAuthorisedShareCapital(Particulars)
         [HttpPost("SaveAuthorisedShareCapital")]
         public async Task<IActionResult> SaveAuthorisedShareCapital([FromBody] AuthorisedShareCapitalDto dto)
         {
@@ -1035,6 +1035,257 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     StatusCode = 500,
                     Message = "An error occurred while saving description for Foot Note.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetFirstNote
+        [HttpGet("GetFirstNote")]
+        public async Task<IActionResult> GetFirstNote(int compId, string category)
+        {
+            try
+            {
+                var result = await _ScheduleNoteService.GetFirstNoteAsync(compId, category);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = $"No records found in ScheduleNote_First for category '{category}' and companyId '{compId}'.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"Records fetched successfully for category '{category}'.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching ScheduleNote_First records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetThirdNote
+        [HttpGet("GetThirdNote")]
+        public async Task<IActionResult> GetThirdNote(int compId, string category)
+        {
+            try
+            {
+                var result = await _ScheduleNoteService.GetThirdNoteAsync(compId, category);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = $"No records found in ScheduleNote_Third for category '{category}' and companyId '{compId}'.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"Records fetched successfully for category '{category}'.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching ScheduleNote_Third records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetFourthNote
+        [HttpGet("GetFourthNote")]
+        public async Task<IActionResult> GetFourthNote(int compId, string category)
+        {
+            try
+            {
+                var result = await _ScheduleNoteService.GetFourthNoteAsync(compId, category);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = $"No records found in ScheduleNote_Fourth for category '{category}' and companyId '{compId}'.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"Records fetched successfully for category '{category}'.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching ScheduleNote_Fourth records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //DeleteFirstNote
+        [HttpPost("DeleteSchedFirstNoteDetails")]
+        public async Task<IActionResult> DeleteSchedFirstNoteDetails([FromBody] DeleteFirstNoteDto dto)
+        {
+            try
+            {
+                if (dto.Id == 0 || dto.CustomerId == 0 || dto.CompId == 0 || dto.YearId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Id, CustomerId, CompId, and YearId are required.",
+                        Data = (object)null
+                    });
+                }
+
+                var rowsAffected = await _ScheduleNoteService.DeleteSchedFirstNoteDetailsAsync(
+                    dto.Id, dto.CustomerId, dto.CompId, dto.YearId);
+
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = "No matching record found to delete.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "ScheduleNote_First record soft-deleted successfully.",
+                    Data = rowsAffected
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while deleting ScheduleNote_First record.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //DeleteThirdNote
+        [HttpPost("DeleteSchedThirdNoteDetails")]
+        public async Task<IActionResult> DeleteSchedThirdNoteDetails([FromBody] DeleteThirdNoteDto dto)
+        {
+            try
+            {
+                if (dto.Id == 0 || dto.CustomerId == 0 || dto.CompId == 0 || dto.YearId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Id, CustomerId, CompId, and YearId are required.",
+                        Data = (object)null
+                    });
+                }
+
+                var rowsAffected = await _ScheduleNoteService.DeleteSchedThirdNoteDetailsAsync(
+                    dto.Id, dto.CustomerId, dto.CompId, dto.YearId);
+
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = "No matching record found to delete in ScheduleNote_Third.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "ScheduleNote_Third record soft-deleted successfully.",
+                    Data = rowsAffected
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while deleting ScheduleNote_Third record.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //DeleteFourthNote
+        [HttpPost("DeleteSchedFourthNoteDetails")]
+        public async Task<IActionResult> DeleteSchedFourthNoteDetails([FromBody] DeleteFourthNoteDto dto)
+        {
+            try
+            {
+                // ✅ Validation
+                if (dto.Id == 0 || dto.CustomerId == 0 || dto.CompId == 0 || dto.YearId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Id, CustomerId, CompId, and YearId are required.",
+                        Data = (object)null
+                    });
+                }
+
+                // ✅ Call service
+                var rowsAffected = await _ScheduleNoteService.DeleteSchedFourthNoteDetailsAsync(
+                    dto.Id, dto.CustomerId, dto.CompId, dto.YearId);
+
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = "No matching record found to delete in ScheduleNote_Fourth.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "ScheduleNote_Fourth record soft-deleted successfully.",
+                    Data = rowsAffected
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while deleting ScheduleNote_Fourth record.",
                     Error = ex.Message
                 });
             }
