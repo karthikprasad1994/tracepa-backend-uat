@@ -19,5 +19,7 @@
             public decimal Previous_Reporting_Period { get; set; }
             public decimal Change { get; set; }
         }
+
+        //GetAccoutingRatio3
     }
 }

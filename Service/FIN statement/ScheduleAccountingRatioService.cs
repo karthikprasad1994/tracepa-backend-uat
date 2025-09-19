@@ -78,6 +78,7 @@ namespace TracePca.Service.FIN_statement
                 transaction
             ) ?? 0;
         }
+
         // ✅ Get Calculated Amounts
         private async Task<(decimal Dc1, decimal DP1)> GetHeadingAmt1(SqlConnection connection, SqlTransaction transaction,
         int yearId, int customerId, int schedType, int headingId)
@@ -300,5 +301,8 @@ namespace TracePca.Service.FIN_statement
                 transaction
             ) ?? 0m;
         }
+
+        //GetAccoutingRatio3
+
     }
 }
