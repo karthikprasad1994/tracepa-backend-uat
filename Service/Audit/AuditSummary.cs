@@ -1078,8 +1078,8 @@ namespace TracePca.Service.Audit
 				dto.AttachPKID = attachId;
 
 
-				return "Success" + '|' + attachId;
-            }
+				return attachId.ToString();
+			}
             catch (Exception ex)
             {
                 // Log the exception for better error handling
