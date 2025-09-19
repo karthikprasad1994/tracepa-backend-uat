@@ -5,7 +5,7 @@
         //GetAllPartnershipFirms
         public class PartnershipFirmRequestDto
         {
-                     public int iFinancialYearID { get; set; }
+            public int iFinancialYearID { get; set; }
             public int iCustomerID { get; set; }
             public int sFY1 { get; set; }
             public string sFY2 { get; set; }

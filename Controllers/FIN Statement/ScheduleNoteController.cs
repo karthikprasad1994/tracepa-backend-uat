@@ -655,8 +655,8 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         // Save(b)EquityShareCapital
-        [HttpPost("SaveEquityShareCapital")]
-        public async Task<IActionResult> SaveEquityShareCapitalAsync([FromBody] EquityShareCapitalDto dto)
+        [HttpPost("Save(b)EquityShareCapital")]
+        public async Task<IActionResult> SavebEquityShareCapital([FromBody] EquityShareCapitalDto dto)
         {
             try
             {
@@ -670,7 +670,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var id = await _ScheduleNoteService.SaveThirdScheduleNoteDetailsAsync(dto);
+                var id = await _ScheduleNoteService.SavebEquityShareCapitalAsync(dto);
 
                 return Ok(new
                 {
@@ -687,6 +687,354 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     StatusCode = 500,
                     Message = "An error occurred while saving Equity Share Capital.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //Save(b)PreferenceShareCapital
+        [HttpPost("Save(b)PreferenceShareCapital")]
+        public async Task<IActionResult> SavebPreferenceShareCapital([FromBody] PreferenceShareCapitalDto dto)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dto.Description))
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Description is required.",
+                        Data = (int?)null
+                    });
+                }
+
+                var id = await _ScheduleNoteService.SavebPreferenceShareCapitalAsync(dto);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = dto.Id == 0
+                        ? "Preference Share Capital saved successfully."
+                        : "Preference Share Capital  updated successfully.",
+                    Data = id
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving Preference Share Capital .",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //Save(c)Terms/rights attached to equity shares
+        [HttpPost("Save(c)TermsToEquityShare")]
+        public async Task<IActionResult> SaveTermsToEquityShare([FromBody] TermsToEquityShareeDto dto)
+        {
+            try
+            {
+                // ✅ Validation (optional, can extend with more rules)
+                if (dto.CustomerId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "CustomerId is required.",
+                        Data = (int?)null
+                    });
+                }
+
+                var id = await _ScheduleNoteService.SaveTermsToEquityShareAsync(dto);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = dto.Id == 0
+                        ? "Description for cEquity Share saved successfully."
+                        : "Description for cEquity share deleted successfully.",
+                    Data = id
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving description for cEquity Share.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //Save(d)Terms/Rights attached to preference shares
+        [HttpPost("Save(d)TermsToPreferenceShare")]
+        public async Task<IActionResult> SaveTermsToPreferenceShare([FromBody] TermsToPreferenceShareDto dto)
+        {
+            try
+            {
+                // ✅ Validation (optional, can extend with more rules)
+                if (dto.CustomerId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "CustomerId is required.",
+                        Data = (int?)null
+                    });
+                }
+
+                var id = await _ScheduleNoteService.SaveTermsToPreferenceShareAsync(dto);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = dto.Id == 0
+                        ? "Description for dPreference Share saved successfully."
+                        : "Description for dPreference share deleted successfully.",
+                    Data = id
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving description for dPreference Share.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //Save(e)Nameofthesharholder
+        [HttpPost("Save(e)Nameofthesharholder")]
+        public async Task<IActionResult> SaveNameofthesharholder([FromBody] NameofthesharholderDto dto)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dto.Description))
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Description is required.",
+                        Data = (int?)null
+                    });
+                }
+
+                var id = await _ScheduleNoteService.SaveeNameofthesharholderAsync(dto);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = dto.Id == 0
+                        ? "Name of the sharholder saved successfully."
+                        : "Name of the sharholder  updated successfully.",
+                    Data = id
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving Name of the sharholder  .",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //Save(e)PreferenceShares
+        [HttpPost("Save(e)PreferenceShares")]
+        public async Task<IActionResult> SaveePreferenceShares([FromBody] ePreferenceSharesDto dto)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dto.Description))
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Description is required.",
+                        Data = (int?)null
+                    });
+                }
+
+                var id = await _ScheduleNoteService.SaveePreferenceSharesAsync(dto);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = dto.Id == 0
+                        ? "Preference Shares saved successfully."
+                        : "Preference Shares updated successfully.",
+                    Data = id
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving Preference Shares .",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //Save(f)SharesAllotted
+        [HttpPost("Save(f)SharesAllotted")]
+        public async Task<IActionResult> SavefSharesAllotted([FromBody] FSahresAllottedDto dto)
+        {
+            try
+            {
+                // ✅ Validation (optional, can extend with more rules)
+                if (dto.CustomerId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "CustomerId is required.",
+                        Data = (int?)null
+                    });
+                }
+
+                var id = await _ScheduleNoteService.SavefSharesAllottedAsync(dto);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = dto.Id == 0
+                        ? "Shares Allotted saved successfully."
+                        : "Shares Allotted deleted successfully.",
+                    Data = id
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving description for Shares Allotted.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //SaveEquityShares(Promoter name)
+        [HttpPost("SaveEquityShares(Promoter name)")]
+        public async Task<IActionResult> SaveEquitySharesPromoterName([FromBody] SaveEquitySharesPromoterNameDto dto)
+        {
+            try
+            {
+                // ✅ Validation
+                if (dto.CustomerId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "CustomerId is required.",
+                        Data = (int?)null
+                    });
+                }
+
+                var id = await _ScheduleNoteService.SaveEquitySharesPromoterNameAsync(dto);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = dto.Id == 0
+                        ? "Equity Shares(FSC) saved successfully."
+                        : "Equity Shares(FSC) updated successfully.",
+                    Data = id
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving Equity Shares(FSC).",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //SavePreferenceShares(Promoter name)
+        [HttpPost("SavePreferenceShares(Promoter name)")]
+        public async Task<IActionResult> SavePreferenceSharesPromoterName([FromBody] SavePreferenceSharesPromoterNameDto dto)
+        {
+            try
+            {
+                // ✅ Validation
+                if (dto.CustomerId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "CustomerId is required.",
+                        Data = (int?)null
+                    });
+                }
+
+                var id = await _ScheduleNoteService.SavePreferenceSharesPromoterNameAsync(dto);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = dto.Id == 0
+                        ? "Preference Shares(FSC) saved successfully."
+                        : "Preference Shares(FSC) updated successfully.",
+                    Data = id
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving Preference Shares(FSC).",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //SaveFootNote
+        [HttpPost("SaveFootNote")]
+        public async Task<IActionResult> SaveFootNote([FromBody] FootNoteDto dto)
+        {
+            try
+            {
+                // ✅ Validation (optional, can extend with more rules)
+                if (dto.CustomerId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "CustomerId is required.",
+                        Data = (int?)null
+                    });
+                }
+
+                var id = await _ScheduleNoteService.SaveFootNoteAsync(dto);
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = dto.Id == 0
+                        ? "Foot Note saved successfully."
+                        : "Foot Note deleted successfully.",
+                    Data = id
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving description for Foot Note.",
                     Error = ex.Message
                 });
             }

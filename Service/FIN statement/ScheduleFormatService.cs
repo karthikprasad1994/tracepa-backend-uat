@@ -171,8 +171,7 @@ namespace TracePca.Service.FIN_statement
 
             public async Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(
        int CompId, int ScheduleId, int CustId, int AccHead)
-
-        {
+            {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -260,6 +259,9 @@ FROM NumberedRows
             var result = await connection.QueryAsync<ScheduleFormatTemplateDto>(baseQuery, parameters);
             return result;
         }
+
+
+
 
 
         //DeleteScheduleTemplate(Grid)
@@ -1288,8 +1290,8 @@ WHERE
 
             return result;
         }
-            public async Task<CustomerDetailsDto> GetCustomerDetailsAsync(int custId, int compId)
-    {
+        public async Task<CustomerDetailsDto> GetCustomerDetailsAsync(int custId, int compId)
+        {
             // ✅ Connection string should use dynamic DBName
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -1301,8 +1303,8 @@ WHERE
 
 
             using (var connection = new SqlConnection(connectionString))
-        {
-            string query = @"
+            {
+                string query = @"
                 SELECT 
                     CUST_NAME,
                     CUST_EMAIL,
@@ -1315,8 +1317,8 @@ WHERE
                 FROM SAD_CUSTOMER_MASTER 
                 WHERE Cust_Id = @CustId AND CUST_CompID = @CompId";
 
-            return await connection.QueryFirstOrDefaultAsync<CustomerDetailsDto>(query, new { CustId = custId, CompId = compId });
+                return await connection.QueryFirstOrDefaultAsync<CustomerDetailsDto>(query, new { CustId = custId, CompId = compId });
+            }
         }
-    }
     }
 }

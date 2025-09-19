@@ -184,20 +184,22 @@ namespace TracePca.Controllers.SuperMaster
                     message = "Client user processed successfully"
                 });
             }
-            catch (Exception ex)
+            catch (ClientUserUploadException ex) // <-- catch your structured exception
             {
-                List<string> errors;
-
-                if (ex.Message.Contains("||"))
-                    errors = ex.Message.Split("||").ToList();
-                else
-                    errors = new List<string> { ex.Message };
-
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 500,
+                    message = "Error processing client user",  // custom message for client users
+                    data = ex.Errors // <-- structured dictionary (Missing column, Missing values, Duplication)
+                });
+            }
+            catch (Exception ex) // fallback for other unexpected errors
+            {
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
                     statusCode = 500,
                     message = "Error processing client user",
-                    error = errors
+                    data = new List<string> { ex.Message }
                 });
             }
         }

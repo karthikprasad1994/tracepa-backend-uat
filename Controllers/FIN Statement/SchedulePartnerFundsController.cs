@@ -169,11 +169,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetSelectedPartnershipFirms
         [HttpGet("GetSelectedPartnershipFirms")]
-        public async Task<IActionResult> LoadSelectedPartnershipFirm(int partnershipFirmId, int compId)
+        public async Task<IActionResult> LoadSelectedPartnershipFirm(int partnershipFirmId, int compId, int yearId)
         {
             try
             {
-                var result = await _SchedulePartnerFundsService.LoadSelectedPartnershipFirmAsync(partnershipFirmId, compId);
+                var result = await _SchedulePartnerFundsService.LoadSelectedPartnershipFirmAsync(partnershipFirmId, compId, yearId);
 
                 if (result == null || !result.Any())
                 {
@@ -201,6 +201,7 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
 
         //UpdateAndCalculate
         [HttpPut("UpdateAndCalculate")]
