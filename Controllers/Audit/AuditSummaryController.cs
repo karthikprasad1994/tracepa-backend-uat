@@ -429,18 +429,41 @@ namespace TracePca.Controllers.Audit
             try
             {
                 var result = await _AuditSummaryInterface.UploadCMAAttachmentsAsync(dto);
-
-			 
-
-				if (result.Contains("Error"))
+                if (result != null && result.Any())
                 {
-                    return StatusCode(500, result); // Internal Server Error
-                }
-                dto.AttachPKID = Convert.ToInt32(result.Replace("Success|", "").ToString());
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "File Upload Successfully.",
+                        data = new
+                        {
+                            AttachPKID = Convert.ToInt32(result)
+                        }
+                    });
+				}
+				else
+				{
+					return NotFound(new
+					{
+						statusCode = 500,
+						message = "Failed to upload.",
+						data = new
+						{
+							result = new List<object>()
+						}
+					});
+				}
 
 
-				return Ok("File uploaded Successfully"); // Success
-            }
+				//   if (result.Contains("Error"))
+				//            {
+				//                return StatusCode(500, result); // Internal Server Error
+				//            }
+				//            dto.AttachPKID = Convert.ToInt32(result.Replace("Success|", "").ToString());
+
+
+				//return Ok(dto.AttachPKID); // Success
+			}
             catch (Exception ex)
             {
                 // Log the exception here if needed
