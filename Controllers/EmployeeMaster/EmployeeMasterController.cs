@@ -136,9 +136,21 @@ namespace TracePca.Controllers
         }
 
 
+        [HttpPut("UpdateStatusByEmployeeId")]
+        public async Task<IActionResult> ToggleUserStatus(int EmployeeId)
+        {
+            var (isSuccess, message) = await _employeemaster.ToggleUserStatusAsync(EmployeeId);
 
-            // GET: api/<EmployeeMasterController>
-            [HttpGet]
+            if (isSuccess)
+                return Ok(new { StatusCode = 200, Message = message });
+
+            return BadRequest(new { StatusCode = 400, Message = message });
+        }
+
+
+
+        // GET: api/<EmployeeMasterController>
+        [HttpGet]
         public IEnumerable<string> Get()
         {
             return new string[] { "value1", "value2" };
