@@ -1581,7 +1581,7 @@ INSERT INTO ScheduleNote_First (
         }
 
         //GetFirstNote
-        public async Task<IEnumerable<FirstNoteDto>> GetFirstNoteAsync(int compId, string category)
+        public async Task<IEnumerable<FirstNoteDto>> GetFirstNoteAsync(int compId, string category, int custId, int YearId)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1605,17 +1605,96 @@ INSERT INTO ScheduleNote_First (
             SNF_PYear_Amount
         FROM ScheduleNote_First
         WHERE SNF_Category = @Category
-          AND SNF_CompId = @CompId";
+          AND SNF_CompId = @CompId
+          AND SNF_CustId = @CustId
+          AND SNF_YEARId = @YearId";
 
             return await connection.QueryAsync<FirstNoteDto>(query, new
             {
                 Category = category,
-                CompId = compId
+                CompId = compId,
+                CustId = custId,
+                YearId = YearId
+            });
+        }
+
+        //GetSecondNoteById
+        public async Task<IEnumerable<SecondNoteDto>> GetSecondNoteByIdAsync(int compId, string category, int custId, int YearId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT 
+            SNS_ID, 
+            SNS_CustId,
+            SNS_Description, 
+            SNS_CYear_BegShares, SNS_CYear_BegAmount, SNS_PYear_BegShares, SNS_PYear_BegAmount
+            SNS_CYear_AddShares, SNS_CYear_AddAmount, SNS_PYear_AddShares, SNS_PYear_AddAmount,
+            SNS_CYear_EndShares, SNS_CYear_EndAmount, SNS_PYear_EndShares, SNS_PYear_EndAmount
+        FROM ScheduleNote_Second
+        WHERE SNS_Category = @Category
+          AND SNS_CompId = @CompId
+          AND SNS_CustId = @CustId
+          AND SNS_YEARId = @YearId";
+             
+            return await connection.QueryAsync<SecondNoteDto>(query, new
+            {
+                Category = category,
+                CompId = compId,
+                CustId = custId,
+                YearId = YearId
+            });
+        }
+
+        //GetDescriptionNoteById
+        public async Task<IEnumerable<DescriptionNoteDto>> GetDescriptionNoteAsync(int compId, string category, int custId, int YearId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT 
+            SND_ID, 
+            SND_CustId,
+            SND_Description 
+        FROM ScheduleNote_Desc
+        WHERE SND_Category = @Category
+          AND SND_CompId = @CompId
+          AND SND_CustId = @CustId
+          AND SND_YEARId = @YearId";
+
+            return await connection.QueryAsync<DescriptionNoteDto>(query, new
+            {
+                Category = category,
+                CompId = compId,
+                CustId = custId,
+                YearId = YearId
             });
         }
 
         //GetThirdNote
-        public async Task<IEnumerable<ThirdNoteDto>> GetThirdNoteAsync(int compId, string category)
+        public async Task<IEnumerable<ThirdNoteDto>> GetThirdNoteAsync(int compId, string category, int custId, int YearId)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1639,17 +1718,21 @@ INSERT INTO ScheduleNote_First (
             SNT_PYear_Amount
         FROM ScheduleNote_Third
         WHERE SNT_Category = @Category
-          AND SNT_CompId = @CompId";
+          AND SNT_CompId = @CompId
+          AND SNT_CustId = @CustId
+          AND SNT_YEARId = @YearId";
 
             return await connection.QueryAsync<ThirdNoteDto>(query, new
             {
                 Category = category,
-                CompId = compId
+                CompId = compId,
+                CustId = custId,
+                YearId = YearId
             });
         }
 
         //GetFourthNote
-        public async Task<IEnumerable<FourthNoteDto>> GetFourthNoteAsync(int compId, string category)
+        public async Task<IEnumerable<FourthNoteDto>> GetFourthNoteAsync(int compId, string category, int custId, int YearId)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1674,12 +1757,16 @@ INSERT INTO ScheduleNote_First (
             SNFT_ChangedShares
         FROM ScheduleNote_Fourth
         WHERE SNFT_Category = @Category
-          AND SNFT_CompId = @CompId";
+          AND SNFT_CompId = @CompId
+          AND SNFT_CustId = @CustId
+          AND SNFT_YEARId = @YearId";
 
             return await connection.QueryAsync<FourthNoteDto>(query, new
             {
                 Category = category,
-                CompId = compId
+                CompId = compId,
+                CustId = custId,
+                YearId = YearId
             });
         }
 

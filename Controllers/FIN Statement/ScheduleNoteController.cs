@@ -1042,11 +1042,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetFirstNote
         [HttpGet("GetFirstNote")]
-        public async Task<IActionResult> GetFirstNote(int compId, string category)
+        public async Task<IActionResult> GetFirstNote(int compId, string category, int custId, int YearId)
         {
             try
             {
-                var result = await _ScheduleNoteService.GetFirstNoteAsync(compId, category);
+                var result = await _ScheduleNoteService.GetFirstNoteAsync(compId, category, custId, YearId);
 
                 if (result == null || !result.Any())
                 {
@@ -1076,13 +1076,85 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GetThirdNote
-        [HttpGet("GetThirdNote")]
-        public async Task<IActionResult> GetThirdNote(int compId, string category)
+        //GetSecondNoteById
+        [HttpGet("GetSecondNote")]
+        public async Task<IActionResult> GetSecondNote(int compId, string category, int custId, int yearId)
         {
             try
             {
-                var result = await _ScheduleNoteService.GetThirdNoteAsync(compId, category);
+                var result = await _ScheduleNoteService.GetSecondNoteByIdAsync(compId, category, custId, yearId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = $"No records found in ScheduleNote_First for category '{category}' and companyId '{compId}'.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"Records fetched successfully for category '{category}'.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching ScheduleNote_First records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetDescriptionNoteById
+        [HttpGet("GetDescriptionNoteById")]
+        public async Task<IActionResult> GetDescriptionNote([FromQuery] int compId, [FromQuery] string category, [FromQuery] int custId, [FromQuery] int yearId)
+        {
+            try
+            {
+                var result = await _ScheduleNoteService.GetDescriptionNoteAsync(compId, category, custId, yearId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = $"No records found in ScheduleNote_Desc for category '{category}' and companyId '{compId}'.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"Records fetched successfully for category '{category}'.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching ScheduleNote_Desc records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetThirdNote
+        [HttpGet("GetThirdNote")]
+        public async Task<IActionResult> GetThirdNote(int compId, string category, int custId, int YearId)
+        {
+            try
+            {
+                var result = await _ScheduleNoteService.GetThirdNoteAsync(compId, category, custId, YearId  );
 
                 if (result == null || !result.Any())
                 {
@@ -1114,11 +1186,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetFourthNote
         [HttpGet("GetFourthNote")]
-        public async Task<IActionResult> GetFourthNote(int compId, string category)
+        public async Task<IActionResult> GetFourthNote(int compId, string category, int custId, int YearId)
         {
             try
             {
-                var result = await _ScheduleNoteService.GetFourthNoteAsync(compId, category);
+                var result = await _ScheduleNoteService.GetFourthNoteAsync(compId, category, custId, YearId);
 
                 if (result == null || !result.Any())
                 {

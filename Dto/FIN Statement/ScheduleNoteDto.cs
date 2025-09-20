@@ -444,7 +444,40 @@
             public string SNF_Description { get; set; }  // Description
             public decimal SNF_CYear_Amount { get; set; } // Current Year Amount
             public decimal SNF_PYear_Amount { get; set; } // Previous Year Amount
+            public int SNF_YEARId { get; set; }
         }
+
+        //GetSecondNoteById
+        public class SecondNoteDto
+        {
+            public int SNS_ID { get; set; }
+            public int SNS_CustId { get; set; }
+            public string SNS_Description { get; set; }
+
+            public decimal SNS_CYear_BegShares { get; set; }
+            public decimal SNS_CYear_BegAmount { get; set; }
+            public decimal SNS_PYear_BegShares { get; set; }
+            public decimal SNS_PYear_BegAmount { get; set; }
+
+            public decimal SNS_CYear_AddShares { get; set; }
+            public decimal SNS_CYear_AddAmount { get; set; }
+            public decimal SNS_PYear_AddShares { get; set; }
+            public decimal SNS_PYear_AddAmount { get; set; }
+
+            public decimal SNS_CYear_EndShares { get; set; }
+            public decimal SNS_CYear_EndAmount { get; set; }
+            public decimal SNS_PYear_EndShares { get; set; }
+            public decimal SNS_PYear_EndAmount { get; set; }
+        }
+
+        //GetDescriptionNoteById
+        public class DescriptionNoteDto
+        {
+            public int SND_ID { get; set; }
+            public int SND_CustId { get; set; }
+            public string SND_Description { get; set; }
+        }
+
 
         //GetThirdNote
         public class ThirdNoteDto
@@ -454,6 +487,7 @@
             public string SNT_Description { get; set; }  // Description
             public decimal SNT_CYear_Amount { get; set; } // Current Year Amount
             public decimal SNT_PYear_Amount { get; set; } // Previous Year Amount
+            public int SNT_YEARId { get; set; }
         }
 
         //GetFourthNote
@@ -465,6 +499,7 @@
             public int SNFT_NumShares { get; set; }      // Number of Shares
             public decimal SNFT_TotalShares { get; set; } // Total Shares
             public decimal SNFT_ChangedShares { get; set; } // Changed Shares
+            public int SNFT_YEARId { get; set; }
         }
 
         //DeleteFirstNote

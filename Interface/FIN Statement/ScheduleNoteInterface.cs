@@ -91,13 +91,19 @@ namespace TracePca.Interface.FIN_Statement
         Task<int> SaveFootNoteAsync(FootNoteDto dto);
 
         //GetFirstNote
-        Task<IEnumerable<FirstNoteDto>> GetFirstNoteAsync(int compId, string category);
+        Task<IEnumerable<FirstNoteDto>> GetFirstNoteAsync(int compId, string category, int custId, int YearId);
+
+        //GetSecondNoteById
+        Task<IEnumerable<SecondNoteDto>> GetSecondNoteByIdAsync(int compId, string category, int custId, int YearId);
+
+        //GetDescriptionNoteById
+        Task<IEnumerable<DescriptionNoteDto>> GetDescriptionNoteAsync(int compId, string category, int custId, int YearId);
 
         //GetThirdNote
-        Task<IEnumerable<ThirdNoteDto>> GetThirdNoteAsync(int compId, string category);
+        Task<IEnumerable<ThirdNoteDto>> GetThirdNoteAsync(int compId, string category, int custId, int YearId);
 
         //GetFourthNote
-        Task<IEnumerable<FourthNoteDto>> GetFourthNoteAsync(int compId, string category);
+        Task<IEnumerable<FourthNoteDto>> GetFourthNoteAsync(int compId, string category, int custd, int YearId);
 
         //DeleteFirstNote
         Task<int> DeleteSchedFirstNoteDetailsAsync(int id, int customerId, int compId, int yearId);
