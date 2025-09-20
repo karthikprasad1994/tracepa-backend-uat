@@ -2306,7 +2306,67 @@ ORDER BY SrNo";
                 RedirectLinkText = ""
             };
         }
+        //public async Task<DiscoveryResponseDto> GetAnswerAsync(string question)
+        //{
+        //    string answerUrl = _configuration["DiscoveryEngine:AnswerUrl"];
+        //    string serviceAccountPath = _configuration["DiscoveryEngine:ServiceAccountPath"];
 
+        //    GoogleCredential credential = GoogleCredential.FromFile(serviceAccountPath)
+        //        .CreateScoped("https://www.googleapis.com/auth/cloud-platform");
+
+        //    string token = await credential.UnderlyingCredential.GetAccessTokenForRequestAsync();
+
+        //    var client = _httpClientFactory.CreateClient();
+
+        //    var answerBody = new
+        //    {
+        //        query = new { text = question, queryId = "" },
+        //        session = "",
+        //        relatedQuestionsSpec = new { enable = true },
+        //        answerGenerationSpec = new
+        //        {
+        //            ignoreAdversarialQuery = true,
+        //            ignoreNonAnswerSeekingQuery = true,
+        //            ignoreLowRelevantContent = true,
+        //            includeCitations = true,
+        //            modelSpec = new { modelVersion = "stable" }
+        //        }
+        //    };
+
+        //    string content = JsonConvert.SerializeObject(answerBody);
+        //    var request = new HttpRequestMessage(HttpMethod.Post, answerUrl)
+        //    {
+        //        Content = new StringContent(content, Encoding.UTF8, "application/json")
+        //    };
+        //    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        //    var response = await client.SendAsync(request);
+        //    var jsonResult = await response.Content.ReadAsStringAsync();
+
+        //    if (!response.IsSuccessStatusCode)
+        //        throw new Exception("Token expired or invalid: " + jsonResult);
+
+        //    JObject json = JObject.Parse(jsonResult);
+        //    string answerText = json["answer"]?["answerText"]?.ToString() ?? "No answer found";
+
+        //    if (answerText == "No results could be found. Try rephrasing the search query.")
+        //        answerText = "";
+
+        //    // Simple summary: take first 2 sentences or first 200 characters
+        //    string summary = string.Join(" ",
+        //        answerText.Split(new[] { '.', '!', '?' }, StringSplitOptions.RemoveEmptyEntries)
+        //                  .Take(2)) + ".";
+
+        //    if (summary.Length > 200) // optional: trim to 200 chars
+        //        summary = summary.Substring(0, 200) + "...";
+
+        //    return new DiscoveryResponseDto
+        //    {
+        //        Answer = summary,
+        //        Summary = summary,
+        //        RedirectLinkText = ""
+        //    };
+        //}
         public static class FeatureMapper
         {
             public static string GetFeatureLink(string input)
