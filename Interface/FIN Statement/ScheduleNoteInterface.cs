@@ -113,5 +113,11 @@ namespace TracePca.Interface.FIN_Statement
 
         //DeleteFourthNote
         Task<int> DeleteSchedFourthNoteDetailsAsync(int id, int customerId, int compId, int yearId);
+
+        //DownloadScheduleNoteExcel
+        ScheduleNoteFileDownloadResult GetNoteExcelTemplate();
+
+        //DownloadScheduleNotePDF
+        ScheduleNotePDFDownloadResult GetNotePDFTemplate();
     }
 }

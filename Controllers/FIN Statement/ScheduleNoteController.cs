@@ -1362,5 +1362,35 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+        //DownloadScheduleNoteExcel
+        [HttpGet("DownloadableScheduleNoteExcelFile")]
+        [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
+        [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+        public IActionResult DownloadScheduleNoteExcelTemplate()
+
+        {
+            var result = _ScheduleNoteService.GetNoteExcelTemplate();
+
+            if (result.FileBytes == null)
+                return NotFound("File not found.");
+
+            return File(result.FileBytes, result.ContentType, result.FileName);
+        }
+
+        //DownloadScheduleNotePDF
+        [HttpGet("DownloadableScheduleNotePDFFile")]
+        [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
+        [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+        public IActionResult DownloadableScheduleNotePDFFile()
+
+        {
+            var result = _ScheduleNoteService.GetNotePDFTemplate();
+
+            if (result.FileBytes == null)
+                return NotFound("File not found.");
+
+            return File(result.FileBytes, result.ContentType, result.FileName);
+        }
     }
 }

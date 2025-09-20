@@ -3,6 +3,7 @@ using Dapper;
 using DocumentFormat.OpenXml.Wordprocessing;
 using iText.Commons.Utils;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
 using TracePca.Dto.FIN_Statement;
@@ -1872,6 +1873,45 @@ INSERT INTO ScheduleNote_First (
             });
         }
 
+        //DownloadScheduleNoteExcel
+        public ScheduleNoteFileDownloadResult GetNoteExcelTemplate()
+        {
+            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SampleExcels\\ScheduleNoteExcel.xls";
+
+            if (!File.Exists(filePath))
+                return new ScheduleNoteFileDownloadResult();
+
+            var bytes = File.ReadAllBytes(filePath);
+            var fileName = "ScheduleNote.xls";   // ✅ keep .xls
+            var contentType = "application/vnd.ms-excel"; // ✅ correct for .xls
+
+            return new ScheduleNoteFileDownloadResult
+            {
+                FileBytes = bytes,
+                FileName = fileName,
+                ContentType = contentType
+            };
+        }
+
+        //DownloadScheduleNotePDF
+        public ScheduleNotePDFDownloadResult GetNotePDFTemplate()
+        {
+            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SamplePdfs\\ScheduleNotePDF.pdf";
+
+            if (!File.Exists(filePath))
+                return new ScheduleNotePDFDownloadResult();
+
+            var bytes = File.ReadAllBytes(filePath);
+            var fileName = "ScheduleNotePDF.pdf";   // ✅ keep .xls
+            var contentType = "application/vnd.ms-excel"; // ✅ correct for .xls
+
+            return new ScheduleNotePDFDownloadResult
+            {
+                FileBytes = bytes,
+                FileName = fileName,
+                ContentType = contentType
+            };
+        }
     }
 }
 

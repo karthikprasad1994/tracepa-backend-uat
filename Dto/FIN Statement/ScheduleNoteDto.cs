@@ -528,5 +528,21 @@
             public int CompId { get; set; }      // SNFT_CompId
             public int YearId { get; set; }      // SNFT_YearId
         }
+
+        //DownloadScheduleNoteExcel
+        public class ScheduleNoteFileDownloadResult
+        {
+            public byte[] FileBytes { get; set; }
+            public string FileName { get; set; }
+            public string ContentType { get; set; }
+        }
+
+        //DownloadScheduleNotePDF
+        public class ScheduleNotePDFDownloadResult
+        {
+            public byte[] FileBytes { get; set; }
+            public string FileName { get; set; }
+            public string ContentType { get; set; }
+        }
     }
 }
