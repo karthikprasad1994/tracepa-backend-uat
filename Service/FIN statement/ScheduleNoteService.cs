@@ -1608,7 +1608,8 @@ INSERT INTO ScheduleNote_First (
         WHERE SNF_Category = @Category
           AND SNF_CompId = @CompId
           AND SNF_CustId = @CustId
-          AND SNF_YEARId = @YearId";
+          AND SNF_YEARId = @YearId
+          AND SNT_DELFLAG = 'X'";
 
             return await connection.QueryAsync<FirstNoteDto>(query, new
             {
@@ -1721,7 +1722,8 @@ INSERT INTO ScheduleNote_First (
         WHERE SNT_Category = @Category
           AND SNT_CompId = @CompId
           AND SNT_CustId = @CustId
-          AND SNT_YEARId = @YearId";
+          AND SNT_YEARId = @YearId
+          AND SNT_DELFLAG='X'";
 
             return await connection.QueryAsync<ThirdNoteDto>(query, new
             {
@@ -1760,7 +1762,8 @@ INSERT INTO ScheduleNote_First (
         WHERE SNFT_Category = @Category
           AND SNFT_CompId = @CompId
           AND SNFT_CustId = @CustId
-          AND SNFT_YEARId = @YearId";
+          AND SNFT_YEARId = @YearId
+          AND SNT_DELFLAG='X'";
 
             return await connection.QueryAsync<FourthNoteDto>(query, new
             {
@@ -1912,6 +1915,121 @@ INSERT INTO ScheduleNote_First (
                 ContentType = contentType
             };
         }
+
+        //DownloadScheduleNotePDFTemplate
+        public async Task<Dictionary<string, DataTable>> GetScheduleNoteReportDataAsync(int companyId, int customerId, int financialYearId)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var datasets = new Dictionary<string, DataTable>();
+
+            // 🔹 First group - ScheduleNote_First
+            string[] firstCategories = { "AU", "IS", "AI", "BS", "CC", "FD" };
+            for (int i = 0; i < firstCategories.Length; i++)
+            {
+                var dt = await GetDataTableAsync(connection, @"
+                SELECT SNF_Description, SNF_CYear_Amount, SNF_PYear_Amount 
+                FROM ScheduleNote_First
+                WHERE SNF_CompId = @CompanyId
+                  AND SNF_CustId = @CustomerId
+                  AND SNF_YearId = @FinancialYearId
+                  AND SNF_Category = @Category
+                  AND SNF_DelFlag <> 'X'
+                ORDER BY SNF_ID;",
+                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = firstCategories[i] });
+
+                datasets.Add($"DataSet{i + 1}", dt);
+            }
+
+            // 🔹 Second group - ScheduleNote_Second
+            string[] secondCategories = { "SF", "SS", "ST", "SV" };
+            for (int i = 0; i < secondCategories.Length; i++)
+            {
+                var dt = await GetDataTableAsync(connection, @"
+                SELECT * 
+                FROM ScheduleNote_Second
+                WHERE SNS_CompId = @CompanyId
+                  AND SNS_CustId = @CustomerId
+                  AND SNS_YearId = @FinancialYearId
+                  AND SNS_Category = @Category
+                  AND SNS_DelFlag <> 'X'
+                ORDER BY SNS_ID;",
+                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = secondCategories[i] });
+
+                datasets.Add($"ScheduleNote_Second{i + 1}", dt);
+            }
+
+            // 🔹 Third group - ScheduleNote_Third
+            string[] thirdCategories = { "TBE", "TBP", "TEE" };
+            for (int i = 0; i < thirdCategories.Length; i++)
+            {
+                var dt = await GetDataTableAsync(connection, @"
+                SELECT SNT_Description,SNT_CYear_Shares,SNT_CYear_Amount,SNT_PYear_Shares, SNT_PYear_Amount 
+                FROM ScheduleNote_Third
+                WHERE SNT_CompId = @CompanyId
+                  AND SNT_CustId = @CustomerId
+                  AND SNT_YearId = @FinancialYearId
+                  AND SNT_Category = @Category
+                  AND SNT_DelFlag <> 'X'
+                ORDER BY SNT_ID;",
+                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = thirdCategories[i] });
+
+                datasets.Add($"ScheduleNote_Third{i + 1}", dt);
+            }
+
+            // 🔹 Description group - ScheduleNote_Desc
+            string[] descCategories = { "cEquity", "dPref", "fShares", "footNote" };
+            for (int i = 0; i < descCategories.Length; i++)
+            {
+                var dt = await GetDataTableAsync(connection, @"
+                SELECT SND_Description 
+                FROM ScheduleNote_Desc
+                WHERE SND_CompId = @CompanyId
+                  AND SND_CustId = @CustomerId
+                  AND SND_YearId = @FinancialYearId
+                  AND SND_Category = @Category
+                  AND SND_DelFlag <> 'X'
+                ORDER BY SND_ID;",
+                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = descCategories[i] });
+
+                datasets.Add($"ScheduleNote_Desc{i + 1}", dt);
+            }
+
+            // 🔹 Fourth group - ScheduleNote_Fourth
+            string[] fourthCategories = { "FSC", "FSP" };
+            for (int i = 0; i < fourthCategories.Length; i++)
+            {
+                var dt = await GetDataTableAsync(connection, @"
+                SELECT * 
+                FROM ScheduleNote_Fourth
+                WHERE SNFT_CompId = @CompanyId
+                  AND SNFT_CustId = @CustomerId
+                  AND SNFT_YearId = @FinancialYearId
+                  AND SNFT_Category = @Category
+                  AND SNFT_DelFlag <> 'D'
+                ORDER BY SNFT_ID;",
+                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = fourthCategories[i] });
+
+                datasets.Add($"ScheduleNote_Fourth{i + 1}", dt);
+            }
+
+            return datasets;
+        }
+        private async Task<DataTable> GetDataTableAsync(SqlConnection connection, string query, object parameters)
+        {
+            var reader = await connection.ExecuteReaderAsync(query, parameters);
+            var dt = new DataTable();
+            dt.Load(reader);
+            return dt;
+        }
     }
+
+}
 }
 

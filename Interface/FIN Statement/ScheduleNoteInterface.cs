@@ -1,4 +1,5 @@
-﻿using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
+﻿using System.Data;
+using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
 
 namespace TracePca.Interface.FIN_Statement
 {
@@ -119,5 +120,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //DownloadScheduleNotePDF
         ScheduleNotePDFDownloadResult GetNotePDFTemplate();
+
+        //DownloadScheduleNotePDFTemplate
+        Task<Dictionary<string, DataTable>> GetScheduleNoteReportDataAsync(int companyId, int customerId, int financialYearId);
     }
 }
