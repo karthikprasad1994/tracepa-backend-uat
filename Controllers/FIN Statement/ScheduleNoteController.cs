@@ -1399,38 +1399,38 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //DownloadScheduleNotePDFTemplate
-        //[HttpGet("DownloadScheduleNotePdf")]
-        //public async Task<IActionResult> DownloadScheduleNotePdf(int companyId, int customerId, int financialYear)
-        //{
-        //    try
-        //    {
-        //        var customerName = "SampleCustomer"; // fetch as needed
-        //        var datasets = await _ScheduleNoteService.GetScheduleNoteReportDataAsync(companyId, customerId, financialYear);
+        [HttpGet("DownloadScheduleNotePdf")]
+        public async Task<IActionResult> DownloadScheduleNotePdf(int companyId, int customerId, int financialYear)
+        {
+            try
+            {
+                var customerName = "SampleCustomer"; // fetch as needed
+                var datasets = await _ScheduleNoteService.GetScheduleNoteReportDataAsync(companyId, customerId, financialYear);
 
-        //        var report = new LocalReport();
-        //        report.ReportPath = Path.Combine(_env.ContentRootPath, "Reports/DigitalAudit/rptSchduleNote.rdlc");
+                var report = new LocalReport();
+                report.ReportPath = Path.Combine(_env.ContentRootPath, "Reports/DigitalAudit/rptSchduleNote.rdlc");
 
-        //        foreach (var ds in datasets)
-        //        {
-        //            report.DataSources.Add(new ReportDataSource(ds.Key, ds.Value));
-        //        }
+                foreach (var ds in datasets)
+                {
+                    report.DataSources.Add(new ReportDataSource(ds.Key, ds.Value));
+                }
 
-        //        report.SetParameters(new[]
-        //        {
-        //    new ReportParameter("Customer", customerName),
-        //    new ReportParameter("FYear", financialYear.ToString()),
-        //    new ReportParameter("CurrentYear", $"31st March 20{financialYear}"),
-        //    new ReportParameter("PreviesYear", $"31st March 20{financialYear - 1}")
-        //});
+                report.SetParameters(new[]
+                {
+            new ReportParameter("Customer", customerName),
+            new ReportParameter("FYear", financialYear.ToString()),
+            new ReportParameter("CurrentYear", $"31st March 20{financialYear}"),
+            new ReportParameter("PreviesYear", $"31st March 20{financialYear - 1}")
+        });
 
-        //        var pdfBytes = report.Render("PDF");
-        //        return File(pdfBytes, "application/pdf", $"ScheduleNote_{customerName}_{financialYear}.pdf");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"Error generating PDF: {ex.Message}");
-        //    }
-        //}
+                var pdfBytes = report.Render("PDF");
+                return File(pdfBytes, "application/pdf", $"ScheduleNote_{customerName}_{financialYear}.pdf");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error generating PDF: {ex.Message}");
+            }
+        }
 
     }
 }
