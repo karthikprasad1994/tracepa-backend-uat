@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using Microsoft.Reporting.WebForms;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Reporting.WebForms;
 using TracePca.Dto.FIN_Statement;
@@ -17,11 +18,13 @@ namespace TracePca.Controllers.FIN_Statement
     {
         private ScheduleNoteInterface _ScheduleNoteInterface;
         private ScheduleNoteInterface _ScheduleNoteService;
+        private readonly IWebHostEnvironment _env;
 
-        public ScheduleNoteController(ScheduleNoteInterface ScheduleNoteInterface)
+        public ScheduleNoteController(ScheduleNoteInterface ScheduleNoteInterface, IWebHostEnvironment env)
         {
             _ScheduleNoteInterface = ScheduleNoteInterface;
             _ScheduleNoteService = ScheduleNoteInterface;
+            _env = env;
         }
 
         //GetSubHeadingname(Notes For SubHeading)
@@ -1396,48 +1399,38 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //DownloadScheduleNotePDFTemplate
-        [HttpGet("ExportScheduleNotePdf")]
-        public async Task<IActionResult> ExportScheduleNotePdf(int companyId, int customerId, int financialYearId, string customerName, string financialYearText)
-        {
-            try
-            {
-                var datasets = await _ScheduleNoteService.GetScheduleNoteReportDataAsync(companyId, customerId, financialYearId);
+        //[HttpGet("DownloadScheduleNotePdf")]
+        //public async Task<IActionResult> DownloadScheduleNotePdf(int companyId, int customerId, int financialYear)
+        //{
+        //    try
+        //    {
+        //        var customerName = "SampleCustomer"; // fetch as needed
+        //        var datasets = await _ScheduleNoteService.GetScheduleNoteReportDataAsync(companyId, customerId, financialYear);
 
-                using var localReport = new LocalReport();
+        //        var report = new LocalReport();
+        //        report.ReportPath = Path.Combine(_env.ContentRootPath, "Reports/DigitalAudit/rptSchduleNote.rdlc");
 
-                // 🔹 Load RDLC from project (ensure it’s copied to output directory)
-                var rdlcPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Reports", "DigitalAudit", "rptSchduleNote.rdlc");
-                localReport.LoadReportDefinition(System.IO.File.OpenRead(rdlcPath));
+        //        foreach (var ds in datasets)
+        //        {
+        //            report.DataSources.Add(new ReportDataSource(ds.Key, ds.Value));
+        //        }
 
-                // 🔹 Attach datasets
-                foreach (var ds in datasets)
-                {
-                    localReport.DataSources.Add(new ReportDataSource(ds.Key, ds.Value));
-                }
+        //        report.SetParameters(new[]
+        //        {
+        //    new ReportParameter("Customer", customerName),
+        //    new ReportParameter("FYear", financialYear.ToString()),
+        //    new ReportParameter("CurrentYear", $"31st March 20{financialYear}"),
+        //    new ReportParameter("PreviesYear", $"31st March 20{financialYear - 1}")
+        //});
 
-                // 🔹 Add parameters
-                localReport.SetParameters(new[]
-                {
-                new ReportParameter("Customer", customerName),
-                new ReportParameter("FYear", financialYearText),
-                new ReportParameter("CurrentYear", $"31st March {financialYearId}"),
-                new ReportParameter("PreviesYear", $"31st March {financialYearId - 1}")
-            });
+        //        var pdfBytes = report.Render("PDF");
+        //        return File(pdfBytes, "application/pdf", $"ScheduleNote_{customerName}_{financialYear}.pdf");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, $"Error generating PDF: {ex.Message}");
+        //    }
+        //}
 
-                // 🔹 Render PDF
-                var pdfBytes = localReport.Render("PDF");
-
-                return File(pdfBytes, "application/pdf", $"ScheduleNote-{customerName}-{financialYearText}.pdf");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    StatusCode = 500,
-                    Message = "Error generating ScheduleNote PDF",
-                    Error = ex.Message
-                });
-            }
-        }
     }
 }

@@ -2006,7 +2006,7 @@ INSERT INTO ScheduleNote_First (
             for (int i = 0; i < fourthCategories.Length; i++)
             {
                 var dt = await GetDataTableAsync(connection, @"
-                SELECT * 
+                SELECT SNFT_Description,SNFT_NumShares,SNFT_TotalShares,SNFT_ChangedShares 
                 FROM ScheduleNote_Fourth
                 WHERE SNFT_CompId = @CompanyId
                   AND SNFT_CustId = @CustomerId
@@ -2029,7 +2029,6 @@ INSERT INTO ScheduleNote_First (
             return dt;
         }
     }
+}
 
-}
-}
 
