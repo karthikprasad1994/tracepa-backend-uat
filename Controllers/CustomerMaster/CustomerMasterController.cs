@@ -136,7 +136,7 @@ namespace TracePca.Controllers.CustomerMaster
                 return Ok(new
                 {
                     status = 200,
-                    message = "Management types fetched successfully.",
+                    message = "Management types fetched successfully.", 
                     managementTypes = result
                 });
             }

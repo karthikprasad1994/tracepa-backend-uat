@@ -478,6 +478,7 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
                     UsrDelFlag = "A",
                     UsrStatus = "U",
                     UsrType = "C",
+                    UsrRole = 1,
                     UsrIsLogin = "Y"
                 };
 
