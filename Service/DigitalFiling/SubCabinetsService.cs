@@ -3,26 +3,41 @@ using Microsoft.Data.SqlClient;
 using StackExchange.Redis;
 using TracePca.Data;
 using TracePca.Dto.DigitalFiling;
+using TracePca.Interface.Audit;
 using TracePca.Interface.DigitalFiling;
 
 namespace TracePca.Service.DigitalFiling
 {
     public class SubCabinetsService : SubCabinetsInterface
     {
-        private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly string _connectionString;
 
-        public SubCabinetsService(Trdmyus1Context dbcontext, IConfiguration configuration)
+        public SubCabinetsService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
-            _dbcontext = dbcontext;
-            _configuration = configuration;
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _connectionString = GetConnectionStringFromSession();
+        }
+        private string GetConnectionStringFromSession()
+        {
+            var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrWhiteSpace(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connStr = _configuration.GetConnectionString(dbName);
+            if (string.IsNullOrWhiteSpace(connStr))
+                throw new Exception($"Connection string for '{dbName}' not found in configuration.");
+
+            return connStr;
         }
 
         public async Task<DigitalFilingDropDownListDataDTO> LoadAllDDLDataAsync()
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var departmentListTask = connection.QueryAsync<DFDropDownListData>(
@@ -57,7 +72,7 @@ namespace TracePca.Service.DigitalFiling
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var deptQuery = @"SELECT DISTINCT Org_Node FROM Sad_Org_Structure LEFT JOIN Sad_UsersInOtherDept ON SUO_DeptID = Org_Node WHERE Org_DelFlag = 'A' AND Org_CompID = @CompID AND Org_LevelCode = 3";
@@ -103,7 +118,7 @@ namespace TracePca.Service.DigitalFiling
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var query = @"SELECT Usr_ID AS ID, Usr_FullName AS Name FROM Sad_UserDetails LEFT JOIN Sad_Org_Structure ON Org_node = Usr_DeptId WHERE Usr_DeptId = @DeptId AND USR_DutyStatus = 'A'";
@@ -127,7 +142,7 @@ namespace TracePca.Service.DigitalFiling
             {
                 var result = new List<SubCabinetDTO>();
 
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 // TODO: Implement ExtendPermissions logic
@@ -180,20 +195,20 @@ namespace TracePca.Service.DigitalFiling
 
                 foreach (var dr in cabinets)
                 {
-                    string delFlagDesc = dr.Cbn_DelFlag switch
+                    string delFlagDesc = dr.CBN_DelFlag switch
                     {
                         "A" => "Activated",
                         "D" => "De-Activated",
                         "W" => "Waiting for Approval",
-                        _ => dr.Cbn_DelFlag
+                        _ => dr.CBN_DelFlag
                     };
 
-                    departmentDict.TryGetValue(dr.CBN_Department, out string departmentName);
-                    userNamesDict.TryGetValue(dr.CBN_CreatedBy, out string createdByName);
-                    userNamesDict.TryGetValue(dr.CBN_UpdatedBy, out string updatedByName);
-                    userNamesDict.TryGetValue(dr.CBN_ApprovedBy, out string approvedByName);
-                    userNamesDict.TryGetValue(dr.CBN_DeletedBy, out string deletedByName);
-                    userNamesDict.TryGetValue(dr.CBN_RecalledBy, out string recalledByName);
+                    departmentDict.TryGetValue(Convert.ToInt32(dr.CBN_Department), out string departmentName);
+                    userNamesDict.TryGetValue(Convert.ToInt32(dr.CBN_CreatedBy), out string createdByName);
+                    userNamesDict.TryGetValue(Convert.ToInt32(dr.CBN_UpdatedBy), out string updatedByName);
+                    userNamesDict.TryGetValue(Convert.ToInt32(dr.CBN_ApprovedBy), out string approvedByName);
+                    userNamesDict.TryGetValue(Convert.ToInt32(dr.CBN_DeletedBy), out string deletedByName);
+                    userNamesDict.TryGetValue(Convert.ToInt32(dr.CBN_RecalledBy), out string recalledByName);
 
                     var subCabinet = new SubCabinetDTO
                     {
@@ -240,7 +255,7 @@ namespace TracePca.Service.DigitalFiling
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 if (request.StatusCode == "D")
@@ -295,7 +310,7 @@ namespace TracePca.Service.DigitalFiling
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var userInfoQuery = @"SELECT USR_DeptID, usr_IsSuperuser FROM sad_userdetails WHERE usr_id = @UserId";
@@ -339,7 +354,7 @@ namespace TracePca.Service.DigitalFiling
         {
             try
             {
-                await using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var (isSuperUser, memberType) = await connection.QueryFirstOrDefaultAsync<(int usr_IsSuperuser, int USR_MemberType)>(
@@ -381,7 +396,7 @@ namespace TracePca.Service.DigitalFiling
 
         public async Task<int> SaveOrUpdateSubCabinetAsync(SubCabinetDTO dto)
         {
-            await using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
             await using var transaction = await connection.BeginTransactionAsync();
 
