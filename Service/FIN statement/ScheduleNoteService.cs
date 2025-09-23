@@ -1609,7 +1609,7 @@ INSERT INTO ScheduleNote_First (
           AND SNF_CompId = @CompId
           AND SNF_CustId = @CustId
           AND SNF_YEARId = @YearId
-          AND SNT_DELFLAG = 'X'";
+          AND SNF_DELFLAG = 'X'";
 
             return await connection.QueryAsync<FirstNoteDto>(query, new
             {
@@ -1763,7 +1763,7 @@ INSERT INTO ScheduleNote_First (
           AND SNFT_CompId = @CompId
           AND SNFT_CustId = @CustId
           AND SNFT_YEARId = @YearId
-          AND SNT_DELFLAG='X'";
+          AND SNFT_DELFLAG='X'";
 
             return await connection.QueryAsync<FourthNoteDto>(query, new
             {
