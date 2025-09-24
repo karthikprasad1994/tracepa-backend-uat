@@ -136,7 +136,48 @@ namespace TracePca.Service.DigitalFiling
             }
         }
 
-        public async Task<List<FolderDTO>> GetAllFoldersBySubCabinetIdAsync(int subCabinetId, string statusCode)
+
+		public async Task<List<FolderDetailDTO>> GetAllFoldersDetailsBySubCabinetIdAsync(int subCabinetId, string statusCode)
+		{
+			try
+			{
+				string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+				if (string.IsNullOrEmpty(dbName))
+					throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+				var connectionString = _configuration.GetConnectionString(dbName);
+
+				using var connection = new SqlConnection(connectionString);
+				await connection.OpenAsync();
+
+                string query = @"
+            SELECT 
+                FOL_FolID, 
+                FOL_Name, 
+                FOL_Note,
+                FOL_Cabinet,
+                FOL_CreatedBy AS FOL_CreatedBy,
+                FOL_CreatedOn,FOL_UpdatedBy,FOL_UpdatedOn,FOL_Status,
+                FOL_DelFlag
+            FROM edt_Folder A 
+            JOIN edt_Cabinet B ON A.Fol_Cabinet = B.cbn_ID  
+             WHERE A.Fol_Status = @statusCode AND A.FOL_Cabinet = @subCabinetId";
+             
+				var result = await connection.QueryAsync<FolderDetailDTO>(query, new
+				{
+					statusCode,
+					subCabinetId
+				});
+
+				return result.ToList();
+			}
+			catch (Exception)
+			{
+				throw; // rethrow preserves stack trace
+			}
+		}
+
+		public async Task<List<FolderDTO>> GetAllFoldersBySubCabinetIdAsync(int subCabinetId, string statusCode)
         {
             try
             {

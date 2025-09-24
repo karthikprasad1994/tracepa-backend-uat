@@ -5,7 +5,9 @@ namespace TracePca.Interface.DigitalFiling
     public interface SubCabinetsInterface
     {
         Task<DigitalFilingDropDownListDataDTO> LoadAllDDLDataAsync();
-        Task<List<DFDropDownListData>> LoadCabinetsByUserIdDDLAsync(int compId, int userId);
+
+		Task<List<SubCabinetDetailsDTO>> GetAllSubCabinetsDetailsByCabinetAndUserIdAsync(int userId, int cabinetId, string statusCode);
+		Task<List<DFDropDownListData>> LoadCabinetsByUserIdDDLAsync(int compId, int userId);
         Task<DigitalFilingDropDownListDataDTO> LoadPermissionUsersByDeptIdDDLAsync(int deptID);
         Task<List<SubCabinetDTO>> GetAllSubCabinetsByCabinetAndUserIdAsync(int userId, int cabinetId, string statusCode);
         Task<string> UpdateSubCabinetStatusAsync(UpdateSubCabinetStatusRequestDTO request);
