@@ -324,6 +324,7 @@ namespace TracePca.Service
                 if (!string.IsNullOrEmpty(latestCode))
                 {
                     var parts = latestCode.Split('_');
+
                     if (parts.Length == 2 && int.TryParse(parts[1], out int lastNumber))
                     {
                         nextNumber = lastNumber + 1;

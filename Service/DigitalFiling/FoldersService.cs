@@ -150,18 +150,42 @@ namespace TracePca.Service.DigitalFiling
 				using var connection = new SqlConnection(connectionString);
 				await connection.OpenAsync();
 
-                string query = @"
-            SELECT 
-                FOL_FolID, 
-                FOL_Name, 
-                FOL_Note,
-                FOL_Cabinet,
-                FOL_CreatedBy AS FOL_CreatedBy,
-                FOL_CreatedOn,FOL_UpdatedBy,FOL_UpdatedOn,FOL_Status,
-                FOL_DelFlag
-            FROM edt_Folder A 
-            JOIN edt_Cabinet B ON A.Fol_Cabinet = B.cbn_ID  
-             WHERE A.Fol_Status = @statusCode AND A.FOL_Cabinet = @subCabinetId";
+                //    string query = @"
+                //SELECT 
+                //    FOL_FolID, 
+                //    FOL_Name, 
+                //    FOL_Note,
+                //    FOL_Cabinet,
+                //    FOL_CreatedBy AS FOL_CreatedBy,
+                //    FOL_CreatedOn,FOL_UpdatedBy,FOL_UpdatedOn,FOL_Status,
+                //    FOL_DelFlag
+                //FROM edt_Folder A 
+                //JOIN edt_Cabinet B ON A.Fol_Cabinet = B.cbn_ID  
+                // WHERE A.Fol_Status = @statusCode AND A.FOL_Cabinet = @subCabinetId";
+
+
+                string query = @"SELECT 
+                                  distinct  A.FOL_FolID, 
+                                    A.FOL_Name, 
+                                    A.FOL_Note,
+                                    B.cbn_name AS FOL_SubCabinet,
+                                    (
+                                        SELECT COUNT(*) 
+                                        FROM edt_page P
+                                        WHERE P.pge_Folder = A.FOL_FolID 
+                                          AND P.pge_SubCabinet = A.FOL_Cabinet
+                                    ) AS FOL_Documents,
+                                    C.Usr_FullName as FOL_CreatedBy,
+                                    A.FOL_CreatedOn,
+                                    A.FOL_UpdatedBy,
+                                    A.FOL_UpdatedOn,
+                                    A.FOL_Status,
+                                    A.FOL_DelFlag
+                                FROM edt_Folder A 
+                                JOIN edt_Cabinet B ON A.FOL_Cabinet = B.cbn_ID  
+                                join sad_userDetails C on A.Fol_CreatedBy = C.Usr_ID
+                                WHERE A.FOL_Status = @statusCode 
+                                  AND A.FOL_Cabinet = @subCabinetId;";
              
 				var result = await connection.QueryAsync<FolderDetailDTO>(query, new
 				{
