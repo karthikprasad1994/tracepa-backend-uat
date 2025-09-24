@@ -2,24 +2,17 @@
 {
     public class ScheduleAccountingRatioDto
     {
-
-        //GetAccoutingRatio1
-        public class Ratio1Dto
+        public class RatioDto
         {
-            public decimal LiabilitiesDc1 { get; set; }
-            public decimal LiabilitiesDP1 { get; set; }
-            public decimal AssetsDc1 { get; set; }
-            public decimal AssetsDP1 { get; set; }
+           
+            public string SrNo { get; set; }
+            public string Ratio { get; set; }
+            public string Numerator { get; set; }
+            public string Denominator { get; set; }
+            public string CurrentReportingPeriod { get; set; }
+            public string PreviousReportingPeriod { get; set; }
+            public string Change { get; set; }
         }
 
-        //GetAccoutingRatio2
-        public class Ratio2Dto
-        {
-            public decimal Current_Reporting_Period { get; set; }
-            public decimal Previous_Reporting_Period { get; set; }
-            public decimal Change { get; set; }
-        }
-
-        //GetAccoutingRatio3
     }
 }

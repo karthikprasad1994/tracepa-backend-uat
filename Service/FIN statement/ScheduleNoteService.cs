@@ -3,6 +3,7 @@ using Dapper;
 using DocumentFormat.OpenXml.Wordprocessing;
 using iText.Commons.Utils;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
 using TracePca.Dto.FIN_Statement;
@@ -344,7 +345,7 @@ INSERT INTO ScheduleNote_First (
 
 
         // --PreDefinied Notes //
-        //SaveShareCapital(Particulars)
+        //SaveAuthorisedShareCapital(Particulars)
         public async Task<int> SaveAuthorisedShareCapitalAsync(AuthorisedShareCapitalDto dto)
         {
             // ✅ Step 1: Get DB name from session
@@ -1579,6 +1580,455 @@ INSERT INTO ScheduleNote_First (
             });
             return newId;
         }
+
+        //GetFirstNote
+        public async Task<IEnumerable<FirstNoteDto>> GetFirstNoteAsync(int compId, string category, int custId, int YearId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT 
+            SNF_ID, 
+            SNF_CustId,
+            SNF_Description, 
+            SNF_CYear_Amount, 
+            SNF_PYear_Amount
+        FROM ScheduleNote_First
+        WHERE SNF_Category = @Category
+          AND SNF_CompId = @CompId
+          AND SNF_CustId = @CustId
+          AND SNF_YEARId = @YearId
+          AND SNF_DELFLAG = 'X'";
+
+            return await connection.QueryAsync<FirstNoteDto>(query, new
+            {
+                Category = category,
+                CompId = compId,
+                CustId = custId,
+                YearId = YearId
+            });
+        }
+
+        //GetSecondNoteById
+        public async Task<IEnumerable<SecondNoteDto>> GetSecondNoteByIdAsync(int compId, string category, int custId, int YearId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT 
+            SNS_ID, 
+            SNS_CustId,
+            SNS_Description, 
+            SNS_CYear_BegShares, SNS_CYear_BegAmount, SNS_PYear_BegShares, SNS_PYear_BegAmount
+            SNS_CYear_AddShares, SNS_CYear_AddAmount, SNS_PYear_AddShares, SNS_PYear_AddAmount,
+            SNS_CYear_EndShares, SNS_CYear_EndAmount, SNS_PYear_EndShares, SNS_PYear_EndAmount
+        FROM ScheduleNote_Second
+        WHERE SNS_Category = @Category
+          AND SNS_CompId = @CompId
+          AND SNS_CustId = @CustId
+          AND SNS_YEARId = @YearId";
+             
+            return await connection.QueryAsync<SecondNoteDto>(query, new
+            {
+                Category = category,
+                CompId = compId,
+                CustId = custId,
+                YearId = YearId
+            });
+        }
+
+        //GetDescriptionNoteById
+        public async Task<IEnumerable<DescriptionNoteDto>> GetDescriptionNoteAsync(int compId, string category, int custId, int YearId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT 
+            SND_ID, 
+            SND_CustId,
+            SND_Description 
+        FROM ScheduleNote_Desc
+        WHERE SND_Category = @Category
+          AND SND_CompId = @CompId
+          AND SND_CustId = @CustId
+          AND SND_YEARId = @YearId";
+
+            return await connection.QueryAsync<DescriptionNoteDto>(query, new
+            {
+                Category = category,
+                CompId = compId,
+                CustId = custId,
+                YearId = YearId
+            });
+        }
+
+        //GetThirdNote
+        public async Task<IEnumerable<ThirdNoteDto>> GetThirdNoteAsync(int compId, string category, int custId, int YearId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT 
+            SNT_ID, 
+            SNT_CustId,
+            SNT_Description, 
+            SNT_CYear_Amount, 
+            SNT_PYear_Amount
+        FROM ScheduleNote_Third
+        WHERE SNT_Category = @Category
+          AND SNT_CompId = @CompId
+          AND SNT_CustId = @CustId
+          AND SNT_YEARId = @YearId
+          AND SNT_DELFLAG='X'";
+
+            return await connection.QueryAsync<ThirdNoteDto>(query, new
+            {
+                Category = category,
+                CompId = compId,
+                CustId = custId,
+                YearId = YearId
+            });
+        }
+
+        //GetFourthNote
+        public async Task<IEnumerable<FourthNoteDto>> GetFourthNoteAsync(int compId, string category, int custId, int YearId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        SELECT 
+            SNFT_ID,
+            SNFT_CustId, 
+            SNFT_Description, 
+            SNFT_NumShares,
+            SNFT_TotalShares,
+            SNFT_ChangedShares
+        FROM ScheduleNote_Fourth
+        WHERE SNFT_Category = @Category
+          AND SNFT_CompId = @CompId
+          AND SNFT_CustId = @CustId
+          AND SNFT_YEARId = @YearId
+          AND SNFT_DELFLAG='X'";
+
+            return await connection.QueryAsync<FourthNoteDto>(query, new
+            {
+                Category = category,
+                CompId = compId,
+                CustId = custId,
+                YearId = YearId
+            });
+        }
+
+        //DeleteFirstNote
+        public async Task<int> DeleteSchedFirstNoteDetailsAsync(int id, int customerId, int compId, int yearId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Open connection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 4: Soft Delete (set DelFlag & Status to 'D')
+            var query = @"
+        UPDATE ScheduleNote_First
+        SET SNF_DelFlag = 'D',
+            SNF_Status  = 'D'
+        WHERE SNF_ID     = @Id
+          AND SNF_CustId = @CustomerId
+          AND SNF_CompId = @CompId
+          AND SNF_YearId = @YearId;";
+
+            return await connection.ExecuteAsync(query, new
+            {
+                Id = id,
+                CustomerId = customerId,
+                CompId = compId,
+                YearId = yearId
+            });
+        }
+
+        //DeleteThirdNote
+        public async Task<int> DeleteSchedThirdNoteDetailsAsync(int id, int customerId, int compId, int yearId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Open connection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 4: Soft delete (mark as deleted instead of removing)
+            var query = @"
+        UPDATE ScheduleNote_Third
+        SET SNT_DelFlag = 'D',
+            SNT_Status  = 'D'
+        WHERE SNT_ID     = @Id
+          AND SNT_CustId = @CustomerId
+          AND SNT_CompId = @CompId
+          AND SNT_YearId = @YearId;";
+
+            return await connection.ExecuteAsync(query, new
+            {
+                Id = id,
+                CustomerId = customerId,
+                CompId = compId,
+                YearId = yearId
+            });
+        }
+
+        //DeleteFourthNote
+        public async Task<int> DeleteSchedFourthNoteDetailsAsync(int id, int customerId, int compId, int yearId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Open SQL connection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 4: Perform soft delete
+            var query = @"
+        UPDATE ScheduleNote_Fourth
+        SET SNFT_DelFlag = 'D',
+            SNFT_Status  = 'D'
+        WHERE SNFT_ID     = @Id
+          AND SNFT_CustId = @CustomerId
+          AND SNFT_CompId = @CompId
+          AND SNFT_YearId = @YearId;";
+
+            return await connection.ExecuteAsync(query, new
+            {
+                Id = id,
+                CustomerId = customerId,
+                CompId = compId,
+                YearId = yearId
+            });
+        }
+
+        //DownloadScheduleNoteExcel
+        public ScheduleNoteFileDownloadResult GetNoteExcelTemplate()
+        {
+            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SampleExcels\\ScheduleNoteExcel.xls";
+
+            if (!File.Exists(filePath))
+                return new ScheduleNoteFileDownloadResult();
+
+            var bytes = File.ReadAllBytes(filePath);
+            var fileName = "ScheduleNote.xls";   // ✅ keep .xls
+            var contentType = "application/vnd.ms-excel"; // ✅ correct for .xls
+
+            return new ScheduleNoteFileDownloadResult
+            {
+                FileBytes = bytes,
+                FileName = fileName,
+                ContentType = contentType
+            };
+        }
+
+        //DownloadScheduleNotePDF
+        public ScheduleNotePDFDownloadResult GetNotePDFTemplate()
+        {
+            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SamplePdfs\\ScheduleNotePDF.pdf";
+
+            if (!File.Exists(filePath))
+                return new ScheduleNotePDFDownloadResult();
+
+            var bytes = File.ReadAllBytes(filePath);
+            var fileName = "ScheduleNotePDF.pdf";   // ✅ keep .xls
+            var contentType = "application/vnd.ms-excel"; // ✅ correct for .xls
+
+            return new ScheduleNotePDFDownloadResult
+            {
+                FileBytes = bytes,
+                FileName = fileName,
+                ContentType = contentType
+            };
+        }
+
+        //DownloadScheduleNotePDFTemplate
+        public async Task<Dictionary<string, DataTable>> GetScheduleNoteReportDataAsync(int companyId, int customerId, int financialYearId)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var datasets = new Dictionary<string, DataTable>();
+
+            // 🔹 First group - ScheduleNote_First
+            string[] firstCategories = { "AU", "IS", "AI", "BS", "CC", "FD" };
+            for (int i = 0; i < firstCategories.Length; i++)
+            {
+                var dt = await GetDataTableAsync(connection, @"
+                SELECT SNF_Description, SNF_CYear_Amount, SNF_PYear_Amount 
+                FROM ScheduleNote_First
+                WHERE SNF_CompId = @CompanyId
+                  AND SNF_CustId = @CustomerId
+                  AND SNF_YearId = @FinancialYearId
+                  AND SNF_Category = @Category
+                  AND SNF_DelFlag <> 'X'
+                ORDER BY SNF_ID;",
+                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = firstCategories[i] });
+
+                datasets.Add($"DataSet{i + 1}", dt);
+            }
+
+            // 🔹 Second group - ScheduleNote_Second
+            string[] secondCategories = { "SF", "SS", "ST", "SV" };
+            for (int i = 0; i < secondCategories.Length; i++)
+            {
+                var dt = await GetDataTableAsync(connection, @"
+                SELECT * 
+                FROM ScheduleNote_Second
+                WHERE SNS_CompId = @CompanyId
+                  AND SNS_CustId = @CustomerId
+                  AND SNS_YearId = @FinancialYearId
+                  AND SNS_Category = @Category
+                  AND SNS_DelFlag <> 'X'
+                ORDER BY SNS_ID;",
+                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = secondCategories[i] });
+
+                datasets.Add($"ScheduleNote_Second{i + 1}", dt);
+            }
+
+            // 🔹 Third group - ScheduleNote_Third
+            string[] thirdCategories = { "TBE", "TBP", "TEE" };
+            for (int i = 0; i < thirdCategories.Length; i++)
+            {
+                var dt = await GetDataTableAsync(connection, @"
+                SELECT SNT_Description,SNT_CYear_Shares,SNT_CYear_Amount,SNT_PYear_Shares, SNT_PYear_Amount 
+                FROM ScheduleNote_Third
+                WHERE SNT_CompId = @CompanyId
+                  AND SNT_CustId = @CustomerId
+                  AND SNT_YearId = @FinancialYearId
+                  AND SNT_Category = @Category
+                  AND SNT_DelFlag <> 'X'
+                ORDER BY SNT_ID;",
+                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = thirdCategories[i] });
+
+                datasets.Add($"ScheduleNote_Third{i + 1}", dt);
+            }
+
+            // 🔹 Description group - ScheduleNote_Desc
+            string[] descCategories = { "cEquity", "dPref", "fShares", "footNote" };
+            for (int i = 0; i < descCategories.Length; i++)
+            {
+                var dt = await GetDataTableAsync(connection, @"
+                SELECT SND_Description 
+                FROM ScheduleNote_Desc
+                WHERE SND_CompId = @CompanyId
+                  AND SND_CustId = @CustomerId
+                  AND SND_YearId = @FinancialYearId
+                  AND SND_Category = @Category
+                  AND SND_DelFlag <> 'X'
+                ORDER BY SND_ID;",
+                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = descCategories[i] });
+
+                datasets.Add($"ScheduleNote_Desc{i + 1}", dt);
+            }
+
+            // 🔹 Fourth group - ScheduleNote_Fourth
+            string[] fourthCategories = { "FSC", "FSP" };
+            for (int i = 0; i < fourthCategories.Length; i++)
+            {
+                var dt = await GetDataTableAsync(connection, @"
+                SELECT SNFT_Description,SNFT_NumShares,SNFT_TotalShares,SNFT_ChangedShares 
+                FROM ScheduleNote_Fourth
+                WHERE SNFT_CompId = @CompanyId
+                  AND SNFT_CustId = @CustomerId
+                  AND SNFT_YearId = @FinancialYearId
+                  AND SNFT_Category = @Category
+                  AND SNFT_DelFlag <> 'D'
+                ORDER BY SNFT_ID;",
+                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = fourthCategories[i] });
+
+                datasets.Add($"ScheduleNote_Fourth{i + 1}", dt);
+            }
+
+            return datasets;
+        }
+        private async Task<DataTable> GetDataTableAsync(SqlConnection connection, string query, object parameters)
+        {
+            var reader = await connection.ExecuteReaderAsync(query, parameters);
+            var dt = new DataTable();
+            dt.Load(reader);
+            return dt;
+        }
     }
 }
+
 

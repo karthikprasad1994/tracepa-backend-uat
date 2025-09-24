@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TracePca.Dto.DigitalFiling;
 using TracePca.Interface.DigitalFiling;
+using TracePca.Interface.DigitalFilling;
 
 namespace TracePca.Controllers.DigitalFiling
 {
@@ -72,7 +73,33 @@ namespace TracePca.Controllers.DigitalFiling
             }
         }
 
-        [HttpGet("GetAllSubCabinetsByCabinetAndUserId")]
+
+
+		[HttpGet("GetAllSubCabinetsDetailsByCabinetAndUserId")]
+		public async Task<IActionResult> GetAllSubCabinetsDetailsByCabinetAndUserId(int userId, int cabinetId, string statusCode)
+		{
+			var dropdownData = await _cabinetsInterface.GetAllSubCabinetsDetailsByCabinetAndUserIdAsync(userId, cabinetId, statusCode);
+
+			if (dropdownData != null && dropdownData.Any())
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Cabinet loaded successfully.",
+					data = dropdownData
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+		}
+
+		[HttpGet("GetAllSubCabinetsByCabinetAndUserId")]
         public async Task<IActionResult> GetAllSubCabinetsByCabinetAndUserId(int userId, int cabinetId, string statusCode)
         {
             try

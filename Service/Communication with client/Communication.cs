@@ -1155,7 +1155,11 @@ ORDER BY
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+                throw new Exception("CustomerCode is missing in session. Please log in again."); 
+            
+            
+
+
 
             // ✅ Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);

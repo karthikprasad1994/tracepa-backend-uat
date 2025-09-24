@@ -1,4 +1,5 @@
-﻿using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
+﻿using System.Data;
+using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
 
 namespace TracePca.Interface.FIN_Statement
 {
@@ -30,7 +31,7 @@ namespace TracePca.Interface.FIN_Statement
         Task<int> SaveFirstScheduleNoteDetailsAsync(FirstScheduleNoteDto dto);
 
         // --PreDefinied Notes //
-        //SaveShareCapital(Particulars)
+        //SaveAuthorisedShareCapital(Particulars)
         Task<int> SaveAuthorisedShareCapitalAsync(AuthorisedShareCapitalDto dto);
 
         //SaveIssuedSubscribedandFullyPaidupShareCapital
@@ -89,5 +90,38 @@ namespace TracePca.Interface.FIN_Statement
 
         //SaveFootNote
         Task<int> SaveFootNoteAsync(FootNoteDto dto);
+
+        //GetFirstNote
+        Task<IEnumerable<FirstNoteDto>> GetFirstNoteAsync(int compId, string category, int custId, int YearId);
+
+        //GetSecondNoteById
+        Task<IEnumerable<SecondNoteDto>> GetSecondNoteByIdAsync(int compId, string category, int custId, int YearId);
+
+        //GetDescriptionNoteById
+        Task<IEnumerable<DescriptionNoteDto>> GetDescriptionNoteAsync(int compId, string category, int custId, int YearId);
+
+        //GetThirdNote
+        Task<IEnumerable<ThirdNoteDto>> GetThirdNoteAsync(int compId, string category, int custId, int YearId);
+
+        //GetFourthNote
+        Task<IEnumerable<FourthNoteDto>> GetFourthNoteAsync(int compId, string category, int custd, int YearId);
+
+        //DeleteFirstNote
+        Task<int> DeleteSchedFirstNoteDetailsAsync(int id, int customerId, int compId, int yearId);
+
+        //DeleteThirdNote
+        Task<int> DeleteSchedThirdNoteDetailsAsync(int id, int customerId, int compId, int yearId);
+
+        //DeleteFourthNote
+        Task<int> DeleteSchedFourthNoteDetailsAsync(int id, int customerId, int compId, int yearId);
+
+        //DownloadScheduleNoteExcel
+        ScheduleNoteFileDownloadResult GetNoteExcelTemplate();
+
+        //DownloadScheduleNotePDF
+        ScheduleNotePDFDownloadResult GetNotePDFTemplate();
+
+        //DownloadScheduleNotePDFTemplate
+        Task<Dictionary<string, DataTable>> GetScheduleNoteReportDataAsync(int companyId, int customerId, int financialYearId);
     }
 }

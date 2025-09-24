@@ -478,6 +478,7 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
                     UsrDelFlag = "A",
                     UsrStatus = "U",
                     UsrType = "C",
+                    UsrRole = 1,
                     UsrIsLogin = "Y"
                 };
 
@@ -1319,13 +1320,83 @@ WHERE UserId = @UserId
 
 
 
+        //public async Task<List<FormPermissionDto>> GetUserPermissionsWithFormNameAsync(int companyId, int userId)
+        //{
+        //    var userRoleLevel = await _db.ExecuteScalarAsync<int>(
+        //        "SELECT Usr_GrpOrUserLvlPerm FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_CompID = @CompanyId",
+        //        new { UserId = userId, CompanyId = companyId });
+
+        //    var isPartner = await _db.ExecuteScalarAsync<int?>(
+        //        "SELECT Usr_ID FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_Partner = 1 AND Usr_CompID = @CompanyId",
+        //        new { UserId = userId, CompanyId = companyId });
+
+        //    IEnumerable<FormPermissionDto> results;
+
+        //    if (isPartner.HasValue)
+        //    {
+        //        results = await _db.QueryAsync<FormPermissionDto>(
+        //            @"SELECT DISTINCT m.Mod_Description AS FormName, o.OP_OperationName AS Permission
+        //      FROM SAD_MODULE m
+        //      JOIN SAD_Mod_Operations o ON m.Mod_ID = o.OP_ModuleID
+        //      WHERE  m.Mod_CompID = @CompanyId",
+        //            new { CompanyId = companyId });
+        //    }
+        //    else
+        //    {
+        //        if (userRoleLevel == 1)
+        //        {
+        //            results = await _db.QueryAsync<FormPermissionDto>(
+        //                @"SELECT DISTINCT m.Mod_Description AS FormName, o.OP_OperationName AS Permission
+        //          FROM SAD_MODULE m
+        //          JOIN SAD_Mod_Operations o ON m.Mod_ID = o.OP_ModuleID
+        //          JOIN SAD_UsrOrGrp_Permission p ON o.OP_PKID = p.Perm_OPPKID
+        //          WHERE p.Perm_UsrorGrpID = @UserId 
+        //            AND p.Perm_PType = 'U' 
+        //            AND m.Mod_Parent = 4
+        //            AND p.Perm_CompID = @CompanyId",
+        //                new { UserId = userId, CompanyId = companyId });
+        //        }
+        //        else
+        //        {
+        //            var roleId = await _db.ExecuteScalarAsync<int>(
+        //                "SELECT Usr_Role FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_CompID = @CompanyId",
+        //                new { UserId = userId, CompanyId = companyId });
+
+        //            results = await _db.QueryAsync<FormPermissionDto>(
+        //                @"SELECT DISTINCT m.Mod_Description AS FormName, o.OP_OperationName AS Permission
+        //          FROM SAD_MODULE m
+        //          JOIN SAD_Mod_Operations o ON m.Mod_ID = o.OP_ModuleID
+        //          JOIN SAD_UsrOrGrp_Permission p ON o.OP_PKID = p.Perm_OPPKID
+        //          WHERE p.Perm_UsrorGrpID = @RoleId 
+        //            AND p.Perm_PType = 'R' 
+        //            AND m.Mod_Parent = 4
+        //            AND p.Perm_CompID = @CompanyId",
+        //                new { RoleId = roleId, CompanyId = companyId });
+        //        }
+        //    }
+
+        //    return results.ToList();
+        //}
+
+
         public async Task<List<FormPermissionDto>> GetUserPermissionsWithFormNameAsync(int companyId, int userId)
         {
-            var userRoleLevel = await _db.ExecuteScalarAsync<int>(
+            // Get customer-specific database name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // Create a dynamic connection for this customer
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
+            await connection.OpenAsync();
+
+            // Get user role level
+            var userRoleLevel = await connection.ExecuteScalarAsync<int>(
                 "SELECT Usr_GrpOrUserLvlPerm FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_CompID = @CompanyId",
                 new { UserId = userId, CompanyId = companyId });
 
-            var isPartner = await _db.ExecuteScalarAsync<int?>(
+            // Check if user is a partner
+            var isPartner = await connection.ExecuteScalarAsync<int?>(
                 "SELECT Usr_ID FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_Partner = 1 AND Usr_CompID = @CompanyId",
                 new { UserId = userId, CompanyId = companyId });
 
@@ -1333,41 +1404,41 @@ WHERE UserId = @UserId
 
             if (isPartner.HasValue)
             {
-                results = await _db.QueryAsync<FormPermissionDto>(
+                results = await connection.QueryAsync<FormPermissionDto>(
                     @"SELECT DISTINCT m.Mod_Description AS FormName, o.OP_OperationName AS Permission
               FROM SAD_MODULE m
               JOIN SAD_Mod_Operations o ON m.Mod_ID = o.OP_ModuleID
-              WHERE  m.Mod_CompID = @CompanyId",
+              WHERE m.Mod_CompID = @CompanyId",
                     new { CompanyId = companyId });
             }
             else
             {
                 if (userRoleLevel == 1)
                 {
-                    results = await _db.QueryAsync<FormPermissionDto>(
+                    results = await connection.QueryAsync<FormPermissionDto>(
                         @"SELECT DISTINCT m.Mod_Description AS FormName, o.OP_OperationName AS Permission
                   FROM SAD_MODULE m
                   JOIN SAD_Mod_Operations o ON m.Mod_ID = o.OP_ModuleID
                   JOIN SAD_UsrOrGrp_Permission p ON o.OP_PKID = p.Perm_OPPKID
-                  WHERE p.Perm_UsrorGrpID = @UserId 
-                    AND p.Perm_PType = 'U' 
+                  WHERE p.Perm_UsrorGrpID = @UserId
+                    AND p.Perm_PType = 'U'
                     AND m.Mod_Parent = 4
                     AND p.Perm_CompID = @CompanyId",
                         new { UserId = userId, CompanyId = companyId });
                 }
                 else
                 {
-                    var roleId = await _db.ExecuteScalarAsync<int>(
+                    var roleId = await connection.ExecuteScalarAsync<int>(
                         "SELECT Usr_Role FROM Sad_UserDetails WHERE Usr_ID = @UserId AND Usr_CompID = @CompanyId",
                         new { UserId = userId, CompanyId = companyId });
 
-                    results = await _db.QueryAsync<FormPermissionDto>(
+                    results = await connection.QueryAsync<FormPermissionDto>(
                         @"SELECT DISTINCT m.Mod_Description AS FormName, o.OP_OperationName AS Permission
                   FROM SAD_MODULE m
                   JOIN SAD_Mod_Operations o ON m.Mod_ID = o.OP_ModuleID
                   JOIN SAD_UsrOrGrp_Permission p ON o.OP_PKID = p.Perm_OPPKID
-                  WHERE p.Perm_UsrorGrpID = @RoleId 
-                    AND p.Perm_PType = 'R' 
+                  WHERE p.Perm_UsrorGrpID = @RoleId
+                    AND p.Perm_PType = 'R'
                     AND m.Mod_Parent = 4
                     AND p.Perm_CompID = @CompanyId",
                         new { RoleId = roleId, CompanyId = companyId });
@@ -1376,8 +1447,6 @@ WHERE UserId = @UserId
 
             return results.ToList();
         }
-
-
 
 
 

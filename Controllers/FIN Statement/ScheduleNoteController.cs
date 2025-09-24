@@ -1,9 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Reflection;
+using Microsoft.Reporting.WebForms;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Reporting.WebForms;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleFormatDto;
 using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
+using System.Data;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -15,11 +19,13 @@ namespace TracePca.Controllers.FIN_Statement
     {
         private ScheduleNoteInterface _ScheduleNoteInterface;
         private ScheduleNoteInterface _ScheduleNoteService;
+        private readonly IWebHostEnvironment _env;
 
-        public ScheduleNoteController(ScheduleNoteInterface ScheduleNoteInterface)
+        public ScheduleNoteController(ScheduleNoteInterface ScheduleNoteInterface, IWebHostEnvironment env)
         {
             _ScheduleNoteInterface = ScheduleNoteInterface;
             _ScheduleNoteService = ScheduleNoteInterface;
+            _env = env;
         }
 
         //GetSubHeadingname(Notes For SubHeading)
@@ -290,7 +296,7 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         // --PreDefinied Notes //
-        //SaveShareCapital(Particulars)
+        //SaveAuthorisedShareCapital(Particulars)
         [HttpPost("SaveAuthorisedShareCapital")]
         public async Task<IActionResult> SaveAuthorisedShareCapital([FromBody] AuthorisedShareCapitalDto dto)
         {
@@ -1039,5 +1045,421 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+        //GetFirstNote
+        [HttpGet("GetFirstNote")]
+        public async Task<IActionResult> GetFirstNote(int compId, string category, int custId, int YearId)
+        {
+            try
+            {
+                var result = await _ScheduleNoteService.GetFirstNoteAsync(compId, category, custId, YearId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = $"No records found in ScheduleNote_First for category '{category}' and companyId '{compId}'.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"Records fetched successfully for category '{category}'.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching ScheduleNote_First records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetSecondNoteById
+        [HttpGet("GetSecondNote")]
+        public async Task<IActionResult> GetSecondNote(int compId, string category, int custId, int yearId)
+        {
+            try
+            {
+                var result = await _ScheduleNoteService.GetSecondNoteByIdAsync(compId, category, custId, yearId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = $"No records found in ScheduleNote_First for category '{category}' and companyId '{compId}'.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"Records fetched successfully for category '{category}'.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching ScheduleNote_First records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetDescriptionNoteById
+        [HttpGet("GetDescriptionNoteById")]
+        public async Task<IActionResult> GetDescriptionNote([FromQuery] int compId, [FromQuery] string category, [FromQuery] int custId, [FromQuery] int yearId)
+        {
+            try
+            {
+                var result = await _ScheduleNoteService.GetDescriptionNoteAsync(compId, category, custId, yearId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = $"No records found in ScheduleNote_Desc for category '{category}' and companyId '{compId}'.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"Records fetched successfully for category '{category}'.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching ScheduleNote_Desc records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetThirdNote
+        [HttpGet("GetThirdNote")]
+        public async Task<IActionResult> GetThirdNote(int compId, string category, int custId, int YearId)
+        {
+            try
+            {
+                var result = await _ScheduleNoteService.GetThirdNoteAsync(compId, category, custId, YearId  );
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = $"No records found in ScheduleNote_Third for category '{category}' and companyId '{compId}'.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"Records fetched successfully for category '{category}'.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching ScheduleNote_Third records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetFourthNote
+        [HttpGet("GetFourthNote")]
+        public async Task<IActionResult> GetFourthNote(int compId, string category, int custId, int YearId)
+        {
+            try
+            {
+                var result = await _ScheduleNoteService.GetFourthNoteAsync(compId, category, custId, YearId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = $"No records found in ScheduleNote_Fourth for category '{category}' and companyId '{compId}'.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"Records fetched successfully for category '{category}'.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching ScheduleNote_Fourth records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //DeleteFirstNote
+        [HttpPost("DeleteSchedFirstNoteDetails")]
+        public async Task<IActionResult> DeleteSchedFirstNoteDetails([FromBody] DeleteFirstNoteDto dto)
+        {
+            try
+            {
+                if (dto.Id == 0 || dto.CustomerId == 0 || dto.CompId == 0 || dto.YearId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Id, CustomerId, CompId, and YearId are required.",
+                        Data = (object)null
+                    });
+                }
+
+                var rowsAffected = await _ScheduleNoteService.DeleteSchedFirstNoteDetailsAsync(
+                    dto.Id, dto.CustomerId, dto.CompId, dto.YearId);
+
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = "No matching record found to delete.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "ScheduleNote_First record soft-deleted successfully.",
+                    Data = rowsAffected
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while deleting ScheduleNote_First record.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //DeleteThirdNote
+        [HttpPost("DeleteSchedThirdNoteDetails")]
+        public async Task<IActionResult> DeleteSchedThirdNoteDetails([FromBody] DeleteThirdNoteDto dto)
+        {
+            try
+            {
+                if (dto.Id == 0 || dto.CustomerId == 0 || dto.CompId == 0 || dto.YearId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Id, CustomerId, CompId, and YearId are required.",
+                        Data = (object)null
+                    });
+                }
+
+                var rowsAffected = await _ScheduleNoteService.DeleteSchedThirdNoteDetailsAsync(
+                    dto.Id, dto.CustomerId, dto.CompId, dto.YearId);
+
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = "No matching record found to delete in ScheduleNote_Third.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "ScheduleNote_Third record soft-deleted successfully.",
+                    Data = rowsAffected
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while deleting ScheduleNote_Third record.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //DeleteFourthNote
+        [HttpPost("DeleteSchedFourthNoteDetails")]
+        public async Task<IActionResult> DeleteSchedFourthNoteDetails([FromBody] DeleteFourthNoteDto dto)
+        {
+            try
+            {
+                // ✅ Validation
+                if (dto.Id == 0 || dto.CustomerId == 0 || dto.CompId == 0 || dto.YearId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Id, CustomerId, CompId, and YearId are required.",
+                        Data = (object)null
+                    });
+                }
+
+                // ✅ Call service
+                var rowsAffected = await _ScheduleNoteService.DeleteSchedFourthNoteDetailsAsync(
+                    dto.Id, dto.CustomerId, dto.CompId, dto.YearId);
+
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = "No matching record found to delete in ScheduleNote_Fourth.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "ScheduleNote_Fourth record soft-deleted successfully.",
+                    Data = rowsAffected
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while deleting ScheduleNote_Fourth record.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //DownloadScheduleNoteExcel
+        [HttpGet("DownloadableScheduleNoteExcelFile")]
+        [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
+        [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+        public IActionResult DownloadScheduleNoteExcelTemplate()
+
+        {
+            var result = _ScheduleNoteService.GetNoteExcelTemplate();
+
+            if (result.FileBytes == null)
+                return NotFound("File not found.");
+
+            return File(result.FileBytes, result.ContentType, result.FileName);
+        }
+
+        //DownloadScheduleNotePDF
+        [HttpGet("DownloadableScheduleNotePDFFile")]
+        [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
+        [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+        public IActionResult DownloadableScheduleNotePDFFile()
+
+        {
+            var result = _ScheduleNoteService.GetNotePDFTemplate();
+
+            if (result.FileBytes == null)
+                return NotFound("File not found.");
+
+            return File(result.FileBytes, result.ContentType, result.FileName);
+        }
+
+        //DownloadScheduleNotePDFTemplate
+        //[HttpGet("DownloadScheduleNotePdf")]
+        //public async Task<IActionResult> DownloadScheduleNotePdf(int companyId, int customerId, int financialYear)
+        //{
+        //    try
+        //    {
+        //        var customerName = "SampleCustomer"; // fetch from db/session as needed
+        //        var datasets = await _ScheduleNoteService.GetScheduleNoteReportDataAsync(companyId, customerId, financialYear);
+
+        //        using var ms = new MemoryStream();
+        //        using (var writer = new PdfWriter(ms))
+        //        using (var pdf = new PdfDocument(writer))
+        //        using (var doc = new Document(pdf))
+        //        {
+        //            // 🔹 Title
+        //            doc.Add(new Paragraph($"Schedule Note Report")
+        //                .SetFontSize(16)
+        //                .SetBold()
+        //                .SetTextAlignment(TextAlignment.CENTER));
+
+        //            doc.Add(new Paragraph($"Customer: {customerName}  |  Financial Year: {financialYear}")
+        //                .SetFontSize(12)
+        //                .SetMarginBottom(20));
+
+        //            // 🔹 Loop through datasets and render tables
+        //            foreach (var ds in datasets)
+        //            {
+        //                doc.Add(new Paragraph(ds.Key).SetBold().SetFontSize(12));
+
+        //                var table = new Table(ds.Value.Columns.Count).UseAllAvailableWidth();
+
+        //                // Add header row
+        //                foreach (DataColumn col in ds.Value.Columns)
+        //                {
+        //                    table.AddHeaderCell(new Cell().Add(new Paragraph(col.ColumnName).SetBold()));
+        //                }
+
+        //                // Add rows
+        //                foreach (DataRow row in ds.Value.Rows)
+        //                {
+        //                    foreach (var item in row.ItemArray)
+        //                    {
+        //                        table.AddCell(new Paragraph(item?.ToString() ?? ""));
+        //                    }
+        //                }
+        //                doc.Add(table);
+        //                doc.Add(new Paragraph("\n")); // space between tables
+        //            }
+        //        }
+        //        var pdfBytes = ms.ToArray();
+        //        return File(pdfBytes, "application/pdf", $"ScheduleNote_{customerName}_{financialYear}.pdf");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            StatusCode = 500,
+        //            Message = "Error generating ScheduleNote PDF.",
+        //            Error = ex.Message
+        //        });
+        //    }
+        //}
     }
 }

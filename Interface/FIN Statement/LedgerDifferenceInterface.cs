@@ -11,5 +11,8 @@ namespace TracePca.Interface.FIN_Statement
         //GetAccountWiseDetails
         Task<(IEnumerable<AccountWiseDetailsDto> ScheduleType3, IEnumerable<AccountWiseDetailsDto> ScheduleType4)>
        GetAccountWiseDetailsAsync(int compId, int custId, int branchId, int yearId, int durationId);
+
+        //GetDescriptionWiseDetails
+        Task<IEnumerable<DescriptionWiseDetailsDto>> GetDescriptionWiseDetailsAsync(int compId, int custId, int branchId, int yearId, int typeId);
     }
 }
