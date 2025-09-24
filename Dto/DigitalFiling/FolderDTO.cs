@@ -76,7 +76,7 @@ namespace TracePca.Dto.DigitalFiling
  
  
 		public string? FOL_CreatedBy { get; set; }
-		public int FOL_SubCabinet { get; set; }
+		public string FOL_SubCabinet { get; set; }
   
 		public DateTime? FOL_CreatedOn { get; set; }
 		public int? FOL_UpdatedBy { get; set; }
@@ -98,6 +98,8 @@ namespace TracePca.Dto.DigitalFiling
 		public string FOL_Status { get; set; }
 		public string FOL_DelFlag { get; set; }
 		public int FOL_CompID { get; set; }
- 
+
+		public int FOL_Documents { get; set; }
+
 	}
 }
