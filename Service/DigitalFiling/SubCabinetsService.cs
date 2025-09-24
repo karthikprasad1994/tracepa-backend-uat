@@ -3,6 +3,7 @@ using Microsoft.Data.SqlClient;
 using StackExchange.Redis;
 using TracePca.Data;
 using TracePca.Dto.DigitalFiling;
+using TracePca.Dto.DigitalFilling;
 using TracePca.Interface.Audit;
 using TracePca.Interface.DigitalFiling;
 
@@ -136,7 +137,52 @@ namespace TracePca.Service.DigitalFiling
             }
         }
 
-        public async Task<List<SubCabinetDTO>> GetAllSubCabinetsByCabinetAndUserIdAsync(int userId, int cabinetId, string statusCode)
+
+		public async Task<List<SubCabinetDetailsDTO>> GetAllSubCabinetsDetailsByCabinetAndUserIdAsync(int userId, int cabinetId, string statusCode)
+		{
+			try
+			{
+				string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+				if (string.IsNullOrEmpty(dbName))
+					throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+				var connectionString = _configuration.GetConnectionString(dbName);
+
+				using var connection = new SqlConnection(connectionString);
+				await connection.OpenAsync();
+
+				string query = @"
+            SELECT 
+                CBN_ID, 
+                CBN_Name, 
+                CBN_SubCabCount,
+                CBN_FolderCount,
+                usr_FullName AS CBN_CreatedBy,
+                CBN_CreatedOn,
+                CBN_DelFlag
+            FROM edt_Cabinet A 
+            JOIN sad_UserDetails B ON A.CBN_CreatedBy = B.Usr_ID 
+            WHERE A.CBN_Status = @statusCode 
+              AND CBN_UserID = @userId 
+              AND CBN_Parent = @cabinetId";
+
+				var result = await connection.QueryAsync<SubCabinetDetailsDTO>(query, new
+				{
+					statusCode,
+					userId,
+					cabinetId
+				});
+
+				return result.ToList();
+			}
+			catch (Exception)
+			{
+				throw; // rethrow preserves stack trace
+			}
+		}
+
+
+		public async Task<List<SubCabinetDTO>> GetAllSubCabinetsByCabinetAndUserIdAsync(int userId, int cabinetId, string statusCode)
         {
             try
             {
