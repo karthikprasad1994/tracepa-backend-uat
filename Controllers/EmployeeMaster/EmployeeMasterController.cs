@@ -109,8 +109,7 @@ namespace TracePca.Controllers
             try
             {
                 var result = await _employeemaster.SaveEmployeeBasicDetailsAsync(dto);
-
-                return Ok(new { StatusCode = 200, Message = result });
+                return StatusCode(result.StatusCode, new { result.StatusCode, result.Message });
             }
             catch (Exception ex)
             {
@@ -119,7 +118,7 @@ namespace TracePca.Controllers
         }
 
 
-       
+
 
 
         [HttpGet("GetEmployeeById")]

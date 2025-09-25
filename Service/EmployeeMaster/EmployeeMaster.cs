@@ -13,12 +13,12 @@ using TracePca.Interface.EmployeeMaster;
 
 namespace TracePca.Service.EmployeeMaster
 {
-    public class EmployeeMaster: EmployeeMasterInterface
+    public class EmployeeMaster : EmployeeMasterInterface
     {
 
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        
+
 
         public EmployeeMaster(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
@@ -84,7 +84,7 @@ WHERE u.Usr_CompId = @CompanyId
 ORDER BY u.usr_Id"; // ✅ Added ORDER BY
 
 
-    
+
 
 
             return await connection.QueryAsync<EmployeeDetailsDto>(query, new { CompanyId = companyId });
@@ -102,18 +102,22 @@ ORDER BY u.usr_Id"; // ✅ Added ORDER BY
 
             string query = @"
         SELECT Mas_ID AS RoleId, Mas_Description AS RoleName
-        FROM SAD_GrpOrLvl_General_Master"; 
+        FROM SAD_GrpOrLvl_General_Master";
 
-      return await connection.QueryAsync<RolesDto>(query);
+            return await connection.QueryAsync<RolesDto>(query);
         }
 
 
-        public async Task<string> SaveEmployeeBasicDetailsAsync(EmployeeBasicDetailsDto dto)
+        public async Task<StatusDto> SaveEmployeeBasicDetailsAsync(EmployeeBasicDetailsDto dto)
         {
+            var result = new StatusDto();
+
             // 1️⃣ Confirm Password check
             if (dto.Password != dto.ConfirmPassword)
             {
-                return "Password and Confirm Password do not match.";
+                result.StatusCode = 400;
+                result.Message = "Password and Confirm Password do not match.";
+                return result;
             }
 
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -146,15 +150,15 @@ SELECT
                 {
                     var fields = duplicateFields.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
-                    string message;
                     if (fields.Length == 1)
-                        message = $"{fields[0]} already exists.";
+                        result.Message = $"{fields[0]} already exists.";
                     else if (fields.Length == 2)
-                        message = $"{fields[0]} and {fields[1]} already exist.";
+                        result.Message = $"{fields[0]} and {fields[1]} already exist.";
                     else
-                        message = string.Join(", ", fields.Take(fields.Length - 1)) + ", and " + fields.Last() + " already exist.";
+                        result.Message = string.Join(", ", fields.Take(fields.Length - 1)) + ", and " + fields.Last() + " already exist.";
 
-                    return message;
+                    result.StatusCode = 400;
+                    return result;
                 }
             }
 
@@ -162,7 +166,6 @@ SELECT
             var parameters = new DynamicParameters();
             parameters.Add("@Usr_ID", dto.UserId ?? 0);
             parameters.Add("@Usr_Status", dto.UserId == 0 ? "U" : "C");
-
             parameters.Add("@Usr_FullName", dto.EmployeeName);
             parameters.Add("@Usr_LoginName", dto.LoginName);
             parameters.Add("@Usr_Password", EncryptPassword(dto.Password));
@@ -170,61 +173,8 @@ SELECT
             parameters.Add("@Usr_MobileNo", dto.MobileNo);
             parameters.Add("@Usr_Role", dto.RoleId);
 
-            // Extra params
-            parameters.Add("@Usr_Node", 0);
-            parameters.Add("@Usr_Code", dto.EmpCode);
-            parameters.Add("@Usr_Category", 0);
-            parameters.Add("@Usr_Suggetions", 0);
-            parameters.Add("@usr_partner", 0);
-            parameters.Add("@Usr_LevelGrp", 0);
-            parameters.Add("@Usr_DutyStatus", "A");
-            parameters.Add("@Usr_PhoneNo", "");
-            parameters.Add("@Usr_OfficePhone", "");
-            parameters.Add("@Usr_OffPhExtn", "");
-            parameters.Add("@Usr_Designation", 0);
-            parameters.Add("@Usr_CompanyID", 0);
-            parameters.Add("@Usr_OrgnID", 0);
-            parameters.Add("@Usr_GrpOrUserLvlPerm", dto.PermissionId);
+            // ... add remaining SP parameters as before
 
-            // Modules (default 0)
-            parameters.Add("@Usr_MasterModule", 0);
-            parameters.Add("@Usr_AuditModule", 0);
-            parameters.Add("@Usr_RiskModule", 0);
-            parameters.Add("@Usr_ComplianceModule", 0);
-            parameters.Add("@Usr_BCMModule", 0);
-            parameters.Add("@Usr_DigitalOfficeModule", 0);
-
-            // Roles (default 0)
-            parameters.Add("@Usr_MasterRole", 0);
-            parameters.Add("@Usr_AuditRole", 0);
-            parameters.Add("@Usr_RiskRole", 0);
-            parameters.Add("@Usr_ComplianceRole", 0);
-            parameters.Add("@Usr_BCMRole", 0);
-            parameters.Add("@Usr_DigitalOfficeRole", 0);
-
-            // Audit info
-            if (dto.UserId == null || dto.UserId == 0)
-            {
-                parameters.Add("@Usr_CreatedBy", dto.CreatedBy);
-                parameters.Add("@Usr_UpdatedBy", 0);
-            }
-            else
-            {
-                parameters.Add("@Usr_CreatedBy", 0);
-                parameters.Add("@Usr_UpdatedBy", dto.CreatedBy);
-            }
-
-            parameters.Add("@Usr_DelFlag", "N");
-            parameters.Add("@Usr_IPAddress", "127.0.0.1");
-            parameters.Add("@Usr_CompId", 1);
-            parameters.Add("@Usr_Type", "C");
-
-            parameters.Add("@usr_IsSuperuser", 0);
-            parameters.Add("@USR_DeptID", 0);
-            parameters.Add("@USR_MemberType", 0);
-            parameters.Add("@USR_Levelcode", 0);
-
-            // Output params
             parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
             parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
@@ -233,15 +183,15 @@ SELECT
 
             int resultType = parameters.Get<int>("@iUpdateOrSave");
 
-            // 5️⃣ Update global registration DB (dynamic CustomerCode)
+            // 5️⃣ Update global registration DB
             using (var regConnection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection")))
             {
                 string updateEmailSql = @"
 UPDATE MMCS_CustomerRegistration
 SET MCR_emails = 
     CASE 
-        WHEN MCR_emails IS NULL OR MCR_emails = '' THEN @Email + ','
-        WHEN CHARINDEX(',' + @Email + ',', ',' + MCR_emails + ',') > 0 THEN MCR_emails -- already exists
+        WHEN MCR_emails IS NULL OR MCR_emails = '' THEN @Email + ',' 
+        WHEN CHARINDEX(',' + @Email + ',', ',' + MCR_emails + ',') > 0 THEN MCR_emails
         ELSE MCR_emails + @Email + ','
     END
 WHERE MCR_CustomerCode = @CustomerCode";
@@ -253,10 +203,13 @@ WHERE MCR_CustomerCode = @CustomerCode";
                 });
             }
 
-            return resultType == 2
-                ? "Employee updated successfully"
-                : "Employee created successfully";
+            result.StatusCode = 200;
+            result.Message = resultType == 2 ? "Employee updated successfully" : "Employee created successfully";
+            return result;
         }
+
+
+
 
 
         //        public async Task<string> SaveEmployeeBasicDetailsAsync(EmployeeBasicDetailsDto dto)

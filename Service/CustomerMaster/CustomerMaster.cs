@@ -174,18 +174,39 @@ ORDER BY CUST_ID";
 
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
 
-            // 🔹 Duplicate Check (only for Insert, not Update)
-            if (dto.CustomerId == null || dto.CustomerId == 0)
+            // 🔹 Duplicate Check for Insert and Update
+            if (!string.IsNullOrEmpty(dto.CustomerCode) || !string.IsNullOrEmpty(dto.CompanyEmail) || !string.IsNullOrEmpty(dto.CINNO))
             {
-                var duplicateCheck = await connection.ExecuteScalarAsync<int>(
-                    @"SELECT COUNT(1) 
-              FROM SAD_CUSTOMER_MASTER 
-              WHERE (CUST_NAME = @CustomerName OR CUST_CODE = @CustomerCode OR CUST_EMAIL = @CompanyEmail)",
-                    new { dto.CustomerName, dto.CustomerCode, dto.CompanyEmail });
+                var duplicateQuery = @"
+SELECT 
+    STUFF(
+        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUST_CODE = @CustomerCode AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',Customer Code' ELSE '' END +
+        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUST_EMAIL = @CompanyEmail AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',Company Email' ELSE '' END +
+        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUSt_BranchId = @CINNO AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',CIN No' ELSE '' END
+    , 1, 1, '') AS DuplicateFields
+";
 
-                if (duplicateCheck > 0)
+                var duplicateFields = await connection.QueryFirstOrDefaultAsync<string>(duplicateQuery, new
                 {
-                    return "Customer with the same name, code, or email already exists.";
+                    CustomerCode = dto.CustomerCode,
+                    CompanyEmail = dto.CompanyEmail,
+                    CINNO = dto.CINNO,
+                    CustomerId = dto.CustomerId
+                });
+
+                if (!string.IsNullOrEmpty(duplicateFields))
+                {
+                    var fields = duplicateFields.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                    string message;
+
+                    if (fields.Length == 1)
+                        message = $"{fields[0]} already exists.";
+                    else if (fields.Length == 2)
+                        message = $"{fields[0]} and {fields[1]} already exist.";
+                    else
+                        message = string.Join(", ", fields.Take(fields.Length - 1)) + ", and " + fields.Last() + " already exist.";
+
+                    return message;
                 }
             }
 
@@ -244,12 +265,98 @@ ORDER BY CUST_ID";
             await connection.ExecuteAsync("spSAD_CUSTOMER_MASTER", parameters, commandType: CommandType.StoredProcedure);
 
             int resultType = parameters.Get<int>("@iUpdateOrSave");
-            int customerId = parameters.Get<int>("@iOper");
 
             return resultType == 2
                 ? "Customer updated successfully"
                 : "Customer created successfully";
         }
+
+
+        //public async Task<string> SaveCustomerMasterAsync(CreateCustomerMasterDto dto)
+        //{
+        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //    if (string.IsNullOrEmpty(dbName))
+        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
+
+        //    // 🔹 Duplicate Check (only for Insert, not Update)
+        //    if (dto.CustomerId == null || dto.CustomerId == 0)
+        //    {
+        //        var duplicateCheck = await connection.ExecuteScalarAsync<int>(
+        //            @"SELECT COUNT(1) 
+        //      FROM SAD_CUSTOMER_MASTER 
+        //      WHERE (CUST_NAME = @CustomerName OR CUST_CODE = @CustomerCode OR CUST_EMAIL = @CompanyEmail)",
+        //            new { dto.CustomerName, dto.CustomerCode, dto.CompanyEmail });
+
+        //        if (duplicateCheck > 0)
+        //        {
+        //            return "Customer with the same name, code, or email already exists.";
+        //        }
+        //    }
+
+        //    var parameters = new DynamicParameters();
+
+        //    // Mandatory fields (from DTO)
+        //    parameters.Add("@CUST_ID", dto.CustomerId ?? 0);
+        //    parameters.Add("@CUST_NAME", dto.CustomerName);
+        //    parameters.Add("@CUST_CODE", dto.CustomerCode);
+        //    parameters.Add("@CUST_WEBSITE", dto.CompanyUrl ?? string.Empty);
+        //    parameters.Add("@CUST_EMAIL", dto.CompanyEmail ?? string.Empty);
+        //    parameters.Add("@CUST_GROUPNAME", dto.GroupName ?? string.Empty);
+        //    parameters.Add("@CUST_GROUPINDIVIDUAL", dto.GroupIndividual);
+        //    parameters.Add("@CUST_ORGTYPEID", dto.OrganizationTypeId);
+        //    parameters.Add("@CUST_INDTYPEID", dto.IndustryTypeId);
+        //    parameters.Add("@CUST_MGMTTYPEID", dto.ManagementTypeId);
+        //    parameters.Add("@CUST_CommitmentDate", dto.CommitmentDate);
+
+        //    // Remaining fields defaulted
+        //    parameters.Add("@CUSt_BranchId", dto.CINNO);
+        //    parameters.Add("@CUST_COMM_ADDRESS", "");
+        //    parameters.Add("@CUST_COMM_CITY", "");
+        //    parameters.Add("@CUST_COMM_PIN", "");
+        //    parameters.Add("@CUST_COMM_STATE", "");
+        //    parameters.Add("@CUST_COMM_COUNTRY", "");
+        //    parameters.Add("@CUST_COMM_FAX", "");
+        //    parameters.Add("@CUST_COMM_TEL", "");
+        //    parameters.Add("@CUST_COMM_Email", "");
+        //    parameters.Add("@CUST_ADDRESS", "");
+        //    parameters.Add("@CUST_CITY", "");
+        //    parameters.Add("@CUST_PIN", "");
+        //    parameters.Add("@CUST_STATE", "");
+        //    parameters.Add("@CUST_COUNTRY", "");
+        //    parameters.Add("@CUST_FAX", "");
+        //    parameters.Add("@CUST_TELPHONE", "");
+        //    parameters.Add("@CUST_ConEmailID", "");
+        //    parameters.Add("@CUST_LOCATIONID", "");
+        //    parameters.Add("@CUST_TASKS", string.Join(",", dto.ServiceTypeId));
+
+        //    parameters.Add("@CUST_ORGID", 0);
+        //    parameters.Add("@CUST_CRBY", dto.CreatedBy);
+        //    parameters.Add("@CUST_UpdatedBy", dto.CreatedBy);
+        //    parameters.Add("@CUST_BOARDOFDIRECTORS", dto.BoardofDirectors);
+        //    parameters.Add("@CUST_DEPMETHOD", 0);
+        //    parameters.Add("@CUST_IPAddress", "127.0.0.1");
+        //    parameters.Add("@CUST_CompID", dto.CompanyId);
+        //    parameters.Add("@CUST_Amount_Type", 0);
+        //    parameters.Add("@CUST_RoundOff", 0);
+        //    parameters.Add("@Cust_DurtnId", 0);
+        //    parameters.Add("@Cust_FY", dto.FinancialYearId);
+
+        //    // Output params
+        //    parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+        //    parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+        //    await connection.ExecuteAsync("spSAD_CUSTOMER_MASTER", parameters, commandType: CommandType.StoredProcedure);
+
+        //    int resultType = parameters.Get<int>("@iUpdateOrSave");
+        //    int customerId = parameters.Get<int>("@iOper");
+
+        //    return resultType == 2
+        //        ? "Customer updated successfully"
+        //        : "Customer created successfully";
+        //}
 
         //public async Task<string> SaveCustomerMasterAsync(CreateCustomerMasterDto dto)
         //{
