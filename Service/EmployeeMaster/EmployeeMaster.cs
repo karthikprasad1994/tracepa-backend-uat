@@ -107,18 +107,11 @@ ORDER BY u.usr_Id"; // ✅ Added ORDER BY
             return await connection.QueryAsync<RolesDto>(query);
         }
 
-
-        public async Task<StatusDto> SaveEmployeeBasicDetailsAsync(EmployeeBasicDetailsDto dto)
+        public async Task<string> SaveEmployeeBasicDetailsAsync(EmployeeBasicDetailsDto dto)
         {
-            var result = new StatusDto();
-
-            // 1️⃣ Confirm Password check
+            // 1️⃣ Confirm password check
             if (dto.Password != dto.ConfirmPassword)
-            {
-                result.StatusCode = 400;
-                result.Message = "Password and Confirm Password do not match.";
-                return result;
-            }
+                throw new ArgumentException("Password and Confirm Password do not match.");
 
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
@@ -126,46 +119,40 @@ ORDER BY u.usr_Id"; // ✅ Added ORDER BY
 
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
 
-            // 2️⃣ Duplicate check for Insert and Update
-            if (!string.IsNullOrEmpty(dto.EmpCode) || !string.IsNullOrEmpty(dto.Email) || !string.IsNullOrEmpty(dto.MobileNo))
-            {
-                var duplicateQuery = @"
+            // 2️⃣ Duplicate check
+            var duplicateQuery = @"
 SELECT 
     STUFF(
         CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_Code = @EmpCode AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Employee Code' ELSE '' END +
         CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_Email = @Email AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Email' ELSE '' END +
         CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_MobileNo = @MobileNo AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Mobile No' ELSE '' END
-    , 1, 1, '') AS DuplicateFields
-";
+    , 1, 1, '') AS DuplicateFields";
 
-                var duplicateFields = await connection.QueryFirstOrDefaultAsync<string>(duplicateQuery, new
-                {
-                    EmpCode = dto.EmpCode,
-                    Email = dto.Email,
-                    MobileNo = dto.MobileNo,
-                    UserId = dto.UserId
-                });
+            var duplicateFields = await connection.QueryFirstOrDefaultAsync<string>(duplicateQuery, new
+            {
+                EmpCode = dto.EmpCode,
+                Email = dto.Email,
+                MobileNo = dto.MobileNo,
+                UserId = dto.UserId
+            });
 
-                if (!string.IsNullOrEmpty(duplicateFields))
-                {
-                    var fields = duplicateFields.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            if (!string.IsNullOrEmpty(duplicateFields))
+            {
+                var fields = duplicateFields.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                string message = fields.Length == 1 ? $"{fields[0]} already exists." :
+                                 fields.Length == 2 ? $"{fields[0]} and {fields[1]} already exist." :
+                                 string.Join(", ", fields.Take(fields.Length - 1)) + ", and " + fields.Last() + " already exist.";
 
-                    if (fields.Length == 1)
-                        result.Message = $"{fields[0]} already exists.";
-                    else if (fields.Length == 2)
-                        result.Message = $"{fields[0]} and {fields[1]} already exist.";
-                    else
-                        result.Message = string.Join(", ", fields.Take(fields.Length - 1)) + ", and " + fields.Last() + " already exist.";
-
-                    result.StatusCode = 400;
-                    return result;
-                }
+                throw new InvalidOperationException(message); // Will translate to 400 Bad Request in controller
             }
 
-            // 3️⃣ Prepare parameters for SP
+            // 3️⃣ Prepare parameters and execute SP
             var parameters = new DynamicParameters();
             parameters.Add("@Usr_ID", dto.UserId ?? 0);
             parameters.Add("@Usr_Status", dto.UserId == 0 ? "U" : "C");
+
+
+            // Required fields (mapped from DTO)
             parameters.Add("@Usr_FullName", dto.EmployeeName);
             parameters.Add("@Usr_LoginName", dto.LoginName);
             parameters.Add("@Usr_Password", EncryptPassword(dto.Password));
@@ -173,40 +160,227 @@ SELECT
             parameters.Add("@Usr_MobileNo", dto.MobileNo);
             parameters.Add("@Usr_Role", dto.RoleId);
 
-            // ... add remaining SP parameters as before
+            // Additional SP params (set from DTO if present, else default values)
+            // Additional required parameters (hardcoded/default values)
+            parameters.Add("@Usr_Node", 0);
+            parameters.Add("@Usr_Code", dto.EmpCode);
+            parameters.Add("@Usr_Category", 0);
+            parameters.Add("@Usr_Suggetions", 0);
+            parameters.Add("@usr_partner", 0);
+            parameters.Add("@Usr_LevelGrp", 0);
+            parameters.Add("@Usr_DutyStatus", "A"); // Active by default
+            parameters.Add("@Usr_PhoneNo", "");
+            parameters.Add("@Usr_OfficePhone", "");
+            parameters.Add("@Usr_OffPhExtn", "");
+            parameters.Add("@Usr_Designation", 0);
+            parameters.Add("@Usr_CompanyID", 0);
+            parameters.Add("@Usr_OrgnID", 0);
+            parameters.Add("@Usr_GrpOrUserLvlPerm", dto.PermissionId);
 
+            // Modules (default 0)
+            parameters.Add("@Usr_MasterModule", 0);
+            parameters.Add("@Usr_AuditModule", 0);
+            parameters.Add("@Usr_RiskModule", 0);
+            parameters.Add("@Usr_ComplianceModule", 0);
+            parameters.Add("@Usr_BCMModule", 0);
+            parameters.Add("@Usr_DigitalOfficeModule", 0);
+
+            // Roles (default 0)
+            parameters.Add("@Usr_MasterRole", 0);
+            parameters.Add("@Usr_AuditRole", 0);
+            parameters.Add("@Usr_RiskRole", 0);
+            parameters.Add("@Usr_ComplianceRole", 0);
+            parameters.Add("@Usr_BCMRole", 0);
+            parameters.Add("@Usr_DigitalOfficeRole", 0);
+
+            // Audit Info (default/hardcoded)
+            if (dto.UserId == null || dto.UserId == 0) // Insert
+            {
+                parameters.Add("@Usr_CreatedBy", dto.CreatedBy);
+                parameters.Add("@Usr_UpdatedBy", 0);
+            }
+            else // Update
+            {
+                parameters.Add("@Usr_CreatedBy", 0);
+                parameters.Add("@Usr_UpdatedBy", dto.CreatedBy);
+            }
+            parameters.Add("@Usr_DelFlag", "N");
+            parameters.Add("@Usr_IPAddress", "127.0.0.1"); // or from HttpContext
+            parameters.Add("@Usr_CompId", 1);
+            parameters.Add("@Usr_Type", "C");
+
+            parameters.Add("@usr_IsSuperuser", 0);
+            parameters.Add("@USR_DeptID", 0);
+            parameters.Add("@USR_MemberType", 0);
+            parameters.Add("@USR_Levelcode", 0);
             parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
             parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-            // 4️⃣ Execute SP
             await connection.ExecuteAsync("spEmployeeMaster", parameters, commandType: CommandType.StoredProcedure);
 
             int resultType = parameters.Get<int>("@iUpdateOrSave");
 
-            // 5️⃣ Update global registration DB
-            using (var regConnection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection")))
-            {
-                string updateEmailSql = @"
-UPDATE MMCS_CustomerRegistration
-SET MCR_emails = 
-    CASE 
-        WHEN MCR_emails IS NULL OR MCR_emails = '' THEN @Email + ',' 
-        WHEN CHARINDEX(',' + @Email + ',', ',' + MCR_emails + ',') > 0 THEN MCR_emails
-        ELSE MCR_emails + @Email + ','
-    END
-WHERE MCR_CustomerCode = @CustomerCode";
-
-                await regConnection.ExecuteAsync(updateEmailSql, new
-                {
-                    Email = dto.Email.Trim(),
-                    CustomerCode = dbName
-                });
-            }
-
-            result.StatusCode = 200;
-            result.Message = resultType == 2 ? "Employee updated successfully" : "Employee created successfully";
-            return result;
+            return resultType == 2 ? "Employee updated successfully" : "Employee created successfully";
         }
+
+
+
+        //        public async Task<StatusDto> SaveEmployeeBasicDetailsAsync(EmployeeBasicDetailsDto dto)
+        //        {
+        //            var result = new StatusDto();
+
+        //            // 1️⃣ Confirm Password check
+        //            if (dto.Password != dto.ConfirmPassword)
+        //            {
+        //                result.StatusCode = 400;
+        //                result.Message = "Password and Confirm Password do not match.";
+        //                return result;
+        //            }
+
+        //            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //            if (string.IsNullOrEmpty(dbName))
+        //                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
+
+        //            // 2️⃣ Duplicate check for Insert and Update
+        //            if (!string.IsNullOrEmpty(dto.EmpCode) || !string.IsNullOrEmpty(dto.Email) || !string.IsNullOrEmpty(dto.MobileNo))
+        //            {
+        //                var duplicateQuery = @"
+        //SELECT 
+        //    STUFF(
+        //        CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_Code = @EmpCode AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Employee Code' ELSE '' END +
+        //        CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_Email = @Email AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Email' ELSE '' END +
+        //        CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_MobileNo = @MobileNo AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Mobile No' ELSE '' END
+        //    , 1, 1, '') AS DuplicateFields
+        //";
+
+        //                var duplicateFields = await connection.QueryFirstOrDefaultAsync<string>(duplicateQuery, new
+        //                {
+        //                    EmpCode = dto.EmpCode,
+        //                    Email = dto.Email,
+        //                    MobileNo = dto.MobileNo,
+        //                    UserId = dto.UserId
+        //                });
+
+        //                if (!string.IsNullOrEmpty(duplicateFields))
+        //                {
+        //                    var fields = duplicateFields.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+        //                    if (fields.Length == 1)
+        //                        result.Message = $"{fields[0]} already exists.";
+        //                    else if (fields.Length == 2)
+        //                        result.Message = $"{fields[0]} and {fields[1]} already exist.";
+        //                    else
+        //                        result.Message = string.Join(", ", fields.Take(fields.Length - 1)) + ", and " + fields.Last() + " already exist.";
+
+        //                    result.StatusCode = 400;
+        //                    return result;
+        //                }
+        //            }
+
+        //            // 3️⃣ Prepare parameters for SP
+        //            var parameters = new DynamicParameters();
+        //            parameters.Add("@Usr_ID", dto.UserId ?? 0);
+        //            parameters.Add("@Usr_Status", dto.UserId == 0 ? "U" : "C");
+
+
+        //            // Required fields (mapped from DTO)
+        //            parameters.Add("@Usr_FullName", dto.EmployeeName);
+        //            parameters.Add("@Usr_LoginName", dto.LoginName);
+        //            parameters.Add("@Usr_Password", EncryptPassword(dto.Password));
+        //            parameters.Add("@Usr_Email", dto.Email);
+        //            parameters.Add("@Usr_MobileNo", dto.MobileNo);
+        //            parameters.Add("@Usr_Role", dto.RoleId);
+
+        //            // Additional SP params (set from DTO if present, else default values)
+        //            // Additional required parameters (hardcoded/default values)
+        //            parameters.Add("@Usr_Node", 0);
+        //            parameters.Add("@Usr_Code", dto.EmpCode);
+        //            parameters.Add("@Usr_Category", 0);
+        //            parameters.Add("@Usr_Suggetions", 0);
+        //            parameters.Add("@usr_partner", 0);
+        //            parameters.Add("@Usr_LevelGrp", 0);
+        //            parameters.Add("@Usr_DutyStatus", "A"); // Active by default
+        //            parameters.Add("@Usr_PhoneNo", "");
+        //            parameters.Add("@Usr_OfficePhone", "");
+        //            parameters.Add("@Usr_OffPhExtn", "");
+        //            parameters.Add("@Usr_Designation", 0);
+        //            parameters.Add("@Usr_CompanyID", 0);
+        //            parameters.Add("@Usr_OrgnID", 0);
+        //            parameters.Add("@Usr_GrpOrUserLvlPerm", dto.PermissionId);
+
+        //            // Modules (default 0)
+        //            parameters.Add("@Usr_MasterModule", 0);
+        //            parameters.Add("@Usr_AuditModule", 0);
+        //            parameters.Add("@Usr_RiskModule", 0);
+        //            parameters.Add("@Usr_ComplianceModule", 0);
+        //            parameters.Add("@Usr_BCMModule", 0);
+        //            parameters.Add("@Usr_DigitalOfficeModule", 0);
+
+        //            // Roles (default 0)
+        //            parameters.Add("@Usr_MasterRole", 0);
+        //            parameters.Add("@Usr_AuditRole", 0);
+        //            parameters.Add("@Usr_RiskRole", 0);
+        //            parameters.Add("@Usr_ComplianceRole", 0);
+        //            parameters.Add("@Usr_BCMRole", 0);
+        //            parameters.Add("@Usr_DigitalOfficeRole", 0);
+
+        //            // Audit Info (default/hardcoded)
+        //            if (dto.UserId == null || dto.UserId == 0) // Insert
+        //            {
+        //                parameters.Add("@Usr_CreatedBy", dto.CreatedBy);
+        //                parameters.Add("@Usr_UpdatedBy", 0);
+        //            }
+        //            else // Update
+        //            {
+        //                parameters.Add("@Usr_CreatedBy", 0);
+        //                parameters.Add("@Usr_UpdatedBy", dto.CreatedBy);
+        //            }
+        //            parameters.Add("@Usr_DelFlag", "N");
+        //            parameters.Add("@Usr_IPAddress", "127.0.0.1"); // or from HttpContext
+        //            parameters.Add("@Usr_CompId", 1);
+        //            parameters.Add("@Usr_Type", "C");
+
+        //            parameters.Add("@usr_IsSuperuser", 0);
+        //            parameters.Add("@USR_DeptID", 0);
+        //            parameters.Add("@USR_MemberType", 0);
+        //            parameters.Add("@USR_Levelcode", 0);
+
+
+
+        //            parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+        //            parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+        //            // 4️⃣ Execute SP
+        //            await connection.ExecuteAsync("spEmployeeMaster", parameters, commandType: CommandType.StoredProcedure);
+
+        //            int resultType = parameters.Get<int>("@iUpdateOrSave");
+
+        //            // 5️⃣ Update global registration DB
+        //            using (var regConnection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection")))
+        //            {
+        //                string updateEmailSql = @"
+        //UPDATE MMCS_CustomerRegistration
+        //SET MCR_emails = 
+        //    CASE 
+        //        WHEN MCR_emails IS NULL OR MCR_emails = '' THEN @Email + ',' 
+        //        WHEN CHARINDEX(',' + @Email + ',', ',' + MCR_emails + ',') > 0 THEN MCR_emails
+        //        ELSE MCR_emails + @Email + ','
+        //    END
+        //WHERE MCR_CustomerCode = @CustomerCode";
+
+        //                await regConnection.ExecuteAsync(updateEmailSql, new
+        //                {
+        //                    Email = dto.Email.Trim(),
+        //                    CustomerCode = dbName
+        //                });
+        //            }
+
+        //            result.StatusCode = 200;
+        //            result.Message = resultType == 2 ? "Employee updated successfully" : "Employee created successfully";
+        //            return result;
+        //        }
 
 
 

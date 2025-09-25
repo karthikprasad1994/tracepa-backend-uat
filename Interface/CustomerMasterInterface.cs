@@ -1,4 +1,5 @@
 ﻿using TracePca.Dto.CustomerMaster;
+using TracePca.Dto.EmployeeMaster;
 
 namespace TracePca.Interface
 {
@@ -9,7 +10,7 @@ namespace TracePca.Interface
         Task<IEnumerable<OrganizationDto>> GetOrganizationsAsync(int companyId);
         Task<IEnumerable<IndustryTypeDto>> GetIndustryTypesAsync(int companyId);
         Task<IEnumerable<ManagementTypeDto>> GetManagementTypesAsync(int companyId);
-        Task<string> SaveCustomerMasterAsync(CreateCustomerMasterDto dto);
+        Task<StatusDto> SaveCustomerMasterAsync(CreateCustomerMasterDto dto);
         Task<(bool IsSuccess, string Message)> ToggleCustomerStatusAsync(int CustId);
 
     }

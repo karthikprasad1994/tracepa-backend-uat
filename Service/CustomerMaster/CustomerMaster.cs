@@ -2,6 +2,7 @@
 using Dapper;
 using Microsoft.Data.SqlClient;
 using TracePca.Dto.CustomerMaster;
+using TracePca.Dto.EmployeeMaster;
 using TracePca.Interface;
 using TracePca.Interface.EmployeeMaster;
 
@@ -165,12 +166,12 @@ ORDER BY CUST_ID";
             return await connection.QueryAsync<ManagementTypeDto>(query, new { CompanyId = companyId });
         }
 
-        public async Task<string> SaveCustomerMasterAsync(CreateCustomerMasterDto dto)
+        public async Task<StatusDto> SaveCustomerMasterAsync(CreateCustomerMasterDto dto)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+                return new StatusDto { StatusCode = 500, Message = "CustomerCode is missing in session. Please log in again." };
 
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
 
@@ -206,15 +207,15 @@ SELECT
                     else
                         message = string.Join(", ", fields.Take(fields.Length - 1)) + ", and " + fields.Last() + " already exist.";
 
-                    return message;
+                    return new StatusDto { StatusCode = 400, Message = message };
                 }
             }
 
             var parameters = new DynamicParameters();
 
-            // Mandatory fields (from DTO)
+            // Mandatory fields
             parameters.Add("@CUST_ID", dto.CustomerId ?? 0);
-            parameters.Add("@CUST_NAME", dto.CustomerName);
+               parameters.Add("@CUST_NAME", dto.CustomerName);
             parameters.Add("@CUST_CODE", dto.CustomerCode);
             parameters.Add("@CUST_WEBSITE", dto.CompanyUrl ?? string.Empty);
             parameters.Add("@CUST_EMAIL", dto.CompanyEmail ?? string.Empty);
@@ -258,7 +259,6 @@ SELECT
             parameters.Add("@Cust_DurtnId", 0);
             parameters.Add("@Cust_FY", dto.FinancialYearId);
 
-            // Output params
             parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
             parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
@@ -266,10 +266,13 @@ SELECT
 
             int resultType = parameters.Get<int>("@iUpdateOrSave");
 
-            return resultType == 2
-                ? "Customer updated successfully"
-                : "Customer created successfully";
+            return new StatusDto
+            {
+                StatusCode = 200,
+                Message = resultType == 2 ? "Customer updated successfully" : "Customer created successfully"
+            };
         }
+
 
 
         //public async Task<string> SaveCustomerMasterAsync(CreateCustomerMasterDto dto)
