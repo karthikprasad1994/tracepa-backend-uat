@@ -40,5 +40,7 @@ namespace TracePca.Interface.DigitalFilling
 
 		Task<IEnumerable<CabinetDto>> LoadRententionDataAsync(int compID);
 
+		Task<IEnumerable<ArchiveDetailsDto>> LoadArchiveDetailsAsync(int compID);
+
 	}
 }

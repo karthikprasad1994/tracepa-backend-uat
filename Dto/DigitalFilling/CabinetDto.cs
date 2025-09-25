@@ -91,4 +91,29 @@ namespace TracePca.Dto.DigitalFilling
 		public string DOT_Department { get; set; }
 	}
 
+
+	public class ArchiveDetailsDto
+	{
+		public int? SA_ID { get; set; } = 0;
+		public string SA_AuditNo { get; set; }
+		public string SA_ScopeOfAudit { get; set; }
+		public int SA_CustID { get; set; }
+		public int SA_AuditTypeID { get; set; }
+		public int SA_PartnerID { get; set; }
+		public int SA_ReviewPartnerID { get; set; }
+		public int SA_AttachID { get; set; }
+		public int SA_CompID { get; set; }
+		public DateTime SA_StartDate { get; set; }
+		public DateTime SA_ExpCompDate { get; set; }
+		public DateTime SA_AuditOpinionDate { get; set; }
+		public DateTime SA_ExpiryDate { get; set; }
+		public string CUST_NAME { get; set; }
+		public string CUST_CODE { get; set; }
+		public string cmm_Code { get; set; }
+		public string cmm_Desc { get; set; }
+
+		public int AttachmentCount { get; set; }
+		public string SA_RetentionPeriod { get; set; }
+	}
+
 }
