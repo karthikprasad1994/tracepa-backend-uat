@@ -974,6 +974,7 @@ namespace TracePca.Service.DigitalFilling
                                 B.CUST_CODE,
                                 CMM.CMM_Code,
                                 CMM.CMM_Desc,
+                                A.SA_RetentionPeriod,
                                 ISNULL(COUNT(C.Atch_ID), 0) AS AttachmentCount
                             FROM StandardAudit_Schedule A
                             JOIN SAD_CUSTOMER_MASTER B ON B.Cust_Id = A.SA_CustID
@@ -986,7 +987,7 @@ namespace TracePca.Service.DigitalFilling
                                 A.SA_ID, A.SA_AuditNo, A.SA_ScopeOfAudit, A.SA_CustID, A.SA_AuditTypeID,
                                 A.SA_PartnerID, A.SA_ReviewPartnerID, A.SA_AttachID, A.SA_CompID,
                                 A.SA_StartDate, A.SA_ExpCompDate, A.SA_AuditOpinionDate, A.SA_ExpiryDate,
-                                B.CUST_NAME, B.CUST_CODE, CMM.CMM_Code, CMM.CMM_Desc;";   
+                                B.CUST_NAME, B.CUST_CODE, CMM.CMM_Code, CMM.CMM_Desc,A.SA_RetentionPeriod";   
 
 			var result = await connection.QueryAsync<ArchiveDetailsDto>(query, new
 			{

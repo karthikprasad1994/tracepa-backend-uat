@@ -113,6 +113,7 @@ namespace TracePca.Dto.DigitalFilling
 		public string cmm_Desc { get; set; }
 
 		public int AttachmentCount { get; set; }
+		public string SA_RetentionPeriod { get; set; }
 	}
 
 }
