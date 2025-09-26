@@ -2,6 +2,7 @@
 using Dapper;
 using Microsoft.Data.SqlClient;
 using TracePca.Dto.CustomerMaster;
+using TracePca.Dto.EmployeeMaster;
 using TracePca.Interface;
 using TracePca.Interface.EmployeeMaster;
 
@@ -165,12 +166,12 @@ ORDER BY CUST_ID";
             return await connection.QueryAsync<ManagementTypeDto>(query, new { CompanyId = companyId });
         }
 
-        public async Task<string> SaveCustomerMasterAsync(CreateCustomerMasterDto dto)
+        public async Task<StatusDto> SaveCustomerMasterAsync(CreateCustomerMasterDto dto)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+                return new StatusDto { StatusCode = 500, Message = "CustomerCode is missing in session. Please log in again." };
 
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
 
@@ -182,15 +183,16 @@ SELECT
     STUFF(
         CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUST_CODE = @CustomerCode AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',Customer Code' ELSE '' END +
         CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUST_EMAIL = @CompanyEmail AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',Company Email' ELSE '' END +
-        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUSt_BranchId = @CINNO AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',CIN No' ELSE '' END
-    , 1, 1, '') AS DuplicateFields
-";
+        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUSt_BranchId = @CINNO AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',CIN No' ELSE '' END +
+        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUST_WEBSITE = @CompanyUrl AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',Company URL' ELSE '' END
+    , 1, 1, '') AS DuplicateFields";
 
                 var duplicateFields = await connection.QueryFirstOrDefaultAsync<string>(duplicateQuery, new
                 {
                     CustomerCode = dto.CustomerCode,
                     CompanyEmail = dto.CompanyEmail,
                     CINNO = dto.CINNO,
+                    CompanyUrl = dto.CompanyUrl,
                     CustomerId = dto.CustomerId
                 });
 
@@ -206,13 +208,14 @@ SELECT
                     else
                         message = string.Join(", ", fields.Take(fields.Length - 1)) + ", and " + fields.Last() + " already exist.";
 
-                    return message;
+                    throw new Exception(message);
                 }
             }
 
+
             var parameters = new DynamicParameters();
 
-            // Mandatory fields (from DTO)
+            // Mandatory fields
             parameters.Add("@CUST_ID", dto.CustomerId ?? 0);
             parameters.Add("@CUST_NAME", dto.CustomerName);
             parameters.Add("@CUST_CODE", dto.CustomerCode);
@@ -258,7 +261,6 @@ SELECT
             parameters.Add("@Cust_DurtnId", 0);
             parameters.Add("@Cust_FY", dto.FinancialYearId);
 
-            // Output params
             parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
             parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
@@ -266,10 +268,13 @@ SELECT
 
             int resultType = parameters.Get<int>("@iUpdateOrSave");
 
-            return resultType == 2
-                ? "Customer updated successfully"
-                : "Customer created successfully";
+            return new StatusDto
+            {
+                StatusCode = 200,
+                Message = resultType == 2 ? "Customer updated successfully" : "Customer created successfully"
+            };
         }
+
 
 
         //public async Task<string> SaveCustomerMasterAsync(CreateCustomerMasterDto dto)
