@@ -220,9 +220,30 @@ SELECT
 
             int resultType = parameters.Get<int>("@iUpdateOrSave");
 
-            return resultType == 2 ? "Employee updated successfully" : "Employee created successfully";
-        }
+            using (var regConnection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection")))
+            {
+                string updateEmailSql = @"
+            UPDATE MMCS_CustomerRegistration
+            SET MCR_emails = 
+                CASE 
+                    WHEN MCR_emails IS NULL OR MCR_emails = '' THEN @Email + ',' 
+                    WHEN CHARINDEX(',' + @Email + ',', ',' + MCR_emails + ',') > 0 THEN MCR_emails
+                    ELSE MCR_emails + @Email + ','
+                END
+            WHERE MCR_CustomerCode = @CustomerCode";
 
+                await regConnection.ExecuteAsync(updateEmailSql, new
+                {
+                    Email = dto.Email.Trim(),
+                    CustomerCode = dbName
+                });
+            }
+
+            // 5️⃣ Return success message
+            return resultType == 2
+                ? "Employee updated successfully"
+                : "Employee created successfully";
+        }
 
 
         //        public async Task<StatusDto> SaveEmployeeBasicDetailsAsync(EmployeeBasicDetailsDto dto)

@@ -215,7 +215,7 @@ SELECT
 
             // Mandatory fields
             parameters.Add("@CUST_ID", dto.CustomerId ?? 0);
-               parameters.Add("@CUST_NAME", dto.CustomerName);
+            parameters.Add("@CUST_NAME", dto.CustomerName);
             parameters.Add("@CUST_CODE", dto.CustomerCode);
             parameters.Add("@CUST_WEBSITE", dto.CompanyUrl ?? string.Empty);
             parameters.Add("@CUST_EMAIL", dto.CompanyEmail ?? string.Empty);
