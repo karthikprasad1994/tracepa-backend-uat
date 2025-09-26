@@ -172,7 +172,7 @@ namespace TracePca.Service.Master
 
                 if (isUpdate)
                 {
-                    await connection.ExecuteAsync(@"UPDATE Content_Management_Master SET CMM_Desc = @CMM_Desc, CMS_Remarks = @CMS_Remarks, CMM_UpdatedBy = @CMM_UpdatedBy, CMM_UpdatedOn = GETDATE(), CMM_Status = 'U' CMM_IPAddress = @CMM_IPAddress WHERE CMM_ID = @CMM_ID;", dto, transaction);
+                    await connection.ExecuteAsync(@"UPDATE Content_Management_Master SET CMM_Desc = @CMM_Desc, CMS_Remarks = @CMS_Remarks, CMM_UpdatedBy = @CMM_UpdatedBy, CMM_UpdatedOn = GETDATE(), CMM_Status = 'U', CMM_IPAddress = @CMM_IPAddress WHERE CMM_ID = @CMM_ID;", dto, transaction);
                 }
                 else
                 {

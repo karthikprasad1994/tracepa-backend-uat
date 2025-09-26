@@ -61,8 +61,8 @@ namespace TracePca.Dto.DigitalFilling
         public int DocumentTypeID { get; set; }
         public int UserID { get; set; }
         public string Title { get; set; }
-        public string Keyword { get; set; }
-        public int CompID { get; set; }
+		public string? Keyword { get; set; } = null;
+		public int CompID { get; set; }
     }
 
 

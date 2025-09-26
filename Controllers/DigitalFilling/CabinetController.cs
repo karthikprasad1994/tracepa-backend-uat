@@ -212,6 +212,34 @@ namespace TracePca.Controllers.DigitalFilling
 		}
 
 
+
+
+		[HttpPost("LoadAllDocumentType")]
+		public async Task<IActionResult> LoadAllDocumentType(int iCompID,  [FromBody] DocumentTypeDto dto)
+		{
+			var result = await _CabinetInterface.LoadAllDocumentTypeAsync(iCompID,dto);
+
+			if (result != null && result.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Document Type loaded successfully.",
+					data = result  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+
+		}
+
+
 		[HttpPost("CreateDocumentType")]
 		public async Task<IActionResult> CreateDocumentType(string DocumentName, string DocumentNote, string DepartmentId,  [FromBody] DocumentTypeDto dto)
 		{

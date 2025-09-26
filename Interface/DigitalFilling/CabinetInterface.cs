@@ -32,6 +32,8 @@ namespace TracePca.Interface.DigitalFilling
 
 		Task<IEnumerable<DocumentTypeDto>> LoadDocumentTypeAsync(int iDocTypeID, int iDepartmentID, DocumentTypeDto dto);
 
+		Task<IEnumerable<DocumentTypeDto>> LoadAllDocumentTypeAsync(int iCompID, DocumentTypeDto dto);
+
 		Task<int> CreateDescriptorAsync(string DocumentName, string DocumentNote, string DepartmentId, [FromBody] DocumentTypeDto dto);
 
 		Task<int> UpdateDocumentTypeAsync(int iDocTypeID, string DocumentName, string DocumentNote, [FromBody] DocumentTypeDto dto);

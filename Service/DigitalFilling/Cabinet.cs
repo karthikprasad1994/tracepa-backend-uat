@@ -410,8 +410,9 @@ namespace TracePca.Service.DigitalFilling
                 PGE_OBJECT = sObject,
                 PGE_PAGENO = PageNoID,
                 PGE_EXT = fileExt,
-                PGE_KeyWORD = dto.Keyword,
-                PGE_SubCabinet = dto.SubCabinetID,
+				//PGE_KeyWORD = dto.Keyword,
+				PGE_KeyWORD = string.IsNullOrEmpty(dto.Keyword) ? "" : dto.Keyword,
+				PGE_SubCabinet = dto.SubCabinetID,
                 PGE_batch_name = BaseNameID,
                 pge_OrignalFileName = sFileName,
                 Pge_CompID = dto.CompID
@@ -937,6 +938,38 @@ namespace TracePca.Service.DigitalFilling
 			var result = await connection.QueryAsync<CabinetDto>(query, new
 			{
 				CBN_CompID = compID,
+			});
+			return result;
+		}
+
+
+		public async Task<IEnumerable<DocumentTypeDto>> LoadAllDocumentTypeAsync(int iCompID, DocumentTypeDto dto)
+		{
+			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			//await connection.OpenAsync();
+
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			string query = "";
+
+
+			query = @"Select a.DOT_DOCTYPEID,a.DOT_DOCNAME,c.Usr_FullName as DOT_CRBY,a.DOT_NOTE,b.Org_Node As DOT_PGROUPID,
+                b.Org_Name as DOT_PGROUP,a.DOT_CRON,a.DOT_STATUS,DOT_isGlobal,a.DOT_DelFlag 
+                From EDT_DOCUMENT_TYPE a,Sad_Org_Structure b,Sad_UserDetails c Where a.DOT_PGROUP=Org_Node and c.Usr_ID= a.DOT_CRBY and DOT_CompID=@DOT_CompID";
+		 
+
+			var result = await connection.QueryAsync<DocumentTypeDto>(query, new
+			{
+				DOT_CompID = iCompID
 			});
 			return result;
 		}
