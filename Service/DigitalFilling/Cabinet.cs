@@ -336,7 +336,7 @@ namespace TracePca.Service.DigitalFilling
             }
 
             //Check for Document Type Id is Valid
-            var DocumentTypeID = await connection.ExecuteScalarAsync<int>(@"Select Fol_FolID from edt_Document_Type where Dot_DocTypeID=@Dot_DocTypeID  
+            var DocumentTypeID = await connection.ExecuteScalarAsync<int>(@"Select DOT_DoctypeID from edt_Document_Type where Dot_DocTypeID=@Dot_DocTypeID  
                 and DOT_CompID=@DOT_CompID", new { Dot_DocTypeID = dto.DocumentTypeID, DOT_CompID = dto.CompID }, transaction);
             if (DocumentTypeID == 0)
             {
@@ -415,7 +415,7 @@ namespace TracePca.Service.DigitalFilling
                 PGE_batch_name = BaseNameID,
                 pge_OrignalFileName = sFileName,
                 Pge_CompID = dto.CompID
-            });
+            }, transaction);
 
             //Check FIleIn DB true or false
             var CheckFileInDB = await connection.ExecuteScalarAsync<string>(@"Select SAD_Config_Value from sad_config_settings where SAD_Config_Key = 'FilesInDB'",

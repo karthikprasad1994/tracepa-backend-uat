@@ -145,13 +145,21 @@ namespace TracePca.Controllers
 
                 return Ok(new { StatusCode = 200, Message = result });
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex) // For duplicate checks like EmpCode, Email, Phone, OfficePhone
+            {
+                return BadRequest(new { StatusCode = 400, Message = ex.Message });
+            }
+            catch (ArgumentException ex) // Optional: any validation errors like password mismatch
+            {
+                return BadRequest(new { StatusCode = 400, Message = ex.Message });
+            }
+            catch (Exception ex) // General exceptions
             {
                 return StatusCode(500, new { StatusCode = 500, Message = ex.Message });
             }
         }
 
-      
+
 
 
         // GET api/<CustomerUserMasterController>/5
