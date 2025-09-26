@@ -182,11 +182,33 @@ ORDER BY CUST_ID";
                 var duplicateQuery = @"
 SELECT 
     STUFF(
-        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUST_CODE = @CustomerCode AND CUST_ID <> ISNULL(@CustomerId, 0)) THEN ',Customer Code' ELSE '' END +
-        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUST_EMAIL = @CompanyEmail AND CUST_ID <> ISNULL(@CustomerId, 0)) THEN ',Company Email' ELSE '' END +
-        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUSt_BranchId = @CINNO AND CUST_ID <> ISNULL(@CustomerId, 0)) THEN ',CIN No' ELSE '' END +
-        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUST_WEBSITE = @CompanyUrl AND CUST_ID <> ISNULL(@CustomerId, 0)) THEN ',Company URL' ELSE '' END
+        CASE WHEN EXISTS (
+            SELECT 1 FROM SAD_CUSTOMER_MASTER 
+            WHERE CUST_CODE = @CustomerCode 
+              AND CUST_ID <> ISNULL(@CustomerId, 0)
+        ) THEN ',Customer Code' ELSE '' END +
+
+        CASE WHEN EXISTS (
+            SELECT 1 FROM SAD_CUSTOMER_MASTER 
+            WHERE CUST_EMAIL = @CompanyEmail 
+              AND CUST_ID <> ISNULL(@CustomerId, 0)
+        ) THEN ',Company Email' ELSE '' END +
+
+        CASE WHEN EXISTS (
+            SELECT 1 FROM SAD_CUSTOMER_MASTER 
+            WHERE CUSt_BranchId = @CINNO 
+              AND CUST_ID <> ISNULL(@CustomerId, 0)
+        ) THEN ',CIN No' ELSE '' END +
+
+        CASE WHEN (@CompanyUrl IS NOT NULL AND LTRIM(RTRIM(@CompanyUrl)) <> '' 
+                   AND EXISTS (
+                        SELECT 1 FROM SAD_CUSTOMER_MASTER 
+                        WHERE CUST_WEBSITE = @CompanyUrl 
+                          AND CUST_ID <> ISNULL(@CustomerId, 0)
+                   )
+        ) THEN ',Company URL' ELSE '' END
     , 1, 1, '') AS DuplicateFields";
+
 
                 var duplicateFields = await connection.QueryFirstOrDefaultAsync<string>(duplicateQuery, new
                 {

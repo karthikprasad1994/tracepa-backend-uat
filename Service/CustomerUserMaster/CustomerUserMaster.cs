@@ -140,11 +140,35 @@ ORDER BY a.usr_id";
                 var duplicateQuery = @"
 SELECT 
     STUFF(
-        CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_Code = @EmpCode AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Emp Code' ELSE '' END +
-        CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_Email = @Email AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Email' ELSE '' END +
-        CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_MobileNo = @MobileNo AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Mobile No' ELSE '' END +
-        CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_OfficePhone = @OfficePhoneNo AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Office Phone' ELSE '' END
+        -- Emp Code check
+        CASE WHEN EXISTS (
+            SELECT 1 FROM Sad_UserDetails 
+            WHERE Usr_Code = @EmpCode 
+              AND (@UserId IS NULL OR Usr_ID <> @UserId)
+        ) THEN ',Emp Code' ELSE '' END +
+
+        -- Email check
+        CASE WHEN EXISTS (
+            SELECT 1 FROM Sad_UserDetails 
+            WHERE Usr_Email = @Email 
+              AND (@UserId IS NULL OR Usr_ID <> @UserId)
+        ) THEN ',Email' ELSE '' END +
+
+        -- Mobile No check (check against both Mobile and OfficePhone)
+        CASE WHEN EXISTS (
+            SELECT 1 FROM Sad_UserDetails 
+            WHERE (Usr_MobileNo = @MobileNo OR Usr_OfficePhone = @MobileNo)
+              AND (@UserId IS NULL OR Usr_ID <> @UserId)
+        ) THEN ',Mobile No' ELSE '' END +
+
+        -- Office Phone check (check against both OfficePhone and Mobile)
+        CASE WHEN EXISTS (
+            SELECT 1 FROM Sad_UserDetails 
+            WHERE (Usr_OfficePhone = @OfficePhoneNo OR Usr_MobileNo = @OfficePhoneNo)
+              AND (@UserId IS NULL OR Usr_ID <> @UserId)
+        ) THEN ',Office Phone' ELSE '' END
     , 1, 1, '') AS DuplicateFields";
+
 
                 var duplicateFields = await connection.QueryFirstOrDefaultAsync<string>(duplicateQuery, new
                 {
