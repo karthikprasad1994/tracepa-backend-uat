@@ -183,15 +183,16 @@ SELECT
     STUFF(
         CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUST_CODE = @CustomerCode AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',Customer Code' ELSE '' END +
         CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUST_EMAIL = @CompanyEmail AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',Company Email' ELSE '' END +
-        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUSt_BranchId = @CINNO AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',CIN No' ELSE '' END
-    , 1, 1, '') AS DuplicateFields
-";
+        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUSt_BranchId = @CINNO AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',CIN No' ELSE '' END +
+        CASE WHEN EXISTS (SELECT 1 FROM SAD_CUSTOMER_MASTER WHERE CUST_WEBSITE = @CompanyUrl AND (@CustomerId IS NULL OR CUST_ID <> @CustomerId)) THEN ',Company URL' ELSE '' END
+    , 1, 1, '') AS DuplicateFields";
 
                 var duplicateFields = await connection.QueryFirstOrDefaultAsync<string>(duplicateQuery, new
                 {
                     CustomerCode = dto.CustomerCode,
                     CompanyEmail = dto.CompanyEmail,
                     CINNO = dto.CINNO,
+                    CompanyUrl = dto.CompanyUrl,
                     CustomerId = dto.CustomerId
                 });
 
@@ -207,9 +208,10 @@ SELECT
                     else
                         message = string.Join(", ", fields.Take(fields.Length - 1)) + ", and " + fields.Last() + " already exist.";
 
-                    return new StatusDto { StatusCode = 400, Message = message };
+                    throw new Exception(message);
                 }
             }
+
 
             var parameters = new DynamicParameters();
 

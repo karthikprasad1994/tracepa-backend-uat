@@ -155,21 +155,27 @@ namespace TracePca.Controllers.CustomerMaster
 
 
         [HttpPost("InsertUpdateCustomer")]
-        
+
         public async Task<IActionResult> SaveCustomer([FromBody] CreateCustomerMasterDto dto)
         {
             try
             {
-                var result = await _customermaster.SaveCustomerMasterAsync(dto);
+                // Call service layer
+                var message = await _customermaster.SaveCustomerMasterAsync(dto);
 
-                if (result.StatusCode == 400)
-                    return BadRequest(result);
-
-                return Ok(result);
+                // Success: 200 OK
+                return Ok(new { StatusCode = 200, Message = message });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new StatusDto { StatusCode = 500, Message = ex.Message });
+                // Handle duplicate or validation errors thrown from service
+                if (ex.Message.Contains("already exists"))
+                {
+                    return BadRequest(new { StatusCode = 400, Message = ex.Message });
+                }
+
+                // Unexpected errors
+                return StatusCode(500, new { StatusCode = 500, Message = ex.Message });
             }
         }
 
