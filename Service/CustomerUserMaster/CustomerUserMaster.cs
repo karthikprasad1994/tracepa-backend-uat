@@ -124,7 +124,7 @@ ORDER BY a.usr_id";
             // Confirm Password check
             if (dto.Password != dto.ConfirmPassword)
             {
-                return "Password and Confirm Password do not match.";
+                throw new InvalidOperationException("Password and Confirm Password do not match.");
             }
 
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -133,43 +133,47 @@ ORDER BY a.usr_id";
 
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
 
-            // 🔹 Duplicate check only for Insert (UserId == 0)
-            if (dto.UserId == null || dto.UserId == 0)
+            // 🔹 Duplicate Check for Insert/Update
+            if (!string.IsNullOrEmpty(dto.EmpCode) || !string.IsNullOrEmpty(dto.Email)
+                || !string.IsNullOrEmpty(dto.MobileNo) || !string.IsNullOrEmpty(dto.OfficePhoneNo))
             {
                 var duplicateQuery = @"
-            SELECT TOP 1 
-                CASE 
-                    WHEN Usr_Code = @EmpCode THEN 'Employee Code already exists.'
-                    WHEN Usr_Email = @Email THEN 'Email already exists.'
-                    WHEN Usr_FullName = @UserName THEN 'User Name already exists.'
-                    WHEN Usr_MobileNo = @MobileNo THEN 'Mobile No already exists.'
-                    WHEN Usr_LoginName = @LoginName THEN 'Login Name already exists.'
-                END
-            FROM EmployeeMaster 
-            WHERE Usr_Code = @EmpCode
-               OR Usr_Email = @Email
-               OR Usr_FullName = @UserName
-               OR Usr_MobileNo = @MobileNo
-               OR Usr_LoginName = @LoginName";
+SELECT 
+    STUFF(
+        CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_Code = @EmpCode AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Emp Code' ELSE '' END +
+        CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_Email = @Email AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Email' ELSE '' END +
+        CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_MobileNo = @MobileNo AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Mobile No' ELSE '' END +
+        CASE WHEN EXISTS (SELECT 1 FROM Sad_UserDetails WHERE Usr_OfficePhone = @OfficePhoneNo AND (@UserId IS NULL OR Usr_ID <> @UserId)) THEN ',Office Phone' ELSE '' END
+    , 1, 1, '') AS DuplicateFields";
 
-                var duplicate = await connection.QueryFirstOrDefaultAsync<string>(duplicateQuery, new
+                var duplicateFields = await connection.QueryFirstOrDefaultAsync<string>(duplicateQuery, new
                 {
                     EmpCode = dto.EmpCode,
                     Email = dto.Email,
-                    UserName = dto.UserName,
                     MobileNo = dto.MobileNo,
-                    LoginName = dto.LoginName
+                    OfficePhoneNo = dto.OfficePhoneNo,
+                    UserId = dto.UserId
                 });
 
-                if (!string.IsNullOrEmpty(duplicate))
+                if (!string.IsNullOrEmpty(duplicateFields))
                 {
-                    return duplicate; // return the specific duplicate error
+                    var fields = duplicateFields.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                    string message;
+
+                    if (fields.Length == 1)
+                        message = $"{fields[0]} already exists.";
+                    else if (fields.Length == 2)
+                        message = $"{fields[0]} and {fields[1]} already exist.";
+                    else
+                        message = string.Join(", ", fields.Take(fields.Length - 1)) + ", and " + fields.Last() + " already exist.";
+
+                    throw new InvalidOperationException(message);
                 }
             }
 
             var parameters = new DynamicParameters();
 
-            // Insert (new user, UserId = 0) or Update (existing user, UserId > 0)
+            // Insert (new user) or Update (existing user)
             parameters.Add("@Usr_ID", dto.UserId ?? 0);
             parameters.Add("@Usr_Status", dto.UserId == 0 ? "U" : "C");
 
@@ -181,7 +185,7 @@ ORDER BY a.usr_id";
             parameters.Add("@Usr_MobileNo", dto.MobileNo);
             parameters.Add("@Usr_Role", dto.RoleId);
 
-            // Additional SP params
+            // Additional/default fields
             parameters.Add("@Usr_Node", 0);
             parameters.Add("@Usr_Code", dto.EmpCode);
             parameters.Add("@Usr_Category", 0);
@@ -197,7 +201,7 @@ ORDER BY a.usr_id";
             parameters.Add("@Usr_OrgnID", 0);
             parameters.Add("@Usr_GrpOrUserLvlPerm", dto.PermissionId);
 
-            // Modules (default 0)
+            // Modules
             parameters.Add("@Usr_MasterModule", 0);
             parameters.Add("@Usr_AuditModule", 0);
             parameters.Add("@Usr_RiskModule", 0);
@@ -205,7 +209,7 @@ ORDER BY a.usr_id";
             parameters.Add("@Usr_BCMModule", 0);
             parameters.Add("@Usr_DigitalOfficeModule", 0);
 
-            // Roles (default 0)
+            // Roles
             parameters.Add("@Usr_MasterRole", 0);
             parameters.Add("@Usr_AuditRole", 0);
             parameters.Add("@Usr_RiskRole", 0);
@@ -213,13 +217,13 @@ ORDER BY a.usr_id";
             parameters.Add("@Usr_BCMRole", 0);
             parameters.Add("@Usr_DigitalOfficeRole", 0);
 
-            // Audit Info
-            if (dto.UserId == null || dto.UserId == 0) // Insert
+            // Audit info
+            if (dto.UserId == null || dto.UserId == 0)
             {
                 parameters.Add("@Usr_CreatedBy", dto.CreatedBy);
                 parameters.Add("@Usr_UpdatedBy", 0);
             }
-            else // Update
+            else
             {
                 parameters.Add("@Usr_CreatedBy", 0);
                 parameters.Add("@Usr_UpdatedBy", dto.CreatedBy);
@@ -229,7 +233,6 @@ ORDER BY a.usr_id";
             parameters.Add("@Usr_IPAddress", "127.0.0.1");
             parameters.Add("@Usr_CompId", 1);
             parameters.Add("@Usr_Type", "C");
-
             parameters.Add("@usr_IsSuperuser", 0);
             parameters.Add("@USR_DeptID", 0);
             parameters.Add("@USR_MemberType", 0);
@@ -239,7 +242,6 @@ ORDER BY a.usr_id";
             parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
             parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-            // Call SP
             await connection.ExecuteAsync("spEmployeeMaster", parameters, commandType: CommandType.StoredProcedure);
 
             int resultType = parameters.Get<int>("@iUpdateOrSave");
@@ -248,6 +250,7 @@ ORDER BY a.usr_id";
                 ? "Customer updated successfully"
                 : "Customer created successfully";
         }
+
 
         //public async Task<string> InsertCustomerUsersDetailsAsync(CreateCustomerUsersDto dto)
         //{
