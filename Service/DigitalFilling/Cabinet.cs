@@ -145,64 +145,126 @@ namespace TracePca.Service.DigitalFilling
 		//         return result;
 		//     }
 
-		public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID, CabinetDto dto)
-        {
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            //await connection.OpenAsync();
-            string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+		//public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID, CabinetDto dto)
+		//      {
 
 
-            //string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+		//	string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            if (string.IsNullOrEmpty(dbName))
+		//	if (string.IsNullOrEmpty(dbName))
+		//		throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+		//	var connectionString = _configuration.GetConnectionString(dbName);
+
+		//	using var connection = new SqlConnection(connectionString);
+		//	await connection.OpenAsync();
+
+
+		//	using var transaction = connection.BeginTransaction();
+
+		//          int existingTemplateCount = 0;
+		//          if (deptId == 0)
+		//          {
+		//              existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"Select * from edt_cabinet where CBN_Name=@cabinetname and CBN_ID <> 0 and  
+		//              CBN_Parent =-1 And (CBN_DelFlag='A' or CBN_DelFlag='W')", new { cabinetname }, transaction);
+		//          }
+		//          else
+		//          {
+		//              existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"Select * from edt_cabinet where CBN_Name=@cabinetname and CBN_Department=@deptId and
+		//             CBN_ID <> 0  And CBN_Parent=-1 And (CBN_DelFlag='A' or CBN_DelFlag='W')", new { cabinetname, deptId }, transaction);
+		//          }
+
+		//          if (existingTemplateCount == 0)
+		//          {
+		//              dto.CBN_ID = await connection.ExecuteScalarAsync<int>(
+		//                      @"DECLARE @TemplateId INT; SELECT @TemplateId = ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet;
+		//                        INSERT INTO edt_cabinet (CBN_ID, CBN_Name, CBN_Parent, CBN_Note, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_CreatedBy, 
+		//                        CBN_CreatedOn, CBN_Status, CBN_DelFlag, CBN_CompID, CBN_Retention)
+		//                        VALUES ( @TemplateId, @CBN_Name, -1, @CBN_Name, @CBN_UserID, @CBN_Department, 0, 0, @CBN_UserID, GETDATE(), 'A','A', @CBN_CompID,'');
+		//                        SELECT @TemplateId;",
+		//                      new
+		//                      {
+		//                          CBN_Name = cabinetname, // Using method parameter
+		//                          CBN_Note = cabinetname, // Assuming you want the note to be the cabinet name
+		//                          CBN_UserID = userId,     // Using method parameter
+		//                          CBN_Department = deptId, // Using method parameter
+		//                          CBN_CreatedBy = userId,  // Assuming created by is the userId
+		//                          CBN_CompID = compID    
+		//                      },
+		//                      transaction
+		//                  );
+		//          }
+		//          await transaction.CommitAsync();
+		//          return dto.CBN_ID ?? 0;
+		//      }
+
+
+		public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-			// ✅ Step 2: Get the connection string
 			var connectionString = _configuration.GetConnectionString(dbName);
 
 			using var connection = new SqlConnection(connectionString);
 			await connection.OpenAsync();
 
-
 			using var transaction = connection.BeginTransaction();
+			try
+			{
+				int existingTemplateCount = 0;
 
-            int existingTemplateCount = 0;
-            if (deptId == 0)
-            {
-                existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"Select * from edt_cabinet where CBN_Name=@cabinetname and CBN_ID <> 0 and  
-                CBN_Parent =-1 And (CBN_DelFlag='A' or CBN_DelFlag='W')", new { cabinetname }, transaction);
-            }
-            else
-            {
-                existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"Select * from edt_cabinet where CBN_Name=@cabinetname and CBN_Department=@deptId and
-               CBN_ID <> 0  And CBN_Parent=-1 And (CBN_DelFlag='A' or CBN_DelFlag='W')", new { cabinetname, deptId }, transaction);
-            }
+				if (deptId == 0)
+				{
+					existingTemplateCount = await connection.ExecuteScalarAsync<int>(
+						@"SELECT COUNT(*) FROM edt_cabinet 
+                  WHERE CBN_Name=@cabinetname AND CBN_ID<>0 AND CBN_Parent=-1 AND (CBN_DelFlag='A' OR CBN_DelFlag='W')",
+						new { cabinetname },
+						transaction);
+				}
+				else
+				{
+					existingTemplateCount = await connection.ExecuteScalarAsync<int>(
+						@"SELECT COUNT(*) FROM edt_cabinet 
+                  WHERE CBN_Name=@cabinetname AND CBN_Department=@deptId AND CBN_ID<>0 AND CBN_Parent=-1 AND (CBN_DelFlag='A' OR CBN_DelFlag='W')",
+						new { cabinetname, deptId },
+						transaction);
+				}
+				int CBN_ID = 0;
+				if (existingTemplateCount == 0)
+				{
+					  CBN_ID = await connection.ExecuteScalarAsync<int>(
+						@"DECLARE @TemplateId INT;
+                  SELECT @TemplateId = ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet;
+                  INSERT INTO edt_cabinet 
+                  (CBN_ID, CBN_Name, CBN_Parent, CBN_Note, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, 
+                   CBN_CreatedBy, CBN_CreatedOn, CBN_Status, CBN_DelFlag, CBN_CompID)
+                  VALUES 
+                  (@TemplateId, @CBN_Name, -1, @CBN_Name, @CBN_UserID, @CBN_Department, 0, 0, @CBN_UserID, GETDATE(), 'A','A', @CBN_CompID);
+                  SELECT @TemplateId;",
+						new
+						{
+							CBN_Name = cabinetname,
+							CBN_UserID = userId,
+							CBN_Department = deptId,
+							CBN_CompID = compID
+						},
+						transaction
+					);
+				}
 
-            if (existingTemplateCount == 0)
-            {
-                dto.CBN_ID = await connection.ExecuteScalarAsync<int>(
-                        @"DECLARE @TemplateId INT; SELECT @TemplateId = ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet;
-                          INSERT INTO edt_cabinet (CBN_ID, CBN_Name, CBN_Parent, CBN_Note, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_CreatedBy, 
-                          CBN_CreatedOn, CBN_Status, CBN_DelFlag, CBN_CompID, CBN_Retention)
-                          VALUES ( @TemplateId, @CBN_Name, -1, @CBN_Name, @CBN_UserID, @CBN_Department, 0, 0, @CBN_UserID, GETDATE(), 'A','A', @CBN_CompID,'');
-                          SELECT @TemplateId;",
-                        new
-                        {
-                            CBN_Name = cabinetname, // Using method parameter
-                            CBN_Note = cabinetname, // Assuming you want the note to be the cabinet name
-                            CBN_UserID = userId,     // Using method parameter
-                            CBN_Department = deptId, // Using method parameter
-                            CBN_CreatedBy = userId,  // Assuming created by is the userId
-                            CBN_CompID = compID    
-                        },
-                        transaction
-                    );
-            }
-            await transaction.CommitAsync();
-            return dto.CBN_ID ?? 0;
-        }
+				await transaction.CommitAsync();
+				return CBN_ID;
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
 
-        public async Task<int> UpdateCabinetAsync(string cabinetname, int CabinetId,int userID, int compID, CabinetDto dto)
+		public async Task<int> UpdateCabinetAsync(string cabinetname, int CabinetId,int userID, int compID, CabinetDto dto)
         {
 			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 			//await connection.OpenAsync();

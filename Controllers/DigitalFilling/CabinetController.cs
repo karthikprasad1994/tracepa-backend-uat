@@ -78,13 +78,13 @@ namespace TracePca.Controllers.DigitalFilling
 
 
 		[HttpPost("CreateCabinet")]
-        public async Task<IActionResult> CreateCabinet(string CabinetName, int deptId, int userId, int compID, [FromBody] CabinetDto dto)
+        public async Task<IActionResult> CreateCabinet(string CabinetName, int deptId, int userId, int compID)
         {
-            var result = await _CabinetInterface.CreateCabinetAsync(CabinetName,deptId, userId, compID, dto);
+            var result = await _CabinetInterface.CreateCabinetAsync(CabinetName,deptId, userId, compID);
 
             if (result > 0)
             {
-                return Ok(new { statusCode = 200, message = "Cabinet created successfully.", Data = result });
+                return Ok(new { statusCode = 200, message = "Cabinet created successfully.", CabinetID = result });
             }
             else
             {

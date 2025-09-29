@@ -18,7 +18,7 @@ namespace TracePca.Interface.DigitalFilling
 
 		
 
-		Task<int> CreateCabinetAsync(string cabinetName,int deptId, int userId, int compID, CabinetDto dto);
+		Task<int> CreateCabinetAsync(string cabinetName,int deptId, int userId, int compID);
 
         Task<int> UpdateCabinetAsync(string cabinetName, int iCabinetID, int userId, int compID, CabinetDto dto);
 
