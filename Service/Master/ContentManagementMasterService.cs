@@ -172,7 +172,8 @@ namespace TracePca.Service.Master
 
                 if (isUpdate)
                 {
-                    await connection.ExecuteAsync(@"UPDATE Content_Management_Master SET CMM_Desc = @CMM_Desc, CMS_Remarks = @CMS_Remarks, CMM_UpdatedBy = @CMM_UpdatedBy, CMM_UpdatedOn = GETDATE(), CMM_Status = 'U', CMM_IPAddress = @CMM_IPAddress WHERE CMM_ID = @CMM_ID;", dto, transaction);
+                    await connection.ExecuteAsync(@"UPDATE Content_Management_Master SET CMM_Desc = @CMM_Desc, CMS_Remarks = @CMS_Remarks, CMM_UpdatedBy = @CMM_UpdatedBy, CMM_UpdatedOn = GETDATE(), CMM_Status = 'U', CMM_IPAddress = @CMM_IPAddress, 
+                    CMM_Rate = @CMM_Rate, CMM_Act = @CMM_Act, CMM_HSNSAC = @CMM_HSNSAC, CMM_AudrptType = @CMM_AudrptType WHERE CMM_ID = @CMM_ID;", dto, transaction);
                 }
                 else
                 {
@@ -189,7 +190,7 @@ namespace TracePca.Service.Master
 
                 var masterList = (await connection.QueryAsync<ContentManagementMasterDTO>(@"SELECT CMM_ID, CMM_Code, CMM_Desc, CMM_Category, CMS_Remarks, CMS_KeyComponent, CMS_Module, CMM_Delflag, CMM_Status, CMM_ApprovedBy, CMM_ApprovedOn, 
                 CMM_IPAddress, CMM_CompID, CMM_RiskCategory, CMM_CrBy, CMM_CrOn, CMM_UpdatedBy, CMM_UpdatedOn, CMM_Rate, CMM_Act, CMM_HSNSAC, CMM_AudrptType FROM Content_Management_Master
-                WHERE CMM_Category = @CMM_Category And CMM_CompID = @CompID AND CMM_Delflag = 'A' ORDER BY CMM_Desc;", new { Category = dto.CMM_Category, CompID = dto.CMM_CompID }, transaction)).ToList();
+                WHERE CMM_Category = @Category And CMM_CompID = @CompID AND CMM_Delflag = 'A' ORDER BY CMM_Desc;", new { Category = dto.CMM_Category, CompID = dto.CMM_CompID }, transaction)).ToList();
 
                 await transaction.CommitAsync();
 
