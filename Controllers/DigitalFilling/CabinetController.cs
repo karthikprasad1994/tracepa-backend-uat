@@ -1,8 +1,11 @@
 ﻿using Dapper;
 using iText.Commons.Bouncycastle.Cert.Ocsp;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using OpenAI.ObjectModels.ResponseModels;
+using System.ServiceModel.Channels;
 using TracePca.Dto.AssetRegister;
 using TracePca.Dto.Audit;
 using TracePca.Dto.DigitalFilling;
@@ -112,20 +115,38 @@ namespace TracePca.Controllers.DigitalFilling
             try
             {
                 var result = await _CabinetInterface.IndexDocuments(dto);
-
+				 
                 if (result.StartsWith("Error"))
-                {
-                    return StatusCode(500, result); // Internal Server Error
-                }
+				{
+					//return StatusCode(500, result); // Internal Server Error
+					return NotFound(new
+					{
+						statusCode = 500,
+						message = result
+					});
+				}
                 else
                 {
                     //return Ok(result); // Success
-					return Ok(new
+
+					if(result == "Indexed Successfully.")
 					{
-						statusCode = 200,
-						message = "Successfully Indexed."
-						//result
-					});
+						return Ok(new
+						{
+							statusCode = 200,
+							message = "Successfully Indexed."
+							//result
+						});
+					}
+					else
+					{
+						return NotFound(new
+						{
+							statusCode = 400,
+							message = result
+							//result
+						});
+					}
 				}
                 
             }
