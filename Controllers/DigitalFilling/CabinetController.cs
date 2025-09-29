@@ -395,5 +395,30 @@ namespace TracePca.Controllers.DigitalFilling
 				});
 			}
 		}
+
+
+		[HttpGet("LoadAllDepartment")]
+		public async Task<IActionResult> LoadAllDepartment(int compID)
+		{
+			var dropdownData = await _CabinetInterface.LoadAllDepartmentAsync(compID);
+
+			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Department loaded successfully.",
+					data = dropdownData  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+		}
 	}
 }

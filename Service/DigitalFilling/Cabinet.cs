@@ -1086,6 +1086,28 @@ namespace TracePca.Service.DigitalFilling
 				throw;
 			}
 		}
+
+		public async Task<IEnumerable<DepartmentDto>> LoadAllDepartmentAsync(int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			// CheckandInsertMemberGroupAsync(userId, compID);
+			string query = @"select Org_Name as DepartmentName, Org_Node as DepartmentID from sad_Org_Structure where Org_LevelCode = 3 and org_Code <> '' and org_name <>'' and Org_Status='A' and Org_CompID=@Org_CompID"; 
+			var result = await connection.QueryAsync<DepartmentDto>(query, new
+			{
+				Org_CompID = compID
+			});
+			return result;
+		}
 	}
 }
 

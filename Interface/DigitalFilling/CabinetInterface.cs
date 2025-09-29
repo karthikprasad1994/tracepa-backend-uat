@@ -12,12 +12,9 @@ namespace TracePca.Interface.DigitalFilling
     public interface CabinetInterface
     {
 
-		//Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int deptId, int userId, int compID);
-
+ 
 		Task<IEnumerable<CabinetDto>> LoadCabinetAsync( int compID);
-
-		
-
+		 
 		Task<int> CreateCabinetAsync(string cabinetName,int deptId, int userId, int compID);
 
         Task<int> UpdateCabinetAsync(string cabinetName, int iCabinetID, int userId, int compID, CabinetDto dto);
@@ -45,6 +42,8 @@ namespace TracePca.Interface.DigitalFilling
 		Task<IEnumerable<ArchiveDetailsDto>> LoadArchiveDetailsAsync(int compID);
 
 		Task<IEnumerable<ArchivedDocumentFileDto>> ArchivedDocumentFileDetailsAsync(string sAttachID);
+
+		Task<IEnumerable<DepartmentDto>> LoadAllDepartmentAsync(int compID);
 
 	}
 }
