@@ -44,5 +44,7 @@ namespace TracePca.Interface.DigitalFilling
 
 		Task<IEnumerable<ArchiveDetailsDto>> LoadArchiveDetailsAsync(int compID);
 
+		Task<IEnumerable<ArchivedDocumentFileDto>> ArchivedDocumentFileDetailsAsync(string sAttachID);
+
 	}
 }

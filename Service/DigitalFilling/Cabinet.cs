@@ -986,6 +986,44 @@ namespace TracePca.Service.DigitalFilling
 			});
 			return result;
 		}
+
+
+		public async Task<IEnumerable<ArchivedDocumentFileDto>> ArchivedDocumentFileDetailsAsync(string sAttachID)
+		{
+			if (string.IsNullOrWhiteSpace(sAttachID))
+			{
+				return Enumerable.Empty<ArchivedDocumentFileDto>();
+			}
+
+			try
+			{
+				string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+				if (string.IsNullOrEmpty(dbName))
+					throw new Exception("CustomerCode is missing in session. Please log in again.");
+ 
+				var connectionString = _configuration.GetConnectionString(dbName);
+
+				using var connection = new SqlConnection(connectionString);
+				await connection.OpenAsync();
+
+				string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
+                                SELECT DISTINCT (SELECT TOP 1 SAD_Config_Value FROM [Sad_Config_Settings] 
+                                        WHERE sad_Config_key = 'DisplayPath') + 'BITMAPS\' 
+                                    + CAST(FLOOR(CAST(A.Atch_DocID AS numeric)/301) AS varchar) + '\' + CAST(A.Atch_DocID AS varchar) 
+                                    + '.' + A.ATCH_Ext AS URLPath FROM edt_Attachments A
+                                JOIN (SELECT DISTINCT CAST(value AS INT) AS Atch_ID FROM STRING_SPLIT(@ids, ',')) S
+                                    ON A.Atch_ID = S.Atch_ID;";
+
+				var result = await connection.QueryAsync<ArchivedDocumentFileDto>(query, new { AttachIDs = sAttachID });
+				return result ?? Enumerable.Empty<ArchivedDocumentFileDto>();
+			}
+			catch (Exception ex)
+			{
+
+				throw;
+			}
+		}
 	}
 }
 

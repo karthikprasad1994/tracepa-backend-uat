@@ -370,5 +370,30 @@ namespace TracePca.Controllers.DigitalFilling
 				});
 			}
 		}
+
+
+		[HttpGet("ArchivedDocumentFileDetails")]
+		public async Task<IActionResult> ArchivedDocumentFileDetails(string sAttachID)
+		{
+			var dropdownData = await _CabinetInterface.ArchivedDocumentFileDetailsAsync(sAttachID);
+
+			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Search loaded successfully.",
+					data = dropdownData  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+		}
 	}
 }

@@ -118,4 +118,9 @@ namespace TracePca.Dto.DigitalFilling
 		public string SA_AttachmentID { get; set; }
 	}
 
+	public class ArchivedDocumentFileDto
+	{
+		public string URLPath { get; set; }
+	}
+
 }
