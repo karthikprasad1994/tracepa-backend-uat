@@ -84,19 +84,7 @@ namespace TracePca.Service.DigitalFilling
 
 		public async Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int compID)
 		{
-			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-			//await connection.OpenAsync();
-
-			//string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
-
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
-			//string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
-
-
-
-
-			// string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
 
 			if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
@@ -908,9 +896,7 @@ namespace TracePca.Service.DigitalFilling
                 throw;
             }
         }
-
-
-
+          
 		public async Task<IEnumerable<CabinetDto>> LoadRententionDataAsync(int compID)
 		{
 			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -943,11 +929,9 @@ namespace TracePca.Service.DigitalFilling
 		}
 
 
-		public async Task<IEnumerable<DocumentTypeDto>> LoadAllDocumentTypeAsync(int iCompID, DocumentTypeDto dto)
+		public async Task<IEnumerable<DocumentTypeDto>> LoadAllDocumentTypeAsync(int iCompID)
 		{
-			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-			//await connection.OpenAsync();
-
+			  
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
 			if (string.IsNullOrEmpty(dbName))
@@ -958,14 +942,9 @@ namespace TracePca.Service.DigitalFilling
 
 			using var connection = new SqlConnection(connectionString);
 			await connection.OpenAsync();
-
-			string query = "";
-
-
-			query = @"Select a.DOT_DOCTYPEID,a.DOT_DOCNAME,c.Usr_FullName as DOT_CRBY,a.DOT_NOTE,b.Org_Node As DOT_PGROUPID,
+			string query = @"Select a.DOT_DOCTYPEID,a.DOT_DOCNAME,c.Usr_FullName as DOT_CRBY,a.DOT_NOTE,b.Org_Node As DOT_PGROUPID,
                 b.Org_Name as DOT_PGROUP,a.DOT_CRON,a.DOT_STATUS,DOT_isGlobal,a.DOT_DelFlag 
                 From EDT_DOCUMENT_TYPE a,Sad_Org_Structure b,Sad_UserDetails c Where a.DOT_PGROUP=Org_Node and c.Usr_ID= a.DOT_CRBY and DOT_CompID=@DOT_CompID";
-		 
 
 			var result = await connection.QueryAsync<DocumentTypeDto>(query, new
 			{

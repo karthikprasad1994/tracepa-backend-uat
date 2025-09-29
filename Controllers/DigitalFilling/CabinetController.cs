@@ -1,4 +1,5 @@
 ﻿using Dapper;
+using iText.Commons.Bouncycastle.Cert.Ocsp;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -212,20 +213,18 @@ namespace TracePca.Controllers.DigitalFilling
 		}
 
 
-
-
-		[HttpPost("LoadAllDocumentType")]
-		public async Task<IActionResult> LoadAllDocumentType(int iCompID,  [FromBody] DocumentTypeDto dto)
+		[HttpGet("LoadAllDocumentType")]
+		public async Task<IActionResult> LoadAllDocumentType(int iCompID)
 		{
-			var result = await _CabinetInterface.LoadAllDocumentTypeAsync(iCompID,dto);
+			var dropdownData = await _CabinetInterface.LoadAllDocumentTypeAsync(iCompID);
 
-			if (result != null && result.Any())  // Check if the collection exists and has items
+			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
 			{
 				return Ok(new
 				{
 					statusCode = 200,
-					message = "Document Type loaded successfully.",
-					data = result  // Return the actual data
+					message = "Descriptor loaded successfully.",
+					data = dropdownData  // Return the actual data
 				});
 			}
 			else
@@ -236,7 +235,7 @@ namespace TracePca.Controllers.DigitalFilling
 					message = "No data found for the given criteria."
 				});
 			}
-
+			 
 		}
 
 
