@@ -420,5 +420,25 @@ namespace TracePca.Controllers.DigitalFilling
 				});
 			}
 		}
+
+		[HttpPost("CreateDepartment")]
+		public async Task<IActionResult> CreateDepartment(string Code, string DepartmentName, string userId, int compID)
+		{
+			var result = await _CabinetInterface.CreateDepartmentAsync(Code, DepartmentName, userId, compID);
+
+			if (result == "Department Created Successfully.")
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = result
+				});
+			}
+			else
+			{
+				return StatusCode(500, new { statusCode = 400, message = result });
+			}
+ 
+		}
 	}
 }

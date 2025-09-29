@@ -8,6 +8,7 @@ using Org.BouncyCastle.Ocsp;
 using StackExchange.Redis;
 using System.IO;
 using System.Net.Mail;
+using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Transactions;
 using TracePca.Data;
@@ -1108,6 +1109,59 @@ namespace TracePca.Service.DigitalFilling
 			});
 			return result;
 		}
+
+
+		public async Task<string> CreateDepartmentAsync(string Code, string DepartmentName, string userId, int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+				string sStatus = ""; int Org_Node=0;
+				//Check for Cabinet Id is Valid
+				var OrgNod = await connection.ExecuteScalarAsync<bool>(@"select Org_Node from sad_Org_Structure where Org_Name = @Org_Name and Org_LevelCode = 3 and Org_Status='A' and Org_CompID = @Org_CompID", new { Org_Name = @DepartmentName, Org_CompID = @compID }, transaction);
+				if (OrgNod == true)
+				{
+					return sStatus = "Department Name is already Exist.";
+				}
+
+				Org_Node = await connection.ExecuteScalarAsync<int>(
+					  @"DECLARE @TemplateId INT;
+                  SELECT @TemplateId = ISNULL(MAX(Org_Node), 0) + 1 FROM sad_Org_Structure;
+                  INSERT INTO sad_Org_Structure 
+                  (Org_Node,org_Code, org_name, org_parent, org_userid, org_DelFlag, org_Note, org_AppStrength, org_CreatedBy, 
+                   org_CreatedOn, org_Status, Org_levelCode, Org_CompID, Org_IPAddress)
+                  VALUES 
+                  (@TemplateId, @org_Code,@org_name,3,@org_userid,'A',@org_name,0,@org_userid,GETDATE(),'A',3,@Org_CompID,'');
+                  SELECT @TemplateId;",
+					  new
+					  {
+						  org_Code = Code,
+						  org_name = DepartmentName,
+						  org_userid = userId,
+						  Org_CompID = compID
+					  },
+					  transaction
+				  );
+
+				await transaction.CommitAsync();
+				return sStatus = "Department Created Successfully."; ;
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
+
 	}
 }
 

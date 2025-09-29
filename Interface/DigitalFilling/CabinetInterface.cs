@@ -45,5 +45,7 @@ namespace TracePca.Interface.DigitalFilling
 
 		Task<IEnumerable<DepartmentDto>> LoadAllDepartmentAsync(int compID);
 
+		Task<string> CreateDepartmentAsync(string Code, string DepartmentName, string userId, int compID);
+
 	}
 }
