@@ -120,6 +120,7 @@ namespace TracePca.Dto.DigitalFilling
 
 	public class ArchivedDocumentFileDto
 	{
+		public string FileName { get; set; }
 		public string URLPath { get; set; }
 	}
 
