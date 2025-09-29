@@ -956,50 +956,29 @@ namespace TracePca.Service.DigitalFilling
 
 		public async Task<IEnumerable<ArchiveDetailsDto>> LoadArchiveDetailsAsync(int compID)
 		{
-			 
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 			if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-			// ✅ Step 2: Get the connection string
 			var connectionString = _configuration.GetConnectionString(dbName);
 
 			using var connection = new SqlConnection(connectionString);
 			await connection.OpenAsync();
 
-			// CheckandInsertMemberGroupAsync(userId, compID);
-			string query = @"SELECT 
-                                A.SA_ID,
-                                A.SA_AuditNo,
-                                A.SA_ScopeOfAudit,
-                                A.SA_CustID,
-                                A.SA_AuditTypeID,
-                                A.SA_PartnerID,
-                                A.SA_ReviewPartnerID,
-                                A.SA_AttachID,
-                                A.SA_CompID,
-                                A.SA_StartDate,
-                                A.SA_ExpCompDate,
-                                A.SA_AuditOpinionDate,
-                                A.SA_ExpiryDate,
-                                B.CUST_NAME,
-                                B.CUST_CODE,
-                                CMM.CMM_Code,
-                                CMM.CMM_Desc,
-                                A.SA_RetentionPeriod,
-                                ISNULL(COUNT(C.Atch_ID), 0) AS AttachmentCount
+			string query = @"SELECT A.SA_ID,A.SA_AuditNo,A.SA_ScopeOfAudit,
+                            A.SA_CustID,A.SA_AuditTypeID,A.SA_PartnerID,A.SA_ReviewPartnerID,
+                            A.SA_AttachID,A.SA_CompID,A.SA_StartDate,A.SA_ExpCompDate,
+                            A.SA_AuditOpinionDate,A.SA_ExpiryDate,B.CUST_NAME,B.CUST_CODE,
+                            CMM.CMM_Code,CMM.CMM_Desc,A.SA_RetentionPeriod,
+                            ISNULL(D.AttachmentCount, 0) AS AttachmentCount,D.SA_AttachmentID
                             FROM StandardAudit_Schedule A
                             JOIN SAD_CUSTOMER_MASTER B ON B.Cust_Id = A.SA_CustID
                             JOIN Content_Management_Master CMM ON CMM_ID = A.SA_AuditTypeID
-                            LEFT JOIN edt_Attachments C ON A.SA_AttachID = C.Atch_ID
-                            WHERE A.SA_CompID = @SA_CompID 
-                              AND A.SA_IsArchived = 1 
-                              AND A.SA_ForCompleteAudit = 1
-                            GROUP BY 
-                                A.SA_ID, A.SA_AuditNo, A.SA_ScopeOfAudit, A.SA_CustID, A.SA_AuditTypeID,
-                                A.SA_PartnerID, A.SA_ReviewPartnerID, A.SA_AttachID, A.SA_CompID,
-                                A.SA_StartDate, A.SA_ExpCompDate, A.SA_AuditOpinionDate, A.SA_ExpiryDate,
-                                B.CUST_NAME, B.CUST_CODE, CMM.CMM_Code, CMM.CMM_Desc,A.SA_RetentionPeriod";   
+                            OUTER APPLY (SELECT COUNT(*) AS AttachmentCount,
+                            STRING_AGG(CAST(SAR_AttchId AS varchar), ',') AS SA_AttachmentID FROM (
+                            SELECT SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory
+                            WHERE SAR_SA_ID = A.SA_ID AND SAR_AttchID <> 0) AS DistinctIds) D
+                            WHERE A.SA_CompID = @SA_CompID AND A.SA_IsArchived = 1 AND A.SA_ForCompleteAudit = 1";   
 
 			var result = await connection.QueryAsync<ArchiveDetailsDto>(query, new
 			{

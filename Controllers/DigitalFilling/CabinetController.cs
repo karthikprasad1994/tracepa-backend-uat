@@ -119,8 +119,14 @@ namespace TracePca.Controllers.DigitalFilling
                 }
                 else
                 {
-                    return Ok(result); // Success
-                }
+                    //return Ok(result); // Success
+					return Ok(new
+					{
+						statusCode = 200,
+						message = "Successfully Indexed."
+						//result
+					});
+				}
                 
             }
             catch (Exception ex)
