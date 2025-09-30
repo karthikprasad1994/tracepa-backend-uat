@@ -29,5 +29,6 @@ namespace TracePca.Interface
        // Task<List<OperationPermissionDto>> GetLoginUserPermissionTraceAsync(UserPermissionRequestDto dto);
        // Task<string> GetLoginUserPermissionTraceAsync(int companyId, int userId, string moduleCode, int checkModuleId);
         Task<List<FormPermissionDto>> GetUserPermissionsWithFormNameAsync(int companyId, int userId);
+        Task<IEnumerable<LogInfoDto>> GetUserLoginLogsAsync();
     }
 }

@@ -546,5 +546,51 @@
         }
 
         //DownloadScheduleNotePDFTemplate
+        public class ScheduleNoteFirstDto
+        {
+            public string SNF_Description { get; set; }
+            public decimal SNF_CYear_Amount { get; set; }
+            public decimal SNF_PYear_Amount { get; set; }
+        }
+
+        public class ScheduleNoteSecondDto
+        {
+            public string SNS_Description { get; set; }
+            public decimal SNS_CYear_BegShares { get; set; }
+            public decimal SNS_CYear_BegAmount { get; set; }
+            public decimal SNS_PYear_BegShares { get; set; }
+            public decimal SNS_PYear_BegAmount { get; set; }
+            public decimal SNS_CYear_AddShares { get; set; }
+            public decimal SNS_CYear_AddAmount { get; set; }
+            public decimal SNS_PYear_AddShares { get; set; }
+            public decimal SNS_PYear_AddAmount { get; set; }
+            public decimal SNS_CYear_EndShares { get; set; }
+            public decimal SNS_CYear_EndAmount { get; set; }
+            public decimal SNS_PYear_EndShares { get; set; }
+            public decimal SNS_PYear_EndAmount { get; set; }
+        }
+
+        public class ScheduleNoteThirdDto
+        {
+            public string SNT_Description { get; set; }
+            public decimal SNT_CYear_Shares { get; set; }
+            public decimal SNT_CYear_Amount { get; set; }
+            public decimal SNT_PYear_Shares { get; set; }
+            public decimal SNT_PYear_Amount { get; set; }
+        }
+
+        public class ScheduleNoteDescDto
+        {
+            public string SND_Description { get; set; }
+        }
+
+        public class ScheduleNoteFourthDto
+        {
+            public string SNFT_Description { get; set; }
+            public decimal SNFT_NumShares { get; set; }
+            public decimal SNFT_TotalShares { get; set; }
+            public decimal SNFT_ChangedShares { get; set; }
+        }
+
     }
 }

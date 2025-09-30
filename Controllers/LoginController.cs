@@ -296,21 +296,52 @@ namespace TracePca.Controllers
         public async Task<IActionResult> LoginUser([FromBody] LoginDto user)
         {
             if (user == null || string.IsNullOrWhiteSpace(user.UsrEmail) || string.IsNullOrWhiteSpace(user.UsrPassWord))
-            {
                 return BadRequest(new { statuscode = 400, message = "Email and password are required." });
-            }
 
             var result = await _LoginInterface.LoginUserAsync(user.UsrEmail, user.UsrPassWord);
 
-            // ✅ Use strongly typed DTO instead of reflection
-            return result.StatusCode switch
-            {
-                200 => Ok(result),
-                401 => Unauthorized(result),
-                404 => NotFound(result),
-                _ => StatusCode(500, result)
-            };
+            return result.StatusCode == 200
+                ? Ok(result)
+                : StatusCode(result.StatusCode, result); // 401 will come automatically if invalid
         }
+
+
+        [HttpGet("GetUsersLogs")]
+        public async Task<IActionResult> GetUserLoginLogs()
+        {
+            try
+            {
+                var logs = await _LoginInterface.GetUserLoginLogsAsync();
+
+                if (logs == null || !logs.Any())
+                {
+                    return NotFound(new
+                    {
+                        status = 404,
+                        message = "No login logs found.",
+                        logs = Enumerable.Empty<LogInfoDto>()
+                    });
+                }
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Login logs fetched successfully.",
+                    logs
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while fetching login logs.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
         [HttpPost("Logout")]
         public async Task<IActionResult> Logout([FromBody] LogOutDto request)
         {

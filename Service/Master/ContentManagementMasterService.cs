@@ -183,7 +183,7 @@ namespace TracePca.Service.Master
                         @"DECLARE @NewId INT = ISNULL((SELECT MAX(CMM_ID) FROM Content_Management_Master), 0) + 1;
                         INSERT INTO Content_Management_Master (CMM_ID, CMM_Code, CMM_Desc, CMM_Category, CMS_Remarks, CMS_KeyComponent, CMS_Module, CMM_Delflag, CMM_Status, CMM_ApprovedBy, CMM_ApprovedOn, 
                         CMM_IPAddress, CMM_CompID, CMM_RiskCategory, CMM_CrBy, CMM_CrOn, CMM_Rate, CMM_Act, CMM_HSNSAC, CMM_AudrptType)
-                        VALUES (@NewId, @CMM_Code, @CMM_Desc, @CMM_Category, @CMS_Remarks, @CMS_KeyComponent, @CMS_Module, 'A', 'W', @CMM_CrBy, GETDATE(), @CMM_IPAddress, @CMM_CompID, @CMM_RiskCategory, 
+                        VALUES (@NewId, @CMM_Code, @CMM_Desc, @CMM_Category, @CMS_Remarks, @CMS_KeyComponent, @CMS_Module, 'A', 'A', @CMM_CrBy, GETDATE(), @CMM_IPAddress, @CMM_CompID, @CMM_RiskCategory, 
                         @CMM_CrBy, GETDATE(), @CMM_Rate, @CMM_Act, @CMM_HSNSAC, @CMM_AudrptType);
                         SELECT @NewId;", dto, transaction);
                 }
@@ -423,14 +423,14 @@ namespace TracePca.Service.Master
             }
         }
 
-        public async Task<(bool Success, string Message, List<AssignmentTaskChecklistMasterDTO> Data)> GetAssignmentTaskChecklistByStatusAsync(string status, int compId)
+        public async Task<(bool Success, string Message, List<AssignmentTaskChecklistMasterDTO> Data)> GetAssignmentTaskChecklistByStatusAsync(int taskId, string status, int compId)
         {
             using var connection = new SqlConnection(_connectionString);
             try
             {
-                var query = @"SELECT * FROM AssignmentTask_Checklist_Master WHERE ACM_CompId = @CompID AND ACM_DELFLG = @Status ORDER BY ACM_Heading;";
+                var query = @"SELECT * FROM AssignmentTask_Checklist_Master WHERE ACM_AssignmentTaskID = @TaskId AND ACM_CompId = @CompID AND ACM_DELFLG = @Status ORDER BY ACM_Heading;";
 
-                var result = await connection.QueryAsync<AssignmentTaskChecklistMasterDTO>(query, new { Status = status, CompID = compId });
+                var result = await connection.QueryAsync<AssignmentTaskChecklistMasterDTO>(query, new { TaskId = taskId, Status = status, CompID = compId });
                 return (true, "Records fetched successfully.", result.ToList());
             }
             catch (Exception ex)
@@ -469,7 +469,7 @@ namespace TracePca.Service.Master
             {
                 bool isUpdate = (dto.ACM_ID ?? 0) > 0;
 
-                var duplicateCount = await connection.ExecuteScalarAsync<int>(@"SELECT COUNT(1) FROM AssignmentTask_Checklist_Master WHERE ACM_Checkpoint = @ACM_Checkpoint AND ACM_AuditTypeID = @ACM_AuditTypeID AND ACM_CompId = @ACM_CompId AND (ACM_ID <> @ACM_ID);",
+                var duplicateCount = await connection.ExecuteScalarAsync<int>(@"SELECT COUNT(1) FROM AssignmentTask_Checklist_Master WHERE ACM_Checkpoint = @ACM_Checkpoint AND ACM_AssignmentTaskID = @ACM_AssignmentTaskID AND ACM_CompId = @ACM_CompId AND (ACM_ID <> @ACM_ID);",
                     new
                     {
                         dto.ACM_Checkpoint,
