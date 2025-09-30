@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using OfficeOpenXml.Style.XmlAccess;
 using OpenAI.ObjectModels.ResponseModels;
 using System.ServiceModel.Channels;
 using TracePca.Dto.AssetRegister;
@@ -308,11 +309,11 @@ namespace TracePca.Controllers.DigitalFilling
 
 
 		[HttpPut("UpdateCabinet")]
-        public async Task<IActionResult> UpdateCabinet(string CabinetName, int iCabinetId, int userId,  int compID, [FromBody] CabinetDto dto)
+        public async Task<IActionResult> UpdateCabinet(string CabinetName, int iCabinetId, int iUserID, int compID)
         {
-            var result = await _CabinetInterface.UpdateCabinetAsync(CabinetName, iCabinetId, userId, compID, dto);
+            var result = await _CabinetInterface.UpdateCabinetAsync(CabinetName, iCabinetId, iUserID, compID);
 
-            if (result == 0)
+            if (result > 0)
             {
                 return Ok(new { statusCode = 200, message = "Cabinet updated successfully.", Data = result });
             }
@@ -323,7 +324,30 @@ namespace TracePca.Controllers.DigitalFilling
         }
 
 
-        [HttpPost("IndexDocuments")]
+
+		[HttpPut("UpdateArchiveDetails")]
+		public async Task<IActionResult> UpdateArchiveDetails(string retentionDate, int retentionPeriod, int archiveId, int compId)
+		{
+			try
+			{
+				var result = await _CabinetInterface.UpdateArchiveDetailsAsync(retentionDate, retentionPeriod, archiveId, compId);
+
+				if (result == "Invalid Archive Id.")
+					return NotFound(new { message = result });
+
+				if (result == "Updated Successfully.")
+					return Ok(new { message = result });
+
+				return BadRequest(new { message = "Unexpected result." });
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { message = $"An error occurred: {ex.Message}" });
+			}
+		}
+
+
+		[HttpPost("IndexDocuments")]
         public async Task<IActionResult> IndexDocuments([FromForm] IndexDocumentDto dto)
         {
             try

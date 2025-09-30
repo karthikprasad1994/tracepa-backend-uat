@@ -17,7 +17,7 @@ namespace TracePca.Interface.DigitalFilling
 		 
 		Task<int> CreateCabinetAsync(string cabinetName,int deptId, int userId, int compID);
 
-        Task<int> UpdateCabinetAsync(string cabinetName, int iCabinetID, int userId, int compID, CabinetDto dto);
+        Task<int> UpdateCabinetAsync(string cabinetName, int iCabinetID, int iUserID, int compID);
 
         Task<string> IndexDocuments(IndexDocumentDto dto);
 
@@ -50,6 +50,8 @@ namespace TracePca.Interface.DigitalFilling
 		Task<string> CreateSubCabinetAsync(string SubcabinetName, int iCabinetId,   int compID);
 
 		Task<string> CreateFolderAsync(string FolderName, int iCabinetId, int iSubCabinetID, int compID);
+
+		Task<string> UpdateArchiveDetailsAsync(string retentionDate, int retentionPeriod, int archiveId, int compId);
 
 	}
 }
