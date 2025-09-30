@@ -1,14 +1,19 @@
 ﻿using System.Data;
 using Dapper;
+using Microsoft.Reporting.NETCore;
+using QuestPDF.Helpers;
 using DocumentFormat.OpenXml.Wordprocessing;
 using iText.Commons.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using QuestPDF.Fluent;
+using QuestPDF.Infrastructure;
 using TracePca.Data;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
+using DocumentFormat.OpenXml.Bibliography;
 
 namespace TracePca.Service.FIN_statement
 {
@@ -1917,118 +1922,344 @@ INSERT INTO ScheduleNote_First (
         }
 
         //DownloadScheduleNotePDFTemplate
-        public async Task<Dictionary<string, DataTable>> GetScheduleNoteReportDataAsync(int companyId, int customerId, int financialYearId)
+        public async Task<byte[]> GenerateScheduleNotePdfAsync(int compId, int custId, string financialYear)
         {
+            // Get Customer Name
+            var customerName = await GetCustomerNameAsync(custId);
+
+            // Fetch all datasets
+            var dt1 = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "AU");
+            var dt2 = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "IS");
+            var dt3 = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "AI");
+            var dt4 = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "BS");
+            var dt5 = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "CC");
+            var dt6 = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "FD");
+
+            var dtS1 = await GetScheduleNoteSecondAsync(compId, custId, financialYear, "SF");
+            var dtS2 = await GetScheduleNoteSecondAsync(compId, custId, financialYear, "SS");
+            var dtS3 = await GetScheduleNoteSecondAsync(compId, custId, financialYear, "ST");
+            var dtS4 = await GetScheduleNoteSecondAsync(compId, custId, financialYear, "SV");
+
+            var dtT1 = await GetScheduleNoteThirdAsync(compId, custId, financialYear, "TBE");
+            var dtT2 = await GetScheduleNoteThirdAsync(compId, custId, financialYear, "TBP");
+            var dtT3 = await GetScheduleNoteDescAsync(compId, custId, financialYear, "cEquity");
+            var dtT4 = await GetScheduleNoteDescAsync(compId, custId, financialYear, "dPref");
+            var dtT5 = await GetScheduleNoteThirdAsync(compId, custId, financialYear, "TEE");
+            var dtT6 = await GetScheduleNoteThirdAsync(compId, custId, financialYear, "TBP");
+            var dtT7 = await GetScheduleNoteDescAsync(compId, custId, financialYear, "fShares");
+            var dtT8 = await GetScheduleNoteFourthAsync(compId, custId, financialYear, "FSC");
+            var dtT9 = await GetScheduleNoteFourthAsync(compId, custId, financialYear, "FSP");
+            var dtT10 = await GetScheduleNoteDescAsync(compId, custId, financialYear, "footNote");
+
+            // Convert to DataTables
+            DataTable ToDataTable<T>(List<T> list)
+            {
+                var dt = new DataTable(typeof(T).Name);
+                var props = typeof(T).GetProperties();
+                foreach (var prop in props)
+                    dt.Columns.Add(prop.Name, Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType);
+
+                foreach (var item in list)
+                {
+                    var values = new object[props.Length];
+                    for (int i = 0; i < props.Length; i++)
+                        values[i] = props[i].GetValue(item) ?? DBNull.Value;
+                    dt.Rows.Add(values);
+                }
+                return dt;
+            }
+
+            // Prepare RDLC report
+            var report = new LocalReport();
+
+            // Build the absolute path to the RDLC file
+            var rdlcFileName = "rptSchduleNote.rdlc";
+            var rdlcPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FIN Statement", "rptSchduleNote.rdlc");
+
+            if (!File.Exists(rdlcPath))
+                throw new FileNotFoundException("RDLC file not found", rdlcPath);
+
+            report.ReportPath = rdlcPath;
+
+            // Add datasets
+            report.DataSources.Add(new ReportDataSource("DataSet1", dt1));
+            report.DataSources.Add(new ReportDataSource("DataSet2", dt2));
+            report.DataSources.Add(new ReportDataSource("DataSet3", dt3));
+            report.DataSources.Add(new ReportDataSource("DataSet4", dt4));
+            report.DataSources.Add(new ReportDataSource("DataSet5", dt5));
+            report.DataSources.Add(new ReportDataSource("DataSet6", dt6));
+
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Second1", dtS1));
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Second2", dtS2));
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Second3", dtS3));
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Second4", dtS4));
+
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Third1", dtT1));
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Third2", dtT2));
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Desc", dtT3));
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Desc1", dtT4));
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Third3", dtT5));
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Third4", dtT6));
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Desc2", dtT7));
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Fourth", dtT8));
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Fourth1", dtT9));
+            report.DataSources.Add(new ReportDataSource("ScheduleNote_Desc3", dtT10));
+
+            var paramList = new List<ReportParameter> 
+            {
+               new ReportParameter("Customer", customerName ?? custId.ToString()),
+               new ReportParameter("FYear", financialYear)
+            };
+
+            if (int.TryParse(financialYear, out var fy))
+            {
+                paramList.Add(new ReportParameter("CurrentYear", fy.ToString()));
+                paramList.Add(new ReportParameter("PreviousYear", (fy - 1).ToString()));
+            }
+
+            report.SetParameters(paramList);
+
+            return report.Render("PDF");
+        }
+        private async Task<string> GetCustomerNameAsync(int custId)
+        {
+            // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
+            // ✅ Step 2: Get connection string
             var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Open SQL connection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            var datasets = new Dictionary<string, DataTable>();
-
-            // 🔹 First group - ScheduleNote_First
-            string[] firstCategories = { "AU", "IS", "AI", "BS", "CC", "FD" };
-            for (int i = 0; i < firstCategories.Length; i++)
-            {
-                var dt = await GetDataTableAsync(connection, @"
-                SELECT SNF_Description, SNF_CYear_Amount, SNF_PYear_Amount 
-                FROM ScheduleNote_First
-                WHERE SNF_CompId = @CompanyId
-                  AND SNF_CustId = @CustomerId
-                  AND SNF_YearId = @FinancialYearId
-                  AND SNF_Category = @Category
-                  AND SNF_DelFlag <> 'X'
-                ORDER BY SNF_ID;",
-                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = firstCategories[i] });
-
-                datasets.Add($"DataSet{i + 1}", dt);
-            }
-
-            // 🔹 Second group - ScheduleNote_Second
-            string[] secondCategories = { "SF", "SS", "ST", "SV" };
-            for (int i = 0; i < secondCategories.Length; i++)
-            {
-                var dt = await GetDataTableAsync(connection, @"
-                SELECT * 
-                FROM ScheduleNote_Second
-                WHERE SNS_CompId = @CompanyId
-                  AND SNS_CustId = @CustomerId
-                  AND SNS_YearId = @FinancialYearId
-                  AND SNS_Category = @Category
-                  AND SNS_DelFlag <> 'X'
-                ORDER BY SNS_ID;",
-                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = secondCategories[i] });
-
-                datasets.Add($"ScheduleNote_Second{i + 1}", dt);
-            }
-
-            // 🔹 Third group - ScheduleNote_Third
-            string[] thirdCategories = { "TBE", "TBP", "TEE" };
-            for (int i = 0; i < thirdCategories.Length; i++)
-            {
-                var dt = await GetDataTableAsync(connection, @"
-                SELECT SNT_Description,SNT_CYear_Shares,SNT_CYear_Amount,SNT_PYear_Shares, SNT_PYear_Amount 
-                FROM ScheduleNote_Third
-                WHERE SNT_CompId = @CompanyId
-                  AND SNT_CustId = @CustomerId
-                  AND SNT_YearId = @FinancialYearId
-                  AND SNT_Category = @Category
-                  AND SNT_DelFlag <> 'X'
-                ORDER BY SNT_ID;",
-                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = thirdCategories[i] });
-
-                datasets.Add($"ScheduleNote_Third{i + 1}", dt);
-            }
-
-            // 🔹 Description group - ScheduleNote_Desc
-            string[] descCategories = { "cEquity", "dPref", "fShares", "footNote" };
-            for (int i = 0; i < descCategories.Length; i++)
-            {
-                var dt = await GetDataTableAsync(connection, @"
-                SELECT SND_Description 
-                FROM ScheduleNote_Desc
-                WHERE SND_CompId = @CompanyId
-                  AND SND_CustId = @CustomerId
-                  AND SND_YearId = @FinancialYearId
-                  AND SND_Category = @Category
-                  AND SND_DelFlag <> 'X'
-                ORDER BY SND_ID;",
-                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = descCategories[i] });
-
-                datasets.Add($"ScheduleNote_Desc{i + 1}", dt);
-            }
-
-            // 🔹 Fourth group - ScheduleNote_Fourth
-            string[] fourthCategories = { "FSC", "FSP" };
-            for (int i = 0; i < fourthCategories.Length; i++)
-            {
-                var dt = await GetDataTableAsync(connection, @"
-                SELECT SNFT_Description,SNFT_NumShares,SNFT_TotalShares,SNFT_ChangedShares 
-                FROM ScheduleNote_Fourth
-                WHERE SNFT_CompId = @CompanyId
-                  AND SNFT_CustId = @CustomerId
-                  AND SNFT_YearId = @FinancialYearId
-                  AND SNFT_Category = @Category
-                  AND SNFT_DelFlag <> 'D'
-                ORDER BY SNFT_ID;",
-                    new { CompanyId = companyId, CustomerId = customerId, FinancialYearId = financialYearId, Category = fourthCategories[i] });
-
-                datasets.Add($"ScheduleNote_Fourth{i + 1}", dt);
-            }
-
-            return datasets;
+            var sql = "select CUST_NAME as customerName from SAD_CUSTOMER_MASTER where CUST_ID = @CustId";
+            
+            return await connection.ExecuteScalarAsync<string>(sql, new { CustId = custId });
         }
-        private async Task<DataTable> GetDataTableAsync(SqlConnection connection, string query, object parameters)
-        {
-            var reader = await connection.ExecuteReaderAsync(query, parameters);
+        private async Task<DataTable> GetScheduleNoteFirstAsync(int compId, int custId, string financialYear, string category)
+           {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Open SQL connection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            string sql = @"SELECT SNF_Description, SNF_CYear_Amount, SNF_PYear_Amount 
+                           FROM ScheduleNote_First
+                           WHERE SNF_CustID=@CustId AND SNF_CompId=@CompId 
+                             AND SNF_YEARId=@financialYear AND SNF_DELFLAG='X' 
+                             AND SNF_Category=@Category ORDER BY SNF_ID";
+
+            var list = await connection.QueryAsync<dynamic>(sql, new { CustId = custId, CompId = compId, financialYear = financialYear, Category = category });
+
             var dt = new DataTable();
-            dt.Load(reader);
+            dt.Columns.Add("SNF_Description");
+            dt.Columns.Add("SNF_CYear_Amount");
+            dt.Columns.Add("SNF_PYear_Amount");
+
+            decimal totalCurr = 0, totalPrev = 0;
+            foreach (var item in list)
+            {
+                var row = dt.NewRow();
+                row["SNF_Description"] = item.SNF_Description;
+                row["SNF_CYear_Amount"] = Convert.ToDecimal(item.SNF_CYear_Amount).ToString("#,##0.00");
+                row["SNF_PYear_Amount"] = Convert.ToDecimal(item.SNF_PYear_Amount).ToString("#,##0.00");
+                totalCurr += item.SNF_CYear_Amount;
+                totalPrev += item.SNF_PYear_Amount;
+                dt.Rows.Add(row);
+            }
+
+            if (dt.Rows.Count > 0)
+            {
+                var totalRow = dt.NewRow();
+                totalRow["SNF_Description"] = "<b>Total</b>";
+                totalRow["SNF_CYear_Amount"] = "<b>" + totalCurr.ToString("#,##0.00") + "</b>";
+                totalRow["SNF_PYear_Amount"] = "<b>" + totalPrev.ToString("#,##0.00") + "</b>";
+                dt.Rows.Add(totalRow);
+            }
+
+            return dt;
+        }
+        private async Task<DataTable> GetScheduleNoteSecondAsync(int compId, int custId, string financialYear, string category)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Open SQL connection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            string sql = @"SELECT * FROM ScheduleNote_Second
+                           WHERE SNS_CustId=@CustId AND SNS_CompId=@CompId 
+                             AND SNS_YEARId=@financialYear AND SNS_DELFLAG='X' 
+                             AND SNS_Category=@Category ORDER BY SNS_ID";
+
+            var list = await connection.QueryAsync<dynamic>(sql, new { CustId = custId, CompId = compId, financialYear = financialYear, Category = category });
+
+            var dt = new DataTable();
+            string[] cols = new string[] { "SNS_Description", "SNS_CYear_BegShares", "SNS_CYear_BegAmount", "SNS_PYear_BegShares", "SNS_PYear_BegAmount",
+                                          "SNS_CYear_AddShares", "SNS_CYear_AddAmount", "SNS_PYear_AddShares", "SNS_PYear_AddAmount",
+                                          "SNS_CYear_EndShares", "SNS_CYear_EndAmount", "SNS_PYear_EndShares", "SNS_PYear_EndAmount"};
+            foreach (var c in cols) dt.Columns.Add(c);
+
+            foreach (var item in list)
+            {
+                var row = dt.NewRow();
+               foreach (var c in cols)
+{
+    if (((IDictionary<string, object>)item).ContainsKey(c))
+    {
+        var value = ((IDictionary<string, object>)item)[c];
+        if (value != null && decimal.TryParse(value.ToString(), out decimal parsed))
+        {
+            row[c] = parsed.ToString("#,##0.00");
+        }
+        else
+        {
+            row[c] = value?.ToString() ?? ""; // keep original string if not numeric
+        }
+    }
+    else
+    {
+        row[c] = "";
+    }
+}
+                dt.Rows.Add(row);
+            }
+
+            return dt;
+        }
+        private async Task<DataTable> GetScheduleNoteThirdAsync(int compId, int custId, string financialYear, string category)
+         {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Open SQL connection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            string sql = @"SELECT SNT_Description, SNT_CYear_Shares, SNT_CYear_Amount, SNT_PYear_Shares, SNT_PYear_Amount
+                           FROM ScheduleNote_Third
+                           WHERE SNT_CustId=@CustId AND SNT_CompId=@CompId 
+                             AND SNT_YEARId=@financialYear AND SNT_DELFLAG='X' 
+                             AND SNT_Category=@Category ORDER BY SNT_ID";
+
+            var list = await connection.QueryAsync<dynamic>(sql, new { CustId = custId, CompId = compId, financialYear = financialYear, Category = category });
+
+            var dt = new DataTable();
+            dt.Columns.Add("SNT_Description");
+            dt.Columns.Add("SNT_CYear_Shares");
+            dt.Columns.Add("SNT_CYear_Amount");
+            dt.Columns.Add("SNT_PYear_Shares");
+            dt.Columns.Add("SNT_PYear_Amount");
+
+            foreach (var item in list)
+            {
+                var row = dt.NewRow();
+                row["SNT_Description"] = item.SNT_Description;
+                row["SNT_CYear_Shares"] = Convert.ToDecimal(item.SNT_CYear_Shares).ToString("#,##0.00");
+                row["SNT_CYear_Amount"] = Convert.ToDecimal(item.SNT_CYear_Amount).ToString("#,##0.00");
+                row["SNT_PYear_Shares"] = Convert.ToDecimal(item.SNT_PYear_Shares).ToString("#,##0.00");
+                row["SNT_PYear_Amount"] = Convert.ToDecimal(item.SNT_PYear_Amount).ToString("#,##0.00");
+                dt.Rows.Add(row);
+            }
+            return dt;
+        }
+        private async Task<DataTable> GetScheduleNoteDescAsync(int compId, int custId, string financialYear, string category)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Open SQL connection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            string sql = @"SELECT SND_Description FROM ScheduleNote_Desc
+                           WHERE SND_CustId=@CustId AND SND_CompId=@CompId 
+                             AND SND_YEARId=@financialYear AND SND_DELFLAG='X' 
+                             AND SND_Category=@Category ORDER BY SND_ID";
+
+            var list = await connection.QueryAsync<dynamic>(sql, new { CustId = custId, CompId = compId, financialYear = financialYear, Category = category });
+
+            var dt = new DataTable();
+            dt.Columns.Add("SND_Description");
+
+            foreach (var item in list)
+            {
+                var row = dt.NewRow();
+                row["SND_Description"] = item.SND_Description;
+                dt.Rows.Add(row);
+            }
+            return dt;
+        }
+        private async Task<DataTable> GetScheduleNoteFourthAsync(int compId, int custId, string financialYear, string category)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Open SQL connection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            string sql = @"SELECT SNFT_Description, SNFT_NumShares, SNFT_TotalShares, SNFT_ChangedShares 
+                           FROM ScheduleNote_Fourth
+                           WHERE SNFT_CustId=@CustId AND SNFT_CompId=@CompId 
+                             AND SNFT_YEARId=@financialYear AND SNFT_DELFLAG='X' 
+                             AND SNFT_Category=@Category ORDER BY SNFT_ID";
+
+            var list = await connection.QueryAsync<dynamic>(sql, new { CustId = custId, CompId = compId, financialYear = financialYear, Category = category });
+
+            var dt = new DataTable();
+            dt.Columns.Add("SNFT_Description");
+            dt.Columns.Add("SNFT_NumShares");
+            dt.Columns.Add("SNFT_TotalShares");
+            dt.Columns.Add("SNFT_ChangedShares");
+
+            foreach (var item in list)
+            {
+                var row = dt.NewRow();
+                row["SNFT_Description"] = item.SNFT_Description;
+                row["SNFT_NumShares"] = Convert.ToDecimal(item.SNFT_NumShares).ToString("#,##0.00");
+                row["SNFT_TotalShares"] = Convert.ToDecimal(item.SNFT_TotalShares).ToString("#,##0.00");
+                row["SNFT_ChangedShares"] = Convert.ToDecimal(item.SNFT_ChangedShares).ToString("#,##0.00");
+                dt.Rows.Add(row);
+            }
             return dt;
         }
     }
 }
+
+
+
+
 
 

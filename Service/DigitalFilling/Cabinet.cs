@@ -8,6 +8,7 @@ using Org.BouncyCastle.Ocsp;
 using StackExchange.Redis;
 using System.IO;
 using System.Net.Mail;
+using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Transactions;
 using TracePca.Data;
@@ -84,19 +85,7 @@ namespace TracePca.Service.DigitalFilling
 
 		public async Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int compID)
 		{
-			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-			//await connection.OpenAsync();
-
-			//string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
-
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
-			//string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
-
-
-
-
-			// string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
 
 			if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
@@ -157,64 +146,126 @@ namespace TracePca.Service.DigitalFilling
 		//         return result;
 		//     }
 
-		public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID, CabinetDto dto)
-        {
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            //await connection.OpenAsync();
-            string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+		//public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID, CabinetDto dto)
+		//      {
 
 
-            //string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+		//	string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            if (string.IsNullOrEmpty(dbName))
+		//	if (string.IsNullOrEmpty(dbName))
+		//		throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+		//	var connectionString = _configuration.GetConnectionString(dbName);
+
+		//	using var connection = new SqlConnection(connectionString);
+		//	await connection.OpenAsync();
+
+
+		//	using var transaction = connection.BeginTransaction();
+
+		//          int existingTemplateCount = 0;
+		//          if (deptId == 0)
+		//          {
+		//              existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"Select * from edt_cabinet where CBN_Name=@cabinetname and CBN_ID <> 0 and  
+		//              CBN_Parent =-1 And (CBN_DelFlag='A' or CBN_DelFlag='W')", new { cabinetname }, transaction);
+		//          }
+		//          else
+		//          {
+		//              existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"Select * from edt_cabinet where CBN_Name=@cabinetname and CBN_Department=@deptId and
+		//             CBN_ID <> 0  And CBN_Parent=-1 And (CBN_DelFlag='A' or CBN_DelFlag='W')", new { cabinetname, deptId }, transaction);
+		//          }
+
+		//          if (existingTemplateCount == 0)
+		//          {
+		//              dto.CBN_ID = await connection.ExecuteScalarAsync<int>(
+		//                      @"DECLARE @TemplateId INT; SELECT @TemplateId = ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet;
+		//                        INSERT INTO edt_cabinet (CBN_ID, CBN_Name, CBN_Parent, CBN_Note, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_CreatedBy, 
+		//                        CBN_CreatedOn, CBN_Status, CBN_DelFlag, CBN_CompID, CBN_Retention)
+		//                        VALUES ( @TemplateId, @CBN_Name, -1, @CBN_Name, @CBN_UserID, @CBN_Department, 0, 0, @CBN_UserID, GETDATE(), 'A','A', @CBN_CompID,'');
+		//                        SELECT @TemplateId;",
+		//                      new
+		//                      {
+		//                          CBN_Name = cabinetname, // Using method parameter
+		//                          CBN_Note = cabinetname, // Assuming you want the note to be the cabinet name
+		//                          CBN_UserID = userId,     // Using method parameter
+		//                          CBN_Department = deptId, // Using method parameter
+		//                          CBN_CreatedBy = userId,  // Assuming created by is the userId
+		//                          CBN_CompID = compID    
+		//                      },
+		//                      transaction
+		//                  );
+		//          }
+		//          await transaction.CommitAsync();
+		//          return dto.CBN_ID ?? 0;
+		//      }
+
+
+		public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-			// ✅ Step 2: Get the connection string
 			var connectionString = _configuration.GetConnectionString(dbName);
 
 			using var connection = new SqlConnection(connectionString);
 			await connection.OpenAsync();
 
-
 			using var transaction = connection.BeginTransaction();
+			try
+			{
+				int existingTemplateCount = 0;
 
-            int existingTemplateCount = 0;
-            if (deptId == 0)
-            {
-                existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"Select * from edt_cabinet where CBN_Name=@cabinetname and CBN_ID <> 0 and  
-                CBN_Parent =-1 And (CBN_DelFlag='A' or CBN_DelFlag='W')", new { cabinetname }, transaction);
-            }
-            else
-            {
-                existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"Select * from edt_cabinet where CBN_Name=@cabinetname and CBN_Department=@deptId and
-               CBN_ID <> 0  And CBN_Parent=-1 And (CBN_DelFlag='A' or CBN_DelFlag='W')", new { cabinetname, deptId }, transaction);
-            }
+				if (deptId == 0)
+				{
+					existingTemplateCount = await connection.ExecuteScalarAsync<int>(
+						@"SELECT COUNT(*) FROM edt_cabinet 
+                  WHERE CBN_Name=@cabinetname AND CBN_ID<>0 AND CBN_Parent=-1 AND (CBN_DelFlag='A' OR CBN_DelFlag='W')",
+						new { cabinetname },
+						transaction);
+				}
+				else
+				{
+					existingTemplateCount = await connection.ExecuteScalarAsync<int>(
+						@"SELECT COUNT(*) FROM edt_cabinet 
+                  WHERE CBN_Name=@cabinetname AND CBN_Department=@deptId AND CBN_ID<>0 AND CBN_Parent=-1 AND (CBN_DelFlag='A' OR CBN_DelFlag='W')",
+						new { cabinetname, deptId },
+						transaction);
+				}
+				int CBN_ID = 0;
+				if (existingTemplateCount == 0)
+				{
+					  CBN_ID = await connection.ExecuteScalarAsync<int>(
+						@"DECLARE @TemplateId INT;
+                  SELECT @TemplateId = ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet;
+                  INSERT INTO edt_cabinet 
+                  (CBN_ID, CBN_Name, CBN_Parent, CBN_Note, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, 
+                   CBN_CreatedBy, CBN_CreatedOn, CBN_Status, CBN_DelFlag, CBN_CompID)
+                  VALUES 
+                  (@TemplateId, @CBN_Name, -1, @CBN_Name, @CBN_UserID, @CBN_Department, 0, 0, @CBN_UserID, GETDATE(), 'A','A', @CBN_CompID);
+                  SELECT @TemplateId;",
+						new
+						{
+							CBN_Name = cabinetname,
+							CBN_UserID = userId,
+							CBN_Department = deptId,
+							CBN_CompID = compID
+						},
+						transaction
+					);
+				}
 
-            if (existingTemplateCount == 0)
-            {
-                dto.CBN_ID = await connection.ExecuteScalarAsync<int>(
-                        @"DECLARE @TemplateId INT; SELECT @TemplateId = ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet;
-                          INSERT INTO edt_cabinet (CBN_ID, CBN_Name, CBN_Parent, CBN_Note, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_CreatedBy, 
-                          CBN_CreatedOn, CBN_Status, CBN_DelFlag, CBN_CompID, CBN_Retention)
-                          VALUES ( @TemplateId, @CBN_Name, -1, @CBN_Name, @CBN_UserID, @CBN_Department, 0, 0, @CBN_UserID, GETDATE(), 'A','A', @CBN_CompID,'');
-                          SELECT @TemplateId;",
-                        new
-                        {
-                            CBN_Name = cabinetname, // Using method parameter
-                            CBN_Note = cabinetname, // Assuming you want the note to be the cabinet name
-                            CBN_UserID = userId,     // Using method parameter
-                            CBN_Department = deptId, // Using method parameter
-                            CBN_CreatedBy = userId,  // Assuming created by is the userId
-                            CBN_CompID = compID    
-                        },
-                        transaction
-                    );
-            }
-            await transaction.CommitAsync();
-            return dto.CBN_ID ?? 0;
-        }
+				await transaction.CommitAsync();
+				return CBN_ID;
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
 
-        public async Task<int> UpdateCabinetAsync(string cabinetname, int CabinetId,int userID, int compID, CabinetDto dto)
+		public async Task<int> UpdateCabinetAsync(string cabinetname, int CabinetId,int userID, int compID, CabinetDto dto)
         {
 			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 			//await connection.OpenAsync();
@@ -410,8 +461,9 @@ namespace TracePca.Service.DigitalFilling
                 PGE_OBJECT = sObject,
                 PGE_PAGENO = PageNoID,
                 PGE_EXT = fileExt,
-                PGE_KeyWORD = dto.Keyword,
-                PGE_SubCabinet = dto.SubCabinetID,
+				//PGE_KeyWORD = dto.Keyword,
+				PGE_KeyWORD = string.IsNullOrEmpty(dto.Keyword) ? "" : dto.Keyword,
+				PGE_SubCabinet = dto.SubCabinetID,
                 PGE_batch_name = BaseNameID,
                 pge_OrignalFileName = sFileName,
                 Pge_CompID = dto.CompID
@@ -907,9 +959,7 @@ namespace TracePca.Service.DigitalFilling
                 throw;
             }
         }
-
-
-
+          
 		public async Task<IEnumerable<CabinetDto>> LoadRententionDataAsync(int compID)
 		{
 			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
@@ -942,10 +992,106 @@ namespace TracePca.Service.DigitalFilling
 		}
 
 
+		public async Task<IEnumerable<DocumentTypeDto>> LoadAllDocumentTypeAsync(int iCompID)
+		{
+			  
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			// ✅ Step 2: Get the connection string
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+			string query = @"Select a.DOT_DOCTYPEID,a.DOT_DOCNAME,c.Usr_FullName as DOT_CRBY,a.DOT_NOTE,b.Org_Node As DOT_PGROUPID,
+                b.Org_Name as DOT_PGROUP,a.DOT_CRON,a.DOT_STATUS,DOT_isGlobal,a.DOT_DelFlag 
+                From EDT_DOCUMENT_TYPE a,Sad_Org_Structure b,Sad_UserDetails c Where a.DOT_PGROUP=Org_Node and c.Usr_ID= a.DOT_CRBY and DOT_CompID=@DOT_CompID";
+
+			var result = await connection.QueryAsync<DocumentTypeDto>(query, new
+			{
+				DOT_CompID = iCompID
+			});
+			return result;
+		}
+
+
 		public async Task<IEnumerable<ArchiveDetailsDto>> LoadArchiveDetailsAsync(int compID)
 		{
-			 
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			string query = @"SELECT A.SA_ID,A.SA_AuditNo,A.SA_ScopeOfAudit,
+                            A.SA_CustID,A.SA_AuditTypeID,A.SA_PartnerID,A.SA_ReviewPartnerID,
+                            A.SA_AttachID,A.SA_CompID,A.SA_StartDate,A.SA_ExpCompDate,
+                            A.SA_AuditOpinionDate,A.SA_ExpiryDate,B.CUST_NAME,B.CUST_CODE,
+                            CMM.CMM_Code,CMM.CMM_Desc,A.SA_RetentionPeriod,
+                            ISNULL(D.AttachmentCount, 0) AS AttachmentCount,D.SA_AttachmentID
+                            FROM StandardAudit_Schedule A
+                            JOIN SAD_CUSTOMER_MASTER B ON B.Cust_Id = A.SA_CustID
+                            JOIN Content_Management_Master CMM ON CMM_ID = A.SA_AuditTypeID
+                            OUTER APPLY (SELECT COUNT(*) AS AttachmentCount,
+                            STRING_AGG(CAST(SAR_AttchId AS varchar), ',') AS SA_AttachmentID FROM (
+                            SELECT SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory
+                            WHERE SAR_SA_ID = A.SA_ID AND SAR_AttchID <> 0) AS DistinctIds) D
+                            WHERE A.SA_CompID = @SA_CompID AND A.SA_IsArchived = 1 AND A.SA_ForCompleteAudit = 1";   
+
+			var result = await connection.QueryAsync<ArchiveDetailsDto>(query, new
+			{
+				SA_CompID = compID
+			});
+			return result;
+		}
+
+
+		public async Task<IEnumerable<ArchivedDocumentFileDto>> ArchivedDocumentFileDetailsAsync(string sAttachID)
+		{
+			if (string.IsNullOrWhiteSpace(sAttachID))
+			{
+				return Enumerable.Empty<ArchivedDocumentFileDto>();
+			}
+
+			try
+			{
+				string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+				if (string.IsNullOrEmpty(dbName))
+					throw new Exception("CustomerCode is missing in session. Please log in again.");
+ 
+				var connectionString = _configuration.GetConnectionString(dbName);
+
+				using var connection = new SqlConnection(connectionString);
+				await connection.OpenAsync();
+
+				string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
+                                SELECT DISTINCT ATCH_FName as FileName, (SELECT TOP 1 SAD_Config_Value FROM [Sad_Config_Settings] 
+                                        WHERE sad_Config_key = 'DisplayPath') + 'BITMAPS\' 
+                                    + CAST(FLOOR(CAST(A.Atch_DocID AS numeric)/301) AS varchar) + '\' + CAST(A.Atch_DocID AS varchar) 
+                                    + '.' + A.ATCH_Ext AS URLPath FROM edt_Attachments A
+                                JOIN (SELECT DISTINCT CAST(value AS INT) AS Atch_ID FROM STRING_SPLIT(@ids, ',')) S
+                                    ON A.Atch_ID = S.Atch_ID and A.Atch_FName != '' and atch_Ext != '';";
+
+				var result = await connection.QueryAsync<ArchivedDocumentFileDto>(query, new { AttachIDs = sAttachID });
+				return result ?? Enumerable.Empty<ArchivedDocumentFileDto>();
+			}
+			catch (Exception ex)
+			{
+
+				throw;
+			}
+		}
+
+		public async Task<IEnumerable<DepartmentDto>> LoadAllDepartmentAsync(int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
 			if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
 
@@ -956,45 +1102,66 @@ namespace TracePca.Service.DigitalFilling
 			await connection.OpenAsync();
 
 			// CheckandInsertMemberGroupAsync(userId, compID);
-			string query = @"SELECT 
-                                A.SA_ID,
-                                A.SA_AuditNo,
-                                A.SA_ScopeOfAudit,
-                                A.SA_CustID,
-                                A.SA_AuditTypeID,
-                                A.SA_PartnerID,
-                                A.SA_ReviewPartnerID,
-                                A.SA_AttachID,
-                                A.SA_CompID,
-                                A.SA_StartDate,
-                                A.SA_ExpCompDate,
-                                A.SA_AuditOpinionDate,
-                                A.SA_ExpiryDate,
-                                B.CUST_NAME,
-                                B.CUST_CODE,
-                                CMM.CMM_Code,
-                                CMM.CMM_Desc,
-                                A.SA_RetentionPeriod,
-                                ISNULL(COUNT(C.Atch_ID), 0) AS AttachmentCount
-                            FROM StandardAudit_Schedule A
-                            JOIN SAD_CUSTOMER_MASTER B ON B.Cust_Id = A.SA_CustID
-                            JOIN Content_Management_Master CMM ON CMM_ID = A.SA_AuditTypeID
-                            LEFT JOIN edt_Attachments C ON A.SA_AttachID = C.Atch_ID
-                            WHERE A.SA_CompID = @SA_CompID 
-                              AND A.SA_IsArchived = 1 
-                              AND A.SA_ForCompleteAudit = 1
-                            GROUP BY 
-                                A.SA_ID, A.SA_AuditNo, A.SA_ScopeOfAudit, A.SA_CustID, A.SA_AuditTypeID,
-                                A.SA_PartnerID, A.SA_ReviewPartnerID, A.SA_AttachID, A.SA_CompID,
-                                A.SA_StartDate, A.SA_ExpCompDate, A.SA_AuditOpinionDate, A.SA_ExpiryDate,
-                                B.CUST_NAME, B.CUST_CODE, CMM.CMM_Code, CMM.CMM_Desc,A.SA_RetentionPeriod";   
-
-			var result = await connection.QueryAsync<ArchiveDetailsDto>(query, new
+			string query = @"select Org_Name as DepartmentName, Org_Node as DepartmentID from sad_Org_Structure where Org_LevelCode = 3 and org_Code <> '' and org_name <>'' and Org_Status='A' and Org_CompID=@Org_CompID"; 
+			var result = await connection.QueryAsync<DepartmentDto>(query, new
 			{
-				SA_CompID = compID
+				Org_CompID = compID
 			});
 			return result;
 		}
+
+
+		public async Task<string> CreateDepartmentAsync(string Code, string DepartmentName, string userId, int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+				string sStatus = ""; int Org_Node=0;
+				//Check for Cabinet Id is Valid
+				var OrgNod = await connection.ExecuteScalarAsync<bool>(@"select Org_Node from sad_Org_Structure where Org_Name = @Org_Name and Org_LevelCode = 3 and Org_Status='A' and Org_CompID = @Org_CompID", new { Org_Name = @DepartmentName, Org_CompID = @compID }, transaction);
+				if (OrgNod == true)
+				{
+					return sStatus = "Department Name is already Exist.";
+				}
+
+				Org_Node = await connection.ExecuteScalarAsync<int>(
+					  @"DECLARE @TemplateId INT;
+                  SELECT @TemplateId = ISNULL(MAX(Org_Node), 0) + 1 FROM sad_Org_Structure;
+                  INSERT INTO sad_Org_Structure 
+                  (Org_Node,org_Code, org_name, org_parent, org_userid, org_DelFlag, org_Note, org_AppStrength, org_CreatedBy, 
+                   org_CreatedOn, org_Status, Org_levelCode, Org_CompID, Org_IPAddress)
+                  VALUES 
+                  (@TemplateId, @org_Code,@org_name,3,@org_userid,'A',@org_name,0,@org_userid,GETDATE(),'A',3,@Org_CompID,'');
+                  SELECT @TemplateId;",
+					  new
+					  {
+						  org_Code = Code,
+						  org_name = DepartmentName,
+						  org_userid = userId,
+						  Org_CompID = compID
+					  },
+					  transaction
+				  );
+
+				await transaction.CommitAsync();
+				return sStatus = "Department Created Successfully."; ;
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
+
 	}
 }
 

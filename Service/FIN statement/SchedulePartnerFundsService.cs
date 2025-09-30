@@ -78,16 +78,16 @@ namespace TracePca.Service.FIN_statement
 
             if (dtTab.Any())
             {
-                if (request.sIsReport == "No")
-                {
-                    result.Add(new PartnershipFirmRowDto
-                    {
-                        SlNo = "",
-                        Particulars = "PARTICULARS",
-                        FYCData = $"As at 31st March {request.sFY1}",
-                        FYPData = $"As at 31st March {request.sFY2}"
-                    });
-                }
+                //if (request.sIsReport == "No")
+                //{
+                //    result.Add(new PartnershipFirmRowDto
+                //    {
+                //        SlNo = "",
+                //        Particulars = "PARTICULARS",
+                //        FYCData = $"As at 31st March {request.sFY1}",
+                //        FYPData = $"As at 31st March {request.sFY2}"
+                //    });
+                //}
 
                 foreach (var row in dtTab)
                 {

@@ -19,7 +19,7 @@ namespace TracePca.Interface.Master
         Task<(bool Success, string Message)> UpdateAuditTypeChecklistStatusAsync(List<int> ids, string action, int compId, int userId, string ipAddress);
 
         Task<(bool Success, string Message, List<string>? Data)> GetAssignmentTaskChecklistHeadingDataAsync(int compId);
-        Task<(bool Success, string Message, List<AssignmentTaskChecklistMasterDTO> Data)> GetAssignmentTaskChecklistByStatusAsync(string status, int compId);
+        Task<(bool Success, string Message, List<AssignmentTaskChecklistMasterDTO> Data)> GetAssignmentTaskChecklistByStatusAsync(int taskId, string status, int compId);
         Task<(bool Success, string Message, AssignmentTaskChecklistMasterDTO? Data)> GetAssignmentTaskChecklistByIdAsync(int id, int compId);
         Task<(int Id, string Message, List<AssignmentTaskChecklistMasterDTO> MasterList)> SaveOrUpdateAssignmentTaskChecklistAndGetRecordsAsync(AssignmentTaskChecklistMasterDTO dto);
         Task<(bool Success, string Message)> UpdateAssignmentTaskChecklistStatusAsync(List<int> ids, string action, int compId, int userId, string ipAddress);

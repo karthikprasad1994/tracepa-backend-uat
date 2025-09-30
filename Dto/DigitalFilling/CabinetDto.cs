@@ -61,8 +61,8 @@ namespace TracePca.Dto.DigitalFilling
         public int DocumentTypeID { get; set; }
         public int UserID { get; set; }
         public string Title { get; set; }
-        public string Keyword { get; set; }
-        public int CompID { get; set; }
+		public string? Keyword { get; set; } = null;
+		public int CompID { get; set; }
     }
 
 
@@ -114,6 +114,20 @@ namespace TracePca.Dto.DigitalFilling
 
 		public int AttachmentCount { get; set; }
 		public string SA_RetentionPeriod { get; set; }
+
+		public string SA_AttachmentID { get; set; }
+	}
+
+	public class ArchivedDocumentFileDto
+	{
+		public string FileName { get; set; }
+		public string URLPath { get; set; }
+	}
+
+	public class DepartmentDto
+	{
+		public string DepartmentID { get; set; }
+		public string DepartmentName { get; set; }
 	}
 
 }
