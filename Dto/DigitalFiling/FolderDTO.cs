@@ -65,4 +65,41 @@ namespace TracePca.Dto.DigitalFiling
         public int FolderId { get; set; }
         public string StatusCode { get; set; }
     }
+
+
+
+	public class FolderDetailDTO
+	{
+		public int FOL_FolID { get; set; }
+		public string FOL_Name { get; set; }
+		public string FOL_Note { get; set; }
+ 
+ 
+		public string? FOL_CreatedBy { get; set; }
+		public string FOL_SubCabinet { get; set; }
+  
+		public DateTime? FOL_CreatedOn { get; set; }
+		public int? FOL_UpdatedBy { get; set; }
+		[JsonIgnore]
+		public string? FOL_UpdatedByName { get; set; }
+		public DateTime? FOL_UpdatedOn { get; set; }
+		public int? FOL_ApprovedBy { get; set; }
+		[JsonIgnore]
+		public string? FOL_ApprovedByName { get; set; }
+		public DateTime? FOL_ApprovedOn { get; set; }
+		public int? FOL_DeletedBy { get; set; }
+		[JsonIgnore]
+		public string? FOL_DeletedByName { get; set; }
+		public DateTime? FOL_DeletedOn { get; set; }
+		public int? FOL_RecalledBy { get; set; }
+		[JsonIgnore]
+		public string? FOL_RecalledByName { get; set; }
+		public DateTime? FOL_RecalledOn { get; set; }
+		public string FOL_Status { get; set; }
+		public string FOL_DelFlag { get; set; }
+		public int FOL_CompID { get; set; }
+
+		public int FOL_Documents { get; set; }
+
+	}
 }

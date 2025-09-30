@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TracePca.Dto.DigitalFiling;
 using TracePca.Interface.DigitalFiling;
+using TracePca.Interface.DigitalFilling;
 
 namespace TracePca.Controllers.DigitalFiling
 {
@@ -131,5 +132,31 @@ namespace TracePca.Controllers.DigitalFiling
                 return StatusCode(500, new { statusCode = 500, message = "An error occurred while saving or updating Folder data.", error = ex.Message });
             }
         }
-    }
+
+
+		[HttpGet("GetAllFoldersDetailsBySubCabinetId")]
+		public async Task<IActionResult> GetAllFoldersDetailsBySubCabinetId( int subcabinet, string statusCode)
+		{
+			var dropdownData = await _foldersInterface.GetAllFoldersDetailsBySubCabinetIdAsync(subcabinet, statusCode);
+
+			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Cabinet loaded successfully.",
+					data = dropdownData  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+		}
+         
+	}
 }

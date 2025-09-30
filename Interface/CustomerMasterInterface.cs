@@ -1,4 +1,5 @@
 ﻿using TracePca.Dto.CustomerMaster;
+using TracePca.Dto.EmployeeMaster;
 
 namespace TracePca.Interface
 {

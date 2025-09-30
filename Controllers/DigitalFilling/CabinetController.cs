@@ -1,7 +1,11 @@
 ﻿using Dapper;
+using iText.Commons.Bouncycastle.Cert.Ocsp;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using OpenAI.ObjectModels.ResponseModels;
+using System.ServiceModel.Channels;
 using TracePca.Dto.AssetRegister;
 using TracePca.Dto.Audit;
 using TracePca.Dto.DigitalFilling;
@@ -74,13 +78,13 @@ namespace TracePca.Controllers.DigitalFilling
 
 
 		[HttpPost("CreateCabinet")]
-        public async Task<IActionResult> CreateCabinet(string CabinetName, int deptId, int userId, int compID, [FromBody] CabinetDto dto)
+        public async Task<IActionResult> CreateCabinet(string CabinetName, int deptId, int userId, int compID)
         {
-            var result = await _CabinetInterface.CreateCabinetAsync(CabinetName,deptId, userId, compID, dto);
+            var result = await _CabinetInterface.CreateCabinetAsync(CabinetName,deptId, userId, compID);
 
             if (result > 0)
             {
-                return Ok(new { statusCode = 200, message = "Cabinet created successfully.", Data = result });
+                return Ok(new { statusCode = 200, message = "Cabinet created successfully.", CabinetID = result });
             }
             else
             {
@@ -111,15 +115,39 @@ namespace TracePca.Controllers.DigitalFilling
             try
             {
                 var result = await _CabinetInterface.IndexDocuments(dto);
-
+				 
                 if (result.StartsWith("Error"))
-                {
-                    return StatusCode(500, result); // Internal Server Error
-                }
+				{
+					//return StatusCode(500, result); // Internal Server Error
+					return NotFound(new
+					{
+						statusCode = 500,
+						message = result
+					});
+				}
                 else
                 {
-                    return Ok(result); // Success
-                }
+                    //return Ok(result); // Success
+
+					if(result == "Indexed Successfully.")
+					{
+						return Ok(new
+						{
+							statusCode = 200,
+							message = "Successfully Indexed."
+							//result
+						});
+					}
+					else
+					{
+						return NotFound(new
+						{
+							statusCode = 400,
+							message = result
+							//result
+						});
+					}
+				}
                 
             }
             catch (Exception ex)
@@ -212,6 +240,32 @@ namespace TracePca.Controllers.DigitalFilling
 		}
 
 
+		[HttpGet("LoadAllDocumentType")]
+		public async Task<IActionResult> LoadAllDocumentType(int iCompID)
+		{
+			var dropdownData = await _CabinetInterface.LoadAllDocumentTypeAsync(iCompID);
+
+			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Descriptor loaded successfully.",
+					data = dropdownData  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+			 
+		}
+
+
 		[HttpPost("CreateDocumentType")]
 		public async Task<IActionResult> CreateDocumentType(string DocumentName, string DocumentNote, string DepartmentId,  [FromBody] DocumentTypeDto dto)
 		{
@@ -290,6 +344,101 @@ namespace TracePca.Controllers.DigitalFilling
 					message = "No data found for the given criteria."
 				});
 			}
+		}
+
+
+		[HttpGet("LoadArchiveDetails")]
+		public async Task<IActionResult> LoadArchiveDetails(int compID)
+		{
+			var dropdownData = await _CabinetInterface.LoadArchiveDetailsAsync(compID);
+
+			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Cabinet loaded successfully.",
+					data = dropdownData  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+		}
+
+
+		[HttpGet("ArchivedDocumentFileDetails")]
+		public async Task<IActionResult> ArchivedDocumentFileDetails(string sAttachID)
+		{
+			var dropdownData = await _CabinetInterface.ArchivedDocumentFileDetailsAsync(sAttachID);
+
+			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Search loaded successfully.",
+					data = dropdownData  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+		}
+
+
+		[HttpGet("LoadAllDepartment")]
+		public async Task<IActionResult> LoadAllDepartment(int compID)
+		{
+			var dropdownData = await _CabinetInterface.LoadAllDepartmentAsync(compID);
+
+			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Department loaded successfully.",
+					data = dropdownData  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+		}
+
+		[HttpPost("CreateDepartment")]
+		public async Task<IActionResult> CreateDepartment(string Code, string DepartmentName, string userId, int compID)
+		{
+			var result = await _CabinetInterface.CreateDepartmentAsync(Code, DepartmentName, userId, compID);
+
+			if (result == "Department Created Successfully.")
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = result
+				});
+			}
+			else
+			{
+				return StatusCode(500, new { statusCode = 400, message = result });
+			}
+ 
 		}
 	}
 }

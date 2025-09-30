@@ -3,26 +3,41 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
 using TracePca.Dto.DigitalFiling;
+using TracePca.Interface.Audit;
 using TracePca.Interface.DigitalFiling;
 
 namespace TracePca.Service.DigitalFiling
 {
     public class FoldersService : FoldersInterface
     {
-        private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly string _connectionString;
 
-        public FoldersService(Trdmyus1Context dbcontext, IConfiguration configuration)
+        public FoldersService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
-            _dbcontext = dbcontext;
-            _configuration = configuration;
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _connectionString = GetConnectionStringFromSession();
+        }
+        private string GetConnectionStringFromSession()
+        {
+            var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrWhiteSpace(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connStr = _configuration.GetConnectionString(dbName);
+            if (string.IsNullOrWhiteSpace(connStr))
+                throw new Exception($"Connection string for '{dbName}' not found in configuration.");
+
+            return connStr;
         }
 
         public async Task<DigitalFilingDropDownListDataDTO> LoadAllDDLDataAsync()
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var departmentListTask = connection.QueryAsync<DFDropDownListData>(
@@ -57,7 +72,7 @@ namespace TracePca.Service.DigitalFiling
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var deptQuery = @"SELECT DISTINCT Org_Node FROM Sad_Org_Structure LEFT JOIN Sad_UsersInOtherDept ON SUO_DeptID = Org_Node WHERE Org_DelFlag = 'A' AND Org_CompID = @CompID AND Org_LevelCode = 3";
@@ -73,7 +88,7 @@ namespace TracePca.Service.DigitalFiling
                 string cabinetQuery;
                 if (isSuperUser == 1 || memberType == 1)
                 {
-                    cabinetQuery = @"SELECT FOL_FolID AS ID, FOL_NAME AS Name FROM EDT_Folder a INNER JOIN Sad_Org_Structure b ON a.FOL_Department = b.Org_node WHERE FOL_Cabinet = -1 AND a.FOL_DeletedBy = 'A'";
+                    cabinetQuery = @"SELECT FOL_FolID AS ID, FOL_NAME AS Name FROM EDT_Folder a INNER JOIN Sad_Org_Structure b ON a.FOL_Department = b.Org_node WHERE FOL_Cabinet = -1 AND a.FOL_DelFlag = 'A'";
                     if (!string.IsNullOrWhiteSpace(allUserDept))
                     {
                         cabinetQuery += $" AND b.Org_Node IN ({allUserDept})";
@@ -82,7 +97,7 @@ namespace TracePca.Service.DigitalFiling
                 }
                 else
                 {
-                    cabinetQuery = @"SELECT DISTINCT FOL_FolID AS ID, FOL_NAME AS Name FROM view_cabpermissions WHERE FOL_Cabinet = -1 AND FOL_DeletedBy = 'A'";
+                    cabinetQuery = @"SELECT DISTINCT FOL_FolID AS ID, FOL_NAME AS Name FROM view_cabpermissions WHERE FOL_Cabinet = -1 AND FOL_DelFlag = 'A'";
                     if (!string.IsNullOrWhiteSpace(allUserDept))
                     {
                         cabinetQuery += $" AND (FOL_Department IN ({allUserDept}) OR EFP_Department IN ({allUserDept}))";
@@ -103,10 +118,10 @@ namespace TracePca.Service.DigitalFiling
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                var query = @"Select FOL_FolID AS ID,FOL_NAME AS Name where FOL_Cabinet = @CabinetId and FOL_DeletedBy ='A' and FOL_CompID = @CompId order by FOL_name";
+                var query = @"Select FOL_FolID AS ID,FOL_NAME AS Name where FOL_Cabinet = @CabinetId and FOL_DelFlag ='A' and FOL_CompID = @CompId order by FOL_name";
 
                 var userList = await connection.QueryAsync<DFDropDownListData>(query, new { CompId = compId, CabinetId = cabinetId });
 
@@ -121,13 +136,78 @@ namespace TracePca.Service.DigitalFiling
             }
         }
 
-        public async Task<List<FolderDTO>> GetAllFoldersBySubCabinetIdAsync(int subCabinetId, string statusCode)
+
+		public async Task<List<FolderDetailDTO>> GetAllFoldersDetailsBySubCabinetIdAsync(int subCabinetId, string statusCode)
+		{
+			try
+			{
+				string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+				if (string.IsNullOrEmpty(dbName))
+					throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+				var connectionString = _configuration.GetConnectionString(dbName);
+
+				using var connection = new SqlConnection(connectionString);
+				await connection.OpenAsync();
+
+                //    string query = @"
+                //SELECT 
+                //    FOL_FolID, 
+                //    FOL_Name, 
+                //    FOL_Note,
+                //    FOL_Cabinet,
+                //    FOL_CreatedBy AS FOL_CreatedBy,
+                //    FOL_CreatedOn,FOL_UpdatedBy,FOL_UpdatedOn,FOL_Status,
+                //    FOL_DelFlag
+                //FROM edt_Folder A 
+                //JOIN edt_Cabinet B ON A.Fol_Cabinet = B.cbn_ID  
+                // WHERE A.Fol_Status = @statusCode AND A.FOL_Cabinet = @subCabinetId";
+
+
+                string query = @"SELECT 
+                                  distinct  A.FOL_FolID, 
+                                    A.FOL_Name, 
+                                    A.FOL_Note,
+                                    B.cbn_name AS FOL_SubCabinet,
+                                    (
+                                        SELECT COUNT(*) 
+                                        FROM edt_page P
+                                        WHERE P.pge_Folder = A.FOL_FolID 
+                                          AND P.pge_SubCabinet = A.FOL_Cabinet
+                                    ) AS FOL_Documents,
+                                    C.Usr_FullName as FOL_CreatedBy,
+                                    A.FOL_CreatedOn,
+                                    A.FOL_UpdatedBy,
+                                    A.FOL_UpdatedOn,
+                                    A.FOL_Status,
+                                    A.FOL_DelFlag
+                                FROM edt_Folder A 
+                                JOIN edt_Cabinet B ON A.FOL_Cabinet = B.cbn_ID  
+                                join sad_userDetails C on A.Fol_CreatedBy = C.Usr_ID
+                                WHERE A.FOL_Status = @statusCode 
+                                  AND A.FOL_Cabinet = @subCabinetId;";
+             
+				var result = await connection.QueryAsync<FolderDetailDTO>(query, new
+				{
+					statusCode,
+					subCabinetId
+				});
+
+				return result.ToList();
+			}
+			catch (Exception)
+			{
+				throw; // rethrow preserves stack trace
+			}
+		}
+
+		public async Task<List<FolderDTO>> GetAllFoldersBySubCabinetIdAsync(int subCabinetId, string statusCode)
         {
             try
             {
                 var result = new List<FolderDTO>();
 
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 // TODO: Implement ExtendPermissions logic
@@ -135,11 +215,11 @@ namespace TracePca.Service.DigitalFiling
 
                 string query;
                 if (statusCode == "D")
-                    query = "SELECT * FROM EDT_Folder WHERE FOL_DeletedBy = 'D' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
+                    query = "SELECT * FROM EDT_Folder WHERE FOL_DelFlag = 'D' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
                 else if (statusCode == "W")
-                    query = "SELECT * FROM EDT_Folder WHERE FOL_DeletedBy = 'W' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
+                    query = "SELECT * FROM EDT_Folder WHERE FOL_DelFlag = 'W' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
                 else
-                    query = "SELECT * FROM EDT_Folder WHERE FOL_DeletedBy != 'V' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
+                    query = "SELECT * FROM EDT_Folder WHERE FOL_DelFlag != 'V' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
 
                 var folders = (await connection.QueryAsync<dynamic>(query, new { SubCabinetId = subCabinetId })).ToList();
 
@@ -163,20 +243,20 @@ namespace TracePca.Service.DigitalFiling
 
                 foreach (var dr in folders)
                 {
-                    string delFlagDesc = dr.FOL_DeletedBy switch
+                    string delFlagDesc = dr.FOL_DelFlag switch
                     {
                         "A" => "Activated",
                         "D" => "De-Activated",
                         "W" => "Waiting for Approval",
-                        _ => dr.FOL_DeletedBy
+                        _ => dr.FOL_DelFlag
                     };
 
-                    departmentDict.TryGetValue(dr.FOL_Department, out string departmentName);
-                    userNamesDict.TryGetValue(dr.FOL_CreatedBy, out string createdByName);
-                    userNamesDict.TryGetValue(dr.FOL_UpdatedBy, out string updatedByName);
-                    userNamesDict.TryGetValue(dr.FOL_ApprovedBy, out string approvedByName);
-                    userNamesDict.TryGetValue(dr.FOL_DeletedBy, out string deletedByName);
-                    userNamesDict.TryGetValue(dr.FOL_RecalledBy, out string recalledByName);
+                    departmentDict.TryGetValue(Convert.ToInt32(dr.FOL_Department), out string departmentName);
+                    userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_CreatedBy), out string createdByName);
+                    userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_UpdatedBy), out string updatedByName);
+                    userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_ApprovedBy), out string approvedByName);
+                    userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_DeletedBy), out string deletedByName);
+                    userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_RecalledBy), out string recalledByName);
 
                     var subCabinet = new FolderDTO
                     {
@@ -217,7 +297,7 @@ namespace TracePca.Service.DigitalFiling
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 if (request.StatusCode == "D")
@@ -231,13 +311,13 @@ namespace TracePca.Service.DigitalFiling
 
                 string sql = "UPDATE EDT_Folder SET ";
                 if (request.StatusCode == "D")
-                    sql += "UPDATE EDT_Folder SET FOL_DeletedBy = @DelFlag, FOL_DeletedBy = @UserId, FOL_DeletedOn = GETDATE(), FOL_Status = 'AD'";
+                    sql += "FOL_DelFlag = @DelFlag, FOL_DeletedBy = @UserId, FOL_DeletedOn = GETDATE(), FOL_Status = 'AD'";
                 else if (request.StatusCode == "A")
-                    sql += "UPDATE EDT_Folder SET FOL_DeletedBy = @DelFlag, FOL_RecalledBy = @UserId, FOL_RecalledOn = GETDATE(), FOL_Status = 'AR'";
+                    sql += "FOL_DelFlag = @DelFlag, FOL_RecalledBy = @UserId, FOL_RecalledOn = GETDATE(), FOL_Status = 'AR'";
                 else if (request.StatusCode == "W")
-                    sql += "UPDATE EDT_Folder SET FOL_DeletedBy = @DelFlag, FOL_ApprovedBy = @UserId, FOL_ApprovedOn = GETDATE(), FOL_Status = 'A'";
+                    sql += "FOL_DelFlag = @DelFlag, FOL_ApprovedBy = @UserId, FOL_ApprovedOn = GETDATE(), FOL_Status = 'A'";
                 else if (request.StatusCode == "AV")
-                    sql += "FOL_DeletedBy = @DelFlag, FOL_UpdatedBy = @UserId, FOL_UpdatedOn = GETDATE(), FOL_Status = 'AV'";
+                    sql += "FOL_DelFlag = @DelFlag, FOL_UpdatedBy = @UserId, FOL_UpdatedOn = GETDATE(), FOL_Status = 'AV'";
                 sql += " WHERE FOL_FolID = @FolderId AND FOL_CompID = @CompId";
                 var parameters = new { DelFlag = request.StatusCode, UserId = request.UserId, FolderId = request.FolderId, CompId = request.CompId };
                 await connection.ExecuteAsync(sql, parameters);
@@ -271,7 +351,7 @@ namespace TracePca.Service.DigitalFiling
         {
             try
             {
-                using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 var userInfoQuery = @"SELECT USR_DeptID, usr_IsSuperuser FROM sad_userdetails WHERE usr_id = @UserId";
@@ -313,7 +393,7 @@ namespace TracePca.Service.DigitalFiling
 
         public async Task<int> SaveOrUpdateFolderAsync(FolderDTO dto)
         {
-            await using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
             await using var transaction = await connection.BeginTransactionAsync();
 
@@ -324,7 +404,7 @@ namespace TracePca.Service.DigitalFiling
                 int deptId = deptInfo?.cbn_department ?? 0;
 
                 var exists = await connection.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(1) FROM EDT_Folder WHERE FOL_CompID = @CompId AND FOL_Name = @Name AND FOL_FolID <> @Id AND (FOL_DeletedBy = 'A' OR FOL_DeletedBy = 'W') AND FOL_Cabinet = @Parent",
+                    "SELECT COUNT(1) FROM EDT_Folder WHERE FOL_CompID = @CompId AND FOL_Name = @Name AND FOL_FolID <> @Id AND (FOL_DelFlag = 'A' OR FOL_DelFlag = 'W') AND FOL_Cabinet = @Parent",
                     new { CompId = dto.FOL_CompID, Name = dto.FOL_Name, Id = dto.FOL_FolID, Parent = dto.FOL_Cabinet },
                     transaction);
 

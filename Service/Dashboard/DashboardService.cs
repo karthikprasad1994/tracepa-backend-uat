@@ -63,6 +63,8 @@ namespace TracePca.Service.Dashboard
         {
             var query = @"
     SELECT 
+        SA_Custid,
+        SA_Id,
         ISNULL(a.CusT_Name, '') AS CustName, 
         SA_AuditNo, 
         b.cmm_Desc AS AuditType, 
@@ -87,6 +89,8 @@ namespace TracePca.Service.Dashboard
         {
             var query = @"
     SELECT 
+ SA_Custid,
+        SA_Id,
         ISNULL(a.CusT_Name, '') AS CustName, 
         SA_AuditNo, 
         b.cmm_Desc AS AuditType,

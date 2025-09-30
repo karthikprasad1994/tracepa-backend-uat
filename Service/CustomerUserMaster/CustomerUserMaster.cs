@@ -117,12 +117,14 @@ ORDER BY a.usr_id";
 
             return await connection.QueryAsync<CustomerUsersDetailsDto>(query, new { CompanyId = companyId });
         }
+
+
         public async Task<string> InsertCustomerUsersDetailsAsync(CreateCustomerUsersDto dto)
         {
             // Confirm Password check
             if (dto.Password != dto.ConfirmPassword)
             {
-                return "Password and Confirm Password do not match.";
+                throw new InvalidOperationException("Password and Confirm Password do not match.");
             }
 
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -131,15 +133,75 @@ ORDER BY a.usr_id";
 
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
 
+            // 🔹 Duplicate Check for Insert/Update
+            if (!string.IsNullOrEmpty(dto.EmpCode) || !string.IsNullOrEmpty(dto.Email)
+                || !string.IsNullOrEmpty(dto.MobileNo) || !string.IsNullOrEmpty(dto.OfficePhoneNo))
+            {
+                var duplicateQuery = @"
+SELECT 
+    STUFF(
+        -- Emp Code check
+        CASE WHEN EXISTS (
+            SELECT 1 FROM Sad_UserDetails 
+            WHERE Usr_Code = @EmpCode 
+              AND (@UserId IS NULL OR Usr_ID <> @UserId)
+        ) THEN ',Emp Code' ELSE '' END +
+
+        -- Email check
+        CASE WHEN EXISTS (
+            SELECT 1 FROM Sad_UserDetails 
+            WHERE Usr_Email = @Email 
+              AND (@UserId IS NULL OR Usr_ID <> @UserId)
+        ) THEN ',Email' ELSE '' END +
+
+        -- Mobile No check (check against both Mobile and OfficePhone)
+        CASE WHEN EXISTS (
+            SELECT 1 FROM Sad_UserDetails 
+            WHERE (Usr_MobileNo = @MobileNo OR Usr_OfficePhone = @MobileNo)
+              AND (@UserId IS NULL OR Usr_ID <> @UserId)
+        ) THEN ',Mobile No' ELSE '' END +
+
+        -- Office Phone check (check against both OfficePhone and Mobile)
+        CASE WHEN EXISTS (
+            SELECT 1 FROM Sad_UserDetails 
+            WHERE (Usr_OfficePhone = @OfficePhoneNo OR Usr_MobileNo = @OfficePhoneNo)
+              AND (@UserId IS NULL OR Usr_ID <> @UserId)
+        ) THEN ',Office Phone' ELSE '' END
+    , 1, 1, '') AS DuplicateFields";
+
+
+                var duplicateFields = await connection.QueryFirstOrDefaultAsync<string>(duplicateQuery, new
+                {
+                    EmpCode = dto.EmpCode,
+                    Email = dto.Email,
+                    MobileNo = dto.MobileNo,
+                    OfficePhoneNo = dto.OfficePhoneNo,
+                    UserId = dto.UserId
+                });
+
+                if (!string.IsNullOrEmpty(duplicateFields))
+                {
+                    var fields = duplicateFields.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                    string message;
+
+                    if (fields.Length == 1)
+                        message = $"{fields[0]} already exists.";
+                    else if (fields.Length == 2)
+                        message = $"{fields[0]} and {fields[1]} already exist.";
+                    else
+                        message = string.Join(", ", fields.Take(fields.Length - 1)) + ", and " + fields.Last() + " already exist.";
+
+                    throw new InvalidOperationException(message);
+                }
+            }
 
             var parameters = new DynamicParameters();
 
-            // Insert (new user, UserId = 0) or Update (existing user, UserId > 0)
+            // Insert (new user) or Update (existing user)
             parameters.Add("@Usr_ID", dto.UserId ?? 0);
             parameters.Add("@Usr_Status", dto.UserId == 0 ? "U" : "C");
 
-
-            // Required fields (mapped from DTO)
+            // Required fields
             parameters.Add("@Usr_FullName", dto.UserName);
             parameters.Add("@Usr_LoginName", dto.LoginName);
             parameters.Add("@Usr_Password", EncryptPassword(dto.Password));
@@ -147,15 +209,14 @@ ORDER BY a.usr_id";
             parameters.Add("@Usr_MobileNo", dto.MobileNo);
             parameters.Add("@Usr_Role", dto.RoleId);
 
-            // Additional SP params (set from DTO if present, else default values)
-            // Additional required parameters (hardcoded/default values)
+            // Additional/default fields
             parameters.Add("@Usr_Node", 0);
             parameters.Add("@Usr_Code", dto.EmpCode);
             parameters.Add("@Usr_Category", 0);
             parameters.Add("@Usr_Suggetions", 0);
             parameters.Add("@usr_partner", 0);
             parameters.Add("@Usr_LevelGrp", 0);
-            parameters.Add("@Usr_DutyStatus", "A"); // Active by default
+            parameters.Add("@Usr_DutyStatus", "A");
             parameters.Add("@Usr_PhoneNo", "");
             parameters.Add("@Usr_OfficePhone", dto.OfficePhoneNo);
             parameters.Add("@Usr_OffPhExtn", "");
@@ -164,7 +225,7 @@ ORDER BY a.usr_id";
             parameters.Add("@Usr_OrgnID", 0);
             parameters.Add("@Usr_GrpOrUserLvlPerm", dto.PermissionId);
 
-            // Modules (default 0)
+            // Modules
             parameters.Add("@Usr_MasterModule", 0);
             parameters.Add("@Usr_AuditModule", 0);
             parameters.Add("@Usr_RiskModule", 0);
@@ -172,7 +233,7 @@ ORDER BY a.usr_id";
             parameters.Add("@Usr_BCMModule", 0);
             parameters.Add("@Usr_DigitalOfficeModule", 0);
 
-            // Roles (default 0)
+            // Roles
             parameters.Add("@Usr_MasterRole", 0);
             parameters.Add("@Usr_AuditRole", 0);
             parameters.Add("@Usr_RiskRole", 0);
@@ -180,43 +241,141 @@ ORDER BY a.usr_id";
             parameters.Add("@Usr_BCMRole", 0);
             parameters.Add("@Usr_DigitalOfficeRole", 0);
 
-            // Audit Info (default/hardcoded)
-            if (dto.UserId == null || dto.UserId == 0) // Insert
+            // Audit info
+            if (dto.UserId == null || dto.UserId == 0)
             {
                 parameters.Add("@Usr_CreatedBy", dto.CreatedBy);
                 parameters.Add("@Usr_UpdatedBy", 0);
             }
-            else // Update
+            else
             {
                 parameters.Add("@Usr_CreatedBy", 0);
                 parameters.Add("@Usr_UpdatedBy", dto.CreatedBy);
             }
+
             parameters.Add("@Usr_DelFlag", "N");
-            parameters.Add("@Usr_IPAddress", "127.0.0.1"); // or from HttpContext
+            parameters.Add("@Usr_IPAddress", "127.0.0.1");
             parameters.Add("@Usr_CompId", 1);
             parameters.Add("@Usr_Type", "C");
-
             parameters.Add("@usr_IsSuperuser", 0);
             parameters.Add("@USR_DeptID", 0);
             parameters.Add("@USR_MemberType", 0);
             parameters.Add("@USR_Levelcode", 0);
 
-
             // Output params
             parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
             parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-            // Call SP
             await connection.ExecuteAsync("spEmployeeMaster", parameters, commandType: CommandType.StoredProcedure);
 
             int resultType = parameters.Get<int>("@iUpdateOrSave");
-            int userId = parameters.Get<int>("@iOper");
 
             return resultType == 2
-        ? "customer updated successfully"
-        : "Customer created successfully";
-
+                ? "Customer updated successfully"
+                : "Customer created successfully";
         }
+
+
+        //public async Task<string> InsertCustomerUsersDetailsAsync(CreateCustomerUsersDto dto)
+        //{
+        //    // Confirm Password check
+        //    if (dto.Password != dto.ConfirmPassword)
+        //    {
+        //        return "Password and Confirm Password do not match.";
+        //    }
+
+        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //    if (string.IsNullOrEmpty(dbName))
+        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
+
+
+        //    var parameters = new DynamicParameters();
+
+        //    // Insert (new user, UserId = 0) or Update (existing user, UserId > 0)
+        //    parameters.Add("@Usr_ID", dto.UserId ?? 0);
+        //    parameters.Add("@Usr_Status", dto.UserId == 0 ? "U" : "C");
+
+
+        //    // Required fields (mapped from DTO)
+        //    parameters.Add("@Usr_FullName", dto.UserName);
+        //    parameters.Add("@Usr_LoginName", dto.LoginName);
+        //    parameters.Add("@Usr_Password", EncryptPassword(dto.Password));
+        //    parameters.Add("@Usr_Email", dto.Email);
+        //    parameters.Add("@Usr_MobileNo", dto.MobileNo);
+        //    parameters.Add("@Usr_Role", dto.RoleId);
+
+        //    // Additional SP params (set from DTO if present, else default values)
+        //    // Additional required parameters (hardcoded/default values)
+        //    parameters.Add("@Usr_Node", 0);
+        //    parameters.Add("@Usr_Code", dto.EmpCode);
+        //    parameters.Add("@Usr_Category", 0);
+        //    parameters.Add("@Usr_Suggetions", 0);
+        //    parameters.Add("@usr_partner", 0);
+        //    parameters.Add("@Usr_LevelGrp", 0);
+        //    parameters.Add("@Usr_DutyStatus", "A"); // Active by default
+        //    parameters.Add("@Usr_PhoneNo", "");
+        //    parameters.Add("@Usr_OfficePhone", dto.OfficePhoneNo);
+        //    parameters.Add("@Usr_OffPhExtn", "");
+        //    parameters.Add("@Usr_Designation", 0);
+        //    parameters.Add("@Usr_CompanyID", dto.CustomerId);
+        //    parameters.Add("@Usr_OrgnID", 0);
+        //    parameters.Add("@Usr_GrpOrUserLvlPerm", dto.PermissionId);
+
+        //    // Modules (default 0)
+        //    parameters.Add("@Usr_MasterModule", 0);
+        //    parameters.Add("@Usr_AuditModule", 0);
+        //    parameters.Add("@Usr_RiskModule", 0);
+        //    parameters.Add("@Usr_ComplianceModule", 0);
+        //    parameters.Add("@Usr_BCMModule", 0);
+        //    parameters.Add("@Usr_DigitalOfficeModule", 0);
+
+        //    // Roles (default 0)
+        //    parameters.Add("@Usr_MasterRole", 0);
+        //    parameters.Add("@Usr_AuditRole", 0);
+        //    parameters.Add("@Usr_RiskRole", 0);
+        //    parameters.Add("@Usr_ComplianceRole", 0);
+        //    parameters.Add("@Usr_BCMRole", 0);
+        //    parameters.Add("@Usr_DigitalOfficeRole", 0);
+
+        //    // Audit Info (default/hardcoded)
+        //    if (dto.UserId == null || dto.UserId == 0) // Insert
+        //    {
+        //        parameters.Add("@Usr_CreatedBy", dto.CreatedBy);
+        //        parameters.Add("@Usr_UpdatedBy", 0);
+        //    }
+        //    else // Update
+        //    {
+        //        parameters.Add("@Usr_CreatedBy", 0);
+        //        parameters.Add("@Usr_UpdatedBy", dto.CreatedBy);
+        //    }
+        //    parameters.Add("@Usr_DelFlag", "N");
+        //    parameters.Add("@Usr_IPAddress", "127.0.0.1"); // or from HttpContext
+        //    parameters.Add("@Usr_CompId", 1);
+        //    parameters.Add("@Usr_Type", "C");
+
+        //    parameters.Add("@usr_IsSuperuser", 0);
+        //    parameters.Add("@USR_DeptID", 0);
+        //    parameters.Add("@USR_MemberType", 0);
+        //    parameters.Add("@USR_Levelcode", 0);
+
+
+        //    // Output params
+        //    parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+        //    parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+        //    // Call SP
+        //    await connection.ExecuteAsync("spEmployeeMaster", parameters, commandType: CommandType.StoredProcedure);
+
+        //    int resultType = parameters.Get<int>("@iUpdateOrSave");
+        //    int userId = parameters.Get<int>("@iOper");
+
+        //    return resultType == 2
+        //? "customer updated successfully"
+        //: "Customer created successfully";
+
+        //}
 
 
         private string EncryptPassword(string plainText)

@@ -14,6 +14,8 @@
         }
         public class StandardAuditF1DTO
         {
+            public string SA_Custid { get; set; }
+            public string SA_Id { get; set; }
             public string CustName { get; set; }
             public string SA_AuditNo { get; set; }
             public string AuditType { get; set; }
@@ -25,6 +27,8 @@
 
         public class StandardAuditF2DTO
         {
+            public string SA_Custid { get; set; }
+            public string SA_Id { get; set; }   
             public string CustName { get; set; }
             public string SA_AuditNo { get; set; }
             public string AuditType { get; set; }

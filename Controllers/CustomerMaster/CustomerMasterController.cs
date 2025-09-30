@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using TracePca.Dto.CustomerMaster;
+using TracePca.Dto.EmployeeMaster;
 using TracePca.Interface;
 using TracePca.Interface.EmployeeMaster;
 using TracePca.Service.CustomerUserMaster;
@@ -136,7 +138,7 @@ namespace TracePca.Controllers.CustomerMaster
                 return Ok(new
                 {
                     status = 200,
-                    message = "Management types fetched successfully.",
+                    message = "Management types fetched successfully.", 
                     managementTypes = result
                 });
             }
@@ -153,16 +155,22 @@ namespace TracePca.Controllers.CustomerMaster
 
 
         [HttpPost("InsertUpdateCustomer")]
-        public async Task<IActionResult> SaveCustomer([FromBody] Dto.CustomerMaster.CreateCustomerMasterDto dto)
+
+        public async Task<IActionResult> SaveCustomer([FromBody] CreateCustomerMasterDto dto)
         {
             try
             {
-                var result = await _customermaster.SaveCustomerMasterAsync(dto);
-
-                return Ok(new { StatusCode = 200, Message = result });
+                var message = await _customermaster.SaveCustomerMasterAsync(dto);
+                return Ok(new { StatusCode = 200, Message = message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Duplicate check exception
+                return BadRequest(new { StatusCode = 400, Message = ex.Message });
             }
             catch (Exception ex)
             {
+                // Other unexpected errors
                 return StatusCode(500, new { StatusCode = 500, Message = ex.Message });
             }
         }

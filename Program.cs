@@ -73,8 +73,6 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
-
-
 builder.Services.AddControllers()
 
 
@@ -105,7 +103,7 @@ builder.Services.AddSession(options =>
     // Always allow cross-site cookies
     options.Cookie.SameSite = SameSiteMode.None;
     //options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;// Requires HTTPS
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; // Requires HTTPS
 });
 
 
@@ -251,6 +249,8 @@ builder.Services.AddCors(options =>
               .AllowCredentials();
     });
 });
+
+
 builder.Services.AddDbContext<CustomerRegistrationContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("CustomerRegistrationConnection")));
 builder.Services.AddDbContext<DynamicDbContext>(options =>

@@ -108,9 +108,16 @@ namespace TracePca.Controllers
         {
             try
             {
-                var result = await _employeemaster.SaveEmployeeBasicDetailsAsync(dto);
-
-                return Ok(new { StatusCode = 200, Message = result });
+                var message = await _employeemaster.SaveEmployeeBasicDetailsAsync(dto);
+                return Ok(new { StatusCode = 200, Message = message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { StatusCode = 400, Message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { StatusCode = 400, Message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -119,7 +126,7 @@ namespace TracePca.Controllers
         }
 
 
-       
+
 
 
         [HttpGet("GetEmployeeById")]
