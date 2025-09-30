@@ -49,5 +49,7 @@ namespace TracePca.Interface.DigitalFilling
 
 		Task<string> CreateSubCabinetAsync(string SubcabinetName, int iCabinetId,   int compID);
 
+		Task<string> CreateFolderAsync(string FolderName, int iCabinetId, int iSubCabinetID, int compID);
+
 	}
 }

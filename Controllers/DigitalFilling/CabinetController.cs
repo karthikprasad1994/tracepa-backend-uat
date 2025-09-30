@@ -287,6 +287,26 @@ namespace TracePca.Controllers.DigitalFilling
 		}
 
 
+
+		[HttpPost("CreateFolder")]
+		public async Task<IActionResult> CreateFolder(string FolderName, int iCabinetID, int iSubCabinetID, int compID)
+		{
+			var result = await _CabinetInterface.CreateFolderAsync(FolderName, iCabinetID, iSubCabinetID, compID);
+			if (result == "Folder created Successfully.")
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = result
+				});
+			}
+			else
+			{
+				return StatusCode(404, new { statusCode = 404, message = result });
+			}
+		}
+
+
 		[HttpPut("UpdateCabinet")]
         public async Task<IActionResult> UpdateCabinet(string CabinetName, int iCabinetId, int userId,  int compID, [FromBody] CabinetDto dto)
         {
