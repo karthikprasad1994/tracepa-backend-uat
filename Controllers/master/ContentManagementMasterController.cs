@@ -158,9 +158,9 @@ namespace TracePca.Controllers.master
         }
 
         [HttpGet("GetAssignmentTaskChecklistByStatus")]
-        public async Task<IActionResult> GetAssignmentTaskChecklistByStatus([FromQuery] string status, [FromQuery] int compId)
+        public async Task<IActionResult> GetAssignmentTaskChecklistByStatus([FromQuery] int taskId, [FromQuery] string status, [FromQuery] int compId)
         {
-            var (success, message, data) = await _contentManagementMasterInterface.GetAssignmentTaskChecklistByStatusAsync(status, compId);
+            var (success, message, data) = await _contentManagementMasterInterface.GetAssignmentTaskChecklistByStatusAsync(taskId, status, compId);
 
             if (!success)
                 return StatusCode(500, new { success, message });

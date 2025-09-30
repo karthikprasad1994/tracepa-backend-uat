@@ -12,13 +12,10 @@ namespace TracePca.Interface.DigitalFilling
     public interface CabinetInterface
     {
 
-		//Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int deptId, int userId, int compID);
-
+ 
 		Task<IEnumerable<CabinetDto>> LoadCabinetAsync( int compID);
-
-		
-
-		Task<int> CreateCabinetAsync(string cabinetName,int deptId, int userId, int compID, CabinetDto dto);
+		 
+		Task<int> CreateCabinetAsync(string cabinetName,int deptId, int userId, int compID);
 
         Task<int> UpdateCabinetAsync(string cabinetName, int iCabinetID, int userId, int compID, CabinetDto dto);
 
@@ -32,7 +29,7 @@ namespace TracePca.Interface.DigitalFilling
 
 		Task<IEnumerable<DocumentTypeDto>> LoadDocumentTypeAsync(int iDocTypeID, int iDepartmentID, DocumentTypeDto dto);
 
-		Task<IEnumerable<DocumentTypeDto>> LoadAllDocumentTypeAsync(int iCompID, DocumentTypeDto dto);
+		Task<IEnumerable<DocumentTypeDto>> LoadAllDocumentTypeAsync(int iCompID);
 
 		Task<int> CreateDescriptorAsync(string DocumentName, string DocumentNote, string DepartmentId, [FromBody] DocumentTypeDto dto);
 
@@ -43,6 +40,12 @@ namespace TracePca.Interface.DigitalFilling
 		Task<IEnumerable<CabinetDto>> LoadRententionDataAsync(int compID);
 
 		Task<IEnumerable<ArchiveDetailsDto>> LoadArchiveDetailsAsync(int compID);
+
+		Task<IEnumerable<ArchivedDocumentFileDto>> ArchivedDocumentFileDetailsAsync(string sAttachID);
+
+		Task<IEnumerable<DepartmentDto>> LoadAllDepartmentAsync(int compID);
+
+		Task<string> CreateDepartmentAsync(string Code, string DepartmentName, string userId, int compID);
 
 	}
 }

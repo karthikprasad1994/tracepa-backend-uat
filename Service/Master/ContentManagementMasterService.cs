@@ -423,14 +423,14 @@ namespace TracePca.Service.Master
             }
         }
 
-        public async Task<(bool Success, string Message, List<AssignmentTaskChecklistMasterDTO> Data)> GetAssignmentTaskChecklistByStatusAsync(string status, int compId)
+        public async Task<(bool Success, string Message, List<AssignmentTaskChecklistMasterDTO> Data)> GetAssignmentTaskChecklistByStatusAsync(int taskId, string status, int compId)
         {
             using var connection = new SqlConnection(_connectionString);
             try
             {
-                var query = @"SELECT * FROM AssignmentTask_Checklist_Master WHERE ACM_CompId = @CompID AND ACM_DELFLG = @Status ORDER BY ACM_Heading;";
+                var query = @"SELECT * FROM AssignmentTask_Checklist_Master WHERE ACM_AssignmentTaskID = @TaskId AND ACM_CompId = @CompID AND ACM_DELFLG = @Status ORDER BY ACM_Heading;";
 
-                var result = await connection.QueryAsync<AssignmentTaskChecklistMasterDTO>(query, new { Status = status, CompID = compId });
+                var result = await connection.QueryAsync<AssignmentTaskChecklistMasterDTO>(query, new { TaskId = taskId, Status = status, CompID = compId });
                 return (true, "Records fetched successfully.", result.ToList());
             }
             catch (Exception ex)
@@ -469,7 +469,7 @@ namespace TracePca.Service.Master
             {
                 bool isUpdate = (dto.ACM_ID ?? 0) > 0;
 
-                var duplicateCount = await connection.ExecuteScalarAsync<int>(@"SELECT COUNT(1) FROM AssignmentTask_Checklist_Master WHERE ACM_Checkpoint = @ACM_Checkpoint AND ACM_AuditTypeID = @ACM_AuditTypeID AND ACM_CompId = @ACM_CompId AND (ACM_ID <> @ACM_ID);",
+                var duplicateCount = await connection.ExecuteScalarAsync<int>(@"SELECT COUNT(1) FROM AssignmentTask_Checklist_Master WHERE ACM_Checkpoint = @ACM_Checkpoint AND ACM_AssignmentTaskID = @ACM_AssignmentTaskID AND ACM_CompId = @ACM_CompId AND (ACM_ID <> @ACM_ID);",
                     new
                     {
                         dto.ACM_Checkpoint,
