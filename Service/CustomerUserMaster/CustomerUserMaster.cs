@@ -138,36 +138,38 @@ ORDER BY a.usr_id";
                 || !string.IsNullOrEmpty(dto.MobileNo) || !string.IsNullOrEmpty(dto.OfficePhoneNo))
             {
                 var duplicateQuery = @"
-SELECT 
-    STUFF(
-        -- Emp Code check
-        CASE WHEN EXISTS (
-            SELECT 1 FROM Sad_UserDetails 
-            WHERE Usr_Code = @EmpCode 
-              AND (@UserId IS NULL OR Usr_ID <> @UserId)
-        ) THEN ',Emp Code' ELSE '' END +
+SELECT STUFF(
+    -- Emp Code check
+    CASE WHEN EXISTS (
+        SELECT 1 FROM Sad_UserDetails 
+        WHERE Usr_Code = @EmpCode 
+          AND (@UserId IS NULL OR Usr_ID <> @UserId)
+    ) THEN ',Emp Code' ELSE '' END +
 
-        -- Email check
-        CASE WHEN EXISTS (
-            SELECT 1 FROM Sad_UserDetails 
-            WHERE Usr_Email = @Email 
-              AND (@UserId IS NULL OR Usr_ID <> @UserId)
-        ) THEN ',Email' ELSE '' END +
+    -- Email check
+    CASE WHEN EXISTS (
+        SELECT 1 FROM Sad_UserDetails 
+        WHERE Usr_Email = @Email 
+          AND (@UserId IS NULL OR Usr_ID <> @UserId)
+    ) THEN ',Email' ELSE '' END +
 
-        -- Mobile No check (check against both Mobile and OfficePhone)
-        CASE WHEN EXISTS (
-            SELECT 1 FROM Sad_UserDetails 
-            WHERE (Usr_MobileNo = @MobileNo OR Usr_OfficePhone = @MobileNo)
-              AND (@UserId IS NULL OR Usr_ID <> @UserId)
-        ) THEN ',Mobile No' ELSE '' END +
+    -- Mobile No check (check against both Mobile and OfficePhone)
+    CASE WHEN EXISTS (
+        SELECT 1 FROM Sad_UserDetails 
+        WHERE (@MobileNo IS NOT NULL AND @MobileNo <> '')
+          AND (@MobileNo = Usr_MobileNo OR @MobileNo = Usr_OfficePhone)
+          AND (@UserId IS NULL OR Usr_ID <> @UserId)
+    ) THEN ',Mobile No' ELSE '' END +
 
-        -- Office Phone check (check against both OfficePhone and Mobile)
-        CASE WHEN EXISTS (
-            SELECT 1 FROM Sad_UserDetails 
-            WHERE (Usr_OfficePhone = @OfficePhoneNo OR Usr_MobileNo = @OfficePhoneNo)
-              AND (@UserId IS NULL OR Usr_ID <> @UserId)
-        ) THEN ',Office Phone' ELSE '' END
-    , 1, 1, '') AS DuplicateFields";
+    -- Office Phone check (check against both OfficePhone and Mobile)
+    CASE WHEN EXISTS (
+        SELECT 1 FROM Sad_UserDetails 
+        WHERE (@OfficePhoneNo IS NOT NULL AND @OfficePhoneNo <> '')
+          AND (@OfficePhoneNo = Usr_OfficePhone OR @OfficePhoneNo = Usr_MobileNo)
+          AND (@UserId IS NULL OR Usr_ID <> @UserId)
+    ) THEN ',Office Phone' ELSE '' END
+, 1, 1, '') AS DuplicateFields";
+
 
 
                 var duplicateFields = await connection.QueryFirstOrDefaultAsync<string>(duplicateQuery, new
