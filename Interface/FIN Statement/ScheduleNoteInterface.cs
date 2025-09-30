@@ -122,6 +122,6 @@ namespace TracePca.Interface.FIN_Statement
         ScheduleNotePDFDownloadResult GetNotePDFTemplate();
 
         //DownloadScheduleNotePDFTemplate
-        Task<Dictionary<string, DataTable>> GetScheduleNoteReportDataAsync(int companyId, int customerId, int financialYearId);
+        Task<byte[]> GenerateScheduleNotePdfAsync(int compId, int custId, string financialYear);
     }
 }
