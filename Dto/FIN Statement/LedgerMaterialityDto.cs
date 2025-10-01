@@ -9,5 +9,42 @@
             public string? cmm_Desc { get; set; }
         }
 
+        //SaveOrUpdateLedgerMaterialityMaster
+        public class LedgerMaterialityMasterDto
+        {
+            public int lm_ID { get; set; }
+            public int lm_MaterialityId { get; set; }
+            public int lm_CustId { get; set; }
+            public int lm_FinancialYearId { get; set; }
+            public int lm_Branch { get; set; }
+            public int lm_LevelOfRisk { get; set; }
+            public int lm_Weightage { get; set; }
+            public string lm_Delflag { get; set; } = "N";   // default N (not deleted)
+            public string lm_Status { get; set; } = "A";    // default A (active)
+            public int lm_UpdatedBy { get; set; }
+            public DateTime? lm_UpdatedOn { get; set; }
+            public int lm_ApprovedBy { get; set; }
+            public DateTime? lm_ApprovedOn { get; set; }
+            public int lm_DeletedBy { get; set; }
+            public DateTime? lm_DeletedOn { get; set; }
+            public int? lm_RecallBy { get; set; }
+            public DateTime? lm_RecallOn { get; set; }
+            public string lm_IPAddress { get; set; } = string.Empty;
+            public int lm_CompID { get; set; }
+            public int lm_CrBy { get; set; }
+            public DateTime? lm_CrOn { get; set; }
+        }
+
+        //GetLedgerMaterialityMaster
+        public class GetLedgerMaterialityMasterDto
+        {
+            public int lm_ID { get; set; }
+            public int lm_MaterialityId { get; set; }
+            public int lm_CustId { get; set; }
+            public int lm_FinancialYearId { get; set; }
+            public int lm_Branch { get; set; }
+            public int lm_LevelOfRisk { get; set; }
+            public int lm_Weightage { get; set; }
+        }
     }
 }

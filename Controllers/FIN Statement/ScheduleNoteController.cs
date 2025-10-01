@@ -8,6 +8,9 @@ using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleFormatDto;
 using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
 using System.Data;
+using QuestPDF.Helpers;
+using QuestPDF.Fluent;
+using QuestPDF.Infrastructure;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -1160,7 +1163,7 @@ namespace TracePca.Controllers.FIN_Statement
         {
             try
             {
-                var result = await _ScheduleNoteService.GetThirdNoteAsync(compId, category, custId, YearId  );
+                var result = await _ScheduleNoteService.GetThirdNoteAsync(compId, category, custId, YearId);
 
                 if (result == null || !result.Any())
                 {
@@ -1400,66 +1403,25 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //DownloadScheduleNotePDFTemplate
-        //[HttpGet("DownloadScheduleNotePdf")]
-        //public async Task<IActionResult> DownloadScheduleNotePdf(int companyId, int customerId, int financialYear)
-        //{
-        //    try
-        //    {
-        //        var customerName = "SampleCustomer"; // fetch from db/session as needed
-        //        var datasets = await _ScheduleNoteService.GetScheduleNoteReportDataAsync(companyId, customerId, financialYear);
+        [HttpGet("DownloadPdf")]
+        public async Task<IActionResult> GenerateScheduleNotePdf(int compId, int custId, string financialYear)
+        {
+            try
+            {
+                var pdfBytes = await _ScheduleNoteService.GenerateScheduleNotePdfAsync(compId, custId, financialYear);
 
-        //        using var ms = new MemoryStream();
-        //        using (var writer = new PdfWriter(ms))
-        //        using (var pdf = new PdfDocument(writer))
-        //        using (var doc = new Document(pdf))
-        //        {
-        //            // 🔹 Title
-        //            doc.Add(new Paragraph($"Schedule Note Report")
-        //                .SetFontSize(16)
-        //                .SetBold()
-        //                .SetTextAlignment(TextAlignment.CENTER));
+                if (pdfBytes == null || pdfBytes.Length == 0)
+                    return NotFound("PDF generation failed.");
 
-        //            doc.Add(new Paragraph($"Customer: {customerName}  |  Financial Year: {financialYear}")
-        //                .SetFontSize(12)
-        //                .SetMarginBottom(20));
-
-        //            // 🔹 Loop through datasets and render tables
-        //            foreach (var ds in datasets)
-        //            {
-        //                doc.Add(new Paragraph(ds.Key).SetBold().SetFontSize(12));
-
-        //                var table = new Table(ds.Value.Columns.Count).UseAllAvailableWidth();
-
-        //                // Add header row
-        //                foreach (DataColumn col in ds.Value.Columns)
-        //                {
-        //                    table.AddHeaderCell(new Cell().Add(new Paragraph(col.ColumnName).SetBold()));
-        //                }
-
-        //                // Add rows
-        //                foreach (DataRow row in ds.Value.Rows)
-        //                {
-        //                    foreach (var item in row.ItemArray)
-        //                    {
-        //                        table.AddCell(new Paragraph(item?.ToString() ?? ""));
-        //                    }
-        //                }
-        //                doc.Add(table);
-        //                doc.Add(new Paragraph("\n")); // space between tables
-        //            }
-        //        }
-        //        var pdfBytes = ms.ToArray();
-        //        return File(pdfBytes, "application/pdf", $"ScheduleNote_{customerName}_{financialYear}.pdf");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "Error generating ScheduleNote PDF.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
+                // Return PDF file
+                return File(pdfBytes, "application/pdf", $"ScheduleNote_{custId}_{financialYear}.pdf");
+            }
+            catch (Exception ex)
+            {
+                // Log error if needed
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
     }
 }
+
