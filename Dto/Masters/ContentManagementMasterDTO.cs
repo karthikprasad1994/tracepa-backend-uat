@@ -84,6 +84,7 @@ namespace TracePca.Dto
         public int ACM_AssignmentTaskID { get; set; }
         public string? ACM_Heading { get; set; }
         public string? ACM_Checkpoint { get; set; }
+        public int ACM_BillingType { get; set; }
         public string? ACM_DELFLG { get; set; }
         public DateTime? ACM_CRON { get; set; }
         public int? ACM_CRBY { get; set; }

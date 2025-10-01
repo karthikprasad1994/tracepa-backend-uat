@@ -486,8 +486,8 @@ namespace TracePca.Service.Master
 
                 if (isUpdate)
                 {
-                    await connection.ExecuteAsync(@"UPDATE AssignmentTask_Checklist_Master SET ACM_Heading = @ACM_Heading, ACM_Checkpoint = @ACM_Checkpoint, ACM_UpdatedBy = @ACM_UpdatedBy, 
-                                                ACM_UpdatedOn = GETDATE(), ACM_Status = 'U', ACM_IPAddress = @ACM_IPAddress WHERE ACM_ID = @ACM_ID;", dto, transaction);
+                    await connection.ExecuteAsync(@"UPDATE AssignmentTask_Checklist_Master SET ACM_Heading = @ACM_Heading, ACM_Checkpoint = @ACM_Checkpoint, ACM_BillingType = @ACM_BillingType,
+                    ACM_UpdatedBy = @ACM_UpdatedBy, ACM_UpdatedOn = GETDATE(), ACM_Status = 'U', ACM_IPAddress = @ACM_IPAddress WHERE ACM_ID = @ACM_ID;", dto, transaction);
                 }
                 else
                 {
@@ -495,8 +495,8 @@ namespace TracePca.Service.Master
                     dto.ACM_Code = $"ACM_{maxId}";
                     dto.ACM_ID = await connection.ExecuteScalarAsync<int>(
                         @"DECLARE @NewId INT = ISNULL((SELECT MAX(ACM_ID) FROM AssignmentTask_Checklist_Master), 0) + 1;
-                          INSERT INTO AssignmentTask_Checklist_Master (ACM_ID, ACM_Code, ACM_AssignmentTaskID, ACM_Heading, ACM_Checkpoint, ACM_DELFLG, ACM_STATUS, ACM_CRBY, ACM_CRON, ACM_IPAddress, ACM_CompId)
-                          VALUES (@NewId, @ACM_Code, @ACM_AssignmentTaskID, @ACM_Heading, @ACM_Checkpoint, 'A', 'W', @ACM_CRBY, GETDATE(), @ACM_IPAddress, @ACM_CompId);
+                          INSERT INTO AssignmentTask_Checklist_Master (ACM_ID, ACM_Code, ACM_AssignmentTaskID, ACM_Heading, ACM_Checkpoint, ACM_BillingType, ACM_DELFLG, ACM_STATUS, ACM_CRBY, ACM_CRON, ACM_IPAddress, ACM_CompId)
+                          VALUES (@NewId, @ACM_Code, @ACM_AssignmentTaskID, @ACM_Heading, @ACM_Checkpoint, @ACM_BillingType, 'A', 'W', @ACM_CRBY, GETDATE(), @ACM_IPAddress, @ACM_CompId);
                           SELECT @NewId;", dto, transaction);
                 }
 
