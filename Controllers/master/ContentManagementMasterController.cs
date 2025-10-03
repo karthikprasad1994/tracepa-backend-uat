@@ -98,9 +98,9 @@ namespace TracePca.Controllers.master
         }
 
         [HttpGet("GetAuditTypeChecklistByStatus")]
-        public async Task<IActionResult> GetAuditTypeChecklistByStatus([FromQuery] string status, [FromQuery] int compId)
+        public async Task<IActionResult> GetAuditTypeChecklistByStatus([FromQuery] int typeId, [FromQuery] string status, [FromQuery] int compId)
         {
-            var (success, message, data) = await _contentManagementMasterInterface.GetAuditTypeChecklistByStatusAsync(status, compId);
+            var (success, message, data) = await _contentManagementMasterInterface.GetAuditTypeChecklistByStatusAsync(typeId, status, compId);
 
             if (!success)
                 return StatusCode(500, new { success, message });
@@ -206,9 +206,9 @@ namespace TracePca.Controllers.master
         }
 
         [HttpGet("GetAuditSubPointsByStatus")]
-        public async Task<IActionResult> GetAuditSubPointsByStatus([FromQuery] string type, [FromQuery] string status, [FromQuery] int compId)
+        public async Task<IActionResult> GetAuditSubPointsByStatus([FromQuery] int checkPointId, [FromQuery] string status, [FromQuery] int compId)
         {
-            var (success, message, data) = await _contentManagementMasterInterface.GetAuditSubPointsByStatusAsync(type, compId);
+            var (success, message, data) = await _contentManagementMasterInterface.GetAuditSubPointsByStatusAsync(checkPointId, status, compId);
 
             if (!success)
                 return StatusCode(500, new { success, message });
