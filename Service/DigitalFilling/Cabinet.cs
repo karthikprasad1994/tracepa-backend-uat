@@ -265,44 +265,49 @@ namespace TracePca.Service.DigitalFilling
 			}
 		}
 
-		public async Task<int> UpdateCabinetAsync(string cabinetname, int CabinetId,int userID, int compID, CabinetDto dto)
-        {
-			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-			//await connection.OpenAsync();
+		public async Task<int> UpdateCabinetAsync(string cabinetName, int cabinetId, int userId, int compId)
+		{
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
 			if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-			// ✅ Step 2: Get the connection string
 			var connectionString = _configuration.GetConnectionString(dbName);
 
 			using var connection = new SqlConnection(connectionString);
 			await connection.OpenAsync();
 
-
 			using var transaction = connection.BeginTransaction();
-             
-            //int iCbinID = await connection.ExecuteScalarAsync<int>(@"Select CBN_ID from edt_cabinet where CBN_Name=@cabinetname and CBN_ID = @CabinetId and  
-            //    CBN_Parent =-1", new { cabinetname, CabinetId }, transaction);
-             
-            await connection.ExecuteAsync(
-                                   @"UPDATE edt_cabinet SET CBN_Name = @CBN_Name, CBN_UpdatedBy = @CBN_UpdatedBy, CBN_UpdatedOn = GETDATE()  
-                                WHERE CBN_ID = @CBN_ID and CBN_CompID=@CBN_CompID;",
-                                   new
-                                   {
-                                       CBN_Name = cabinetname,
-                                       CBN_UpdatedBy = userID,
-                                       CBN_ID = CabinetId,
-                                       CBN_CompID = compID
-                                   }, transaction);
 
+			try
+			{
+				var rowsAffected = await connection.ExecuteAsync(
+					@"UPDATE edt_cabinet 
+              SET CBN_Name = @CBN_Name, 
+                  CBN_UpdatedBy = @CBN_UpdatedBy, 
+                  CBN_UpdatedOn = GETDATE()  
+              WHERE CBN_ID = @CBN_ID and CBN_CompID = @CBN_CompID",
+					new
+					{
+						CBN_Name = cabinetName,
+						CBN_UpdatedBy = userId,
+						CBN_ID = cabinetId,
+						CBN_CompID = compId
+					},
+					transaction
+				);
 
-            await transaction.CommitAsync();
-            return dto.CBN_ID ?? 0;
-        }
+				await transaction.CommitAsync();
+ 
+				return rowsAffected > 0 ? cabinetId : 0;
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
 
-        public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
+		public async Task<string> CheckOrCreateCustomDirectory(string accessCodeDirectory, string sFolderName, string imgDocType)
         {
             if (!Directory.Exists(accessCodeDirectory))
             {
@@ -1154,6 +1159,281 @@ namespace TracePca.Service.DigitalFilling
 
 				await transaction.CommitAsync();
 				return sStatus = "Department Created Successfully."; ;
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
+
+
+		public async Task<string> CreateSubCabinetAsync(string Subcabinetname,int iCabinetID, int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+
+				var CabinetIdexists = await connection.ExecuteScalarAsync<int>(
+				   "SELECT COUNT(1) FROM EDT_Cabinet WHERE CBN_CompID = @CompId and CBN_ID = @Id AND (CBN_DelFlag = 'A' OR CBN_DelFlag = 'W') ",
+				   new { CompId = compID,  Id = iCabinetID },
+				   transaction);
+
+				if (CabinetIdexists == 0)
+				{
+					return "Invalid Cabinet Id.";
+				}
+
+				var exists = await connection.ExecuteScalarAsync<int>(
+				   "SELECT COUNT(1) FROM EDT_Cabinet WHERE CBN_CompID = @CompId AND CBN_Name = @Name AND CBN_ID <> @Id AND (CBN_DelFlag = 'A' OR CBN_DelFlag = 'W') AND CBN_Parent = @Parent",
+				   new { CompId = compID, Name = Subcabinetname, Id = iCabinetID, Parent = iCabinetID },
+				   transaction);
+
+				if (exists > 0)
+				{
+					 return "Sub Cabinet name already exists.";
+				}
+
+
+				var deptInfoQuery = "Select ISNULL(cbn_department, 0) AS cbn_department from EDT_Cabinet where cbn_id = @cbn_id";
+				var deptInfo = await connection.QueryFirstOrDefaultAsync(deptInfoQuery, new { cbn_id = iCabinetID }, transaction: transaction);
+				int deptId = deptInfo?.cbn_department ?? 0;
+
+
+				var UserInfoQuery = "Select ISNULL(CBN_UserID, 0) AS CBN_UserID from EDT_Cabinet where cbn_id = @cbn_id";
+				var UserInfo = await connection.QueryFirstOrDefaultAsync(UserInfoQuery, new { cbn_id = iCabinetID }, transaction: transaction);
+				int UserId = UserInfo?.CBN_UserID ?? 0;
+
+			 
+
+				int CBN_ID = 0;
+				CBN_ID = await connection.ExecuteScalarAsync<int>(
+					  @"DECLARE @TemplateId INT;
+                  SELECT @TemplateId = ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet;
+                  INSERT INTO edt_cabinet 
+                  (CBN_ID, CBN_Name, CBN_Parent, CBN_Note, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, 
+                   CBN_CreatedBy, CBN_CreatedOn, CBN_Status, CBN_DelFlag, CBN_CompID)
+                  VALUES 
+                  (@TemplateId, @CBN_Name, @CBN_Parent, @CBN_Name, @CBN_UserID, @CBN_Department, 0, 0, @CBN_UserID, GETDATE(), 'A','A', @CBN_CompID);
+                  SELECT @TemplateId;",
+					  new
+					  {
+						  CBN_Name = Subcabinetname,
+						  CBN_Parent = iCabinetID,
+						  CBN_UserID = UserId,
+						  CBN_Department = deptId,
+						  CBN_CompID = compID
+					  },
+					  transaction
+				  );
+
+
+				await connection.ExecuteAsync(
+				  "UPDATE EDT_Cabinet SET CBN_SubCabCount = (SELECT COUNT(1) FROM EDT_Cabinet WHERE CBN_Parent = @CabId AND CBN_DelFlag = 'A') WHERE CBN_ID = @CabId AND CBN_CompID = @CompId;",
+				  new { CabId = iCabinetID, CompId = compID },
+				  transaction);
+
+				await connection.ExecuteAsync(
+					"UPDATE EDT_Cabinet SET CBN_FolderCount = (SELECT COUNT(1) FROM EDT_Folder WHERE FOL_Cabinet IN (SELECT CBN_ID FROM EDT_Cabinet WHERE CBN_Parent = @CabId AND CBN_DelFlag = 'A')) WHERE CBN_ID = @CabId AND CBN_CompID = @CompId;",
+					new { CabId = iCabinetID, CompId = compID },
+					transaction);
+
+
+				await transaction.CommitAsync();
+				return "Subcabinet created Successfully.";
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
+
+
+
+
+
+		public async Task<string> CreateFolderAsync(string FolderName, int iCabinetID, int iSubCabinetID, int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+
+				var CabinetIdexists = await connection.ExecuteScalarAsync<int>(
+				   "SELECT COUNT(1) FROM EDT_Cabinet WHERE CBN_CompID = @CompId and CBN_ID = @Id AND (CBN_DelFlag = 'A') ",
+				   new { CompId = compID, Id = iCabinetID },
+				   transaction);
+
+				if (CabinetIdexists == 0)
+				{
+					return "Invalid Cabinet Id.";
+				}
+
+				 
+				var SubCabinetIdexists = await connection.ExecuteScalarAsync<int>(
+				   "SELECT COUNT(1) FROM EDT_Cabinet WHERE CBN_CompID = @CompId and CBN_ID = @Id AND (CBN_DelFlag = 'A') ",
+				   new { CompId = compID, Id = iSubCabinetID },
+				   transaction);
+
+				if (SubCabinetIdexists == 0)
+				{
+					return "Invalid SubCabinet Id.";
+				}
+
+
+				var CabSubCabinetIdexists = await connection.ExecuteScalarAsync<int>(
+				   "SELECT COUNT(1) FROM EDT_Cabinet WHERE CBN_CompID = @CompId and CBN_ID = @CBN_ID and CBN_Parent=@CBN_Parent AND (CBN_DelFlag = 'A') ",
+				   new { CompId = compID, CBN_ID = iSubCabinetID, CBN_Parent= iCabinetID },
+				   transaction);
+
+				if (CabSubCabinetIdexists == 0)
+				{
+					return "Invalid SubCabinet and Cabinet Id.";
+				}
+
+
+				var exists = await connection.ExecuteScalarAsync<int>(
+				   "SELECT COUNT(1) FROM edt_Folder WHERE FOL_CompID = @CompId AND FOL_Name = @Name AND FOL_Status = 'A' and FOL_DelFlag = 'W' AND Fol_Cabinet = @Id",
+				   new { CompId = compID, Name = FolderName, Id = iSubCabinetID },
+				   transaction);
+
+				if (exists > 0)
+				{
+					return "Folder name already exists.";
+				}
+
+
+				var deptInfoQuery = "Select ISNULL(cbn_department, 0) AS cbn_department from EDT_Cabinet where cbn_id = @cbn_id";
+				var deptInfo = await connection.QueryFirstOrDefaultAsync(deptInfoQuery, new { cbn_id = iCabinetID }, transaction: transaction);
+				int deptId = deptInfo?.cbn_department ?? 0;
+
+
+				var UserInfoQuery = "Select ISNULL(CBN_UserID, 0) AS CBN_UserID from EDT_Cabinet where cbn_id = @cbn_id";
+				var UserInfo = await connection.QueryFirstOrDefaultAsync(UserInfoQuery, new { cbn_id = iCabinetID }, transaction: transaction);
+				int UserId = UserInfo?.CBN_UserID ?? 0;
+
+
+
+				int CBN_ID = 0;
+				CBN_ID = await connection.ExecuteScalarAsync<int>(
+					  @"DECLARE @TemplateId INT;
+                  SELECT @TemplateId = ISNULL(MAX(FOL_FolID), 0) + 1 FROM edt_Folder;
+                  INSERT INTO edt_Folder 
+                  (FOL_FolID, FOL_Name, FOL_Note, FOL_Cabinet, FOL_CreatedBy, FOL_CreatedOn, FOL_Status, FOL_DelFlag, FOL_CompID)
+                  VALUES (@TemplateId, @FOL_Name, @FOL_Note, @FOL_Cabinet, @FOL_CreatedBy, GETDATE(),'A','A', @FOL_CompID);
+                  SELECT @TemplateId;",
+					  new
+					  {
+						  FOL_Name = FolderName,
+						  FOL_Note = FolderName,
+						  FOL_Cabinet = iSubCabinetID,
+						  FOL_CreatedBy = UserId,
+						  FOL_CompID = compID
+					  },
+					  transaction
+				  );
+
+
+				await connection.ExecuteAsync(
+				   "Update edt_cabinet set CBN_FolderCount=(select count(Fol_folid) from edt_folder where fol_cabinet in (Select CBN_id from Edt_Cabinet where CBN_Parent = @CabId And (CBN_DelFlag='A'))) where CBN_ID = @CabId and CBN_CompID = @CompId",
+				   new { CabId = iCabinetID, CompId = compID },
+				   transaction);
+
+				await connection.ExecuteAsync(
+					"Update edt_cabinet set CBN_FolderCount=(select Count(Fol_folid) from edt_folder where fol_cabinet = @SubCabId and (FOL_Delflag='A')) where cbn_ID = @SubCabId and CBN_CompID = @CompId;",
+					new { SubCabId = iSubCabinetID, CompId = compID },
+					transaction);
+
+
+				await transaction.CommitAsync();
+				return "Folder created Successfully.";
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
+
+
+
+		public async Task<string> UpdateArchiveDetailsAsync(string retentionDate, int retentionPeriod, int iArchiveID, int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+
+			try
+			{
+				var cabinetExists = await connection.ExecuteScalarAsync<int>(
+					@"select count(1) 
+              from StandardAudit_Schedule A 
+              join edt_Cabinet B on B.CBN_AuditID = A.SA_ID 
+              where A.SA_ForCompleteAudit = 1 
+                and SA_IsArchived = 1 
+                and B.CBN_status='A' 
+                and CBN_DelFlag='A' 
+                and CBN_CompID = @CompId 
+                and CBN_ID = @Id",
+					new { CompId = compID, Id = iArchiveID }, transaction);
+
+				if (cabinetExists == 0)
+					return "Invalid Archive Id.";
+
+				var auditID = await connection.ExecuteScalarAsync<int?>(
+					@"select SA_ID 
+              from StandardAudit_Schedule A 
+              join edt_Cabinet B on B.CBN_AuditID = A.SA_ID 
+              where A.SA_ForCompleteAudit = 1 
+                and SA_IsArchived = 1 
+                and B.CBN_status='A' 
+                and CBN_DelFlag='A' 
+                and CBN_CompID = @CompId 
+                and CBN_ID = @Id",
+					new { CompId = compID, Id = iArchiveID }, transaction) ?? 0;
+
+				await connection.ExecuteAsync(
+					@"UPDATE StandardAudit_Schedule 
+              SET SA_RetentionPeriod = @SA_RetentionPeriod, 
+                  SA_ExpiryDate = @SA_ExpiryDate  
+              WHERE SA_ID = @SA_ID and SA_CompID=@SA_CompID;",
+					new { SA_RetentionPeriod = retentionPeriod, SA_ExpiryDate = retentionDate, SA_ID = auditID, SA_CompID = compID },
+					transaction);
+
+				await connection.ExecuteAsync(
+					@"UPDATE EDT_Cabinet 
+              SET CBN_DocumentExpiryDate = @CBN_DocumentExpiryDate, 
+                  CBN_ReminderDay = @CBN_ReminderDay  
+              WHERE CBN_ID = @CBN_ID and CBN_CompID=@CBN_CompID;",
+					new { CBN_ReminderDay = retentionPeriod, CBN_DocumentExpiryDate = retentionDate, CBN_ID = iArchiveID, CBN_CompID = compID },
+					transaction);
+
+				await transaction.CommitAsync();
+				return "Updated Successfully.";
 			}
 			catch
 			{

@@ -19,13 +19,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.ReportingServices.ReportProcessing.ReportObjectModel;
 using Org.BouncyCastle.Asn1.Crmf;
+using Org.BouncyCastle.Utilities.Net;
 using StackExchange.Redis;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Dto.Authentication;
+using TracePca.Dto.Middleware;
 using TracePca.Interface;
+using TracePca.Interface.Middleware;
 using TracePca.Models;
 using TracePca.Models.CustomerRegistration;
 using TracePca.Models.UserModels;
@@ -44,9 +47,10 @@ namespace TracePca.Service
         private readonly IWebHostEnvironment _env;
         private readonly string _appSettingsPath;
         private readonly IDbConnection _db;
-       
+        private readonly ErrorLoggerInterface _errorLogger;
 
-        public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DynamicDbContext context, OtpService otpService, IWebHostEnvironment env)
+
+        public Login(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, DynamicDbContext context, OtpService otpService, IWebHostEnvironment env, ErrorLoggerInterface errorLogger)
         {
             _dbcontext = dbContext;
             _customerRegistrationContext = customerDbContext;
@@ -55,6 +59,7 @@ namespace TracePca.Service
             _context = context;
             _otpService = otpService;
             _env = env;
+            _errorLogger = errorLogger;
             _appSettingsPath = Path.Combine(env.ContentRootPath, "appsettings.json");
             _db = new SqlConnection(configuration.GetConnectionString("DefaultConnection"));
          
@@ -820,8 +825,31 @@ new { email = plainEmail });
 
 
 
-               if (user == null || DecryptPassword(user.UsrPassWord) != password)
+                //if (user == null || DecryptPassword(user.UsrPassWord) != password)
+                // {
+                //     return new LoginResponse
+                //     {
+                //         StatusCode = 401,
+                //         Message = "Invalid username or password."
+                //     };
+                // }
+
+                if (user == null || DecryptPassword(user.UsrPassWord) != password)
                 {
+                    // Log failed login
+                    await _errorLogger.LogErrorAsync(new ErrorLogDto
+                    {
+                        FormName = "Login",
+                        Controller = "Auth",
+                        Action = "LoginUser",
+                        ErrorMessage = "Invalid username or password.",
+                        StackTrace = "",
+                        UserId = user?.UsrId ?? 0,
+                        CustomerId = 0,
+                        Description = $"Failed login attempt for {email}",
+                        ResponseTime = 0
+                    });
+
                     return new LoginResponse
                     {
                         StatusCode = 401,
@@ -1051,29 +1079,70 @@ WHERE UserId = @UserId
 
 
         public async Task InsertUserTokenAsync(
-    int userId,
-    string email,
-    string accessToken,
-    string refreshToken,
-    DateTime accessExpiry,
-    DateTime refreshExpiry,
-      string customerCode)
+     int userId,
+     string email,
+     string accessToken,
+     string refreshToken,
+     DateTime accessExpiry,
+     DateTime refreshExpiry,
+     string customerCode
+      )
         {
             const string sql = @"
         INSERT INTO UserTokens 
         (UserEmail, AccessToken, RefreshToken, AccessTokenExpiry, RefreshTokenExpiry, RevokedAt, 
-          UserId)
-        VALUES (@UserEmail, @AccessToken, @RefreshToken, @AccessTokenExpiry, @RefreshTokenExpiry, @RevokedAt, @UserId)";
+         UserId, IpAddress, Device, Browser, CreatedAt)
+        VALUES 
+        (@UserEmail, @AccessToken, @RefreshToken, @AccessTokenExpiry, @RefreshTokenExpiry, 
+         @RevokedAt, @UserId, @IpAddress, @Device, @Browser, @CreatedAt)";
 
+            // Get dynamic DB from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
             string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
-            string customerDbConnection = string.Format(connectionStringTemplate, customerCode);
+            string customerDbConnection = string.Format(connectionStringTemplate, dbName);
+            string userAgent = _httpContextAccessor.HttpContext?.Request.Headers["User-Agent"].ToString() ?? "";
+            string ipAddress = null;
 
+            // 1️⃣ Check X-Forwarded-For header first (for proxies/load balancers)
+            if (_httpContextAccessor.HttpContext?.Request.Headers.ContainsKey("X-Forwarded-For") == true)
+            {
+                var header = _httpContextAccessor.HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(header))
+                    ipAddress = header.Split(',')[0].Trim(); // take first IP if multiple
+            }
+
+            // 2️⃣ Fallback to RemoteIpAddress if header not present
+            if (string.IsNullOrEmpty(ipAddress))
+            {
+                ipAddress = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+            }
+
+            // Detect device
+            string device = "Unknown Device";
+            if (!string.IsNullOrEmpty(userAgent))
+            {
+                if (userAgent.Contains("Windows")) device = "Windows PC";
+                else if (userAgent.Contains("Mac")) device = "Mac";
+                else if (userAgent.Contains("iPhone")) device = "iPhone";
+                else if (userAgent.Contains("iPad")) device = "iPad";
+                else if (userAgent.Contains("Android")) device = "Android Device";
+            }
+
+            // Detect browser
+            string browser = "Unknown Browser";
+            if (!string.IsNullOrEmpty(userAgent))
+            {
+                if (userAgent.Contains("Chrome") && !userAgent.Contains("Edge")) browser = "Chrome";
+                else if (userAgent.Contains("Firefox")) browser = "Firefox";
+                else if (userAgent.Contains("Safari") && !userAgent.Contains("Chrome")) browser = "Safari";
+                else if (userAgent.Contains("Edge")) browser = "Edge";
+            }
+
+            var accessTokenExpiry = DateTime.UtcNow.AddHours(1);   // instead of DateTime.Now
+            var refreshTokenExpiry = DateTime.UtcNow.AddDays(7);
 
             using var connection = new SqlConnection(customerDbConnection);
             await connection.OpenAsync();
@@ -1084,9 +1153,13 @@ WHERE UserId = @UserId
                 UserEmail = email,
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
-                AccessTokenExpiry = accessExpiry,
+                AccessTokenExpiry = accessTokenExpiry,  
+                RefreshTokenExpiry = refreshTokenExpiry,
                 RevokedAt = (DateTime?)null,
-                RefreshTokenExpiry = refreshExpiry
+                Device = device,
+                Browser = browser,
+                IpAddress = ipAddress,
+                CreatedAt = DateTime.UtcNow
             });
         }
 
@@ -1378,6 +1451,84 @@ WHERE UserId = @UserId
 
         //    return results.ToList();
         //}
+        public async Task<IEnumerable<LogInfoDto>> GetUserLoginLogsAsync()
+        {
+            // Get dynamic database name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
+
+            string query = @"
+SELECT 
+    ut.UserId AS UserId,
+    ut.UserEmail,
+    ut.CreatedAt,
+    ut.RevokedAt,
+    ut.AccessTokenExpiry,
+    ut.IsRevoked,
+    ut.IpAddress,
+    ut.Device,
+    ut.Browser
+FROM UserTokens ut
+INNER JOIN Sad_UserDetails sud ON sud.usr_Id = ut.UserId
+ORDER BY ut.Id DESC";
+
+            var logs = await connection.QueryAsync<dynamic>(query);
+
+            var istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+            var utcNow = DateTime.UtcNow;
+
+            var formattedLogs = new List<LogInfoDto>();
+
+            foreach (var x in logs)
+            {
+                // Login IST
+                var loginDateTimeIST = TimeZoneInfo.ConvertTimeFromUtc((DateTime)x.CreatedAt, istZone);
+
+                // Logout IST (RevokedAt if exists, otherwise AccessTokenExpiry)
+                DateTime logoutUtc = x.RevokedAt ?? (DateTime)x.AccessTokenExpiry;
+                var logoutDateTimeIST = TimeZoneInfo.ConvertTimeFromUtc(logoutUtc, istZone);
+
+                // Status
+                bool isRevoked = x.IsRevoked == null ? false : (bool)x.IsRevoked;
+                bool isActive = (!isRevoked && (DateTime)x.AccessTokenExpiry > utcNow);
+                string status = isActive ? "Active" : "Inactive";
+
+                // User timeline
+                string userTimeLine = isActive
+                    ? $"Active {(utcNow - (DateTime)x.CreatedAt).Hours}h {(utcNow - (DateTime)x.CreatedAt).Minutes % 60}m"
+                    : $"Idle {((logoutUtc - (DateTime)x.CreatedAt).TotalMinutes):0}m";
+
+                // Fetch role name
+                string roleName = await connection.QueryFirstOrDefaultAsync<string>(
+                    @"SELECT g.Mas_Description 
+              FROM Sad_UserDetails u
+              LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID
+              WHERE u.usr_Id = @UserId",
+                    new { UserId = x.UserId });
+
+                formattedLogs.Add(new LogInfoDto
+                {
+                    UserId = x.UserId,
+                    UserEmail = x.UserEmail,
+                    LoginDate = loginDateTimeIST.ToString("dd/MM/yyyy"),
+                    LoginTime = loginDateTimeIST.ToString("hh:mm tt"),
+                    LogoutDate = x.RevokedAt != null ? logoutDateTimeIST.ToString("dd/MM/yyyy") : null,
+                    LogoutTime = x.RevokedAt != null ? logoutDateTimeIST.ToString("hh:mm tt") : null,
+                    IpAddress = x.IpAddress,
+                    Device = x.Device,
+                    Browser = x.Browser,
+                    Status = status,
+                    UserTimeLine = userTimeLine,
+                    RoleName = roleName
+                });
+            }
+
+            return formattedLogs;
+        }
+
 
 
         public async Task<List<FormPermissionDto>> GetUserPermissionsWithFormNameAsync(int companyId, int userId)
