@@ -7,6 +7,8 @@
         {
             public string? cmm_ID { get; set; }
             public string? cmm_Desc { get; set; }
+            public int lm_LevelOfRisk { get; set; }
+            public int lm_Weightage { get; set; }
         }
 
         //SaveOrUpdateLedgerMaterialityMaster
@@ -45,6 +47,19 @@
             public int lm_Branch { get; set; }
             public int lm_LevelOfRisk { get; set; }
             public int lm_Weightage { get; set; }
+        }
+
+        //GenerateIDButtonForContentMaterialityMaster
+        public class CreateMTContentRequestDto
+        {
+            public int CompId { get; set; }               
+            public string Description { get; set; } = string.Empty; 
+        }
+        public class CreateMTContentResponseDto
+        {
+            public int StatusCode { get; set; }
+            public string Message { get; set; } = string.Empty;
+            public string NewCode { get; set; } = string.Empty;
         }
     }
 }
