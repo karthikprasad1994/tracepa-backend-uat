@@ -18,6 +18,7 @@ using Newtonsoft.Json;
 using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
+using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
 
 
 
@@ -1811,6 +1812,66 @@ WHERE UPPER(CUST_NAME) = UPPER(@CustomerName)
                 transaction.Rollback();
                 throw;
             }
+        }
+
+        //DownloadEmployeeMaster
+        public EmployeeMasterResult GetEmployeeMasterExcelTemplate()
+        {
+            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SampleExcels\\EmployeeMaster Template.xlsx";
+
+            if (!File.Exists(filePath))
+                return new EmployeeMasterResult();
+
+            var bytes = File.ReadAllBytes(filePath);
+            var fileName = "EmployeeMaster Template.xlsx";   // ✅ keep .xls
+            var contentType = "application/vnd.ms-excel"; // ✅ correct for .xls
+
+            return new EmployeeMasterResult
+            {
+                FileBytes = bytes,
+                FileName = fileName,
+                ContentType = contentType
+            };
+        }
+
+        //DownloadClientDetails
+        public ClientDetailsResult GetClientDetailsExcelTemplate()
+        {
+            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SampleExcels\\ClientDetails Template.xlsx";
+
+            if (!File.Exists(filePath))
+                return new ClientDetailsResult();
+
+            var bytes = File.ReadAllBytes(filePath);
+            var fileName = "ClientDetails Template.xlsx";   // ✅ keep .xls
+            var contentType = "application/vnd.ms-excel"; // ✅ correct for .xls
+
+            return new ClientDetailsResult
+            {
+                FileBytes = bytes,
+                FileName = fileName,
+                ContentType = contentType
+            };
+        }
+
+        //DownloadClientuser
+        public ClientUserResult GetClientUserExcelTemplate()
+        {
+            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SampleExcels\\ClientUser Template.xlsx";
+
+            if (!File.Exists(filePath))
+                return new ClientUserResult();
+
+            var bytes = File.ReadAllBytes(filePath);
+            var fileName = "ClientUser Template.xlsx";   // ✅ keep .xls
+            var contentType = "application/vnd.ms-excel"; // ✅ correct for .xls
+
+            return new ClientUserResult
+            {
+                FileBytes = bytes,
+                FileName = fileName,
+                ContentType = contentType
+            };
         }
     }
 }
