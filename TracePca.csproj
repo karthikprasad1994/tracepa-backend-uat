@@ -14,11 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="Service\FIN statement\rptSchduleNote.rdlc" />
+    <None Remove="Report\rptSchduleNote.rdlc" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Service\FIN statement\rptSchduleNote.rdlc">
+    <Content Include="Report\rptSchduleNote.rdlc">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

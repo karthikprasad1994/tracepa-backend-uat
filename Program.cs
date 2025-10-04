@@ -188,8 +188,7 @@ builder.Services.AddScoped<LedgerMaterialityInterface, LedgerMaterialityService>
 builder.Services.AddScoped<LedgerDifferenceInterface, LedgerDifferenceService>();
 builder.Services.AddScoped<SchedulePartnerFundsInterface, SchedulePartnerFundsService>();
 builder.Services.AddScoped<AbnormalitiesInterface, AbnormalitiesService>();
-
-
+builder.Services.AddScoped<SelectedPartiesInterface, SelectedPartiesService>();
 
 // Register your custom DbConnectionFactory
 builder.Services.AddScoped<IDbConnectionFactory, DbConnectionFactory>();

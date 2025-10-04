@@ -225,7 +225,7 @@ namespace TracePca.Service.Master
                         break;
 
                     case "delete":
-                        query = @"UPDATE Content_Management_Master SET CMM_Delflag = 'D', CMM_Delflag = 'D', CMM_DeletedBy = @userId, CMM_DeletedOn = GETDATE(), CMM_IPAddress = @IpAddress WHERE CMM_ID IN @Ids AND CMM_CompID = @CompID;";
+                        query = @"UPDATE Content_Management_Master SET CMM_Status = 'D', CMM_Delflag = 'D', CMM_DeletedBy = @userId, CMM_DeletedOn = GETDATE(), CMM_IPAddress = @IpAddress WHERE CMM_ID IN @Ids AND CMM_CompID = @CompID;";
                         break;
 
                     default:
@@ -270,14 +270,14 @@ namespace TracePca.Service.Master
             }
         }
 
-        public async Task<(bool Success, string Message, List<AuditTypeChecklistMasterDTO> Data)> GetAuditTypeChecklistByStatusAsync(string status, int compId)
+        public async Task<(bool Success, string Message, List<AuditTypeChecklistMasterDTO> Data)> GetAuditTypeChecklistByStatusAsync(int typeId, string status, int compId)
         {
             using var connection = new SqlConnection(_connectionString);
             try
             {
-                var query = @"SELECT * FROM AuditType_Checklist_Master WHERE ACM_CompId = @CompID AND ACM_DELFLG = @Status ORDER BY ACM_Heading;";
+                var query = @"SELECT * FROM AuditType_Checklist_Master WHERE ACM_AuditTypeID = @TypeId AND ACM_CompId = @CompID AND ACM_DELFLG = @Status ORDER BY ACM_Heading;";
 
-                var result = await connection.QueryAsync<AuditTypeChecklistMasterDTO>(query, new { Status = status, CompID = compId });
+                var result = await connection.QueryAsync<AuditTypeChecklistMasterDTO>(query, new { TypeId = typeId, Status = status, CompID = compId });
                 return (true, "Records fetched successfully.", result.ToList());
             }
             catch (Exception ex)
@@ -383,7 +383,7 @@ namespace TracePca.Service.Master
                         break;
 
                     case "delete":
-                        query = @"UPDATE AuditType_Checklist_Master SET ACM_DELFLG = 'D', ACM_DeletedBy = @UserId, ACM_DeletedOn = GETDATE(), ACM_IPAddress = @IpAddress WHERE ACM_ID IN @Ids AND ACM_CompId = @CompID;";
+                        query = @"UPDATE AuditType_Checklist_Master SET ACM_Status = 'D', ACM_DELFLG = 'D', ACM_DeletedBy = @UserId, ACM_DeletedOn = GETDATE(), ACM_IPAddress = @IpAddress WHERE ACM_ID IN @Ids AND ACM_CompId = @CompID;";
                         break;
 
                     default:
@@ -486,8 +486,8 @@ namespace TracePca.Service.Master
 
                 if (isUpdate)
                 {
-                    await connection.ExecuteAsync(@"UPDATE AssignmentTask_Checklist_Master SET ACM_Heading = @ACM_Heading, ACM_Checkpoint = @ACM_Checkpoint, ACM_UpdatedBy = @ACM_UpdatedBy, 
-                                                ACM_UpdatedOn = GETDATE(), ACM_Status = 'U', ACM_IPAddress = @ACM_IPAddress WHERE ACM_ID = @ACM_ID;", dto, transaction);
+                    await connection.ExecuteAsync(@"UPDATE AssignmentTask_Checklist_Master SET ACM_Heading = @ACM_Heading, ACM_Checkpoint = @ACM_Checkpoint, ACM_BillingType = @ACM_BillingType,
+                    ACM_UpdatedBy = @ACM_UpdatedBy, ACM_UpdatedOn = GETDATE(), ACM_Status = 'U', ACM_IPAddress = @ACM_IPAddress WHERE ACM_ID = @ACM_ID;", dto, transaction);
                 }
                 else
                 {
@@ -495,8 +495,8 @@ namespace TracePca.Service.Master
                     dto.ACM_Code = $"ACM_{maxId}";
                     dto.ACM_ID = await connection.ExecuteScalarAsync<int>(
                         @"DECLARE @NewId INT = ISNULL((SELECT MAX(ACM_ID) FROM AssignmentTask_Checklist_Master), 0) + 1;
-                          INSERT INTO AssignmentTask_Checklist_Master (ACM_ID, ACM_Code, ACM_AssignmentTaskID, ACM_Heading, ACM_Checkpoint, ACM_DELFLG, ACM_STATUS, ACM_CRBY, ACM_CRON, ACM_IPAddress, ACM_CompId)
-                          VALUES (@NewId, @ACM_Code, @ACM_AssignmentTaskID, @ACM_Heading, @ACM_Checkpoint, 'A', 'W', @ACM_CRBY, GETDATE(), @ACM_IPAddress, @ACM_CompId);
+                          INSERT INTO AssignmentTask_Checklist_Master (ACM_ID, ACM_Code, ACM_AssignmentTaskID, ACM_Heading, ACM_Checkpoint, ACM_BillingType, ACM_DELFLG, ACM_STATUS, ACM_CRBY, ACM_CRON, ACM_IPAddress, ACM_CompId)
+                          VALUES (@NewId, @ACM_Code, @ACM_AssignmentTaskID, @ACM_Heading, @ACM_Checkpoint, @ACM_BillingType, 'A', 'W', @ACM_CRBY, GETDATE(), @ACM_IPAddress, @ACM_CompId);
                           SELECT @NewId;", dto, transaction);
                 }
 
@@ -536,7 +536,7 @@ namespace TracePca.Service.Master
                         break;
 
                     case "delete":
-                        query = @"UPDATE AssignmentTask_Checklist_Master SET ACM_DELFLG = 'D', ACM_DeletedBy = @UserId, ACM_DeletedOn = GETDATE(), ACM_IPAddress = @IpAddress WHERE ACM_ID IN @Ids AND ACM_CompId = @CompID;";
+                        query = @"UPDATE AssignmentTask_Checklist_Master SET ACM_Status = 'D', ACM_DELFLG = 'D', ACM_DeletedBy = @UserId, ACM_DeletedOn = GETDATE(), ACM_IPAddress = @IpAddress WHERE ACM_ID IN @Ids AND ACM_CompId = @CompID;";
                         break;
 
                     default:
@@ -557,14 +557,14 @@ namespace TracePca.Service.Master
             }
         }
 
-        public async Task<(bool Success, string Message, List<AuditCompletionSubPointMasterDTO> Data)> GetAuditSubPointsByStatusAsync(string status, int compId)
+        public async Task<(bool Success, string Message, List<AuditCompletionSubPointMasterDTO> Data)> GetAuditSubPointsByStatusAsync(int checkPointId, string status, int compId)
         {
             using var connection = new SqlConnection(_connectionString);
             try
             {
-                var query = @"SELECT * FROM AuditCompletion_SubPoint_Master WHERE ASM_CompId = @CompID AND ASM_DELFLG = @Status ORDER BY ASM_SubPoint;";
+                var query = @"SELECT * FROM AuditCompletion_SubPoint_Master WHERE ASM_CheckpointID = @ASM_CheckpointID AND ASM_CompId = @CompID AND ASM_DELFLG = @Status ORDER BY ASM_SubPoint;";
 
-                var result = await connection.QueryAsync<AuditCompletionSubPointMasterDTO>(query, new { Status = status, CompID = compId });
+                var result = await connection.QueryAsync<AuditCompletionSubPointMasterDTO>(query, new { ASM_CheckpointID = checkPointId, Status = status, CompID = compId });
                 return (true, "Records fetched successfully.", result.ToList());
             }
             catch (Exception ex)
@@ -668,7 +668,7 @@ namespace TracePca.Service.Master
                         break;
 
                     case "delete":
-                        query = @"UPDATE AuditCompletion_SubPoint_Master SET ASM_DELFLG = 'D', ASM_DeletedBy = @UserId, ASM_DeletedOn = GETDATE(), ASM_IPAddress = @IpAddress WHERE ASM_ID IN @Ids AND ASM_CompId = @CompID;";
+                        query = @"UPDATE AuditCompletion_SubPoint_Master SET ASM_Status = 'D', ASM_DELFLG = 'D', ASM_DeletedBy = @UserId, ASM_DeletedOn = GETDATE(), ASM_IPAddress = @IpAddress WHERE ASM_ID IN @Ids AND ASM_CompId = @CompID;";
                         break;
 
                     default:

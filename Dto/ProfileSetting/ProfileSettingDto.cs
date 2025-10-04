@@ -6,15 +6,15 @@
         public class TracePaGetUserProfileDto
         {
             public int UserId { get; set; }
-            public string MobileNo { get; set; }
-            public string Email { get; set; }
-            public string Experience { get; set; }
-            public string Loginname { get; set; }
-            public string SAPCode { get; set; }
-            public string EmpName { get; set; }
-            public string Designation { get; set; }
-            public string Role { get; set; }
-            public int? Permission { get; set; }
+            public string? MobileNo { get; set; }
+            public string? Email { get; set; }
+            public string? Experience { get; set; }
+            public string? LoginName { get; set; }
+            public string? SAPCode { get; set; }
+            public string? EmpName { get; set; }
+            public string? Designation { get; set; }
+            public string? Role { get; set; }
+            public string? Permission { get; set; }
         }
 
         //ChangePassword
@@ -43,5 +43,18 @@
             public int? NoOfUsers { get; set; }
 
         }
+
+        //UpdateUserProfile
+        public class UpdateUserProfileDto
+        {
+            public int Id { get; set; }                // optional — if you need to track who was updated
+            public string? MobileNo { get; set; }
+            public string? EmailId { get; set; }
+            public string? Experience { get; set; }
+            public string LoginName { get; set; } = string.Empty;
+            public string SAPCode { get; set; } = string.Empty;
+            public string EmployeeName { get; set; } = string.Empty;
+        }
+
     }
 }

@@ -129,5 +129,41 @@ namespace TracePca.Controllers.ProfileSetting
                 });
             }
         }
+
+        //UpdateUserProfile
+        [HttpPut("UpdateUserProfile")]
+        public async Task<IActionResult> UpdateUserProfileAsync([FromBody] UpdateUserProfileDto dto)
+        {
+            try
+            {
+                var result = await _ProfileSettingService.UpdateUserProfileAsync(dto);
+
+                if (result <= 0)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "User profile not found or no changes made.",
+                        id = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "User profile updated successfully.",
+                    id = dto.Id
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while updating the user profile.",
+                    error = ex.Message
+                });
+            }
+        }
     }
 }

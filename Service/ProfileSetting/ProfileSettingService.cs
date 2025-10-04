@@ -1,46 +1,80 @@
-﻿using Dapper;
+﻿using System.Text.Json.Serialization;
+using System.Text.Json;
+using Dapper;
 using Microsoft.Data.SqlClient;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.ProfileSetting;
 using static TracePca.Dto.ProfileSetting.ProfileSettingDto;
+using static TracePca.Dto.FIN_Statement.SelectedPartiesDto;
 
 namespace TracePca.Service.ProfileSetting
 {
     public class ProfileSettingService : ProfileSettingInterface
     {
         private readonly IConfiguration _configuration;
-        public ProfileSettingService(IConfiguration configuration)
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
+        public ProfileSettingService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
            _configuration = configuration;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         //GetUserProfile
         public async Task<IEnumerable<TracePaGetUserProfileDto>> GetUserProfileAsync(int iUserId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection1"));
+            // Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
 
             var query = @"SELECT 
-            usr_Id as UserId,
-            usr_MobileNo as MobileNo,
-            usr_Email as Email,
-            Usr_Experience as Experience,
-            usr_LoginName as Loginname,
-            usr_Code as SAPCode,
-            usr_FullName as EmpName,
-            usr_Designation as Designation,
-            Usr_Role as Role,
-            usr_PermAddId as Permission
-            FROM sad_userDetails WHERE usr_Id = @UserId";
-
-            await connection.OpenAsync();
+        u.usr_Id AS UserId,
+        u.usr_MobileNo AS MobileNo,
+        u.usr_Email AS Email,
+        u.Usr_Experience AS Experience,
+        u.usr_LoginName AS LoginName,
+        u.usr_Code AS SAPCode,
+        u.usr_FullName AS EmpName,
+        d.Mas_Description AS Designation,        
+        r.Mas_Description AS Role,               
+        CASE 
+            WHEN u.usr_PermAddId = 0 THEN 'Role based'
+            ELSE 'User based'
+        END AS Permission       
+    FROM sad_userDetails u
+    LEFT JOIN SAD_GRPDESGN_General_Master d 
+        ON u.usr_Designation = d.Mas_ID   
+    LEFT JOIN SAD_GrpOrLvl_General_Master r 
+        ON u.Usr_Role = r.Mas_ID          
+    WHERE u.usr_Id = @UserId;";
 
             return await connection.QueryAsync<TracePaGetUserProfileDto>(query, new { UserId = iUserId });
         }
 
         //ChangePassword
         public async Task<IEnumerable<TracePaChangePasswordDto>> PutChangePasswordAsync(string LoginName, int UserId, TracePaChangePasswordDto dto)
-        {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection1"));
+        { 
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
 
             var query = @"
         UPDATE Sad_Userdetails 
@@ -82,6 +116,7 @@ namespace TracePca.Service.ProfileSetting
 
             var query = @"SELECT 
             MCR_ID as CustomerId,
+            MCR_ProductKey,
             MCR_MP_ID as ModuleId,
             MCR_CustomerName as CustomerName,
             MCR_CustomerCode as CustomerCode,
@@ -97,5 +132,43 @@ namespace TracePca.Service.ProfileSetting
 
             return await connection.QueryAsync<TracePaLicenseInformationDto>(query, new { CustomerId = iCustomerId });
         }
+
+        //UpdateUserProfile
+        public async Task<int> UpdateUserProfileAsync(UpdateUserProfileDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+        UPDATE sad_userDetails 
+        SET usr_MobileNo= @MobileNo,
+            usr_Email = @EmailId,
+            Usr_Experience = @Experience
+        WHERE usr_LoginName = @LoginName
+          AND usr_Code = @SAPCode
+          AND usr_FullName= @EmployeeName";
+
+            await connection.ExecuteAsync(query, new
+            {
+                MobileNo = dto.MobileNo,
+                EmailId = dto.EmailId,
+                Experience = dto.Experience,
+                LoginName = dto.LoginName,
+                SAPCode = dto.SAPCode,
+                EmployeeName = dto.EmployeeName
+            });
+
+            return dto.Id;
+        }
+
     }
 }

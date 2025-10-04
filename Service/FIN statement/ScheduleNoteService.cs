@@ -1924,102 +1924,84 @@ INSERT INTO ScheduleNote_First (
         //DownloadScheduleNotePDFTemplate
         public async Task<byte[]> GenerateScheduleNotePdfAsync(int compId, int custId, string financialYear)
         {
-            // Get Customer Name
-            var customerName = await GetCustomerNameAsync(custId);
-
-            // Fetch all datasets
-            var dt1 = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "AU");
-            var dt2 = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "IS");
-            var dt3 = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "AI");
-            var dt4 = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "BS");
-            var dt5 = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "CC");
-            var dt6 = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "FD");
-
-            var dtS1 = await GetScheduleNoteSecondAsync(compId, custId, financialYear, "SF");
-            var dtS2 = await GetScheduleNoteSecondAsync(compId, custId, financialYear, "SS");
-            var dtS3 = await GetScheduleNoteSecondAsync(compId, custId, financialYear, "ST");
-            var dtS4 = await GetScheduleNoteSecondAsync(compId, custId, financialYear, "SV");
-
-            var dtT1 = await GetScheduleNoteThirdAsync(compId, custId, financialYear, "TBE");
-            var dtT2 = await GetScheduleNoteThirdAsync(compId, custId, financialYear, "TBP");
-            var dtT3 = await GetScheduleNoteDescAsync(compId, custId, financialYear, "cEquity");
-            var dtT4 = await GetScheduleNoteDescAsync(compId, custId, financialYear, "dPref");
-            var dtT5 = await GetScheduleNoteThirdAsync(compId, custId, financialYear, "TEE");
-            var dtT6 = await GetScheduleNoteThirdAsync(compId, custId, financialYear, "TBP");
-            var dtT7 = await GetScheduleNoteDescAsync(compId, custId, financialYear, "fShares");
-            var dtT8 = await GetScheduleNoteFourthAsync(compId, custId, financialYear, "FSC");
-            var dtT9 = await GetScheduleNoteFourthAsync(compId, custId, financialYear, "FSP");
-            var dtT10 = await GetScheduleNoteDescAsync(compId, custId, financialYear, "footNote");
-
-            // Convert to DataTables
-            DataTable ToDataTable<T>(List<T> list)
+            try
             {
-                var dt = new DataTable(typeof(T).Name);
-                var props = typeof(T).GetProperties();
-                foreach (var prop in props)
-                    dt.Columns.Add(prop.Name, Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType);
+                // Get Customer Name
+                var customerName = await GetCustomerNameAsync(custId);
 
-                foreach (var item in list)
+                // Fetch datasets safely
+                var datasets = new Dictionary<string, DataTable>
                 {
-                    var values = new object[props.Length];
-                    for (int i = 0; i < props.Length; i++)
-                        values[i] = props[i].GetValue(item) ?? DBNull.Value;
-                    dt.Rows.Add(values);
+                    ["DataSet1"] = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "AU") ?? new DataTable(),
+                    ["DataSet2"] = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "IS") ?? new DataTable(),
+                    ["DataSet3"] = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "AI") ?? new DataTable(),
+                    ["DataSet4"] = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "BS") ?? new DataTable(),
+                    ["DataSet5"] = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "CC") ?? new DataTable(),
+                    ["DataSet6"] = await GetScheduleNoteFirstAsync(compId, custId, financialYear, "FD") ?? new DataTable(),
+
+                    ["ScheduleNote_Second1"] = await GetScheduleNoteSecondAsync(compId, custId, financialYear, "SF") ?? new DataTable(),
+                    ["ScheduleNote_Second2"] = await GetScheduleNoteSecondAsync(compId, custId, financialYear, "SS") ?? new DataTable(),
+                    ["ScheduleNote_Second3"] = await GetScheduleNoteSecondAsync(compId, custId, financialYear, "ST") ?? new DataTable(),
+                    ["ScheduleNote_Second4"] = await GetScheduleNoteSecondAsync(compId, custId, financialYear, "SV") ?? new DataTable(),
+
+                    ["ScheduleNote_Third1"] = await GetScheduleNoteThirdAsync(compId, custId, financialYear, "TBE") ?? new DataTable(),
+                    ["ScheduleNote_Third2"] = await GetScheduleNoteThirdAsync(compId, custId, financialYear, "TBP") ?? new DataTable(),
+                    ["ScheduleNote_Desc"] = await GetScheduleNoteDescAsync(compId, custId, financialYear, "cEquity") ?? new DataTable(),
+                    ["ScheduleNote_Desc1"] = await GetScheduleNoteDescAsync(compId, custId, financialYear, "dPref") ?? new DataTable(),
+                    ["ScheduleNote_Third3"] = await GetScheduleNoteThirdAsync(compId, custId, financialYear, "TEE") ?? new DataTable(),
+                    ["ScheduleNote_Third4"] = await GetScheduleNoteThirdAsync(compId, custId, financialYear, "TBP") ?? new DataTable(),
+                    ["ScheduleNote_Desc2"] = await GetScheduleNoteDescAsync(compId, custId, financialYear, "fShares") ?? new DataTable(),
+                    ["ScheduleNote_Fourth"] = await GetScheduleNoteFourthAsync(compId, custId, financialYear, "FSC") ?? new DataTable(),
+                    ["ScheduleNote_Fourth1"] = await GetScheduleNoteFourthAsync(compId, custId, financialYear, "FSP") ?? new DataTable(),
+                    ["ScheduleNote_Desc3"] = await GetScheduleNoteDescAsync(compId, custId, financialYear, "footNote") ?? new DataTable(),
+                };
+
+                // 🔎 Debug: print dataset info before adding to report
+                foreach (var ds in datasets)
+                {
+                    Console.WriteLine($"Dataset: {ds.Key}, Rows: {ds.Value.Rows.Count}");
+                    foreach (DataColumn col in ds.Value.Columns)
+                    {
+                        Console.WriteLine($"   Column: {col.ColumnName} ({col.DataType.Name})");
+                    }
                 }
-                return dt;
+
+                // Load RDLC report
+                var rdlcPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Report", "rptSchduleNote.rdlc");
+                if (!File.Exists(rdlcPath))
+                    throw new FileNotFoundException("RDLC file not found", rdlcPath);
+
+                var report = new LocalReport { ReportPath = rdlcPath };
+
+                // Add datasets to report
+                foreach (var ds in datasets)
+                {
+                    report.DataSources.Add(new ReportDataSource(ds.Key, ds.Value));
+                }
+
+                // Add parameters
+                var paramList = new List<ReportParameter>
+        {
+            new ReportParameter("Customer", customerName ?? custId.ToString()),
+            new ReportParameter("FYear", financialYear)
+        };
+
+                if (int.TryParse(financialYear, out var fy))
+                {
+                    paramList.Add(new ReportParameter("CurrentYear", fy.ToString()));
+                    paramList.Add(new ReportParameter("PreviousYear", (fy - 1).ToString()));
+                }
+
+                report.SetParameters(paramList);
+
+                // Render PDF
+                return report.Render("PDF");
             }
-
-            // Prepare RDLC report
-            var report = new LocalReport();
-
-            // Build the absolute path to the RDLC file
-            var rdlcFileName = "rptSchduleNote.rdlc";
-            var rdlcPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FIN Statement", "rptSchduleNote.rdlc");
-
-            if (!File.Exists(rdlcPath))
-                throw new FileNotFoundException("RDLC file not found", rdlcPath);
-
-            report.ReportPath = rdlcPath;
-
-            // Add datasets
-            report.DataSources.Add(new ReportDataSource("DataSet1", dt1));
-            report.DataSources.Add(new ReportDataSource("DataSet2", dt2));
-            report.DataSources.Add(new ReportDataSource("DataSet3", dt3));
-            report.DataSources.Add(new ReportDataSource("DataSet4", dt4));
-            report.DataSources.Add(new ReportDataSource("DataSet5", dt5));
-            report.DataSources.Add(new ReportDataSource("DataSet6", dt6));
-
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Second1", dtS1));
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Second2", dtS2));
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Second3", dtS3));
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Second4", dtS4));
-
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Third1", dtT1));
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Third2", dtT2));
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Desc", dtT3));
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Desc1", dtT4));
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Third3", dtT5));
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Third4", dtT6));
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Desc2", dtT7));
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Fourth", dtT8));
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Fourth1", dtT9));
-            report.DataSources.Add(new ReportDataSource("ScheduleNote_Desc3", dtT10));
-
-            var paramList = new List<ReportParameter> 
+            catch (Exception ex)
             {
-               new ReportParameter("Customer", customerName ?? custId.ToString()),
-               new ReportParameter("FYear", financialYear)
-            };
-
-            if (int.TryParse(financialYear, out var fy))
-            {
-                paramList.Add(new ReportParameter("CurrentYear", fy.ToString()));
-                paramList.Add(new ReportParameter("PreviousYear", (fy - 1).ToString()));
+                Console.WriteLine("❌ Error generating PDF: " + ex);
+                throw; // rethrow so you can see full stack trace
             }
-
-            report.SetParameters(paramList);
-
-            return report.Render("PDF");
         }
         private async Task<string> GetCustomerNameAsync(int custId)
         {
@@ -2119,32 +2101,32 @@ INSERT INTO ScheduleNote_First (
             foreach (var item in list)
             {
                 var row = dt.NewRow();
-               foreach (var c in cols)
-{
-    if (((IDictionary<string, object>)item).ContainsKey(c))
-    {
-        var value = ((IDictionary<string, object>)item)[c];
-        if (value != null && decimal.TryParse(value.ToString(), out decimal parsed))
-        {
-            row[c] = parsed.ToString("#,##0.00");
-        }
-        else
-        {
-            row[c] = value?.ToString() ?? ""; // keep original string if not numeric
-        }
-    }
-    else
-    {
-        row[c] = "";
-    }
-}
+                foreach (var c in cols)
+                {
+                    if (((IDictionary<string, object>)item).ContainsKey(c))
+                    {
+                        var value = ((IDictionary<string, object>)item)[c];
+                        if (value != null && decimal.TryParse(value.ToString(), out decimal parsed))
+                        {
+                            row[c] = parsed.ToString("#,##0.00");
+                        }
+                        else
+                        {
+                            row[c] = value?.ToString() ?? ""; // keep original string if not numeric
+                        }
+                    }
+                    else
+                    {
+                        row[c] = "";
+                    }
+                }
                 dt.Rows.Add(row);
             }
 
             return dt;
         }
         private async Task<DataTable> GetScheduleNoteThirdAsync(int compId, int custId, string financialYear, string category)
-         {
+        {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
