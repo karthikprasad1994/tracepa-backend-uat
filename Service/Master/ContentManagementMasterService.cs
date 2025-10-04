@@ -562,7 +562,7 @@ namespace TracePca.Service.Master
             using var connection = new SqlConnection(_connectionString);
             try
             {
-                var query = @"SELECT * FROM AuditCompletion_SubPoint_Master WHERE ASM_CheckpointID = @ASM_CheckpointIDs AND ASM_CompId = @CompID AND ASM_DELFLG = @Status ORDER BY ASM_SubPoint;";
+                var query = @"SELECT * FROM AuditCompletion_SubPoint_Master WHERE ASM_CheckpointID = @ASM_CheckpointID AND ASM_CompId = @CompID AND ASM_DELFLG = @Status ORDER BY ASM_SubPoint;";
 
                 var result = await connection.QueryAsync<AuditCompletionSubPointMasterDTO>(query, new { ASM_CheckpointID = checkPointId, Status = status, CompID = compId });
                 return (true, "Records fetched successfully.", result.ToList());
