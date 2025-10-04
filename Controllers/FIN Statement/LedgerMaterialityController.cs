@@ -1,10 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using TracePca.Data;
-using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
-using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.LedgerMaterialityDto;
 
 
@@ -29,11 +25,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetMaterialityDescription
         [HttpGet("GetMaterialityDescription")]
-        public async Task<IActionResult> GetMaterialityDescription([FromQuery] int CompId, [FromQuery] string cmm_Category)
+        public async Task<IActionResult> GetMaterialityDescription([FromQuery] int CompId, [FromQuery] string cmm_Category, [FromQuery] int YearId, [FromQuery] int CustId)
         {
             try
             {
-                var result = await _LedgerMaterialityService.GetMaterialityDescriptionAsync(CompId, cmm_Category);
+                var result = await _LedgerMaterialityService.GetMaterialityDescriptionAsync(CompId, cmm_Category, YearId, CustId);
 
                 if (result == null || !result.Any())
                 {
@@ -64,32 +60,40 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //SaveOrUpdateLedgerMaterialityMaster
-        [HttpPost("SaveOrUpdateLedgerMaterialityMaster")]
-        public async Task<IActionResult> SaveOrUpdateLedgerMateriality([FromBody] LedgerMaterialityMasterDto dto)
+        [HttpPost("SaveOrUpdate")]
+        public async Task<IActionResult> SaveOrUpdateLedgerMateriality([FromBody] IEnumerable<LedgerMaterialityMasterDto> dtos)
         {
             try
             {
-                if (dto == null)
+                // ✅ Validation
+                if (dtos == null || !dtos.Any())
                 {
                     return BadRequest(new
                     {
                         StatusCode = 400,
-                        Message = "Invalid input data."
+                        Message = "No data provided to save or update.",
+                        Data = (object)null
                     });
                 }
 
-                var result = await _LedgerMaterialityService.SaveOrUpdateLedgerMaterialityAsync(dto);
+                // ✅ Call service
+                var results = await _LedgerMaterialityService.SaveOrUpdateLedgerMaterialityAsync(dtos);
 
-                string actionMessage = dto.lm_ID == 0
-                    ? "Ledger Materiality saved successfully."
-                    : "Ledger Materiality updated successfully.";
+                // ✅ Build response for each item
+                var responseData = dtos.Zip(results, (dto, result) => new
+                {
+                    lm_ID = dto.lm_ID,
+                    Operation = result[0] == 2 ? "Updated" : "Saved",
+                    Message = result[0] == 2
+                        ? $"Ledger Materiality (ID: {dto.lm_ID}) updated successfully."
+                        : "Ledger Materiality saved successfully."
+                }).ToList();
 
                 return Ok(new
                 {
                     StatusCode = 200,
-                    Message = actionMessage,
-                    UpdateOrSave = result[0],
-                    Oper = result[1]
+                    Message = "Ledger Materiality records processed successfully.",
+                    Data = responseData
                 });
             }
             catch (Exception ex)
@@ -133,6 +137,42 @@ namespace TracePca.Controllers.FIN_Statement
                     StatusCode = 500,
                     Message = "An error occurred while fetching Ledger Materiality.",
                     Error = ex.Message
+                });
+            }
+        }
+
+        //GenerateIDButtonForContentMaterialityMaster
+        [HttpPost("GenerateIDButtonForContentMaterialityMaster")]
+        public async Task<IActionResult> CreateMTContent([FromBody] CreateMTContentRequestDto dto)
+        {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Description))
+            {
+                return BadRequest(new CreateMTContentResponseDto
+                {
+                    StatusCode = 400,
+                    Message = "Invalid request. CompId and Description are required."
+                });
+            }
+
+            try
+            {
+                // Call service to generate MT code and insert record
+                string newCode = await _LedgerMaterialityService.GenerateAndInsertContentForMTAsync(dto.CompId, dto.Description);
+
+                return Ok(new CreateMTContentResponseDto
+                {
+                    StatusCode = 200,
+                    Message = "MT content created successfully.",
+                    NewCode = newCode
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new CreateMTContentResponseDto
+                {
+                    StatusCode = 500,
+                    Message = $"An error occurred while creating MT content: {ex.Message}",
+                    NewCode = string.Empty
                 });
             }
         }
