@@ -37,18 +37,6 @@
             public DateTime? lm_CrOn { get; set; }
         }
 
-        //GetLedgerMaterialityMaster
-        public class GetLedgerMaterialityMasterDto
-        {
-            public int lm_ID { get; set; }
-            public int lm_MaterialityId { get; set; }
-            public int lm_CustId { get; set; }
-            public int lm_FinancialYearId { get; set; }
-            public int lm_Branch { get; set; }
-            public int lm_LevelOfRisk { get; set; }
-            public int lm_Weightage { get; set; }
-        }
-
         //GenerateIDButtonForContentMaterialityMaster
         public class CreateMTContentRequestDto
         {

@@ -151,32 +151,6 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
             }
         }
 
-        //GetLedgerMaterialityMaster
-        public async Task<IEnumerable<GetLedgerMaterialityMasterDto>> GetLedgerMaterialityAsync(int compId, int lm_ID)
-        {
-            // ✅ Step 1: Get DB name from session
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
-            if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-            // ✅ Step 2: Get connection string
-            var connectionString = _configuration.GetConnectionString(dbName);
-
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-
-            var query = @"
-        SELECT 
-            lm_ID, lm_MaterialityId, lm_CustId, lm_FinancialYearId, lm_Branch, lm_LevelOfRisk, lm_Weightage
-        FROM Ledger_Materiality_Master
-        WHERE lm_CompID = @CompID
-        AND (@LmId IS NULL OR lm_ID = @LmId)
-        ORDER BY lm_ID DESC";
-
-            return await connection.QueryAsync<GetLedgerMaterialityMasterDto>(query, new { CompID = compId, LmId = lm_ID });
-        }
-
         //GenerateIDButtonForContentMaterialityMaster
         public async Task<string> GenerateAndInsertContentForMTAsync(int compId, string description)
         {

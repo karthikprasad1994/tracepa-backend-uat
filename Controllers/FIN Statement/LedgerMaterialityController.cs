@@ -107,42 +107,8 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GetLedgerMaterialityMaster
-        [HttpGet("GetLedgerMaterialityMaster")]
-        public async Task<IActionResult> GetLedgerMateriality([FromQuery] int compId, [FromQuery] int lm_ID)
-        {
-            try
-            {
-                var result = await _LedgerMaterialityService.GetLedgerMaterialityAsync(compId, lm_ID);
-
-                if (result == null || !result.Any())
-                {
-                    return NotFound(new
-                    {
-                        StatusCode = 404,
-                        Message = "No Ledger Materiality records found."
-                    });
-                }
-                return Ok(new
-                {
-                    StatusCode = 200,
-                    Message = "Ledger Materiality records retrieved successfully.",
-                    Data = result
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    StatusCode = 500,
-                    Message = "An error occurred while fetching Ledger Materiality.",
-                    Error = ex.Message
-                });
-            }
-        }
-
         //GenerateIDButtonForContentMaterialityMaster
-        [HttpPost("GenerateIDButtonForContentMaterialityMaster")]
+        [HttpPost("SaveContentMaterialityMaster")]
         public async Task<IActionResult> CreateMTContent([FromBody] CreateMTContentRequestDto dto)
         {
             if (dto == null || string.IsNullOrWhiteSpace(dto.Description))

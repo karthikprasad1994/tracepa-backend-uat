@@ -12,5 +12,8 @@ namespace TracePca.Interface.ProfileSetting
 
         //GetLicenseInformation
         Task<IEnumerable<TracePaLicenseInformationDto>> GetLicenseInformationAsync(int iCustomerId);
+
+        //UpdateUserProfile
+        Task<int> UpdateUserProfileAsync(UpdateUserProfileDto dto);
     }
 }

@@ -11,10 +11,7 @@ namespace TracePca.Interface.FIN_Statement
 
         //SaveOrUpdateLedgerMaterialityMaster
         Task<List<int[]>> SaveOrUpdateLedgerMaterialityAsync(IEnumerable<LedgerMaterialityMasterDto> dtos);
-
-        //GetLedgerMaterialityMaster
-        Task<IEnumerable<GetLedgerMaterialityMasterDto>> GetLedgerMaterialityAsync(int compId, int lm_ID);
-
+        
         //GenerateIDButtonForContentMaterialityMaster
         Task<string> GenerateAndInsertContentForMTAsync(int compId, string description);
     }
