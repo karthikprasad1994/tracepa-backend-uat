@@ -252,5 +252,53 @@ namespace TracePca.Controllers.master
 
             return Ok(new { statusCode = 200, success, message });
         }
+
+        [HttpGet("GetTRACeModuleByStatus")]
+        public async Task<IActionResult> GetTRACeModuleByStatus([FromQuery] int projectId, [FromQuery] string status, [FromQuery] int compId)
+        {
+            var (success, message, data) = await _contentManagementMasterInterface.GetTRACeModuleByStatusAsync(projectId, status, compId);
+
+            if (!success)
+                return StatusCode(500, new { success, message });
+
+            return Ok(new { statusCode = 200, success, message, data });
+        }
+
+        [HttpGet("GetTRACeModuleById/{id}")]
+        public async Task<IActionResult> GetTRACeModuleById(int id, [FromQuery] int compId)
+        {
+            var (success, message, data) = await _contentManagementMasterInterface.GetTRACeModuleByIdAsync(id, compId);
+
+            if (!success)
+                return NotFound(new { statusCode = 404, success, message });
+
+            return Ok(new { statusCode = 200, success, message, data });
+        }
+
+        [HttpPost("SaveOrUpdateTRACeModuleAndGetRecords")]
+        public async Task<IActionResult> SaveOrUpdateTRACeModuleAndGetRecords([FromBody] TRACeModuleMasterDTO dto)
+        {
+            try
+            {
+                var (id, message, masterList) = await _contentManagementMasterInterface.SaveOrUpdateTRACeModuleAndGetRecordsAsync(dto);
+
+                return Ok(new { statusCode = 200, success = id > 0, message = message, data = masterList });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"An error occurred while saving/updating master data: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("UpdateTRACeModuleStatus")]
+        public async Task<IActionResult> UpdateTRACeModuleStatus([FromBody] UpdateStatusRequest request)
+        {
+            var (success, message) = await _contentManagementMasterInterface.UpdateTRACeModuleStatusAsync(request.Ids, request.Action, request.CompId, request.UserId, request.IpAddress);
+
+            if (!success)
+                return StatusCode(500, new { success, message });
+
+            return Ok(new { statusCode = 200, success, message });
+        }
     }
 }
