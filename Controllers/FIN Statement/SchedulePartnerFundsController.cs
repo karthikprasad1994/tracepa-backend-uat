@@ -202,7 +202,6 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-
         //UpdateAndCalculate
         [HttpPut("UpdateAndCalculate")]
         public async Task<IActionResult> UpdateAndCalculate([FromBody] PartnershipFirmCalculationDto dto)

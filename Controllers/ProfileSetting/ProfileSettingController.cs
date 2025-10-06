@@ -96,11 +96,11 @@ namespace TracePca.Controllers.ProfileSetting
 
         //GetLicenseInformation
         [HttpGet("GetLicenseInformation")]
-        public async Task<IActionResult> GetLicenseInformationAsync([FromQuery] int iCustomerId, string sEmailId)
+        public async Task<IActionResult> GetLicenseInformationAsync([FromQuery] string sEmailId, [FromQuery] string sCustomerCode)
         {
             try
             {
-                var result = await _ProfileSettingService.GetLicenseInformationAsync(iCustomerId, sEmailId);
+                var result = await _ProfileSettingService.GetLicenseInformationAsync( sEmailId, sCustomerCode);
 
                 if (result == null || !result.Any())
                 {

@@ -110,58 +110,30 @@ namespace TracePca.Service.ProfileSetting
         }
 
         //GetLicenseInformation
-        public async Task<IEnumerable<TracePaLicenseInformationDto>> GetLicenseInformationAsync(int iCustomerId, string sEmailId)
+        public async Task<IEnumerable<TracePaLicenseInformationDto>> GetLicenseInformationAsync(string sEmailId, string sCustomerCode)
         {
-            // Step 1: Get DB name from session
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
 
-            // Step 2: Get connection string for session DB
-            var sessionDbConnectionString = _configuration.GetConnectionString(dbName);
+            var query = @"SELECT 
+            MCR_ID as CustomerId,
+            MCR_ProductKey,
+            MCR_MP_ID as ModuleId,
+            MCR_CustomerName as CustomerName,
+            MCR_CustomerCode as CustomerCode,
+            MCR_FromDate as FromDate,
+            MCR_ToDate as ToDate,
+            MCR_BillingFrequency as  BillingFrequency,
+            MCR_DataSize as DataSize,
+            MCR_NumberOfCustomers as NoOfCustomers,
+            MCR_NumberOfUsers as NoOfUsers
+            FROM MMCS_CustomerRegistration WHERE ',' + REPLACE(MCR_Emails, ' ', '') + ',' LIKE '%,' + @EmailId + ',%'
+  AND MCR_CustomerCode = @CustomerCode";
 
-            using (var sessionConnection = new SqlConnection(sessionDbConnectionString))
-            {
-                await sessionConnection.OpenAsync();
+            await connection.OpenAsync();
 
-                // Step 3: Check if email exists in sad_userDetails table
-                var emailExistsQuery = "SELECT COUNT(1) FROM sad_userDetails WHERE usr_Email = @EmailId";
-                var emailExists = await sessionConnection.ExecuteScalarAsync<int>(emailExistsQuery, new { EmailId = sEmailId });
-
-                if (emailExists == 0)
-                {
-                    // Email not found in session DB, return empty or throw
-                    return Enumerable.Empty<TracePaLicenseInformationDto>();
-                }
-            }
-
-            // Step 4: Email exists, query CustomerRegistration DB
-            var customerRegConnectionString = _configuration.GetConnectionString("CustomerRegistrationConnection");
-
-            using (var customerConnection = new SqlConnection(customerRegConnectionString))
-            {
-                var query = @"
-            SELECT 
-                MCR_ID as CustomerId,
-                MCR_ProductKey,
-                MCR_MP_ID as ModuleId,
-                MCR_CustomerName as CustomerName,
-                MCR_CustomerCode as CustomerCode,
-                MCR_FromDate as FromDate,
-                MCR_ToDate as ToDate,
-                MCR_BillingFrequency as BillingFrequency,
-                MCR_DataSize as DataSize,
-                MCR_NumberOfCustomers as NoOfCustomers,
-                MCR_NumberOfUsers as NoOfUsers
-            FROM MMCS_CustomerRegistration 
-            WHERE MCR_ID = @CustomerId AND MCR_CustomerEmail = @EmailId";
-
-                await customerConnection.OpenAsync();
-                return await customerConnection.QueryAsync<TracePaLicenseInformationDto>(query, new { CustomerId = iCustomerId, EmailId = sEmailId });
-            }
+            return await connection.QueryAsync<TracePaLicenseInformationDto>(query, new { EmailId = sEmailId, CustomerCode = @sCustomerCode });
         }
-
 
         //UpdateUserProfile
         public async Task<int> UpdateUserProfileAsync(UpdateUserProfileDto dto)
