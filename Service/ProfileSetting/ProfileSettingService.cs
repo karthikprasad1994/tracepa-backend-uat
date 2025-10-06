@@ -110,9 +110,9 @@ namespace TracePca.Service.ProfileSetting
         }
 
         //GetLicenseInformation
-        public async Task<IEnumerable<TracePaLicenseInformationDto>> GetLicenseInformationAsync(int iCustomerId)
+        public async Task<IEnumerable<TracePaLicenseInformationDto>> GetLicenseInformationAsync(int iCustomerId, string sEmailId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection2"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
 
             var query = @"SELECT 
             MCR_ID as CustomerId,
@@ -126,11 +126,11 @@ namespace TracePca.Service.ProfileSetting
             MCR_DataSize as DataSize,
             MCR_NumberOfCustomers as NoOfCustomers,
             MCR_NumberOfUsers as NoOfUsers
-            FROM MMCS_CustomerRegistration WHERE MCR_ID = @CustomerId";
+            FROM MMCS_CustomerRegistration WHERE MCR_ID = @CustomerId AND MCR_CustomerEmail = @EmailId";
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<TracePaLicenseInformationDto>(query, new { CustomerId = iCustomerId });
+            return await connection.QueryAsync<TracePaLicenseInformationDto>(query, new { CustomerId = iCustomerId, EmailId = sEmailId });
         }
 
         //UpdateUserProfile

@@ -389,6 +389,8 @@ namespace TracePca.Dto.SuperMaster
             public string FileName { get; set; }
             public string ContentType { get; set; }
         }
+
+        //DownloadFiles
     }
 }
 

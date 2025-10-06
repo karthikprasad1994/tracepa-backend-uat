@@ -31,6 +31,7 @@
         public class TracePaLicenseInformationDto
         {
             public int CustomerId { get; set; }
+            public string EmailId { get; set; }
             public string ModuleId { get; set; }
             public string RegistrationNumber { get; set; }
             public string CustomerName { get; set; }

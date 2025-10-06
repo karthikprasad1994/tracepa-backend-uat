@@ -11,7 +11,7 @@ namespace TracePca.Interface.ProfileSetting
         Task<IEnumerable<TracePaChangePasswordDto>> PutChangePasswordAsync(string LoginName, int UserId, TracePaChangePasswordDto dto);
 
         //GetLicenseInformation
-        Task<IEnumerable<TracePaLicenseInformationDto>> GetLicenseInformationAsync(int iCustomerId);
+        Task<IEnumerable<TracePaLicenseInformationDto>> GetLicenseInformationAsync(int iCustomerId, string sEmailId);
 
         //UpdateUserProfile
         Task<int> UpdateUserProfileAsync(UpdateUserProfileDto dto);
