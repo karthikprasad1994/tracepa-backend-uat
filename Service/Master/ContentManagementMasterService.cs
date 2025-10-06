@@ -48,7 +48,7 @@ namespace TracePca.Service.Master
                 var MasterList = new List<MasterDropDownListData>
                     {
                         new MasterDropDownListData { ID = "ASF", Name = "Audit Completion CheckPoint" },
-                        new MasterDropDownListData { ID = "AT", Name = "Audit Task" },
+                        new MasterDropDownListData { ID = "AT", Name = "Audit Type" },
                         new MasterDropDownListData { ID = "ASGT", Name = "Assignment Task" },
                         new MasterDropDownListData { ID = "DRL", Name = "Document Request List" },
                         //new MasterDropDownListData { ID = "ROLE", Name = "Employee Role" },
@@ -59,6 +59,7 @@ namespace TracePca.Service.Master
                         //new MasterDropDownListData { ID = "MR", Name = "Management Representations" },
                         new MasterDropDownListData { ID = "MSN", Name = "Membership Type" },
                         new MasterDropDownListData { ID = "ORG", Name = "Organization Type" },
+                        new MasterDropDownListData { ID = "PRO", Name = "Product/Project" },
                         new MasterDropDownListData { ID = "TM", Name = "Tax Master" },
                         //new MasterDropDownListData { ID = "TOR", Name = "Type of Report" },
                         new MasterDropDownListData { ID = "TOT", Name = "Type of Test" },
@@ -671,6 +672,136 @@ namespace TracePca.Service.Master
                         query = @"UPDATE AuditCompletion_SubPoint_Master SET ASM_Status = 'D', ASM_DELFLG = 'D', ASM_DeletedBy = @UserId, ASM_DeletedOn = GETDATE(), ASM_IPAddress = @IpAddress WHERE ASM_ID IN @Ids AND ASM_CompId = @CompID;";
                         break;
 
+                    default:
+                        return (false, "Invalid action. Allowed actions: approve, revert, delete.");
+                }
+
+                var rows = await connection.ExecuteAsync(query, new { UserId = userId, IpAddress = ipAddress, Ids = ids, CompID = compId }, transaction);
+                await transaction.CommitAsync();
+                return (true, $"{rows} record(s) updated successfully.");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return (false, "Error while updating records: " + ex.Message);
+            }
+        }
+
+
+        public async Task<(bool Success, string Message, List<TRACeModuleMasterDTO> Data)> GetTRACeModuleByStatusAsync(int projectId, string status, int compId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            try
+            {
+                var query = @"SELECT * FROM TRACe_Module_Master WHERE TMM_ProjectID = @ProjectID AND TMM_CompId = @CompID AND TMM_DELFLG = @Status ORDER BY TMM_ModuleName;";
+
+                var result = await connection.QueryAsync<TRACeModuleMasterDTO>(query, new { ProjectID = projectId, Status = status, CompID = compId });
+                return (true, "Records fetched successfully.", result.ToList());
+            }
+            catch (Exception ex)
+            {
+                return (false, "Error while fetching records by status: " + ex.Message, new List<TRACeModuleMasterDTO>());
+            }
+        }
+
+        public async Task<(bool Success, string Message, TRACeModuleMasterDTO? Data)> GetTRACeModuleByIdAsync(int id, int compId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            try
+            {
+                var query = @"SELECT * FROM TRACe_Module_Master WHERE TMM_ID = @Id AND TMM_CompId = @CompID;";
+
+                var result = await connection.QueryFirstOrDefaultAsync<TRACeModuleMasterDTO>(query, new { Id = id, CompID = compId });
+
+                if (result == null)
+                    return (true, "No record found with the given Id.", null);
+
+                return (true, "Record fetched successfully.", result);
+            }
+            catch (Exception ex)
+            {
+                return (false, "Error while fetching record by Id: " + ex.Message, null);
+            }
+        }
+
+        public async Task<(int Id, string Message, List<TRACeModuleMasterDTO> MasterList)> SaveOrUpdateTRACeModuleAndGetRecordsAsync(TRACeModuleMasterDTO dto)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                bool isUpdate = (dto.TMM_ID ?? 0) > 0;
+
+                var duplicateCount = await connection.ExecuteScalarAsync<int>(@"SELECT COUNT(1) FROM TRACe_Module_Master WHERE TMM_ModuleName = @TMM_ModuleName AND TMM_ProjectID = @TMM_ProjectID AND TMM_CompId = @TMM_CompId AND (TMM_ID <> @TMM_ID);",
+                    new
+                    {
+                        dto.TMM_ModuleName,
+                        dto.TMM_ProjectID,
+                        dto.TMM_CompId,
+                        dto.TMM_ID
+                    }, transaction);
+
+                if (duplicateCount > 0)
+                {
+                    await transaction.RollbackAsync();
+                    return (0, "A module with the same name already exists.", new List<TRACeModuleMasterDTO>());
+                }
+
+                if (isUpdate)
+                {
+                    await connection.ExecuteAsync(@"UPDATE TRACe_Module_Master SET TMM_ModuleName = @TMM_ModuleName, TMM_UPDATEDBY = @TMM_UPDATEDBY, TMM_UPDATEDON = GETDATE(), TMM_STATUS = @TMM_STATUS, TMM_IPAddress = @TMM_IPAddress WHERE TMM_ID = @TMM_ID;", dto, transaction);
+                }
+                else
+                {
+                    var maxId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(TMM_ID), 0) + 1 FROM TRACe_Module_Master WHERE TMM_CompId = @CompId;", new { CompId = dto.TMM_CompId }, transaction);
+
+                    dto.TMM_Code = $"TMM_{maxId}";
+                    dto.TMM_ID = await connection.ExecuteScalarAsync<int>(@"
+                        DECLARE @NewId INT = ISNULL((SELECT MAX(TMM_ID) FROM TRACe_Module_Master), 0) + 1;
+                        INSERT INTO TRACe_Module_Master (TMM_ID, TMM_Code, TMM_ProjectID, TMM_ModuleName, TMM_DELFLG, TMM_STATUS, TMM_CRBY, TMM_CRON, TMM_IPAddress, TMM_CompId)
+                        VALUES (@NewId, @TMM_Code, @TMM_ProjectID, @TMM_ModuleName, 'A', 'W', @TMM_CRBY, GETDATE(), @TMM_IPAddress, @TMM_CompId);
+                        SELECT @NewId;",
+                        dto, transaction);
+                }
+
+                var masterList = (await connection.QueryAsync<TRACeModuleMasterDTO>(@"SELECT * FROM TRACe_Module_Master WHERE TMM_CompId = @CompID AND TMM_DELFLG = 'A' ORDER BY TMM_ModuleName;", new { CompID = dto.TMM_CompId }, transaction)).ToList();
+
+                await transaction.CommitAsync();
+
+                return ((dto.TMM_ID ?? 0), isUpdate ? "Updated successfully." : "Saved successfully.", masterList);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return (0, "Error while saving or updating: " + ex.Message, new List<TRACeModuleMasterDTO>());
+            }
+        }
+
+        public async Task<(bool Success, string Message)> UpdateTRACeModuleStatusAsync(List<int> ids, string action, int compId, int userId, string ipAddress)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+            try
+            {
+                if (ids == null || ids.Count == 0)
+                    return (false, "No IDs provided for update.");
+
+                string query = string.Empty;
+
+                switch (action.ToLower())
+                {
+                    case "approve":
+                        query = @"UPDATE TRACe_Module_Master SET TMM_STATUS = 'A', TMM_DELFLG = 'A', TMM_APPROVEDBY = @UserId, TMM_APPROVEDON = GETDATE(), TMM_IPAddress = @IpAddress WHERE TMM_ID IN @Ids AND TMM_CompId = @CompID;";
+                        break;
+                    case "revert":
+                        query = @"UPDATE TRACe_Module_Master SET TMM_STATUS = 'R', TMM_DELFLG = 'A', TMM_RECALLBY = @UserId, TMM_RECALLON = GETDATE(), TMM_IPAddress = @IpAddress WHERE TMM_ID IN @Ids AND TMM_CompId = @CompID;";
+                        break;
+                    case "delete":
+                        query = @"UPDATE TRACe_Module_Master SET TMM_STATUS = 'D', TMM_DELFLG = 'D', TMM_DELETEDBY = @UserId, TMM_DELETEDON = GETDATE(), TMM_IPAddress = @IpAddress WHERE TMM_ID IN @Ids AND TMM_CompId = @CompID;";
+                        break;
                     default:
                         return (false, "Invalid action. Allowed actions: approve, revert, delete.");
                 }
