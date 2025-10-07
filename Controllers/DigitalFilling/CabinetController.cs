@@ -505,9 +505,9 @@ namespace TracePca.Controllers.DigitalFilling
 
 
 		[HttpGet("DownloadArchieveDocuments")]
-		public async Task<IActionResult> DownloadArchieveDocuments(string sValue)
+		public async Task<IActionResult> DownloadArchieveDocuments(string sAttachID)
 		{
-			var zipPath = await _CabinetInterface.DownloadArchieveDocumentsAsync(sValue);
+			var zipPath = await _CabinetInterface.DownloadArchieveDocumentsAsync(sAttachID);
 
 			if (System.IO.File.Exists(zipPath.ToString()))
 			{
