@@ -53,5 +53,7 @@ namespace TracePca.Interface.DigitalFilling
 
 		Task<string> UpdateArchiveDetailsAsync(string retentionDate, int retentionPeriod, int archiveId, int compId);
 
+		Task<string> DownloadArchieveDocumentsAsync(string sAttachID);
+
 	}
 }

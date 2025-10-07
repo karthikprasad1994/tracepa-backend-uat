@@ -7,6 +7,7 @@ using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Ocsp;
 using StackExchange.Redis;
 using System.IO;
+using System.IO.Compression;
 using System.Net.Mail;
 using System.Net.NetworkInformation;
 using System.Security.Cryptography;
@@ -1258,10 +1259,7 @@ namespace TracePca.Service.DigitalFilling
 			}
 		}
 
-
-
-
-
+		 
 		public async Task<string> CreateFolderAsync(string FolderName, int iCabinetID, int iSubCabinetID, int compID)
 		{
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1439,6 +1437,146 @@ namespace TracePca.Service.DigitalFilling
 			{
 				await transaction.RollbackAsync();
 				throw;
+			}
+		}
+
+
+
+		//public async Task<string> DownloadArchieveDocumentsAsync(string sAttachID)
+		//{
+		//	if (string.IsNullOrWhiteSpace(sAttachID))
+		//		throw new ArgumentException("Attachment ID is required.");
+
+		//	try
+		//	{
+		//		string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+		//		if (string.IsNullOrEmpty(dbName))
+		//			throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+		//		var connectionString = _configuration.GetConnectionString(dbName);
+
+		//		using var connection = new SqlConnection(connectionString);
+		//		await connection.OpenAsync();
+
+		//		string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
+		//                      SELECT DISTINCT 
+		//                          ATCH_FName AS FileName, 
+		//                          (SELECT TOP 1 SAD_Config_Value FROM [Sad_Config_Settings] 
+		//                              WHERE sad_Config_key = 'DisplayPath') + 'BITMAPS\' 
+		//                              + CAST(FLOOR(CAST(A.Atch_DocID AS numeric)/301) AS varchar) + '\' 
+		//                              + CAST(A.Atch_DocID AS varchar) + '.' + A.ATCH_Ext AS URLPath 
+		//                      FROM edt_Attachments A
+		//                      JOIN (SELECT DISTINCT CAST(value AS INT) AS Atch_ID 
+		//                            FROM STRING_SPLIT(@ids, ',')) S
+		//                      ON A.Atch_ID = S.Atch_ID 
+		//                      WHERE A.Atch_FName != '' AND ATCH_Ext != '';";
+
+		//		var files = (await connection.QueryAsync<ArchivedDocumentFileDto>(query, new { AttachIDs = sAttachID }))
+		//					.ToList();
+
+		//		if (files == null || files.Count == 0)
+		//			throw new Exception("No files found.");
+
+		//		// Temp folder to copy files
+		//		string tempFolder = Path.Combine(Path.GetTempPath(), "ArchiveDocs_" + Guid.NewGuid());
+		//		Directory.CreateDirectory(tempFolder);
+
+		//		foreach (var file in files)
+		//		{
+		//			if (System.IO.File.Exists(file.URLPath))
+		//			{
+		//				string destPath = Path.Combine(tempFolder, file.FileName);
+		//				System.IO.File.Copy(file.URLPath, destPath, true);
+		//			}
+		//		}
+
+		//		// Create zip
+		//		string zipPath = Path.Combine(Path.GetTempPath(), $"ArchiveDocs_{DateTime.Now:yyyyMMddHHmmss}.zip");
+		//		ZipFile.CreateFromDirectory(tempFolder, zipPath);
+
+		//		// Cleanup temp files (optional but recommended)
+		//		Directory.Delete(tempFolder, true);
+
+		//		return zipPath; // Return full zip file path
+		//	}
+		//	catch (Exception ex)
+		//	{
+		//		throw new Exception("Error downloading archived documents: " + ex.Message, ex);
+		//	}
+		//}
+
+
+
+		public async Task<string> DownloadArchieveDocumentsAsync(string sAttachID)
+		{
+			if (string.IsNullOrWhiteSpace(sAttachID))
+				throw new ArgumentException("Attachment ID is required.");
+
+			try
+			{
+				string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+				if (string.IsNullOrEmpty(dbName))
+					throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+				var connectionString = _configuration.GetConnectionString(dbName);
+
+				using var connection = new SqlConnection(connectionString);
+				await connection.OpenAsync();
+
+				string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
+                SELECT DISTINCT 
+                    ATCH_FName AS FileName, 
+                    (SELECT TOP 1 SAD_Config_Value FROM [Sad_Config_Settings] 
+                        WHERE sad_Config_key = 'DisplayPath') + 'BITMAPS\' 
+                        + CAST(FLOOR(CAST(A.Atch_DocID AS numeric)/301) AS varchar) + '\' 
+                        + CAST(A.Atch_DocID AS varchar) + '.' + A.ATCH_Ext AS URLPath 
+                FROM edt_Attachments A
+                JOIN (SELECT DISTINCT CAST(value AS INT) AS Atch_ID 
+                      FROM STRING_SPLIT(@ids, ',')) S
+                ON A.Atch_ID = S.Atch_ID 
+                WHERE A.Atch_FName != '' AND ATCH_Ext != '';";
+
+				var files = (await connection.QueryAsync<ArchivedDocumentFileDto>(query, new { AttachIDs = sAttachID }))
+							.ToList();
+
+				if (files == null || files.Count == 0)
+					throw new Exception("No files found.");
+
+				// Define the user's Downloads folder path
+				string downloadsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+
+				// Ensure Downloads folder exists
+				if (!Directory.Exists(downloadsFolder))
+					Directory.CreateDirectory(downloadsFolder);
+
+				// Create a temp folder for the files to zip
+				string tempFolder = Path.Combine(downloadsFolder, "ArchiveDocs_" + Guid.NewGuid());
+				Directory.CreateDirectory(tempFolder);
+
+				// Copy files to temp folder
+				foreach (var file in files)
+				{
+					if (System.IO.File.Exists(file.URLPath))
+					{
+						string destPath = Path.Combine(tempFolder, file.FileName);
+						System.IO.File.Copy(file.URLPath, destPath, true);
+					}
+				}
+
+				// Create the ZIP inside Downloads folder
+				string zipFileName = $"ArchiveDocs_{DateTime.Now:yyyyMMddHHmmss}.zip";
+				string zipPath = Path.Combine(downloadsFolder, zipFileName);
+
+				ZipFile.CreateFromDirectory(tempFolder, zipPath);
+
+				// Delete temp folder after zipping
+				Directory.Delete(tempFolder, true);
+
+				return zipPath; // Full path of the ZIP file in Downloads folder
+			}
+			catch (Exception ex)
+			{
+				throw new Exception("Error downloading archived documents: " + ex.Message, ex);
 			}
 		}
 
