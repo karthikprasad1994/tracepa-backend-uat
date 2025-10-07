@@ -481,6 +481,7 @@ namespace TracePca.Controllers.DigitalFilling
 				});
 			}
 		}
+
 		 
 		[HttpPost("CreateDepartment")]
 		public async Task<IActionResult> CreateDepartment(string Code, string DepartmentName, string userId, int compID)
@@ -501,6 +502,27 @@ namespace TracePca.Controllers.DigitalFilling
 			}
  
 		}
-		 
+
+
+		[HttpGet("DownloadArchieveDocuments")]
+		public async Task<IActionResult> DownloadArchieveDocuments(string sValue)
+		{
+			var zipPath = await _CabinetInterface.DownloadArchieveDocumentsAsync(sValue);
+
+			if (System.IO.File.Exists(zipPath.ToString()))
+			{
+				var fileBytes = await System.IO.File.ReadAllBytesAsync(zipPath.ToString());
+				var fileName = Path.GetFileName(zipPath.ToString());
+
+				return File(fileBytes, "application/zip", fileName);
+			}
+
+			return NotFound(new
+			{
+				statusCode = 404,
+				message = "No documents found to download."
+			});
+		}
+
 	}
 }
