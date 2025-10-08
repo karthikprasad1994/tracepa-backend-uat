@@ -93,17 +93,3 @@ namespace TracePca.Service.FIN_statement
 
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

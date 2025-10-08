@@ -1878,36 +1878,36 @@ WHERE UPPER(CUST_NAME) = UPPER(@CustomerName)
             };
         }
 
-        //DownloadFiles
-    //   /* public ExcelTemplateResult GetExcelTemplate(string FileName)
-    //    {
-    //        // Map template names to file paths
-    //        var templates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-    //{
-    //    { "Employee Master", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\EmployeeMaster Template.xlsx" },
-    //    { "Client Details", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientDetails Template.xlsx" },
-    //    { "Client User", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientUser Template.xlsx" }
-    //};
+        //DownloadExcelTemplateFiles
+        public ExcelInformationTemplateResult GetExcelTemplate(string FileName)
+        {
+            // Map template names to file paths
+            var templates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        { "Employee Master", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\EmployeeMaster Template.xlsx" },
+        { "Client Details", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientDetails Template.xlsx" },
+        { "Client User", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientUser Template.xlsx" }
+    };
 
-    //        if (!templates.ContainsKey(FileName))
-    //            return null; // or throw exception if template not found
+            if (!templates.ContainsKey(FileName))
+                return null; // or throw exception if template not found
 
-    //        var filePath = templates[FileName];
+            var filePath = templates[FileName];
 
-    //        if (!File.Exists(filePath))
-    //            return null; // or return empty result
+            if (!File.Exists(filePath))
+                return null; // or return empty result
 
-    //        var bytes = File.ReadAllBytes(filePath);
-    //        var fileName = Path.GetFileName(filePath);
-    //        var contentType = "application/vnd.ms-excel"; // works for .xls and .xlsx
+            var bytes = File.ReadAllBytes(filePath);
+            var fileName = Path.GetFileName(filePath);
+            var contentType = "application/vnd.ms-excel"; // works for .xls and .xlsx
 
-    //        return new ExcelTemplateResult
-    //        {
-    //            FileBytes = bytes,
-    //            FileName = fileName,
-    //            ContentType = contentType
-    //        };
-    //    }*/
+            return new ExcelInformationTemplateResult
+            {
+                FileBytes = bytes,
+                FileName = fileName,
+                ContentType = contentType
+            };
+        }
     }
 }
 
