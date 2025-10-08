@@ -41,68 +41,87 @@ namespace TracePca.Service.Permission
 			_httpContextAccessor = httpContextAccessor;
 		}
          
-        public async Task<IEnumerable<SearchDto>> SearchDocumentsAsync(string sValue)
+        public async Task<IEnumerable<PermissionDto>> LoadPermissionDetailsAsync(int CompID)
         {
-            if (string.IsNullOrWhiteSpace(sValue))
-            {
-                return Enumerable.Empty<SearchDto>();
-            }
-
             try
             {
-				//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-				//await connection.OpenAsync();
-
+ 
 				string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
 				if (string.IsNullOrEmpty(dbName))
 					throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-				// ✅ Step 2: Get the connection string
+ 
 				var connectionString = _configuration.GetConnectionString(dbName);
 
 				using var connection = new SqlConnection(connectionString);
 				await connection.OpenAsync();
 
-				string query = @"
-                  SELECT Cab.CBN_Name AS Cabinet, SubCab.CBN_Name AS SubCabinet, Fol.Fol_Name AS Folder, 
-                        A.PGE_Title AS Title, A.PGE_Ext AS Extension,PGE_BASENAME,
-                        (select SAD_Config_Value from [Sad_Config_Settings] where sad_Config_key='DisplayPath') +
-						'BITMAPS\' + CAST(FLOOR(CAST(PGE_BASENAME AS numeric)/301) AS varchar) + '\' +
-						CAST(PGE_BASENAME AS varchar) + '.'  + A.PGE_Ext AS URLPath
-                        FROM edt_page A 
-                        JOIN edt_Cabinet Cab ON A.PGE_CABINET = Cab.CBN_ID 
-                        JOIN EDT_Cabinet SubCab ON A.PGE_SubCabinet = SubCab.cbn_Id
-                        JOIN edt_Folder Fol ON A.PGE_FOLDER = Fol.FOL_FolID 
-                        WHERE A.Pge_Status = 'A' 
-                        AND (
-                                A.PGE_KeyWord LIKE '%' + @SearchTerm + '%'
-                                OR A.pge_Title LIKE '%' + @SearchTerm + '%'
-                        OR EXISTS (
-                                SELECT 1 FROM edt_page_details 
-                                WHERE epd_baseid = A.PGE_Details_ID 
-                                AND EPD_Value LIKE '%' + @SearchTerm + '%'
-                        )
-                        OR EXISTS (
-                                SELECT 1 FROM edt_Cabinet 
-                                WHERE CBN_ID = A.PGE_Cabinet 
-                                AND CBN_Name LIKE '%' + @SearchTerm + '%'
-                        )
-                        OR EXISTS (
-                                SELECT 1 FROM edt_Cabinet 
-                                WHERE CBN_ID = A.PGE_SubCabinet 
-                                AND CBN_Name LIKE '%' + @SearchTerm + '%'
-                        )
-                        OR EXISTS (
-                                SELECT 1 FROM edt_Folder 
-                                WHERE Fol_FolID = A.PGE_Folder 
-                                AND FOL_Name LIKE '%' + @SearchTerm + '%'
-                        )
-                  )
-                  ORDER BY A.pge_BaseName";
+				string query = @"WITH ModuleHierarchy AS (
+                                    SELECT 
+                                        Mod_ID,
+                                        Mod_Description,
+                                        Mod_NavFunc,
+                                        Mod_Parent,
+                                        CAST(RIGHT('0000' + CAST(Mod_ID AS VARCHAR(4)), 4) AS VARCHAR(200)) AS SortPath
+                                    FROM Sad_Module
+                                    WHERE Mod_Parent = 0 and Mod_CompID = @Mod_CompID
 
-                var result = await connection.QueryAsync<SearchDto>(query, new { SearchTerm = sValue });
-                return result ?? Enumerable.Empty<SearchDto>();
+                                    UNION ALL
+
+                                    SELECT 
+                                        m.Mod_ID,
+                                        m.Mod_Description,
+                                        m.Mod_NavFunc,
+                                        m.Mod_Parent,
+                                        CAST(h.SortPath + '-' + RIGHT('0000' + CAST(m.Mod_ID AS VARCHAR(4)), 4) AS VARCHAR(200))
+                                    FROM Sad_Module m
+                                    INNER JOIN ModuleHierarchy h 
+                                        ON m.Mod_Parent = h.Mod_ID
+                                ),
+                                ModuleOperations AS (
+                                    SELECT 
+                                        h.Mod_ID,
+                                        h.Mod_Description,
+                                        h.Mod_NavFunc,
+                                        o.OP_OperationName,
+                                        o.OP_PKID
+                                    FROM ModuleHierarchy h
+                                    LEFT JOIN SAD_Mod_Operations o 
+                                        ON o.OP_ModuleID = h.Mod_ID
+                                ),
+                                ModulePermissions AS (
+                                    SELECT 
+                                        mo.Mod_ID,
+                                        mo.Mod_Description,
+                                        mo.Mod_NavFunc,
+                                        mo.OP_OperationName,
+                                        mo.OP_PKID,
+                                        CASE 
+                                            WHEN p.Perm_PKID IS NOT NULL THEN 1
+                                            ELSE 0
+                                        END AS PermissionFlag
+                                    FROM ModuleOperations mo
+                                    LEFT JOIN SAD_UsrOrGrp_Permission p
+                                        ON p.Perm_ModuleID = mo.Mod_ID
+                                        AND p.Perm_OpPKID = mo.OP_PKID
+                                        AND p.Perm_UsrORGrpID = 1  
+                                        AND p.Perm_PType = 'R'
+                                )
+                                SELECT 
+                                    mh.Mod_ID,
+                                    mh.Mod_Description,
+                                    mh.Mod_NavFunc,
+                                    STRING_AGG(mp.OP_OperationName, ', ') AS Operations,
+                                    STRING_AGG(CAST(mp.OP_PKID AS VARCHAR), ', ') AS OperationsID,
+                                    STRING_AGG(CAST(mp.PermissionFlag AS VARCHAR), ', ') AS PermissionsFlag
+                                FROM ModuleHierarchy mh
+                                LEFT JOIN ModulePermissions mp
+                                    ON mh.Mod_ID = mp.Mod_ID
+                                GROUP BY mh.SortPath, mh.Mod_ID, mh.Mod_Description, mh.Mod_NavFunc
+                                ORDER BY mh.SortPath;";
+
+                var result = await connection.QueryAsync<PermissionDto>(query, new { Mod_CompID = CompID });
+                return result ?? Enumerable.Empty<PermissionDto>();
             }
             catch (Exception ex)
             {
@@ -110,7 +129,74 @@ namespace TracePca.Service.Permission
                 throw;
             }
         }
-           
+         
+		public async Task<IEnumerable<PermissionDto>> LoadPermissionModuleAsync(int CompID)
+		{
+			try
+			{
+
+				string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+				if (string.IsNullOrEmpty(dbName))
+					throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+				var connectionString = _configuration.GetConnectionString(dbName);
+
+				using var connection = new SqlConnection(connectionString);
+				await connection.OpenAsync();
+
+				string query = @"SELECT 0 AS Mod_ID, 'All Module' AS Mod_Description UNION ALL SELECT Mod_ID, Mod_Description FROM Sad_Module WHERE Mod_Parent = 0 AND Mod_DelFlag = 'X' AND Mod_CompID = @Mod_CompID ORDER BY Mod_ID";
+
+
+				var result = await connection.QueryAsync<PermissionDto>(query, new { Mod_CompID = CompID });
+				return result ?? Enumerable.Empty<PermissionDto>();
+			}
+			catch (Exception ex)
+			{
+
+				throw;
+			}
+		}
+
+
+		public async Task<IEnumerable<PermissionDto>> LoadPermissionRoleAsync(string sPermissionType, int CompID)
+		{
+			try
+			{
+
+				string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+				if (string.IsNullOrEmpty(dbName))
+					throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+				var connectionString = _configuration.GetConnectionString(dbName);
+
+				using var connection = new SqlConnection(connectionString);
+				await connection.OpenAsync();
+
+                string query = "";
+
+				if (sPermissionType == "R")
+                {
+					query = @"SELECT 0 AS Mod_ID, 'Select Role' AS Mod_Description UNION ALL Select Mas_ID as Mod_ID,Mas_Description as Mod_Description from SAD_GrpOrLvl_General_Master where Mas_Delflag='A' and Mas_CompID=@Mod_CompID order by Mod_ID";
+				}
+                else if(sPermissionType == "U")
+                {
+                    query = @"SELECT 0 AS Mod_ID, 'Select User' AS Mod_Description UNION ALL
+                             Select Usr_ID as Mod_ID,(Usr_FullName + ' - ' + Usr_Code) as Mod_Description from Sad_UserDetails Where usr_delflag = 'A' and  
+                             Usr_GrpOrUserLvlPerm='1' and Usr_CompId=@Mod_CompID order by Mod_ID";
+                }
+				 
+				var result = await connection.QueryAsync<PermissionDto>(query, new { Mod_CompID = CompID });
+				return result ?? Enumerable.Empty<PermissionDto>();
+			}
+			catch (Exception ex)
+			{
+
+				throw;
+			}
+		}
+
 	}
 }
 

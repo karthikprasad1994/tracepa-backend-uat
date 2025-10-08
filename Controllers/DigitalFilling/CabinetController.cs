@@ -325,6 +325,40 @@ namespace TracePca.Controllers.DigitalFilling
 
 
 
+
+		[HttpPut("UpdateSubCabinet")]
+		public async Task<IActionResult> UpdateSubCabinet(string SubCabinetName, int iSubCabinetId, int iUserID, int compID)
+		{
+			var result = await _CabinetInterface.UpdateSubCabinetAsync(SubCabinetName, iSubCabinetId, iUserID, compID);
+
+			if (result > 0)
+			{
+				return Ok(new { statusCode = 200, message = "Sub Cabinet updated successfully.", Data = result });
+			}
+			else
+			{
+				return StatusCode(500, new { statusCode = 500, message = "No Sub Cabient data is updated." });
+			}
+		}
+
+
+		[HttpPut("UpdateFolder")]
+		public async Task<IActionResult> UpdateFolder(string FolderName, int iFolderID, int iUserID, int compID)
+		{
+			var result = await _CabinetInterface.UpdateFolderAsync(FolderName, iFolderID, iUserID, compID);
+
+			if (result > 0)
+			{
+				return Ok(new { statusCode = 200, message = "Folder updated successfully.", Data = result });
+			}
+			else
+			{
+				return StatusCode(500, new { statusCode = 500, message = "No Folder data is updated." });
+			}
+		}
+
+
+
 		[HttpPut("UpdateArchiveDetails")]
 		public async Task<IActionResult> UpdateArchiveDetails(string retentionDate, int retentionPeriod, int archiveId, int compId)
 		{
@@ -428,9 +462,9 @@ namespace TracePca.Controllers.DigitalFilling
 		 
 
 		[HttpPost("CreateDocumentType")]
-		public async Task<IActionResult> CreateDocumentType(string DocumentName, string DocumentNote, string DepartmentId,  [FromBody] DocumentTypeDto dto)
+		public async Task<IActionResult> CreateDocumentType(string DocumentName, string DepartmentId, int userID, int CompID)
 		{
-			var result = await _CabinetInterface.CreateDescriptorAsync(DocumentName, DocumentNote, DepartmentId, dto);
+			var result = await _CabinetInterface.CreateDocumentTypeAsync(DocumentName, DepartmentId, userID, CompID);
 
 			if (result > 0)
 			{
@@ -444,9 +478,9 @@ namespace TracePca.Controllers.DigitalFilling
 
 
 		[HttpPut("UpdateDocumentType")]
-		public async Task<IActionResult> UpdateDocumentType(int iDocTypeID, string DocumentName, string DocumentNote, [FromBody] DocumentTypeDto dto)
+		public async Task<IActionResult> UpdateDocumentType(int iDocTypeID, string DocumentName, int userID, int CompID)
 		{
-			var result = await _CabinetInterface.UpdateDocumentTypeAsync(iDocTypeID, DocumentName, DocumentNote, dto);
+			var result = await _CabinetInterface.UpdateDocumentTypeAsync(iDocTypeID, DocumentName, userID, CompID);
 
 			if (result > 0)
 			{

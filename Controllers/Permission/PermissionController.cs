@@ -31,17 +31,17 @@ namespace TracePca.Controllers.Permission
  
  
 
-		[HttpGet("SearchDocuments")]
-		public async Task<IActionResult> SearchDocuments(string sValue)
+		[HttpGet("LoadPermissionDetails")]
+		public async Task<IActionResult> LoadPermissionDetails(int CompID)
 		{
-			var dropdownData = await _PermissionInterface.SearchDocumentsAsync(sValue);
+			var dropdownData = await _PermissionInterface.LoadPermissionDetailsAsync(CompID);
 
 			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
 			{
 				return Ok(new
 				{
 					statusCode = 200,
-					message = "Search loaded successfully.",
+					message = "Permission loaded successfully.",
 					data = dropdownData  // Return the actual data
 				});
 			}
@@ -54,6 +54,57 @@ namespace TracePca.Controllers.Permission
 				});
 			}
 		}
-		  
+
+
+		[HttpGet("LoadPermissionModule")]
+		public async Task<IActionResult> LoadPermissionModule(int CompID)
+		{
+			var dropdownData = await _PermissionInterface.LoadPermissionModuleAsync(CompID);
+
+			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Permission Module successfully.",
+					data = dropdownData  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+		}
+
+
+
+		[HttpGet("LoadPermissionRole")]
+		public async Task<IActionResult> LoadPermissionRole(string sPermissionType, int CompID)
+		{
+			var dropdownData = await _PermissionInterface.LoadPermissionRoleAsync(sPermissionType, CompID);
+
+			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Permission Role successfully.",
+					data = dropdownData  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+		}
+
 	}
 }
