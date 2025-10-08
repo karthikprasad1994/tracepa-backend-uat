@@ -61,36 +61,36 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //UpdateSelectedPartiesStatus
-        [HttpPut("UpdateTrailBalanceStatus")]
-        public async Task<IActionResult> UpdateTrailBalanceStatus([FromBody] UpdateTrailBalanceStatusDto dto)
+        [HttpPut("UpdateTrailBalanceStatusBulk")]
+        public async Task<IActionResult> UpdateTrailBalanceStatusBulk([FromBody] List<UpdateTrailBalanceStatusDto> dtoList)
         {
-            if (dto == null || dto.Id <= 0 || dto.CustId <= 0 || dto.FinancialYearId <= 0 || dto.BranchId <= 0 || string.IsNullOrWhiteSpace(dto.Status))
+            if (dtoList == null || dtoList.Count == 0)
             {
                 return BadRequest(new
                 {
                     StatusCode = 400,
-                    Message = "Invalid input parameters."
+                    Message = "No records provided for update."
                 });
             }
 
             try
             {
-                var updatedId = await _SelectedPartiesService.UpdateTrailBalanceStatusAsync(dto);
+                var updatedCount = await _SelectedPartiesService.UpdateTrailBalanceStatusAsync(dtoList);
 
-                if (updatedId == 0)
+                if (updatedCount == 0)
                 {
                     return NotFound(new
                     {
                         StatusCode = 404,
-                        Message = "No Trail Balance record found to update."
+                        Message = "No Trail Balance records found to update."
                     });
                 }
 
                 return Ok(new
                 {
                     StatusCode = 200,
-                    Message = "Trail Balance status updated successfully.",
-                    Id = updatedId
+                    Message = $"{updatedCount} Trail Balance record(s) updated successfully.",
+                    UpdatedCount = updatedCount
                 });
             }
             catch (Exception ex)
@@ -98,7 +98,42 @@ namespace TracePca.Controllers.FIN_Statement
                 return StatusCode(500, new
                 {
                     StatusCode = 500,
-                    Message = "An error occurred while updating Trail Balance status.",
+                    Message = "An error occurred while updating Trail Balance statuses.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetJETransactionDetails
+        [HttpGet("GetJournalEntryWithTrailBalance")]
+        public async Task<IActionResult> GetJournalEntryWithTrailBalance([FromQuery] int custId, [FromQuery] int yearId, [FromQuery] int branchId)
+        {
+            try
+            {
+                var result = await _SelectedPartiesService.GetJournalEntryWithTrailBalanceAsync(custId, yearId, branchId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = "No Journal Entry records linked to Trail Balance found."
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "Journal Entry records with Trail Balance retrieved successfully.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching Journal Entry with Trail Balance.",
                     Error = ex.Message
                 });
             }
