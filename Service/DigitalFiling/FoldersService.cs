@@ -1,10 +1,12 @@
 ﻿using Dapper;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.Data.SqlClient;
+using Microsoft.ReportingServices.ReportProcessing.ReportObjectModel;
 using TracePca.Data;
 using TracePca.Dto.DigitalFiling;
 using TracePca.Interface.Audit;
 using TracePca.Interface.DigitalFiling;
+using TracePca.Service.DigitalFilling;
 
 namespace TracePca.Service.DigitalFiling
 {
@@ -201,99 +203,169 @@ namespace TracePca.Service.DigitalFiling
 			}
 		}
 
+		//public async Task<List<FolderDTO>> GetAllFoldersBySubCabinetIdAsync(int subCabinetId, string statusCode)
+		//      {
+		//          try
+		//          {
+		//              var result = new List<FolderDTO>();
+
+		//              using var connection = new SqlConnection(_connectionString);
+		//              await connection.OpenAsync();
+
+		//              // TODO: Implement ExtendPermissions logic
+		//              // objclsFolders.LoadFolders(Session("AccessCode"), Session("AccessCodeID"), iSubCabId, Session("UserID"))
+
+		//              string query;
+		//              if (statusCode == "D")
+		//                  query = "SELECT * FROM EDT_Folder WHERE FOL_DelFlag = 'D' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
+		//              else if (statusCode == "W")
+		//                  query = "SELECT * FROM EDT_Folder WHERE FOL_DelFlag = 'W' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
+		//              else
+		//                  query = "SELECT * FROM EDT_Folder WHERE FOL_DelFlag != 'V' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
+
+		//              var folders = (await connection.QueryAsync<dynamic>(query, new { SubCabinetId = subCabinetId })).ToList();
+
+		//              var userIds = new HashSet<int>();
+		//              var departmentIds = new HashSet<int>();
+		//              foreach (var dr in folders)
+		//              {
+		//                  if (dr.FOL_CreatedBy > 0) userIds.Add(dr.FOL_CreatedBy);
+		//                  if (dr.FOL_UpdatedBy > 0) userIds.Add(dr.FOL_UpdatedBy);
+		//                  if (dr.FOL_ApprovedBy > 0) userIds.Add(dr.FOL_ApprovedBy);
+		//                  if (dr.FOL_DeletedBy > 0) userIds.Add(dr.FOL_DeletedBy);
+		//                  if (dr.FOL_RecalledBy > 0) userIds.Add(dr.FOL_RecalledBy);
+		//                  departmentIds.Add((int)dr.FOL_Department);
+		//              }
+
+		//              var userNameQuery = "SELECT usr_id, usr_fullname FROM sad_userdetails WHERE usr_id IN @UserIds";
+		//              var userNamesDict = (await connection.QueryAsync<(int usr_id, string usr_fullname)>(userNameQuery, new { UserIds = userIds })).ToDictionary(x => x.usr_id, x => x.usr_fullname);
+
+		//              var departmentQuery = "SELECT Org_Node, Org_Name FROM Sad_Org_Structure WHERE Org_Node IN @DeptIds";
+		//              var departmentDict = (await connection.QueryAsync<(int Org_Node, string Org_Name)>(departmentQuery, new { DeptIds = departmentIds })).ToDictionary(x => x.Org_Node, x => x.Org_Name);
+
+		//              foreach (var dr in folders)
+		//              {
+		//                  string delFlagDesc = dr.FOL_DelFlag switch
+		//                  {
+		//                      "A" => "Activated",
+		//                      "D" => "De-Activated",
+		//                      "W" => "Waiting for Approval",
+		//                      _ => dr.FOL_DelFlag
+		//                  };
+
+		//                  departmentDict.TryGetValue(Convert.ToInt32(dr.FOL_Department), out string departmentName);
+		//                  userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_CreatedBy), out string createdByName);
+		//                  userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_UpdatedBy), out string updatedByName);
+		//                  userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_ApprovedBy), out string approvedByName);
+		//                  userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_DeletedBy), out string deletedByName);
+		//                  userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_RecalledBy), out string recalledByName);
+
+		//                  var subCabinet = new FolderDTO
+		//                  {
+		//                      FOL_FolID = dr.FOL_FolID,
+		//                      FOL_Name = dr.FOL_Name,
+		//                      FOL_Cabinet = dr.FOL_Cabinet,
+		//                      FOL_Note = dr.FOL_Note,
+		//                      FOL_CreatedBy = dr.FOL_CreatedBy,
+		//                      FOL_CreatedByName = createdByName,
+		//                      FOL_CreatedOn = dr.FOL_CreatedOn,
+		//                      FOL_UpdatedBy = dr.FOL_UpdatedBy,
+		//                      FOL_UpdatedByName = updatedByName,
+		//                      FOL_UpdatedOn = dr.FOL_UpdatedOn,
+		//                      FOL_ApprovedBy = dr.FOL_ApprovedBy,
+		//                      FOL_ApprovedByName = approvedByName,
+		//                      FOL_ApprovedOn = dr.FOL_ApprovedOn,
+		//                      FOL_DeletedBy = dr.FOL_DeletedBy,
+		//                      FOL_DeletedByName = deletedByName,
+		//                      FOL_DeletedOn = dr.FOL_DeletedOn,
+		//                      FOL_RecalledBy = dr.FOL_RecalledBy,
+		//                      FOL_RecalledByName = recalledByName,
+		//                      FOL_RecalledOn = dr.FOL_RecalledOn,
+		//                      FOL_DelFlag = delFlagDesc,
+		//                      FOL_CompID = dr.FOL_CompID,
+		//                  };
+		//                  result.Add(subCabinet);
+		//              }
+
+		//              return result;
+		//          }
+		//          catch (Exception ex)
+		//          {
+		//              throw new ApplicationException("An error occurred while loading all folder data.", ex);
+		//          }
+		//      }
+
+
+
 		public async Task<List<FolderDTO>> GetAllFoldersBySubCabinetIdAsync(int subCabinetId, string statusCode)
-        {
-            try
-            {
-                var result = new List<FolderDTO>();
+		{
+			try
+			{
+				//var result = new List<FolderDTO>();
 
-                using var connection = new SqlConnection(_connectionString);
-                await connection.OpenAsync();
+				using var connection = new SqlConnection(_connectionString);
+				await connection.OpenAsync();
+ 
+				string query;
+				if (statusCode == "D")
+					query = "SELECT * FROM EDT_Folder WHERE FOL_DelFlag = 'D' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
+				else if (statusCode == "W")
+					query = "SELECT * FROM EDT_Folder WHERE FOL_DelFlag = 'W' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
+				else
+					query = "SELECT * FROM EDT_Folder WHERE FOL_DelFlag != 'V' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
 
-                // TODO: Implement ExtendPermissions logic
-                // objclsFolders.LoadFolders(Session("AccessCode"), Session("AccessCodeID"), iSubCabId, Session("UserID"))
+				//var folders = (await connection.QueryAsync<dynamic>(query, new { SubCabinetId = subCabinetId })).ToList();
 
-                string query;
-                if (statusCode == "D")
-                    query = "SELECT * FROM EDT_Folder WHERE FOL_DelFlag = 'D' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
-                else if (statusCode == "W")
-                    query = "SELECT * FROM EDT_Folder WHERE FOL_DelFlag = 'W' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
-                else
-                    query = "SELECT * FROM EDT_Folder WHERE FOL_DelFlag != 'V' AND FOL_Cabinet = @SubCabinetId Order by FOL_NAME Asc";
+				//var userIds = new HashSet<int>();
+				//var departmentIds = new HashSet<int>();
+				//foreach (var dr in folders)
+				//{
+				//	if (dr.FOL_CreatedBy > 0) userIds.Add(dr.FOL_CreatedBy);
+				//	if (dr.FOL_UpdatedBy > 0) userIds.Add(dr.FOL_UpdatedBy);
+				//	if (dr.FOL_ApprovedBy > 0) userIds.Add(dr.FOL_ApprovedBy);
+				//	if (dr.FOL_DeletedBy > 0) userIds.Add(dr.FOL_DeletedBy);
+				//	if (dr.FOL_RecalledBy > 0) userIds.Add(dr.FOL_RecalledBy);
+				//	departmentIds.Add((int)dr.FOL_Department);
+				//}
 
-                var folders = (await connection.QueryAsync<dynamic>(query, new { SubCabinetId = subCabinetId })).ToList();
+				//var userNameQuery = "SELECT usr_id, usr_fullname FROM sad_userdetails WHERE usr_id IN @UserIds";
+				//var userNamesDict = (await connection.QueryAsync<(int usr_id, string usr_fullname)>(userNameQuery, new { UserIds = userIds })).ToDictionary(x => x.usr_id, x => x.usr_fullname);
 
-                var userIds = new HashSet<int>();
-                var departmentIds = new HashSet<int>();
-                foreach (var dr in folders)
-                {
-                    if (dr.FOL_CreatedBy > 0) userIds.Add(dr.FOL_CreatedBy);
-                    if (dr.FOL_UpdatedBy > 0) userIds.Add(dr.FOL_UpdatedBy);
-                    if (dr.FOL_ApprovedBy > 0) userIds.Add(dr.FOL_ApprovedBy);
-                    if (dr.FOL_DeletedBy > 0) userIds.Add(dr.FOL_DeletedBy);
-                    if (dr.FOL_RecalledBy > 0) userIds.Add(dr.FOL_RecalledBy);
-                    departmentIds.Add((int)dr.FOL_Department);
-                }
+				//var departmentQuery = "SELECT Org_Node, Org_Name FROM Sad_Org_Structure WHERE Org_Node IN @DeptIds";
+				//var departmentDict = (await connection.QueryAsync<(int Org_Node, string Org_Name)>(departmentQuery, new { DeptIds = departmentIds })).ToDictionary(x => x.Org_Node, x => x.Org_Name);
 
-                var userNameQuery = "SELECT usr_id, usr_fullname FROM sad_userdetails WHERE usr_id IN @UserIds";
-                var userNamesDict = (await connection.QueryAsync<(int usr_id, string usr_fullname)>(userNameQuery, new { UserIds = userIds })).ToDictionary(x => x.usr_id, x => x.usr_fullname);
+				//foreach (var dr in folders)
+				//{
+				//	string delFlagDesc = dr.FOL_DelFlag switch
+				//	{
+				//		"A" => "Activated",
+				//		"D" => "De-Activated",
+				//		"W" => "Waiting for Approval",
+				//		_ => dr.FOL_DelFlag
+				//	};
 
-                var departmentQuery = "SELECT Org_Node, Org_Name FROM Sad_Org_Structure WHERE Org_Node IN @DeptIds";
-                var departmentDict = (await connection.QueryAsync<(int Org_Node, string Org_Name)>(departmentQuery, new { DeptIds = departmentIds })).ToDictionary(x => x.Org_Node, x => x.Org_Name);
+				//	departmentDict.TryGetValue(Convert.ToInt32(dr.FOL_Department), out string departmentName);
+				//	userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_CreatedBy), out string createdByName);
+				//	userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_UpdatedBy), out string updatedByName);
+				//	userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_ApprovedBy), out string approvedByName);
+				//	userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_DeletedBy), out string deletedByName);
+				//	userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_RecalledBy), out string recalledByName);
 
-                foreach (var dr in folders)
-                {
-                    string delFlagDesc = dr.FOL_DelFlag switch
-                    {
-                        "A" => "Activated",
-                        "D" => "De-Activated",
-                        "W" => "Waiting for Approval",
-                        _ => dr.FOL_DelFlag
-                    };
+				var result = await connection.QueryAsync<FolderDTO>(query, new
+				{
+					SubCabinetId = subCabinetId
+				});
 
-                    departmentDict.TryGetValue(Convert.ToInt32(dr.FOL_Department), out string departmentName);
-                    userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_CreatedBy), out string createdByName);
-                    userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_UpdatedBy), out string updatedByName);
-                    userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_ApprovedBy), out string approvedByName);
-                    userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_DeletedBy), out string deletedByName);
-                    userNamesDict.TryGetValue(Convert.ToInt32(dr.FOL_RecalledBy), out string recalledByName);
+				return result.ToList();
+                 
+			}
+			catch (Exception ex)
+			{
+				throw new ApplicationException("An error occurred while loading all folder data.", ex);
+			}
+		}
 
-                    var subCabinet = new FolderDTO
-                    {
-                        FOL_FolID = dr.FOL_FolID,
-                        FOL_Name = dr.FOL_Name,
-                        FOL_Cabinet = dr.FOL_Cabinet,
-                        FOL_Note = dr.FOL_Note,
-                        FOL_CreatedBy = dr.FOL_CreatedBy,
-                        FOL_CreatedByName = createdByName,
-                        FOL_CreatedOn = dr.FOL_CreatedOn,
-                        FOL_UpdatedBy = dr.FOL_UpdatedBy,
-                        FOL_UpdatedByName = updatedByName,
-                        FOL_UpdatedOn = dr.FOL_UpdatedOn,
-                        FOL_ApprovedBy = dr.FOL_ApprovedBy,
-                        FOL_ApprovedByName = approvedByName,
-                        FOL_ApprovedOn = dr.FOL_ApprovedOn,
-                        FOL_DeletedBy = dr.FOL_DeletedBy,
-                        FOL_DeletedByName = deletedByName,
-                        FOL_DeletedOn = dr.FOL_DeletedOn,
-                        FOL_RecalledBy = dr.FOL_RecalledBy,
-                        FOL_RecalledByName = recalledByName,
-                        FOL_RecalledOn = dr.FOL_RecalledOn,
-                        FOL_DelFlag = delFlagDesc,
-                        FOL_CompID = dr.FOL_CompID,
-                    };
-                    result.Add(subCabinet);
-                }
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                throw new ApplicationException("An error occurred while loading all folder data.", ex);
-            }
-        }
-
-        public async Task<string> UpdateFolderStatusAsync(UpdateFolderStatusRequestDTO request)
+		public async Task<string> UpdateFolderStatusAsync(UpdateFolderStatusRequestDTO request)
         {
             try
             {

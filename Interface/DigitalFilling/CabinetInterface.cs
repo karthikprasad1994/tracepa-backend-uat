@@ -19,7 +19,11 @@ namespace TracePca.Interface.DigitalFilling
 
         Task<int> UpdateCabinetAsync(string cabinetName, int iCabinetID, int iUserID, int compID);
 
-        Task<string> IndexDocuments(IndexDocumentDto dto);
+		Task<int> UpdateSubCabinetAsync(string SubcabinetName, int iSubCabinetID, int iUserID, int compID);
+
+		Task<int> UpdateFolderAsync(string FolderName, int iFolder, int iUserID, int compID);
+
+		Task<string> IndexDocuments(IndexDocumentDto dto);
 
 		Task<IEnumerable<DescriptorDto>> LoadDescriptorAsync(int iDescId, int compID);
 
@@ -33,7 +37,9 @@ namespace TracePca.Interface.DigitalFilling
 
 		Task<int> CreateDescriptorAsync(string DocumentName, string DocumentNote, string DepartmentId, [FromBody] DocumentTypeDto dto);
 
-		Task<int> UpdateDocumentTypeAsync(int iDocTypeID, string DocumentName, string DocumentNote, [FromBody] DocumentTypeDto dto);
+		Task<int> CreateDocumentTypeAsync(string DocumentName,  string DepartmentId, int UserID, int CompID);
+
+		Task<int> UpdateDocumentTypeAsync(int iDocTypeID, string DocumentName,  int UserID, int CompID);
 
 		Task<IEnumerable<SearchDto>> SearchDocumentsAsync(string sValue);
 
@@ -54,6 +60,8 @@ namespace TracePca.Interface.DigitalFilling
 		Task<string> UpdateArchiveDetailsAsync(string retentionDate, int retentionPeriod, int archiveId, int compId);
 
 		Task<string> DownloadArchieveDocumentsAsync(string sAttachID);
+
+		Task<string> DeleteArchiveDocumentsAsync(int archiveId,string sAttachID, int compId);
 
 	}
 }

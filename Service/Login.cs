@@ -862,8 +862,13 @@ new { email = plainEmail });
                 var userId = await connection.QueryFirstOrDefaultAsync<int>(
                     @"SELECT usr_Id FROM Sad_UserDetails WHERE LOWER(usr_Email) = @email",
                     new { email = plainEmail });
+                string? userEmail = await connection.QueryFirstOrDefaultAsync<string>(
+@"SELECT usr_Email
+  FROM Sad_UserDetails 
+  WHERE usr_Id  = @UserId",
+new { UserId = userId });
 
-       var roleName = await connection.QueryFirstOrDefaultAsync<string>(
+                var roleName = await connection.QueryFirstOrDefaultAsync<string>(
        @"SELECT g.Mas_Description 
        FROM Sad_UserDetails u
        LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID WHERE LOWER(u.usr_Email) = @email", 
@@ -948,6 +953,7 @@ new { email = plainEmail });
                     Token = accessToken,
                     UsrId = userId,
                     RoleName = roleName,
+                    UserEmail = userEmail,
                     YmsId = ymsId,
                     YmsYearId = ymsYearId,
                     CustomerCode = customerCode,
