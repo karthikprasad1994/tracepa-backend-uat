@@ -19,6 +19,7 @@ using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
 using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
+using System.Text.RegularExpressions;
 
 
 
@@ -1883,11 +1884,11 @@ WHERE UPPER(CUST_NAME) = UPPER(@CustomerName)
         {
             // Map template names to file paths
             var templates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-    {
-        { "Employee Master", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\EmployeeMaster Template.xlsx" },
-        { "Client Details", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientDetails Template.xlsx" },
-        { "Client User", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientUser Template.xlsx" }
-    };
+        {
+            { "Employee Master", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\EmployeeMaster Template.xlsx" },
+            { "Client Details", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientDetails Template.xlsx" },
+            { "Client User", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientUser Template.xlsx" }
+        };
 
             if (!templates.ContainsKey(FileName))
                 return null; // or throw exception if template not found

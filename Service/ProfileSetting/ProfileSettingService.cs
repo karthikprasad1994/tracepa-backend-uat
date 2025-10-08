@@ -152,21 +152,13 @@ namespace TracePca.Service.ProfileSetting
 
             var query = @"
         UPDATE sad_userDetails 
-        SET usr_MobileNo= @MobileNo,
-            usr_Email = @EmailId,
-            Usr_Experience = @Experience
-        WHERE usr_LoginName = @LoginName
-          AND usr_Code = @SAPCode
-          AND usr_FullName= @EmployeeName";
+        SET Usr_Experience = @Experience
+        WHERE usr_Id = @Id";
 
             await connection.ExecuteAsync(query, new
-            {
-                MobileNo = dto.MobileNo,
-                EmailId = dto.EmailId,
+            {         
                 Experience = dto.Experience,
-                LoginName = dto.LoginName,
-                SAPCode = dto.SAPCode,
-                EmployeeName = dto.EmployeeName
+                Id= dto.Id
             });
 
             return dto.Id;
