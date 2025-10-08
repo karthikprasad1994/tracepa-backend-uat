@@ -581,5 +581,21 @@ namespace TracePca.Controllers.DigitalFilling
 			}
 		}
 
+
+		[HttpPut("UpdateDepartment")]
+		public async Task<IActionResult> UpdateDepartment(string Code, string DepartmentName, int iDepartmentID, int iUserID, int compID)
+		{
+			var result = await _CabinetInterface.UpdateDepartmentAsync(Code, DepartmentName, iDepartmentID, iUserID, compID);
+
+			if (result > 0)
+			{
+				return Ok(new { statusCode = 200, message = "Department updated successfully.", Data = result });
+			}
+			else
+			{
+				return StatusCode(500, new { statusCode = 500, message = "No Department data is updated." });
+			}
+		}
+
 	}
 }

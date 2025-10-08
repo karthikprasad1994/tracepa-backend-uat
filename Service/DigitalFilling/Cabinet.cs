@@ -1751,6 +1751,50 @@ namespace TracePca.Service.DigitalFilling
 			}
 		}
 
+
+		public async Task<int> UpdateDepartmentAsync(string Code, string DepartmentName, int iDepartmentID, int iUserID, int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			using var transaction = connection.BeginTransaction();
+
+			try
+			{
+				var rowsAffected = await connection.ExecuteAsync(
+					@"UPDATE sad_Org_Structure 
+              SET Org_Code = @Org_Code, Org_Name=@Org_Name,
+                  Org_UpdatedBy = @Org_UpdatedBy, 
+                  Org_UpdatedOn = GETDATE()  
+              WHERE Org_Node = @Org_Node and Org_CompID = @Org_CompID",
+					new
+					{
+						Org_Node = iDepartmentID,
+						Org_Code = Code,
+						Org_Name = DepartmentName,
+						Org_UpdatedBy = iUserID,
+						Org_CompID = compID
+					},
+					transaction
+				);
+
+				await transaction.CommitAsync();
+
+				return rowsAffected > 0 ? iDepartmentID : 0;
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
+
 	}
 }
 
