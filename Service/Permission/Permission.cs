@@ -41,7 +41,7 @@ namespace TracePca.Service.Permission
 			_httpContextAccessor = httpContextAccessor;
 		}
          
-        public async Task<IEnumerable<PermissionDto>> LoadPermissionDetailsAsync(int CompID)
+        public async Task<IEnumerable<PermissionDto>> LoadPermissionDetailsAsync(int ModuleID, string PermissionType, int PermissionID, int CompID)
         {
             try
             {
@@ -64,8 +64,8 @@ namespace TracePca.Service.Permission
                                         Mod_Parent,
                                         CAST(RIGHT('0000' + CAST(Mod_ID AS VARCHAR(4)), 4) AS VARCHAR(200)) AS SortPath
                                     FROM Sad_Module
-                                    WHERE Mod_Parent = 0 and Mod_CompID = @Mod_CompID
-
+                                    WHERE Mod_Parent = 0 and Mod_CompID = @Mod_CompID AND (@Mod_ID = 0 OR Mod_ID = @Mod_ID)
+  
                                     UNION ALL
 
                                     SELECT 
@@ -104,8 +104,8 @@ namespace TracePca.Service.Permission
                                     LEFT JOIN SAD_UsrOrGrp_Permission p
                                         ON p.Perm_ModuleID = mo.Mod_ID
                                         AND p.Perm_OpPKID = mo.OP_PKID
-                                        AND p.Perm_UsrORGrpID = 1  
-                                        AND p.Perm_PType = 'R'
+                                        AND p.Perm_UsrORGrpID = @Perm_UsrORGrpID  
+                                        AND p.Perm_PType = @Perm_PType
                                 )
                                 SELECT 
                                     mh.Mod_ID,
@@ -120,7 +120,7 @@ namespace TracePca.Service.Permission
                                 GROUP BY mh.SortPath, mh.Mod_ID, mh.Mod_Description, mh.Mod_NavFunc
                                 ORDER BY mh.SortPath;";
 
-                var result = await connection.QueryAsync<PermissionDto>(query, new { Mod_CompID = CompID });
+                var result = await connection.QueryAsync<PermissionDto>(query, new { Mod_ID = ModuleID, Perm_PType = PermissionType, Perm_UsrORGrpID = PermissionID, Mod_CompID = CompID});
                 return result ?? Enumerable.Empty<PermissionDto>();
             }
             catch (Exception ex)

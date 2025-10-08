@@ -32,9 +32,9 @@ namespace TracePca.Controllers.Permission
  
 
 		[HttpGet("LoadPermissionDetails")]
-		public async Task<IActionResult> LoadPermissionDetails(int CompID)
+		public async Task<IActionResult> LoadPermissionDetails(int ModuleID, string PermissionType, int PermissionID, int CompID)
 		{
-			var dropdownData = await _PermissionInterface.LoadPermissionDetailsAsync(CompID);
+			var dropdownData = await _PermissionInterface.LoadPermissionDetailsAsync(ModuleID, PermissionType, PermissionID,CompID);
 
 			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
 			{

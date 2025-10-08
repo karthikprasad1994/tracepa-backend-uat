@@ -12,7 +12,7 @@ namespace TracePca.Interface.Permission
     public interface PermissionInterface
 	{
 		 
-		Task<IEnumerable<PermissionDto>> LoadPermissionDetailsAsync(int CompID);
+		Task<IEnumerable<PermissionDto>> LoadPermissionDetailsAsync(int ModuleID, string PermissionType, int PermissionID, int CompID);
 
 		Task<IEnumerable<PermissionDto>> LoadPermissionModuleAsync(int CompID);
 
