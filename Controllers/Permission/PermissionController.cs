@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using OfficeOpenXml.Style.XmlAccess;
 using OpenAI.ObjectModels.ResponseModels;
 using System.ServiceModel.Channels;
+using TracePca.Dto;
 using TracePca.Dto.AssetRegister;
 using TracePca.Dto.Audit;
 using TracePca.Dto.DigitalFilling;
@@ -104,6 +105,31 @@ namespace TracePca.Controllers.Permission
 					message = "No data found for the given criteria."
 				});
 			}
+		}
+
+
+		[HttpPost("SaveOrUpdatePermission")]
+		public async Task<IActionResult> SaveOrUpdatePermission(int ModuleID, string PermissionType, int UsrOrGrpId, string sOpPkID, int UserID, int compID)
+		{
+			var result = await _PermissionInterface.SaveOrUpdatePermissionAsync(ModuleID, PermissionType, UsrOrGrpId, sOpPkID, UserID, compID);
+			if (result != null && result.Any())  // Check if the collection exists and has items
+			{
+				return Ok(new
+				{
+					statusCode = 200,
+					message = "Successfully Saved or updated.",
+					data = result  // Return the actual data
+				});
+			}
+			else
+			{
+				return NotFound(new
+				{
+					statusCode = 404,
+					message = "No data found for the given criteria."
+				});
+			}
+			 
 		}
 
 	}

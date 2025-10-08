@@ -197,6 +197,50 @@ namespace TracePca.Service.Permission
 			}
 		}
 
+
+		public async Task<string> SaveOrUpdatePermissionAsync(int ModuleID, string PermissionType, int UsrOrGrpId, string sOpPkID, int UserID, int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+
+			try
+			{
+				await connection.ExecuteAsync(
+					@"Delete from SAD_UsrOrGrp_Permission WHERE perm_PType = @perm_PType and Perm_UsrORGrpID = @Perm_UsrORGrpID and Perm_ModuleID=@Perm_ModuleID and Perm_CompID=@Perm_CompID;",
+					new { perm_PType = PermissionType, Perm_UsrORGrpID = UsrOrGrpId, Perm_ModuleID = ModuleID, Perm_CompID = compID },
+					transaction);
+
+				var opIds = sOpPkID.Split(';', StringSplitOptions.RemoveEmptyEntries);
+				foreach (var opIdStr in opIds)
+                {
+					if (!int.TryParse(opIdStr.Trim(), out int opId))
+						continue;
+                    
+					await connection.ExecuteAsync(
+					@"DECLARE @NewId INT;
+                         SELECT @NewId = ISNULL(MAX(Perm_PKID), 0) + 1 FROM SAD_UsrOrGrp_Permission;
+					    Insert into SAD_UsrOrGrp_Permission(Perm_PKID,Perm_PType,Perm_UsrORGrpID,Perm_ModuleID,Perm_OpPKID,Perm_Status,Perm_Crby,Perm_Cron,Perm_Operation,
+                        Perm_IPAddress,Perm_CompID) Values(@NewId,@Perm_PType,@Perm_UsrORGrpID,@Perm_ModuleID,@Perm_OpPKID,'A',@Perm_Crby,GetDate(),'C','',@Perm_CompID)",
+				    new { Perm_PType = PermissionType, Perm_UsrORGrpID = UsrOrGrpId, Perm_ModuleID = ModuleID, Perm_OpPKID = opId, Perm_Crby = UserID, Perm_CompID = compID },
+				    transaction);
+				} 
+				await transaction.CommitAsync();
+				return "Updated Successfully.";
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
+
 	}
 }
 

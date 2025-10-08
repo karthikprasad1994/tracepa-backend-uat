@@ -18,5 +18,7 @@ namespace TracePca.Interface.Permission
 
 		Task<IEnumerable<PermissionDto>> LoadPermissionRoleAsync(string sPermissionType, int CompID);
 
+		Task<string> SaveOrUpdatePermissionAsync(int ModuleID, string PermissionType, int UsrOrGrpId, string sOpPkID, int UserID, int compID);
+
 	}
 }
