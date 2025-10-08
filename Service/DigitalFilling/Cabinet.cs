@@ -720,16 +720,12 @@ namespace TracePca.Service.DigitalFilling
 			return dto.DOT_DOCTYPEID ?? 0;
 		}
 
-		public async Task<int> UpdateDocumentTypeAsync(int iDocTypeID, string DocumentName, string DocumentNote,  [FromBody] DocumentTypeDto dto)
+		public async Task<int> UpdateDocumentTypeAsync(int iDocTypeID, string DocumentName, int userId, int compID)
 		{
-			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-			//await connection.OpenAsync();
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
 			if (string.IsNullOrEmpty(dbName))
 				throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-			// ✅ Step 2: Get the connection string
 			var connectionString = _configuration.GetConnectionString(dbName);
 
 			using var connection = new SqlConnection(connectionString);
@@ -737,24 +733,33 @@ namespace TracePca.Service.DigitalFilling
 
 			using var transaction = connection.BeginTransaction();
 
-            dto.DOT_DOCTYPEID = iDocTypeID;
-			await connection.ExecuteAsync(
-				@"UPDATE EDT_DOCUMENT_TYPE SET DOT_DOCNAME = @DOT_DOCNAME,DOT_NOTE=@DOT_NOTE,DOT_UPDATEDBY = @DOT_UPDATEDBY, DOT_UPDATEDON = GETDATE()  
+			try
+			{
+				var rowsAffected = await connection.ExecuteAsync(
+				@"UPDATE EDT_DOCUMENT_TYPE SET DOT_DOCNAME = @DOT_DOCNAME,DOT_NOTE=@DOT_DOCNAME,DOT_UPDATEDBY = @DOT_UPDATEDBY, DOT_UPDATEDON = GETDATE()  
                                 WHERE DOT_DOCTYPEID = @DOT_DOCTYPEID and DOT_CompId=@DOT_CompId;",
 								   new
 								   {
 									   DOT_DOCTYPEID = iDocTypeID,
 									   DOT_DOCNAME = DocumentName,
 									   DOT_NOTE = DocumentName,
-									   DOT_UPDATEDBY = 1,
-									   DOT_CompId = 1
+									   DOT_UPDATEDBY = userId,
+									   DOT_CompId = compID
 								   }, transaction);
 
 
 
-			await transaction.CommitAsync();
-			return dto.DOT_DOCTYPEID ?? 0;
+				await transaction.CommitAsync();
+				return rowsAffected > 0 ? iDocTypeID : 0;
+			}
+			catch(Exception ex)
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
 		}
+
+
 
 
 
@@ -1504,9 +1509,7 @@ namespace TracePca.Service.DigitalFilling
 		//		throw new Exception("Error downloading archived documents: " + ex.Message, ex);
 		//	}
 		//}
-
-
-
+		 
 		public async Task<string> DownloadArchieveDocumentsAsync(string sAttachID)
 		{
 			if (string.IsNullOrWhiteSpace(sAttachID))
@@ -1577,6 +1580,174 @@ namespace TracePca.Service.DigitalFilling
 			catch (Exception ex)
 			{
 				throw new Exception("Error downloading archived documents: " + ex.Message, ex);
+			}
+		}
+
+
+		public async Task<string> DeleteArchiveDocumentsAsync(int iArchiveID, string sAttachID, int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+
+			try
+			{ 
+				await connection.ExecuteAsync(
+					@"UPDATE StandardAudit_Schedule 
+              SET SA_IsArchived = 2
+              WHERE SA_ID = @SA_ID and SA_CompID=@SA_CompID;",
+					new {  SA_ID = iArchiveID, SA_CompID = compID },
+					transaction);
+
+				await connection.ExecuteAsync(
+					@"UPDATE edt_Attachments 
+              SET ATCH_Status ='D'  
+              WHERE ATCH_ID = @ATCH_ID and ATCh_CompID=@ATCh_CompID;",
+					new { ATCH_ID = sAttachID, ATCh_CompID = compID },
+					transaction);
+
+				await transaction.CommitAsync();
+				return "Updated Successfully.";
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
+
+
+		public async Task<int> UpdateSubCabinetAsync(string SubcabinetName, int SubcabinetId,int userId,  int compId)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			using var transaction = connection.BeginTransaction();
+
+			try
+			{
+				var rowsAffected = await connection.ExecuteAsync(
+					@"UPDATE edt_cabinet 
+              SET CBN_Name = @CBN_Name, 
+                  CBN_UpdatedBy = @CBN_UpdatedBy, 
+                  CBN_UpdatedOn = GETDATE()  
+              WHERE CBN_ID = @CBN_ID and CBN_CompID = @CBN_CompID",
+					new
+					{
+						CBN_Name = SubcabinetName,
+						CBN_UpdatedBy = userId,
+						CBN_ID = SubcabinetId,
+						CBN_CompID = compId
+					},
+					transaction
+				);
+
+				await transaction.CommitAsync();
+
+				return rowsAffected > 0 ? SubcabinetId : 0;
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
+
+		 
+		public async Task<int> UpdateFolderAsync(string FolderName, int iFolderID, int userId, int compId)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			using var transaction = connection.BeginTransaction();
+
+			try
+			{
+				var rowsAffected = await connection.ExecuteAsync(
+					@"UPDATE edt_Folder 
+              SET FOL_Name = @FOL_Name, 
+                  FOL_UpdatedBy = @FOL_UpdatedBy, 
+                  FOL_UpdatedOn = GETDATE()  
+              WHERE FOL_FolID = @FOL_FolID and FOL_CompID = @FOL_CompID",
+					new
+					{
+						FOL_Name = FolderName,
+						FOL_UpdatedBy = userId,
+						FOL_FolID = iFolderID,
+						FOL_CompID = compId
+					},
+					transaction
+				);
+
+				await transaction.CommitAsync();
+
+				return rowsAffected > 0 ? iFolderID : 0;
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
+			}
+		}
+
+
+		public async Task<int> CreateDocumentTypeAsync(string DocumentName, string DepartmentId, int userID, int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+				int DOT_DoctypeID = await connection.ExecuteScalarAsync<int>(
+					  @"DECLARE @TemplateId INT;
+                  SELECT @TemplateId = ISNULL(MAX(DOT_DoctypeID), 0) + 1 FROM edt_Document_Type;
+                  INSERT INTO edt_Document_Type 
+                  (DOT_DoctypeID, DOT_DOCNAME, DOT_Note, DOT_PGroup, DOT_CrBy, DOT_CrOn, DOT_Status, dot_operation, dot_OperationBy, DOT_isGlobal, DOT_DelFlag, DOT_COmpID)
+                  VALUES 
+                  (@TemplateId, @DOT_DOCNAME, @DOT_DOCNAME, @DOT_PGroup, @DOT_CrBy, GetDate(), 'A', 1,1,0,'A',@DOT_COmpID);
+                  SELECT @TemplateId;",
+					  new
+					  {
+						  DOT_DOCNAME = DocumentName,
+						  DOT_PGroup = DepartmentId,
+						  DOT_CrBy = userID,
+						  DOT_COmpID = compID
+					  },
+					  transaction
+				  );
+
+				await transaction.CommitAsync();
+				return DOT_DoctypeID;
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
 			}
 		}
 

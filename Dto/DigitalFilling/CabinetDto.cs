@@ -130,4 +130,16 @@ namespace TracePca.Dto.DigitalFilling
 		public string DepartmentName { get; set; }
 	}
 
+
+	public class PermissionDto
+	{
+		public string Mod_ID { get; set; }
+		public string Mod_Description { get; set; }
+		public string Mod_NavFunc { get; set; }
+		public string Operations { get; set; }
+		public string OperationsID { get; set; }
+		public string PermissionsFlag { get; set; }
+		 
+	}
+
 }
