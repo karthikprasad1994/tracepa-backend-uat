@@ -1504,9 +1504,7 @@ namespace TracePca.Service.DigitalFilling
 		//		throw new Exception("Error downloading archived documents: " + ex.Message, ex);
 		//	}
 		//}
-
-
-
+		 
 		public async Task<string> DownloadArchieveDocumentsAsync(string sAttachID)
 		{
 			if (string.IsNullOrWhiteSpace(sAttachID))
@@ -1577,6 +1575,45 @@ namespace TracePca.Service.DigitalFilling
 			catch (Exception ex)
 			{
 				throw new Exception("Error downloading archived documents: " + ex.Message, ex);
+			}
+		}
+
+
+		public async Task<string> DeleteArchiveDocumentsAsync(int iArchiveID, string sAttachID, int compID)
+		{
+			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+			if (string.IsNullOrEmpty(dbName))
+				throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			var connectionString = _configuration.GetConnectionString(dbName);
+
+			using var connection = new SqlConnection(connectionString);
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+
+			try
+			{ 
+				await connection.ExecuteAsync(
+					@"UPDATE StandardAudit_Schedule 
+              SET SA_IsArchived = 2
+              WHERE SA_ID = @SA_ID and SA_CompID=@SA_CompID;",
+					new {  SA_ID = iArchiveID, SA_CompID = compID },
+					transaction);
+
+				await connection.ExecuteAsync(
+					@"UPDATE edt_Attachments 
+              SET ATCH_Status ='D'  
+              WHERE ATCH_ID = @ATCH_ID and ATCh_CompID=@ATCh_CompID;",
+					new { ATCH_ID = sAttachID, ATCh_CompID = compID },
+					transaction);
+
+				await transaction.CommitAsync();
+				return "Updated Successfully.";
+			}
+			catch
+			{
+				await transaction.RollbackAsync();
+				throw;
 			}
 		}
 

@@ -55,5 +55,7 @@ namespace TracePca.Interface.DigitalFilling
 
 		Task<string> DownloadArchieveDocumentsAsync(string sAttachID);
 
+		Task<string> DeleteArchiveDocumentsAsync(int archiveId,string sAttachID, int compId);
+
 	}
 }

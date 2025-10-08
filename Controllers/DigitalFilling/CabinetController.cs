@@ -524,5 +524,28 @@ namespace TracePca.Controllers.DigitalFilling
 			});
 		}
 
+
+
+		[HttpPut("DeleteArchiveDocuments")]
+		public async Task<IActionResult> DeleteArchiveDocuments(int archiveId, string AttachID, int compId)
+		{
+			try
+			{
+				var result = await _CabinetInterface.DeleteArchiveDocumentsAsync(archiveId, AttachID, compId);
+
+				if (result == "Invalid Archive Id.")
+					return NotFound(new { message = result });
+
+				if (result == "Deleted Successfully.")
+					return Ok(new { message = result });
+
+				return BadRequest(new { message = "Unexpected result." });
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { message = $"An error occurred: {ex.Message}" });
+			}
+		}
+
 	}
 }
