@@ -58,11 +58,11 @@ namespace TracePca.Controllers.ProfileSetting
 
         //ChangePasword
         [HttpPut("UpdatePassword")]
-        public async Task<IActionResult> PutChangePasswordAsync([FromQuery] string LoginName, [FromQuery] int UserId, [FromBody] TracePaChangePasswordDto dto)
+        public async Task<IActionResult> PutChangePasswordAsync([FromBody] TracePaChangePasswordDto dto)
         {
             try
             {
-                var result = await _ProfileSettingService.PutChangePasswordAsync(LoginName, UserId, dto);
+                var result = await _ProfileSettingService.PutChangePasswordAsync(dto);
 
                 if (result.Any() && result.First().Status == "Success")
                 {
