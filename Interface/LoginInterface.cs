@@ -32,5 +32,6 @@ namespace TracePca.Interface
         Task<IEnumerable<LogInfoDto>> GetUserLoginLogsAsync();
         Task<IEnumerable<ModuleDto>> GetModulesByMpIdAsync(int mpId);
         Task UpdateCustomerModulesAsync(int customerId, List<int> moduleIds);
+        Task<List<CustomerModuleDetailDto>> GetCustomerModulesAsync(int customerId);
     }
 }
