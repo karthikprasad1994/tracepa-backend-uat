@@ -443,6 +443,25 @@ namespace TracePca.Controllers
         }
 
 
+        [HttpGet("GetCustomerModulesByCustId")]
+        public async Task<IActionResult> GetCustomerModules(int customerId)
+        {
+            if (customerId <= 0)
+                return BadRequest(new { statuscode = 400, message = "Invalid customer ID." });
+
+            try
+            {
+                var modules = await _LoginInterface.GetCustomerModulesAsync(customerId);
+                return Ok(new { statuscode = 200, message = "Modules fetched successfully.", data = modules });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statuscode = 500, message = "Internal server error", error = ex.Message });
+            }
+        }
+
+
+
 
 
 
