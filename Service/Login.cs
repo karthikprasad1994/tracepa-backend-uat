@@ -2,6 +2,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -62,8 +63,8 @@ namespace TracePca.Service
             _errorLogger = errorLogger;
             _appSettingsPath = Path.Combine(env.ContentRootPath, "appsettings.json");
             _db = new SqlConnection(configuration.GetConnectionString("DefaultConnection"));
-         
-           
+
+
         }
 
         public async Task<object> GetAllUsersAsync()
@@ -174,6 +175,38 @@ namespace TracePca.Service
 
 
 
+        public async Task<IEnumerable<ModuleDto>> GetModulesByMpIdAsync(int mpId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+            await connection.OpenAsync();
+
+            string query = @"
+SELECT 
+    MM_ID AS ModuleId,
+    MM_MP_ID AS ProductId,
+    MP_ModuleName AS ModuleName
+FROM MMCS_MODULES
+WHERE MM_MP_ID = @MpId
+ORDER BY MM_ID
+";
+
+            var modules = await connection.QueryAsync<ModuleDto>(query, new
+            {
+                MpId = mpId
+            });
+
+            // Map SQL columns to DTO properties
+            var result = modules.Select(x => new ModuleDto
+            {
+                ProductId = x.ProductId,           // MM_ID
+                ModuleId = x.ModuleId,   // MM_MP_ID
+                ModuleName = x.ModuleName // MP_ModuleName
+            }).ToList();
+
+            return result;
+        }
+    
+
 
 
 
@@ -218,7 +251,8 @@ namespace TracePca.Service
                     {
                         McrCustomerEmail = email,
                         McrCustomerTelephoneNo = dto.PhoneNumber?.Trim(),
-                        McrCustomerName = dto.CompanyName?.Trim()
+                        McrCustomerName = dto.CompanyName?.Trim(),
+                        ModuleIds = dto.ModuleIds
                     };
 
                     // Return your normal sign-up response
@@ -360,6 +394,13 @@ namespace TracePca.Service
                     MCR_Emails = registerModel.McrCustomerEmail + ","
 
                 });
+                
+
+                // ✅ Step 1: Validate that customer exists (safety check before inserting modules)
+                
+
+
+
                 await CheckAndAddAccessCodeConnectionStringAsync(newCustomerCode);
                 if (rowsInserted == 0)
                 {
@@ -370,6 +411,7 @@ namespace TracePca.Service
 
                 // Step 4: Create Customer Database
                 await CreateCustomerDatabaseAsync(newCustomerCode);
+                await Task.Delay(500);
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
                 string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
 
@@ -393,7 +435,8 @@ namespace TracePca.Service
                 }
 
                 // Execute the script
-                await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePathToUse);
+                 await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePathToUse);
+
                 string seedConfigSql = $@"
 INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Config_Value], [SAD_UpdatedBy], [SAD_UpdatedOn], [SAD_Config_Operation], [SAD_Config_IPAddress], [SAD_CompID]) VALUES 
 (1, N'ImgPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
@@ -414,12 +457,60 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
 (16, N'TempPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\', 1, GETDATE(), N'U', N'192.168.0.118', 1),
 (17, N'DisplayPath', N'https://tracepacore.multimedia.interactivedns.com/{newCustomerCode}/', 1, GETDATE(), N'U', N'192.168.0.118', 1);
 ";
+                await using var newDbConnection = new SqlConnection(newDbConnectionString);
+                await newDbConnection.OpenAsync();
 
-                
-                using (var seedConnection = new SqlConnection(newDbConnectionString))
+                // 5️⃣ Execute table creation scripts in the new database
+               
+               // await newDbConnection.ExecuteAsync(seedConfigSql);
+                //           var customerExists = await connection.ExecuteScalarAsync<int>(
+                //"SELECT COUNT(1) FROM MMCS_CustomerRegistration WHERE MCR_ID = @CustomerId",
+                //new { CustomerId = customerId });
+
+                //           if (customerExists == 0)
+                //               throw new Exception("Customer not found. Module mapping cannot proceed.");
+
+                // ✅ Step 2: Fetch all active modules (no name translation here)
+                // Step 1: Get all modules for MpId = 1
+                // 1️⃣ Fetch all modules for a given MP_ID (e.g., 1)
+
+                string customerDbConnectionString = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+                await using var customerConnection = new SqlConnection(customerDbConnectionString);
+                await customerConnection.OpenAsync();
+
+                // 1️⃣ Fetch modules
+                // Step 1: Get modules for given MP_ID
+                // Step 1: Get current max MCM_ID
+                int currentMaxMcmId = await customerConnection.ExecuteScalarAsync<int>(
+         "SELECT ISNULL(MAX(MCM_ID), 0) FROM MMCS_CustomerModules");
+
+                // Step 2: Prepare data for each selected module
+                var moduleInsertList = registerModel.ModuleIds?.Select((moduleId, index) => new
                 {
-                    await seedConnection.ExecuteAsync(seedConfigSql);
-                }
+                    MCM_ID = currentMaxMcmId + index + 1, // Auto increment manually
+                    MCM_MCR_ID = maxMcrId,                // Registered customer ID
+                    MCM_ModuleID = moduleId               // Module ID from request body
+                }).ToList();
+
+                // Step 3: Bulk insert all selected modules
+                const string insertQuery = @"
+INSERT INTO MMCS_CustomerModules (MCM_ID, MCM_MCR_ID, MCM_ModuleID)
+VALUES (@MCM_ID, @MCM_MCR_ID, @MCM_ModuleID);";
+
+                await customerConnection.ExecuteAsync(insertQuery, moduleInsertList);
+
+                // 5️⃣ Execute all inserts in one go (batch)
+
+
+
+
+
+
+                //using (var seedConnection = new SqlConnection(newDbConnectionString))
+                //{
+                //    await seedConnection.ExecuteAsync(seedConfigSql);
+                //}
 
 
                 // Step 5: Setup Schema
@@ -538,71 +629,120 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
         }
 
         // ✅ Optimized SQL script execution
+        //public async Task ExecuteAllSqlScriptsAsync(string connectionString, string scriptFilePath)
+        //{
+        //    try
+        //    {
+        //        if (!File.Exists(scriptFilePath))
+        //        {
+        //            Console.WriteLine($"File not found: {scriptFilePath}");
+        //            return;
+        //        }
+
+        //        string script = await File.ReadAllTextAsync(scriptFilePath);
+        //        string[] commands = Regex.Split(script, @"(?i)^\s*GO\s*$", RegexOptions.Multiline);
+
+        //        using (var connection = new SqlConnection(connectionString))
+        //        {
+        //            await connection.OpenAsync();
+        //            using (var transaction = connection.BeginTransaction())
+        //            {
+        //                try
+        //                {
+        //                    foreach (string commandText in commands)
+        //                    {
+        //                        string trimmedCommand = commandText.Trim();
+        //                        if (!string.IsNullOrEmpty(trimmedCommand))
+        //                        {
+        //                            try
+        //                            {
+        //                                using (var command = new SqlCommand(trimmedCommand, connection, transaction))
+        //                                {
+        //                                    command.CommandTimeout = 120;
+
+        //                                    // Optional: Handle IDENTITY_INSERT if needed
+        //                                    if (trimmedCommand.Contains("INSERT INTO") && trimmedCommand.Contains("IDENTITY"))
+        //                                    {
+        //                                        await new SqlCommand("SET IDENTITY_INSERT ON;", connection, transaction).ExecuteNonQueryAsync();
+        //                                    }
+
+        //                                    await command.ExecuteNonQueryAsync();
+        //                                }
+        //                            }
+        //                            catch (SqlException sqlEx)
+        //                            {
+        //                                Console.WriteLine($"SQL Execution Error: {sqlEx.Message}\nCommand: {trimmedCommand}");
+        //                                throw; // Rethrow to roll back
+        //                            }
+        //                        }
+        //                    }
+
+        //                    await transaction.CommitAsync();
+        //                    Console.WriteLine("SQL script executed successfully.");
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    await transaction.RollbackAsync();
+        //                    Console.WriteLine($"Transaction failed: {ex.Message}");
+        //                }
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine($"General error executing SQL script: {ex.Message}");
+        //    }
+        //}
         public async Task ExecuteAllSqlScriptsAsync(string connectionString, string scriptFilePath)
         {
-            try
+            if (!File.Exists(scriptFilePath))
             {
-                if (!File.Exists(scriptFilePath))
-                {
-                    Console.WriteLine($"File not found: {scriptFilePath}");
-                    return;
-                }
+                Console.WriteLine($"❌ File not found: {scriptFilePath}");
+                return;
+            }
 
-                string script = await File.ReadAllTextAsync(scriptFilePath);
-                string[] commands = Regex.Split(script, @"(?i)^\s*GO\s*$", RegexOptions.Multiline);
+            string script = await File.ReadAllTextAsync(scriptFilePath);
+            string[] commands = Regex.Split(script, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
-                using (var connection = new SqlConnection(connectionString))
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            Console.WriteLine($"✅ Connected to DB: {connection.Database}");
+
+            foreach (var commandText in commands)
+            {
+                string trimmed = commandText.Trim();
+
+                if (string.IsNullOrEmpty(trimmed))
+                    continue;
+
+                // Skip USE statements because connection already points to correct DB
+                if (trimmed.StartsWith("USE ", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                try
                 {
-                    await connection.OpenAsync();
-                    using (var transaction = connection.BeginTransaction())
+                    await using var command = new SqlCommand(trimmed, connection)
                     {
-                        try
-                        {
-                            foreach (string commandText in commands)
-                            {
-                                string trimmedCommand = commandText.Trim();
-                                if (!string.IsNullOrEmpty(trimmedCommand))
-                                {
-                                    try
-                                    {
-                                        using (var command = new SqlCommand(trimmedCommand, connection, transaction))
-                                        {
-                                            command.CommandTimeout = 120;
-
-                                            // Optional: Handle IDENTITY_INSERT if needed
-                                            if (trimmedCommand.Contains("INSERT INTO") && trimmedCommand.Contains("IDENTITY"))
-                                            {
-                                                await new SqlCommand("SET IDENTITY_INSERT ON;", connection, transaction).ExecuteNonQueryAsync();
-                                            }
-
-                                            await command.ExecuteNonQueryAsync();
-                                        }
-                                    }
-                                    catch (SqlException sqlEx)
-                                    {
-                                        Console.WriteLine($"SQL Execution Error: {sqlEx.Message}\nCommand: {trimmedCommand}");
-                                        throw; // Rethrow to roll back
-                                    }
-                                }
-                            }
-
-                            await transaction.CommitAsync();
-                            Console.WriteLine("SQL script executed successfully.");
-                        }
-                        catch (Exception ex)
-                        {
-                            await transaction.RollbackAsync();
-                            Console.WriteLine($"Transaction failed: {ex.Message}");
-                        }
-                    }
+                        CommandTimeout = 300 // increase if script is big
+                    };
+                    await command.ExecuteNonQueryAsync();
+                    Console.WriteLine($"✅ Executed batch successfully");
+                }
+                catch (SqlException sqlEx)
+                {
+                    Console.WriteLine($"❌ SQL Error: {sqlEx.Message}\nBatch:\n{trimmed}");
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ General Error: {ex.Message}\nBatch:\n{trimmed}");
+                    throw;
                 }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"General error executing SQL script: {ex.Message}");
-            }
-        }
 
+            Console.WriteLine("✅ All SQL script batches executed successfully.");
+        }
 
 
 
@@ -862,8 +1002,17 @@ new { email = plainEmail });
                 var userId = await connection.QueryFirstOrDefaultAsync<int>(
                     @"SELECT usr_Id FROM Sad_UserDetails WHERE LOWER(usr_Email) = @email",
                     new { email = plainEmail });
+                string? userEmail = await connection.QueryFirstOrDefaultAsync<string>(
+@"SELECT usr_Email
+  FROM Sad_UserDetails 
+  WHERE usr_Id  = @UserId",
+new { UserId = userId });
 
-       var roleName = await connection.QueryFirstOrDefaultAsync<string>(
+
+              
+
+
+                var roleName = await connection.QueryFirstOrDefaultAsync<string>(
        @"SELECT g.Mas_Description 
        FROM Sad_UserDetails u
        LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID WHERE LOWER(u.usr_Email) = @email", 
@@ -940,17 +1089,63 @@ new { email = plainEmail });
                 string clientIp = httpContext?.Request?.Headers["X-Forwarded-For"].FirstOrDefault()
                     ?? httpContext?.Connection?.RemoteIpAddress?.ToString();
                 string systemIp = GetLocalIp();
+                string customerDbConnectionString = _configuration.GetConnectionString("CustomerRegistrationConnection");
 
+                await using var customerConnection = new SqlConnection(customerDbConnectionString);
+                await customerConnection.OpenAsync();
+
+                var customerInfo = await customerConnection.QueryFirstOrDefaultAsync<(string CustomerCode, int CustomerId)>(
+                    @"SELECT TOP 1 
+          MCR_CustomerCode, MCR_ID 
+      FROM mmcs_customerregistration
+      CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
+      WHERE LTRIM(RTRIM(Emails.value)) = @Email",
+                    new { Email = email });
+
+                if (customerInfo.CustomerCode == null)
+                    throw new Exception("Customer not found.");
+
+                int customerId = customerInfo.CustomerId;
+                customerCode = customerInfo.CustomerCode;
+
+                // Fetch module IDs assigned to this customer
+
+
+                var savedModules = await customerConnection.QueryAsync<CustomerModuleDto>(@"
+    SELECT 
+        MCM_ID AS MCM_ID, 
+        MCM_ModuleID AS MCM_ModuleID
+    FROM MMCS_CustomerModules
+    WHERE MCM_MCR_ID = @CustomerId",
+              new { CustomerId = customerId });
+
+
+                var mcmIds = await customerConnection.QueryAsync<int?>(
+       @"SELECT MCM_ID FROM MMCS_CustomerModules WHERE MCM_MCR_ID = @CustomerId",
+       new { CustomerId = customerId });
+                var validMcmIds = mcmIds.Where(id => id.HasValue).Select(id => id.Value).ToList();
                 return new LoginResponse
                 {
                     StatusCode = 200,
                     Message = "Login successful",
                     Token = accessToken,
                     UsrId = userId,
+                    CustomerId = customerId,
+                    UserEmail = userEmail,
                     RoleName = roleName,
+                   // UserEmail = userEmail,
                     YmsId = ymsId,
                     YmsYearId = ymsYearId,
                     CustomerCode = customerCode,
+                    PkIds = savedModules
+                .Where(x => x.MCM_ID.HasValue)
+               .Select(x => x.MCM_ID.Value)
+                        .ToList(),
+
+                    ModuleIds = savedModules
+    .Where(x => x.MCM_ModuleID.HasValue)
+    .Select(x => x.MCM_ModuleID.Value)
+    .ToList(),
                     ClientIpAddress = clientIp,
                     SystemIpAddress = systemIp,
 
@@ -961,14 +1156,64 @@ new { email = plainEmail });
                 return new LoginResponse
                 {
                     StatusCode = 500,
-                    Message = $"An error occurred: {ex.Message}"
+                    Message = $"An error occurred: {ex.Message}",
+                     ModuleIds = new List<int>()
                 };
             }
         }
 
 
+        public async Task<List<CustomerModuleDetailDto>> GetCustomerModulesAsync(int customerId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+            await connection.OpenAsync();
 
-     public async Task<bool> LogoutUserAsync(string accessToken)
+            var modules = await connection.QueryAsync<CustomerModuleDetailDto>(
+                @"
+        SELECT cm.MCM_ModuleID AS ModuleId, m.MP_ModuleName AS ModuleName
+        FROM MMCS_CustomerModules cm
+        INNER JOIN MMCS_MODULES m ON cm.MCM_ModuleID = m.MM_ID
+        WHERE cm.MCM_MCR_ID = @CustomerId",
+                new { CustomerId = customerId });
+
+            return modules.ToList();
+        }
+
+
+        public async Task UpdateCustomerModulesAsync(int customerId, List<int> moduleIds)
+{
+    if (moduleIds == null) moduleIds = new List<int>();
+
+    using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+    await connection.OpenAsync();
+
+    // Fetch existing modules
+    var existingModules = await connection.QueryAsync<int>(
+        "SELECT MCM_ModuleID FROM MMCS_CustomerModules WHERE MCM_MCR_ID = @CustomerId",
+        new { CustomerId = customerId });
+
+    // Insert missing modules
+    var modulesToInsert = moduleIds.Except(existingModules);
+    foreach (var moduleId in modulesToInsert)
+    {
+        await connection.ExecuteAsync(
+            @"INSERT INTO MMCS_CustomerModules (MCM_MCR_ID, MCM_ModuleID)
+              VALUES (@CustomerId, @ModuleId)",
+            new { CustomerId = customerId, ModuleId = moduleId });
+    }
+
+    // Delete modules that are no longer selected
+    var modulesToDelete = existingModules.Except(moduleIds);
+    foreach (var moduleId in modulesToDelete)
+    {
+        await connection.ExecuteAsync(
+            "DELETE FROM MMCS_CustomerModules WHERE MCM_MCR_ID = @CustomerId AND MCM_ModuleID = @ModuleId",
+            new { CustomerId = customerId, ModuleId = moduleId });
+    }
+}
+
+
+        public async Task<bool> LogoutUserAsync(string accessToken)
         {
             const string query = @"
 UPDATE UserTokens
@@ -1078,46 +1323,166 @@ WHERE UserId = @UserId
 
 
 
+        //   public async Task InsertUserTokenAsync(
+        //int userId,
+        //string email,
+        //string accessToken,
+        //string refreshToken,
+        //DateTime accessExpiry,
+        //DateTime refreshExpiry,
+        //string customerCode
+        // )
+        //   {
+        //       const string sql = @"
+        //   INSERT INTO UserTokens 
+        //   (UserEmail, AccessToken, RefreshToken, AccessTokenExpiry, RefreshTokenExpiry, RevokedAt, 
+        //    UserId, IpAddress, Device, Browser, CreatedAt)
+        //   VALUES 
+        //   (@UserEmail, @AccessToken, @RefreshToken, @AccessTokenExpiry, @RefreshTokenExpiry, 
+        //    @RevokedAt, @UserId, @IpAddress, @Device, @Browser, @CreatedAt)";
+
+        //       // Get dynamic DB from session
+        //       string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //       if (string.IsNullOrEmpty(dbName))
+        //           throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //       string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+        //       string customerDbConnection = string.Format(connectionStringTemplate, dbName);
+        //       string userAgent = _httpContextAccessor.HttpContext?.Request.Headers["User-Agent"].ToString() ?? "";
+        //       string ipAddress = null;
+
+        //       // 1️⃣ Check X-Forwarded-For header first (for proxies/load balancers)
+        //       if (_httpContextAccessor.HttpContext?.Request.Headers.ContainsKey("X-Forwarded-For") == true)
+        //       {
+        //           var header = _httpContextAccessor.HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        //           if (!string.IsNullOrEmpty(header))
+        //               ipAddress = header.Split(',')[0].Trim(); // take first IP if multiple
+        //       }
+
+        //       // 2️⃣ Fallback to RemoteIpAddress if header not present
+        //       if (string.IsNullOrEmpty(ipAddress))
+        //       {
+        //           ipAddress = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+        //       }
+
+        //       // Detect device
+        //       string device = "Unknown Device";
+        //       if (!string.IsNullOrEmpty(userAgent))
+        //       {
+        //           if (userAgent.Contains("Windows")) device = "Windows PC";
+        //           else if (userAgent.Contains("Mac")) device = "Mac";
+        //           else if (userAgent.Contains("iPhone")) device = "iPhone";
+        //           else if (userAgent.Contains("iPad")) device = "iPad";
+        //           else if (userAgent.Contains("Android")) device = "Android Device";
+        //       }
+
+        //       // Detect browser
+        //       string browser = "Unknown Browser";
+        //       if (!string.IsNullOrEmpty(userAgent))
+        //       {
+        //           if (userAgent.Contains("Chrome") && !userAgent.Contains("Edge")) browser = "Chrome";
+        //           else if (userAgent.Contains("Firefox")) browser = "Firefox";
+        //           else if (userAgent.Contains("Safari") && !userAgent.Contains("Chrome")) browser = "Safari";
+        //           else if (userAgent.Contains("Edge")) browser = "Edge";
+        //       }
+
+        //       var accessTokenExpiry = DateTime.UtcNow.AddHours(1);   // instead of DateTime.Now
+        //       var refreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+
+        //       using var connection = new SqlConnection(customerDbConnection);
+        //       await connection.OpenAsync();
+
+        //       await connection.ExecuteAsync(sql, new
+        //       {
+        //           UserId = userId,
+        //           UserEmail = email,
+        //           AccessToken = accessToken,
+        //           RefreshToken = refreshToken,
+        //           AccessTokenExpiry = accessTokenExpiry,  
+        //           RefreshTokenExpiry = refreshTokenExpiry,
+        //           RevokedAt = (DateTime?)null,
+        //           Device = device,
+        //           Browser = browser,
+        //           IpAddress = ipAddress,
+        //           CreatedAt = DateTime.UtcNow
+        //       });
+        //   }
+
         public async Task InsertUserTokenAsync(
-     int userId,
-     string email,
-     string accessToken,
-     string refreshToken,
-     DateTime accessExpiry,
-     DateTime refreshExpiry,
-     string customerCode
-      )
+    int userId,
+    string email,
+    string accessToken,
+    string refreshToken,
+    DateTime accessExpiry,
+    DateTime refreshExpiry,
+    string customerCode)
         {
             const string sql = @"
-        INSERT INTO UserTokens 
-        (UserEmail, AccessToken, RefreshToken, AccessTokenExpiry, RefreshTokenExpiry, RevokedAt, 
-         UserId, IpAddress, Device, Browser, CreatedAt)
-        VALUES 
-        (@UserEmail, @AccessToken, @RefreshToken, @AccessTokenExpiry, @RefreshTokenExpiry, 
-         @RevokedAt, @UserId, @IpAddress, @Device, @Browser, @CreatedAt)";
+    INSERT INTO UserTokens 
+    (UserEmail, AccessToken, RefreshToken, AccessTokenExpiry, RefreshTokenExpiry, RevokedAt, 
+     UserId, IpAddress, Device, Browser, CreatedAt)
+    VALUES 
+    (@UserEmail, @AccessToken, @RefreshToken, @AccessTokenExpiry, @RefreshTokenExpiry, 
+     @RevokedAt, @UserId, @IpAddress, @Device, @Browser, @CreatedAt)";
 
-            // Get dynamic DB from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
             string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
             string customerDbConnection = string.Format(connectionStringTemplate, dbName);
-            string userAgent = _httpContextAccessor.HttpContext?.Request.Headers["User-Agent"].ToString() ?? "";
+
+            var context = _httpContextAccessor.HttpContext;
+            string userAgent = context?.Request.Headers["User-Agent"].ToString() ?? "";
             string ipAddress = null;
 
-            // 1️⃣ Check X-Forwarded-For header first (for proxies/load balancers)
-            if (_httpContextAccessor.HttpContext?.Request.Headers.ContainsKey("X-Forwarded-For") == true)
+            // 1️⃣ Check X-Forwarded-For header (useful in production behind proxy/load balancer)
+            if (context?.Request.Headers.ContainsKey("X-Forwarded-For") == true)
             {
-                var header = _httpContextAccessor.HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+                var header = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
                 if (!string.IsNullOrEmpty(header))
-                    ipAddress = header.Split(',')[0].Trim(); // take first IP if multiple
+                    ipAddress = header.Split(',')[0].Trim();
             }
 
-            // 2️⃣ Fallback to RemoteIpAddress if header not present
+            // 2️⃣ Fallback to RemoteIpAddress
             if (string.IsNullOrEmpty(ipAddress))
             {
-                ipAddress = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+                var remoteIp = context?.Connection.RemoteIpAddress;
+
+                if (remoteIp != null)
+                {
+                    // ✅ Correct check for loopback (::1 or 127.0.0.1)
+                    if (System.Net.IPAddress.IsLoopback(remoteIp))
+                    {
+                        ipAddress = "127.0.0.1";
+                    }
+                    else
+                    {
+                        // Convert IPv6 to IPv4 if possible
+                        if (remoteIp.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+                        {
+                            var ipv4 = Dns.GetHostEntry(remoteIp)
+                                .AddressList.FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+                            ipAddress = ipv4?.ToString() ?? remoteIp.ToString();
+                        }
+                        else
+                        {
+                            ipAddress = remoteIp.ToString();
+                        }
+                    }
+                }
+            }
+
+
+            // ✅ If you want LAN IP (192.168.x.x) even for local tests:
+            if (ipAddress == "127.0.0.1" || ipAddress == "::1")
+            {
+                var host = Dns.GetHostEntry(Dns.GetHostName());
+                var lanIp = host.AddressList.FirstOrDefault(
+                    ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork &&
+                          ip.ToString().StartsWith("192.168."));
+                if (lanIp != null)
+                    ipAddress = lanIp.ToString();
             }
 
             // Detect device
@@ -1141,9 +1506,6 @@ WHERE UserId = @UserId
                 else if (userAgent.Contains("Edge")) browser = "Edge";
             }
 
-            var accessTokenExpiry = DateTime.UtcNow.AddHours(1);   // instead of DateTime.Now
-            var refreshTokenExpiry = DateTime.UtcNow.AddDays(7);
-
             using var connection = new SqlConnection(customerDbConnection);
             await connection.OpenAsync();
 
@@ -1153,16 +1515,15 @@ WHERE UserId = @UserId
                 UserEmail = email,
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
-                AccessTokenExpiry = accessTokenExpiry,  
-                RefreshTokenExpiry = refreshTokenExpiry,
+                AccessTokenExpiry = DateTime.UtcNow.AddHours(1),
+                RefreshTokenExpiry = DateTime.UtcNow.AddDays(7),
                 RevokedAt = (DateTime?)null,
                 Device = device,
                 Browser = browser,
-                IpAddress = ipAddress,
+                IpAddress = ipAddress, // ✅ Always IPv4 or LAN IP
                 CreatedAt = DateTime.UtcNow
             });
         }
-
 
 
 
@@ -1451,18 +1812,18 @@ WHERE UserId = @UserId
 
         //    return results.ToList();
         //}
+
         public async Task<IEnumerable<LogInfoDto>> GetUserLoginLogsAsync()
         {
-            // Get dynamic database name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
-
+            
             string query = @"
 SELECT 
-    ut.UserId AS UserId,
+    ut.UserId,
     ut.UserEmail,
     ut.CreatedAt,
     ut.RevokedAt,
@@ -1470,64 +1831,138 @@ SELECT
     ut.IsRevoked,
     ut.IpAddress,
     ut.Device,
-    ut.Browser
+    ut.Browser,
+    g.Mas_Description AS RoleName
 FROM UserTokens ut
 INNER JOIN Sad_UserDetails sud ON sud.usr_Id = ut.UserId
+LEFT JOIN SAD_GrpOrLvl_General_Master g ON sud.Usr_Role = g.Mas_ID
 ORDER BY ut.Id DESC";
 
-            var logs = await connection.QueryAsync<dynamic>(query);
+            var logs = await connection.QueryAsync(query);
 
             var istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
             var utcNow = DateTime.UtcNow;
 
-            var formattedLogs = new List<LogInfoDto>();
-
-            foreach (var x in logs)
+            var formattedLogs = logs.Select(x =>
             {
-                // Login IST
-                var loginDateTimeIST = TimeZoneInfo.ConvertTimeFromUtc((DateTime)x.CreatedAt, istZone);
+                var createdAt = (DateTime)x.CreatedAt;
+                var revokedAt = x.RevokedAt as DateTime?;
+                var accessTokenExpiry = (DateTime)x.AccessTokenExpiry;
 
-                // Logout IST (RevokedAt if exists, otherwise AccessTokenExpiry)
-                DateTime logoutUtc = x.RevokedAt ?? (DateTime)x.AccessTokenExpiry;
+                // Login IST
+                var loginDateTimeIST = TimeZoneInfo.ConvertTimeFromUtc(createdAt, istZone);
+
+                // Logout IST
+                DateTime logoutUtc = revokedAt ?? accessTokenExpiry;
                 var logoutDateTimeIST = TimeZoneInfo.ConvertTimeFromUtc(logoutUtc, istZone);
 
                 // Status
-                bool isRevoked = x.IsRevoked == null ? false : (bool)x.IsRevoked;
-                bool isActive = (!isRevoked && (DateTime)x.AccessTokenExpiry > utcNow);
+                bool isRevoked = x.IsRevoked != null && (bool)x.IsRevoked;
+                bool isActive = (!isRevoked && accessTokenExpiry > utcNow);
                 string status = isActive ? "Active" : "Inactive";
 
                 // User timeline
                 string userTimeLine = isActive
-                    ? $"Active {(utcNow - (DateTime)x.CreatedAt).Hours}h {(utcNow - (DateTime)x.CreatedAt).Minutes % 60}m"
-                    : $"Idle {((logoutUtc - (DateTime)x.CreatedAt).TotalMinutes):0}m";
+                    ? $"Active {(utcNow - createdAt).Hours}h {(utcNow - createdAt).Minutes % 60}m"
+                    : $"Idle {((logoutUtc - createdAt).TotalMinutes):0}m";
 
-                // Fetch role name
-                string roleName = await connection.QueryFirstOrDefaultAsync<string>(
-                    @"SELECT g.Mas_Description 
-              FROM Sad_UserDetails u
-              LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID
-              WHERE u.usr_Id = @UserId",
-                    new { UserId = x.UserId });
-
-                formattedLogs.Add(new LogInfoDto
+                return new LogInfoDto
                 {
                     UserId = x.UserId,
                     UserEmail = x.UserEmail,
                     LoginDate = loginDateTimeIST.ToString("dd/MM/yyyy"),
                     LoginTime = loginDateTimeIST.ToString("hh:mm tt"),
-                    LogoutDate = x.RevokedAt != null ? logoutDateTimeIST.ToString("dd/MM/yyyy") : null,
-                    LogoutTime = x.RevokedAt != null ? logoutDateTimeIST.ToString("hh:mm tt") : null,
+                    LogoutDate = revokedAt != null ? logoutDateTimeIST.ToString("dd/MM/yyyy") : null,
+                    LogoutTime = revokedAt != null ? logoutDateTimeIST.ToString("hh:mm tt") : null,
                     IpAddress = x.IpAddress,
                     Device = x.Device,
                     Browser = x.Browser,
                     Status = status,
                     UserTimeLine = userTimeLine,
-                    RoleName = roleName
-                });
-            }
+                    RoleName = x.RoleName
+                };
+            }).ToList();
 
             return formattedLogs;
         }
+
+        //        public async Task<IEnumerable<LogInfoDto>> GetUserLoginLogsAsync()
+        //        {
+        //            // Get dynamic database name from session
+        //            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //            if (string.IsNullOrEmpty(dbName))
+        //                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
+
+        //            string query = @"
+        //SELECT 
+        //    ut.UserId AS UserId,
+        //    ut.UserEmail,
+        //    ut.CreatedAt,
+        //    ut.RevokedAt,
+        //    ut.AccessTokenExpiry,
+        //    ut.IsRevoked,
+        //    ut.IpAddress,
+        //    ut.Device,
+        //    ut.Browser
+        //FROM UserTokens ut
+        //INNER JOIN Sad_UserDetails sud ON sud.usr_Id = ut.UserId
+        //ORDER BY ut.Id DESC";
+
+        //            var logs = await connection.QueryAsync<dynamic>(query);
+
+        //            var istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        //            var utcNow = DateTime.UtcNow;
+
+        //            var formattedLogs = new List<LogInfoDto>();
+
+        //            foreach (var x in logs)
+        //            {
+        //                // Login IST
+        //                var loginDateTimeIST = TimeZoneInfo.ConvertTimeFromUtc((DateTime)x.CreatedAt, istZone);
+
+        //                // Logout IST (RevokedAt if exists, otherwise AccessTokenExpiry)
+        //                DateTime logoutUtc = x.RevokedAt ?? (DateTime)x.AccessTokenExpiry;
+        //                var logoutDateTimeIST = TimeZoneInfo.ConvertTimeFromUtc(logoutUtc, istZone);
+
+        //                // Status
+        //                bool isRevoked = x.IsRevoked == null ? false : (bool)x.IsRevoked;
+        //                bool isActive = (!isRevoked && (DateTime)x.AccessTokenExpiry > utcNow);
+        //                string status = isActive ? "Active" : "Inactive";
+
+        //                // User timeline
+        //                string userTimeLine = isActive
+        //                    ? $"Active {(utcNow - (DateTime)x.CreatedAt).Hours}h {(utcNow - (DateTime)x.CreatedAt).Minutes % 60}m"
+        //                    : $"Idle {((logoutUtc - (DateTime)x.CreatedAt).TotalMinutes):0}m";
+
+        //                // Fetch role name
+        //                string roleName = await connection.QueryFirstOrDefaultAsync<string>(
+        //                    @"SELECT g.Mas_Description 
+        //              FROM Sad_UserDetails u
+        //              LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID
+        //              WHERE u.usr_Id = @UserId",
+        //                    new { UserId = x.UserId });
+
+        //                formattedLogs.Add(new LogInfoDto
+        //                {
+        //                    UserId = x.UserId,
+        //                    UserEmail = x.UserEmail,
+        //                    LoginDate = loginDateTimeIST.ToString("dd/MM/yyyy"),
+        //                    LoginTime = loginDateTimeIST.ToString("hh:mm tt"),
+        //                    LogoutDate = x.RevokedAt != null ? logoutDateTimeIST.ToString("dd/MM/yyyy") : null,
+        //                    LogoutTime = x.RevokedAt != null ? logoutDateTimeIST.ToString("hh:mm tt") : null,
+        //                    IpAddress = x.IpAddress,
+        //                    Device = x.Device,
+        //                    Browser = x.Browser,
+        //                    Status = status,
+        //                    UserTimeLine = userTimeLine,
+        //                    RoleName = roleName
+        //                });
+        //            }
+
+        //            return formattedLogs;
+        //        }
 
 
 

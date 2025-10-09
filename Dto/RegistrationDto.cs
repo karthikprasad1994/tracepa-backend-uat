@@ -43,6 +43,8 @@
         public string? Otp { get; set; }
         public string? MCR_emails { get; set; }
 
+        public List<int>? ModuleIds { get; set; }
+
     }
 }
 

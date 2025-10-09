@@ -31,6 +31,7 @@
         public class TracePaLicenseInformationDto
         {
             public int CustomerId { get; set; }
+            public string EmailId { get; set; }
             public string ModuleId { get; set; }
             public string RegistrationNumber { get; set; }
             public string CustomerName { get; set; }
@@ -47,14 +48,9 @@
         //UpdateUserProfile
         public class UpdateUserProfileDto
         {
-            public int Id { get; set; }                // optional — if you need to track who was updated
-            public string? MobileNo { get; set; }
-            public string? EmailId { get; set; }
+            public int Id { get; set; }     
             public string? Experience { get; set; }
-            public string LoginName { get; set; } = string.Empty;
-            public string SAPCode { get; set; } = string.Empty;
-            public string EmployeeName { get; set; } = string.Empty;
+           
         }
-
     }
 }

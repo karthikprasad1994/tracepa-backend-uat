@@ -41,7 +41,13 @@ namespace TracePca.Service.FIN_statement
             var query = @"
         SELECT 
             ATBU_Description, 
-            ATBU_ID
+            ATBU_ID,
+            ATBU_Closing_TotalDebit_Amount, 
+            ATBU_Closing_TotalCredit_Amount,
+            CASE 
+                WHEN ATBU_Status = 'A' THEN 'Flagged'
+                ELSE 'Unflagged'
+            END AS ATBU_Status
         FROM Acc_TrailBalance_Upload
         WHERE ATBU_CustId = @CustId
           AND ATBU_YEARId = @FinancialYearId
@@ -57,7 +63,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //UpdateSelectedPartiesStatus
-        public async Task<int> UpdateTrailBalanceStatusAsync(UpdateTrailBalanceStatusDto dto)
+        public async Task<int> UpdateTrailBalanceStatusAsync(List<UpdateTrailBalanceStatusDto> dtoList)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -71,39 +77,82 @@ namespace TracePca.Service.FIN_statement
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            var query = @"
-        UPDATE Acc_TrailBalance_Upload
-        SET ATBU_STATUS = @Status
-        WHERE ATBU_ID = @Id
-          AND ATBU_CustId = @CustId
-          AND ATBU_YEARId = @FinancialYearId
-          AND ATBU_Branchid = @BranchId";
+            // ✅ Step 3: Execute for all records one by one in a transaction
+            using var transaction = connection.BeginTransaction();
 
-            await connection.ExecuteAsync(query, new
+            try
             {
-                Id = dto. Id,
-                Status = dto.Status,
-                CustId = dto.CustId,
-                FinancialYearId = dto.FinancialYearId,
-                BranchId = dto.BranchId
-            });
+                int totalUpdated = 0;
 
-            return dto.Id;
+                foreach (var dto in dtoList)
+                {
+                    // ✅ Define query inside the loop
+                    var query = @"
+            UPDATE Acc_TrailBalance_Upload
+            SET ATBU_STATUS = @Status
+            WHERE ATBU_ID = @Id;";
+
+                    // ✅ Execute query for each DTO
+                    totalUpdated += await connection.ExecuteAsync(query, new
+                    {
+                        Id = dto.Id,
+                        Status = dto.Status
+                    }, transaction);
+                }
+
+                transaction.Commit();
+
+                return totalUpdated; // ✅ Return total number of records updated
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw; // Let the caller handle the error
+            }
         }
 
+        //GetJETransactionDetails
+        public async Task<IEnumerable<JournalEntryWithTrailBalanceDto>> GetJournalEntryWithTrailBalanceAsync(int custId, int yearId, int branchId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 3: SQL Query
+            var query = @"
+        SELECT 
+            JED.AJTB_ID,
+            JED.AJTB_DescName,
+            JED.AJTB_Debit,
+            JED.AJTB_Credit,
+            TBU.ATBU_Description,
+            TBU.ATBU_ID
+        FROM Acc_JETransactions_Details AS JED
+        LEFT JOIN Acc_TrailBalance_Upload AS TBU
+            ON JED.AJTB_Deschead = TBU.ATBU_ID
+        WHERE 
+            TBU.ATBU_STATUS = 'A'
+            AND JED.AJTB_CustId = @CustId
+            AND JED.AJTB_YearId = @YearId
+            AND JED.AJTB_BranchId = @BranchId
+        ORDER BY 
+            JED.AJTB_ID;";
+
+            // ✅ Step 4: Execute query with parameters
+            return await connection.QueryAsync<JournalEntryWithTrailBalanceDto>(query, new
+            {
+                CustId = custId,
+                YearId = yearId,
+                BranchId = branchId
+            });
+        }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

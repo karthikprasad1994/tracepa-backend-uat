@@ -61,7 +61,7 @@ namespace TracePca.Service.ProfileSetting
         }
 
         //ChangePassword
-        public async Task<IEnumerable<TracePaChangePasswordDto>> PutChangePasswordAsync(string LoginName, int UserId, TracePaChangePasswordDto dto)
+        public async Task<IEnumerable<TracePaChangePasswordDto>> PutChangePasswordAsync(TracePaChangePasswordDto dto)
         { 
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -110,9 +110,10 @@ namespace TracePca.Service.ProfileSetting
         }
 
         //GetLicenseInformation
-        public async Task<IEnumerable<TracePaLicenseInformationDto>> GetLicenseInformationAsync(int iCustomerId)
+        public async Task<IEnumerable<TracePaLicenseInformationDto>> GetLicenseInformationAsync(string sEmailId, string sCustomerCode)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection2"));
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
 
             var query = @"SELECT 
             MCR_ID as CustomerId,
@@ -126,11 +127,12 @@ namespace TracePca.Service.ProfileSetting
             MCR_DataSize as DataSize,
             MCR_NumberOfCustomers as NoOfCustomers,
             MCR_NumberOfUsers as NoOfUsers
-            FROM MMCS_CustomerRegistration WHERE MCR_ID = @CustomerId";
+            FROM MMCS_CustomerRegistration WHERE ',' + REPLACE(MCR_Emails, ' ', '') + ',' LIKE '%,' + @EmailId + ',%'
+  AND MCR_CustomerCode = @CustomerCode";
 
             await connection.OpenAsync();
 
-            return await connection.QueryAsync<TracePaLicenseInformationDto>(query, new { CustomerId = iCustomerId });
+            return await connection.QueryAsync<TracePaLicenseInformationDto>(query, new { EmailId = sEmailId, CustomerCode = @sCustomerCode });
         }
 
         //UpdateUserProfile
@@ -150,21 +152,13 @@ namespace TracePca.Service.ProfileSetting
 
             var query = @"
         UPDATE sad_userDetails 
-        SET usr_MobileNo= @MobileNo,
-            usr_Email = @EmailId,
-            Usr_Experience = @Experience
-        WHERE usr_LoginName = @LoginName
-          AND usr_Code = @SAPCode
-          AND usr_FullName= @EmployeeName";
+        SET Usr_Experience = @Experience
+        WHERE usr_Id = @Id";
 
             await connection.ExecuteAsync(query, new
-            {
-                MobileNo = dto.MobileNo,
-                EmailId = dto.EmailId,
+            {         
                 Experience = dto.Experience,
-                LoginName = dto.LoginName,
-                SAPCode = dto.SAPCode,
-                EmployeeName = dto.EmployeeName
+                Id= dto.Id
             });
 
             return dto.Id;

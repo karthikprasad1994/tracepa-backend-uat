@@ -279,5 +279,20 @@ namespace TracePca.Controllers.SuperMaster
 
             return File(result.FileBytes, result.ContentType, result.FileName);
         }
+
+        //DownloadExcelTemplateFiles
+        [HttpGet("Download")]
+        public IActionResult DownloadTemplate([FromQuery] string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return BadRequest("Template name is required.");
+
+            var result = _ExcelInformationService.GetExcelTemplate(name);
+
+            if (result == null)
+                return NotFound("Template not found.");
+
+            return File(result.FileBytes, result.ContentType, result.FileName);
+        }
     }
 }

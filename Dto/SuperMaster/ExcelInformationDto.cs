@@ -389,6 +389,15 @@ namespace TracePca.Dto.SuperMaster
             public string FileName { get; set; }
             public string ContentType { get; set; }
         }
+
+        //DownloadExcelTemplateFiles
+        public class ExcelInformationTemplateResult
+        {
+            public byte[] FileBytes { get; set; }
+            public string FileName { get; set; }
+            public string ContentType { get; set; }
+        }
+
     }
 }
 

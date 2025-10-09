@@ -35,5 +35,8 @@ namespace TracePca.Interface.SuperMaster
 
         //DownloadClientuser
         ClientUserResult GetClientUserExcelTemplate();
+
+        //DownloadExcelTemplateFiles
+        ExcelInformationTemplateResult GetExcelTemplate(string FileName);
     }
 }
