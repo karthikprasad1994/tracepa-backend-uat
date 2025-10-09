@@ -22,71 +22,43 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //GetAbnormalTransactions
-        //[HttpGet("abnormal")]
-        //public async Task<IActionResult> GetAbnormalTransactions([FromQuery] int iCustId, [FromQuery] int iBranchId, [FromQuery] int iYearID, [FromQuery] int iAbnormalType, [FromQuery] decimal dAmount)
-        //{
-        //    try
-        //    {
-        //        var result = await _AbnormalitiesService.GetAbnormalTransactionsAsync(iCustId, iBranchId, iYearID, iAbnormalType, dAmount);
-
-        //        if (result == null || !result.Any())
-        //        {
-        //            return NotFound(new
-        //            {
-        //                StatusCode = 404,
-        //                Message = "No abnormal transactions found.",
-        //                Data = new List<object>()
-        //            });
-        //        }
-
-        //        return Ok(new
-        //        {
-        //            StatusCode = 200,
-        //            Message = "Abnormal transactions retrieved successfully.",
-        //            Data = result
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "An error occurred while fetching abnormal transactions.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
-
-        
-
-        [HttpGet("GetAll")]
-        public async Task<IActionResult> GetAllAbnormalTransactions(
-        [FromQuery] int iCustId,
-        [FromQuery] int iBranchId,
-        [FromQuery] int iYearID,
-        [FromQuery] decimal dAmount)
+        [HttpGet("abnormal")]
+        public async Task<IActionResult> GetAbnormalTransactions([FromQuery] int iCustId, [FromQuery] int iBranchId, [FromQuery] int iYearID, [FromQuery] int iAbnormalType, [FromQuery] decimal dAmount)
         {
             try
             {
-                var result = await _AbnormalitiesService.GetAllAbnormalTransactionsAsync(iCustId, iBranchId, iYearID, dAmount);
+                var result = await _AbnormalitiesService.GetAbnormalTransactionsAsync(iCustId, iBranchId, iYearID, iAbnormalType, dAmount);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = "No abnormal transactions found.",
+                        Data = new List<object>()
+                    });
+                }
 
                 return Ok(new
                 {
-                    statusCode = 200,
-                    message = "Abnormal transactions retrieved successfully.",
-                    data = result
+                    StatusCode = 200,
+                    Message = "Abnormal transactions retrieved successfully.",
+                    Data = result
                 });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new
                 {
-                    statusCode = 500,
-                    message = "An error occurred while fetching abnormal transactions.",
-                    error = ex.Message
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching abnormal transactions.",
+                    Error = ex.Message
                 });
             }
         }
+
+
+
     }
 }
 
