@@ -13,6 +13,8 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace TracePca.Controllers
 {
@@ -26,7 +28,6 @@ namespace TracePca.Controllers
         private readonly string CredentialsPath = @"C:\Users\MMCS\Downloads\GoogleDrive1.json";
         private readonly string TokenFolder = "tokens";
         private readonly string[] Scopes = { DriveService.Scope.DriveFile, DriveService.Scope.Drive };
-
         public GoogleDriveController(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration;
@@ -142,6 +143,37 @@ namespace TracePca.Controllers
                 HttpClientInitializer = credential,
                 ApplicationName = "TraceDriveIntegration"
             });
+        }
+        // ---------------- AES Keys ----------------
+        private static readonly byte[] Key = Encoding.UTF8.GetBytes("Your32CharLengthSecretKey1234567890"); // 32 chars = 256-bit
+        private static readonly byte[] IV = Encoding.UTF8.GetBytes("16CharInitVector"); // 16 chars = 128-bit
+
+        // ---------------- AES Encryption ----------------
+        private static void EncryptStream(Stream inputStream, Stream outputStream)
+        {
+            using var aes = Aes.Create();
+            aes.Key = Key;
+            aes.IV = IV;
+            aes.Mode = CipherMode.CBC;
+            aes.Padding = PaddingMode.PKCS7;
+
+            using var cryptoStream = new CryptoStream(outputStream, aes.CreateEncryptor(), CryptoStreamMode.Write);
+            inputStream.CopyTo(cryptoStream);
+            cryptoStream.FlushFinalBlock();
+        }
+
+        // ---------------- AES Decryption ----------------
+        private static void DecryptStream(Stream inputStream, Stream outputStream)
+        {
+            using var aes = Aes.Create();
+            aes.Key = Key;
+            aes.IV = IV;
+            aes.Mode = CipherMode.CBC;
+            aes.Padding = PaddingMode.PKCS7;
+
+            using var cryptoStream = new CryptoStream(inputStream, aes.CreateDecryptor(), CryptoStreamMode.Read);
+            cryptoStream.CopyTo(outputStream);
+            outputStream.Position = 0; // Reset position for reading
         }
 
         // ----------------- Folder Creation -----------------
@@ -272,45 +304,47 @@ namespace TracePca.Controllers
             }
         }
 
-        // ----------------- Upload File -----------------
+
         [HttpPost("upload-file")]
         public async Task<IActionResult> UploadFile([FromQuery] string userEmail, [FromQuery] string folderId, IFormFile file)
         {
-            var masterLogId = await InsertMasterLogAsync(userEmail, "UploadFile", folderId, null, null, file?.FileName, "Started", "Uploading file");
             if (file == null) return BadRequest("File is required");
 
             try
             {
                 var service = await GetDriveServiceAsync(userEmail);
-                using var fileStream = new MemoryStream();
-                await file.CopyToAsync(fileStream);
-                fileStream.Position = 0;
 
+                // Read file into memory
+                using var originalStream = new MemoryStream();
+                await file.CopyToAsync(originalStream);
+                originalStream.Position = 0;
+
+                // Encrypt file
+                var encryptedStream = new MemoryStream();
+                EncryptStream(originalStream, encryptedStream);
+                encryptedStream.Position = 0;
+
+                // Upload to Google Drive
                 var metadata = new Google.Apis.Drive.v3.Data.File
                 {
                     Name = file.FileName,
                     Parents = new[] { folderId }
                 };
 
-                var request = service.Files.Create(metadata, fileStream, file.ContentType ?? "application/octet-stream");
+                var request = service.Files.Create(metadata, encryptedStream, file.ContentType ?? "application/octet-stream");
                 request.Fields = "id, name, size, mimeType";
                 await request.UploadAsync();
 
                 var uploaded = request.ResponseBody;
 
-                // Save file in DB
-                await SaveFileAsync(uploaded.Id, uploaded.Name, folderId, userEmail, uploaded.Size ?? 0, uploaded.MimeType);
-
-                await InsertDetailLogAsync(masterLogId, uploaded.Id, uploaded.Name, uploaded.Size ?? 0, "Success", "File uploaded successfully");
-
                 return Ok(new { FileId = uploaded.Id, FileName = uploaded.Name, Size = uploaded.Size });
             }
             catch (Exception ex)
             {
-                await InsertDetailLogAsync(masterLogId, null, file?.FileName, file?.Length ?? 0, "Failed", ex.Message);
                 return StatusCode(500, ex.Message);
             }
         }
+
 
         // ----------------- Archive Folder Recursively -----------------
         [HttpPost("archive-folder")]
@@ -430,7 +464,6 @@ namespace TracePca.Controllers
                 return StatusCode(500, new { error = ex.Message });
             }
         }
-
         [HttpGet("get-file")]
         public async Task<IActionResult> GetFile([FromQuery] string userEmail, [FromQuery] string fileId, [FromQuery] bool download = false)
         {
@@ -441,17 +474,24 @@ namespace TracePca.Controllers
             {
                 var service = await GetDriveServiceAsync(userEmail);
 
+                // Get file metadata
                 var getRequest = service.Files.Get(fileId);
                 getRequest.Fields = "id, name, mimeType, size, modifiedTime";
                 var file = await getRequest.ExecuteAsync();
 
                 if (download)
                 {
-                    var stream = new MemoryStream();
-                    await service.Files.Get(fileId).DownloadAsync(stream);
-                    stream.Position = 0;
+                    // Download encrypted file
+                    var encryptedStream = new MemoryStream();
+                    await service.Files.Get(fileId).DownloadAsync(encryptedStream);
+                    encryptedStream.Position = 0;
 
-                    return File(stream, "application/octet-stream", file.Name);
+                    // Decrypt
+                    var decryptedStream = new MemoryStream();
+                    DecryptStream(encryptedStream, decryptedStream);
+                    decryptedStream.Position = 0;
+
+                    return File(decryptedStream, "application/octet-stream", file.Name);
                 }
 
                 return Ok(new { file.Id, file.Name, file.MimeType, file.Size, file.ModifiedTime });
@@ -461,6 +501,7 @@ namespace TracePca.Controllers
                 return StatusCode(500, new { error = ex.Message });
             }
         }
+
 
         [HttpGet("get-root-contents")]
         public async Task<IActionResult> GetRootContents([FromQuery] string userEmail)
