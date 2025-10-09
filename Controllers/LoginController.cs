@@ -65,7 +65,7 @@ namespace TracePca.Controllers
                 StatusCode = 200,
                 Message = message,
                 Token = otpToken,
-               // Otp = null // You can include OTP here only if needed
+                // Otp = null // You can include OTP here only if needed
             });
         }
 
@@ -121,35 +121,35 @@ namespace TracePca.Controllers
 
 
         [HttpPost("VerifyOtp")]
-            public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpReqDto request)
+        public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpReqDto request)
+        {
+            // Extract the JWT token from Authorization header
+            var token = Request.Headers["Authorization"].ToString();
+            if (string.IsNullOrWhiteSpace(token))
             {
-                // Extract the JWT token from Authorization header
-                var token = Request.Headers["Authorization"].ToString();
-                if (string.IsNullOrWhiteSpace(token))
-                {
-                    return BadRequest(new { statuscode = 400, message = "Authorization token is missing in the header." });
-                }
-
-                // Remove "Bearer " prefix if present
-                if (token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                {
-                    token = token.Substring("Bearer ".Length).Trim();
-                }
-
-                if (string.IsNullOrWhiteSpace(request.Otp))
-                {
-                    return BadRequest(new { statuscode = 400, message = "OTP cannot be empty." });
-                }
-
-                var isValid = await _LoginInterface.VerifyOtpJwtAsync(token, request.Otp);
-
-                if (isValid)
-                {
-                    return Ok(new { statuscode = 200, message = "OTP verified successfully." });
-                }
-
-                return BadRequest(new { statuscode = 400, message = "Invalid or expired OTP." });
+                return BadRequest(new { statuscode = 400, message = "Authorization token is missing in the header." });
             }
+
+            // Remove "Bearer " prefix if present
+            if (token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                token = token.Substring("Bearer ".Length).Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Otp))
+            {
+                return BadRequest(new { statuscode = 400, message = "OTP cannot be empty." });
+            }
+
+            var isValid = await _LoginInterface.VerifyOtpJwtAsync(token, request.Otp);
+
+            if (isValid)
+            {
+                return Ok(new { statuscode = 200, message = "OTP verified successfully." });
+            }
+
+            return BadRequest(new { statuscode = 400, message = "Invalid or expired OTP." });
+        }
 
 
         [HttpPost("GmailSignup")]
@@ -181,7 +181,7 @@ namespace TracePca.Controllers
             return result; // Return as it is if not OkObjectResult
         }
 
-       
+
 
         [HttpGet("SessionInfo")]
         public IActionResult GetSessionInfo()
@@ -290,7 +290,7 @@ namespace TracePca.Controllers
         }
 
 
-        
+
         [HttpPost]
         [Route("UsersLogin")]
         public async Task<IActionResult> LoginUser([FromBody] LoginDto user)
@@ -371,6 +371,77 @@ namespace TracePca.Controllers
                 Message = "User logged out successfully."
             });
         }
+
+        [HttpGet("GetModules")]
+        public async Task<IActionResult> GetModulesByMpId([FromQuery] int mpId = 1)
+        {
+            try
+            {
+                var modules = await _LoginInterface.GetModulesByMpIdAsync(mpId);
+
+                if (modules == null || !modules.Any())
+                {
+                    return NotFound(new
+                    {
+                        statuscode = 404,
+                        message = $"No modules found for MP_ID = {mpId}"
+                    });
+                }
+
+                // Map custom names
+                var mappedModules = modules.Select(m =>
+                {
+                    string customName = m.ModuleName switch
+                    {
+                        "Digital Audit Office - Financial Audit" => "Account Verification",
+                        "Digital Office" => "Documents",
+                        "Digital Audit Office - Assignments" => "TaskManagement",
+                        _ => m.ModuleName
+                    };
+
+                    return new ModuleDto
+                    {
+                        ProductId = m.ProductId,
+                        ModuleId = m.ModuleId,
+                        ModuleName = customName
+                    };
+                }).ToList();
+
+                return Ok(new
+                {
+                    statuscode = 200,
+                    message = "Modules fetched successfully.",
+                    data = mappedModules
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statuscode = 500,
+                    message = $"An error occurred: {ex.Message}"
+                });
+            }
+        }
+
+
+        [HttpPut("UpdateCustomerModules")]
+        public async Task<IActionResult> UpdateCustomerModulesAsync(UpdateCustomerModulesDto dto)
+        {
+            if (dto.CustomerId == 0)
+                return BadRequest(new { statuscode = 400, message = "CustomerId is required." });
+
+            try
+            {
+                await _LoginInterface.UpdateCustomerModulesAsync(dto.CustomerId, dto.ModuleIds);
+                return Ok(new { statuscode = 200, message = "Modules updated successfully." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { statuscode = 500, message = "Internal server error", error = ex.Message });
+            }
+        }
+
 
 
 
