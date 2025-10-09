@@ -6,7 +6,6 @@ namespace TracePca.Interface.FIN_Statement
     {
 
         //GetAbnormalTransactions
-        //Task<IEnumerable<AbnormalTransactionsDto>> GetAbnormalTransactionsAsync(int iCustId, int iBranchId, int iYearID, int iAbnormalType, decimal dAmount);
-        Task<IEnumerable<AbnormalTransactionsDto>> GetAllAbnormalTransactionsAsync(int iCustId, int iBranchId, int iYearID, decimal dAmount);
+        Task<IEnumerable<AbnormalTransactionsDto>> GetAbnormalTransactionsAsync(int iCustId, int iBranchId, int iYearID, int iAbnormalType, decimal dAmount);
     }
 }

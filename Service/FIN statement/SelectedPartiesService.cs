@@ -28,32 +28,21 @@ namespace TracePca.Service.FIN_statement
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
-
             // ✅ Step 2: Get connection string
             var connectionString = _configuration.GetConnectionString(dbName);
-
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-
             var query = @"
-        SELECT 
-            ATBU_Description, 
-            ATBU_ID,
+        SELECT ATBU_Description,ATBU_ID,
             ATBU_Closing_TotalDebit_Amount, 
-            ATBU_Closing_TotalCredit_Amount,
-            CASE 
-                WHEN ATBU_Status = 'A' THEN 'Flagged'
-                ELSE 'Unflagged'
-            END AS ATBU_Status
-        FROM Acc_TrailBalance_Upload
+            ATBU_Closing_TotalCredit_Amount, ATBU_Status      
+            FROM Acc_TrailBalance_Upload
         WHERE ATBU_CustId = @CustId
           AND ATBU_YEARId = @FinancialYearId
           AND ATBU_Branchid = @BranchId
         ORDER BY ATBU_Id DESC";
-
             return await connection.QueryAsync<LoadTrailBalanceDto>(query, new
             {
                 CustId = custId,
