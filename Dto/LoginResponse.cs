@@ -21,6 +21,7 @@
 
         public string RoleName { get; set; }
 
+
         public string UserEmail { get; set; }
 
         public List<int> ModuleIds { get; set; } = new();
@@ -28,6 +29,9 @@
         public List<int> PkIds { get; set; } = new();
 
         public int CustomerId { get; set; }
+
+
+        
 
     }
 }

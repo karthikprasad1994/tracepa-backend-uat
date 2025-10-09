@@ -365,6 +365,39 @@ namespace TracePca.Dto.SuperMaster
             public int iUSR_MemberType { get; set; }
             public int iUSR_Levelcode { get; set; }
         }
+
+        //DownloadEmployeeMaster
+        public class EmployeeMasterResult
+        {
+            public byte[] FileBytes { get; set; }
+            public string FileName { get; set; }
+            public string ContentType { get; set; }
+        }
+
+        //DownloadClientDetails
+        public class ClientDetailsResult
+        {
+            public byte[] FileBytes { get; set; }
+            public string FileName { get; set; }
+            public string ContentType { get; set; }
+        }
+
+        //DownloadClientuser
+        public class ClientUserResult
+        {
+            public byte[] FileBytes { get; set; }
+            public string FileName { get; set; }
+            public string ContentType { get; set; }
+        }
+
+        //DownloadExcelTemplateFiles
+        public class ExcelInformationTemplateResult
+        {
+            public byte[] FileBytes { get; set; }
+            public string FileName { get; set; }
+            public string ContentType { get; set; }
+        }
+
     }
 }
 

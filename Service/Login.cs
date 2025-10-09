@@ -1002,12 +1002,15 @@ new { email = plainEmail });
                 var userId = await connection.QueryFirstOrDefaultAsync<int>(
                     @"SELECT usr_Id FROM Sad_UserDetails WHERE LOWER(usr_Email) = @email",
                     new { email = plainEmail });
-
                 string? userEmail = await connection.QueryFirstOrDefaultAsync<string>(
-    @"SELECT usr_Email
-      FROM Sad_UserDetails 
-      WHERE usr_Id  = @UserId",
-    new { UserId = userId });
+@"SELECT usr_Email
+  FROM Sad_UserDetails 
+  WHERE usr_Id  = @UserId",
+new { UserId = userId });
+
+
+              
+
 
                 var roleName = await connection.QueryFirstOrDefaultAsync<string>(
        @"SELECT g.Mas_Description 
@@ -1130,6 +1133,7 @@ new { email = plainEmail });
                     CustomerId = customerId,
                     UserEmail = userEmail,
                     RoleName = roleName,
+                   // UserEmail = userEmail,
                     YmsId = ymsId,
                     YmsYearId = ymsYearId,
                     CustomerCode = customerCode,

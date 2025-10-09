@@ -18,6 +18,8 @@ using Newtonsoft.Json;
 using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
+using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
+using System.Text.RegularExpressions;
 
 
 
@@ -137,7 +139,7 @@ namespace TracePca.Service.SuperMaster
             {
                 foreach (var emp in employees)
                 {
- 
+
                     // Step 4: Validate mandatory fields
                     if (string.IsNullOrWhiteSpace(emp.EmpCode) ||
                         string.IsNullOrWhiteSpace(emp.EmployeeName) ||
@@ -151,10 +153,10 @@ namespace TracePca.Service.SuperMaster
                         throw new Exception($"Mandatory fields missing for employee: {emp.EmployeeName}");
                     }
 
- 
- 
+
+
                     // Step 4: Ensure Designation exists
- 
+
                     string designationSql = @"
             SELECT Mas_ID FROM SAD_GRPDESGN_General_Master
             WHERE UPPER(Mas_Description) = UPPER(@Name) AND Mas_CompID = @CompId";
@@ -331,7 +333,7 @@ namespace TracePca.Service.SuperMaster
                     },
                     Role = worksheet.Cells[row, 8].Text,  // Role
                     Password = worksheet.Cells[row, 9].Text,
- 
+
                     LevelGrp = int.TryParse(worksheet.Cells[row, 10].Text, out var levelGrp) ? levelGrp : 0,
                     DutyStatus = worksheet.Cells[row, 11].Text,
                     PhoneNo = worksheet.Cells[row, 12].Text,
@@ -422,7 +424,7 @@ namespace TracePca.Service.SuperMaster
                 if (string.IsNullOrWhiteSpace(emp.Role))
                     errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Role missing" });
             }
-           
+
             return errors;
         }
 
@@ -690,7 +692,7 @@ WHERE cmm_Category = 'IND'
                             transaction
                         );
                     }
-               
+
                     client.CUST_INDTYPEID = indTypeId?.ToString();
 
                     //Step 4: Ensure Customer Code exists or activate it
@@ -860,7 +862,7 @@ WHERE cmm_Category = 'IND'
                             using var cmdStat = new SqlCommand("spSAD_CUST_Accounting_Template", connection, transaction);
                             cmdStat.CommandType = CommandType.StoredProcedure;
                             cmdStat.Parameters.AddWithValue("@Cust_PKID", 0);
-                            cmdStat.Parameters.AddWithValue("@Cust_ID",client.CUST_ID);
+                            cmdStat.Parameters.AddWithValue("@Cust_ID", client.CUST_ID);
                             cmdStat.Parameters.AddWithValue("@Cust_Desc", desc);
                             cmdStat.Parameters.AddWithValue("@Cust_Value", value);
                             cmdStat.Parameters.AddWithValue("@Cust_Delflag", "A");
@@ -976,7 +978,7 @@ WHERE cmm_Category = 'IND'
 
                 });
             }
-            
+
             return clients;
         }
         private List<UploadClientDetailsDto> ValidateClients(List<UploadClientDetailsDto> clients)
@@ -989,21 +991,25 @@ WHERE cmm_Category = 'IND'
                     errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_ID missing" });
 
                 if (string.IsNullOrWhiteSpace(client.CUST_NAME))
-                    errors.Add(new UploadClientDetailsDto{ CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_NAME missing" });
+                    errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_NAME missing" });
 
-                if (string.IsNullOrWhiteSpace(client.CUST_ORGTYPEID)) 
-                    errors.Add(new UploadClientDetailsDto{ CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_ORGTYPEID missing"  });
+                if (string.IsNullOrWhiteSpace(client.CUST_ORGTYPEID))
+                    errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_ORGTYPEID missing" });
 
                 if (string.IsNullOrWhiteSpace(client.CUST_ADDRESS))
-                    errors.Add(new UploadClientDetailsDto{ CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_ADDRESS missing" });
+                    errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_ADDRESS missing" });
 
                 if (string.IsNullOrWhiteSpace(client.CUST_CITY))
-                    errors.Add(new UploadClientDetailsDto{ CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_CITY missing" });
+                    errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_CITY missing" });
 
                 // ✅ CUST_EMAIL check (must be a valid Gmail address)
                 if (string.IsNullOrWhiteSpace(client.CUST_EMAIL))
                 {
-                    errors.Add(new UploadClientDetailsDto{ CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_EMAIL missing"
+                    errors.Add(new UploadClientDetailsDto
+                    {
+                        CUST_CODE = client.CUST_CODE,
+                        CUST_NAME = client.CUST_NAME,
+                        ErrorMessage = "CUST_EMAIL missing"
                     });
                 }
                 else
@@ -1029,20 +1035,20 @@ WHERE cmm_Category = 'IND'
                     }
                 }
 
-                if (string.IsNullOrWhiteSpace(client.CUST_INDTYPEID)) 
+                if (string.IsNullOrWhiteSpace(client.CUST_INDTYPEID))
                     errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_INDTYPEID missing" });
 
                 // ✅ CUST_ConEmailID check (must be a valid Gmail address)
                 if (string.IsNullOrWhiteSpace(client.CUST_ConEmailID))
                 {
-                    errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME,ErrorMessage = "CUST_ConEmailID missing"});
+                    errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "CUST_ConEmailID missing" });
                 }
                 else
                 {
                     string trimmedConEmail = client.CUST_ConEmailID.Trim();
                     if (!System.Text.RegularExpressions.Regex.IsMatch(trimmedConEmail, @"^[a-z0-9](\.?[a-z0-9]){1,}@gmail\.com$"))
                     {
-                        errors.Add(new UploadClientDetailsDto{ CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "Invalid Gmail format for CUST_ConEmailID. Must be like 'username@gmail.com'"});
+                        errors.Add(new UploadClientDetailsDto { CUST_CODE = client.CUST_CODE, CUST_NAME = client.CUST_NAME, ErrorMessage = "Invalid Gmail format for CUST_ConEmailID. Must be like 'username@gmail.com'" });
                     }
                 }
 
@@ -1641,14 +1647,14 @@ WHERE UPPER(CUST_NAME) = UPPER(@CustomerName)
                 // ✅ PhoneNo check (10 digits only)
                 if (string.IsNullOrWhiteSpace(emp.PhoneNo))
                 {
-                    errors.Add(new UploadClientUserDto{ EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "PhoneNo missing" });
+                    errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "PhoneNo missing" });
                 }
                 else
                 {
                     string phone = emp.PhoneNo.Trim();
                     if (!System.Text.RegularExpressions.Regex.IsMatch(phone, @"^[0-9]{10}$"))
                     {
-                        errors.Add(new UploadClientUserDto{ EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "PhoneNo must be exactly 10 digits"});
+                        errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "PhoneNo must be exactly 10 digits" });
                     }
                 }
             }
@@ -1811,6 +1817,97 @@ WHERE UPPER(CUST_NAME) = UPPER(@CustomerName)
                 transaction.Rollback();
                 throw;
             }
+        }
+
+        //DownloadEmployeeMaster
+        public EmployeeMasterResult GetEmployeeMasterExcelTemplate()
+        {
+            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SampleExcels\\EmployeeMaster Template.xlsx";
+
+            if (!File.Exists(filePath))
+                return new EmployeeMasterResult();
+
+            var bytes = File.ReadAllBytes(filePath);
+            var fileName = "EmployeeMaster Template.xlsx";   // ✅ keep .xls
+            var contentType = "application/vnd.ms-excel"; // ✅ correct for .xls
+
+            return new EmployeeMasterResult
+            {
+                FileBytes = bytes,
+                FileName = fileName,
+                ContentType = contentType
+            };
+        }
+
+        //DownloadClientDetails
+        public ClientDetailsResult GetClientDetailsExcelTemplate()
+        {
+            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SampleExcels\\ClientDetails Template.xlsx";
+
+            if (!File.Exists(filePath))
+                return new ClientDetailsResult();
+
+            var bytes = File.ReadAllBytes(filePath);
+            var fileName = "ClientDetails Template.xlsx";   // ✅ keep .xls
+            var contentType = "application/vnd.ms-excel"; // ✅ correct for .xls
+
+            return new ClientDetailsResult
+            {
+                FileBytes = bytes,
+                FileName = fileName,
+                ContentType = contentType
+            };
+        }
+
+        //DownloadClientuser
+        public ClientUserResult GetClientUserExcelTemplate()
+        {
+            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SampleExcels\\ClientUser Template.xlsx";
+
+            if (!File.Exists(filePath))
+                return new ClientUserResult();
+
+            var bytes = File.ReadAllBytes(filePath);
+            var fileName = "ClientUser Template.xlsx";   // ✅ keep .xls
+            var contentType = "application/vnd.ms-excel"; // ✅ correct for .xls
+
+            return new ClientUserResult
+            {
+                FileBytes = bytes,
+                FileName = fileName,
+                ContentType = contentType
+            };
+        }
+
+        //DownloadExcelTemplateFiles
+        public ExcelInformationTemplateResult GetExcelTemplate(string FileName)
+        {
+            // Map template names to file paths
+            var templates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "Employee Master", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\EmployeeMaster Template.xlsx" },
+            { "Client Details", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientDetails Template.xlsx" },
+            { "Client User", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientUser Template.xlsx" }
+        };
+
+            if (!templates.ContainsKey(FileName))
+                return null; // or throw exception if template not found
+
+            var filePath = templates[FileName];
+
+            if (!File.Exists(filePath))
+                return null; // or return empty result
+
+            var bytes = File.ReadAllBytes(filePath);
+            var fileName = Path.GetFileName(filePath);
+            var contentType = "application/vnd.ms-excel"; // works for .xls and .xlsx
+
+            return new ExcelInformationTemplateResult
+            {
+                FileBytes = bytes,
+                FileName = fileName,
+                ContentType = contentType
+            };
         }
     }
 }

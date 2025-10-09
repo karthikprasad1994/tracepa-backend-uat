@@ -23,11 +23,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetAbnormalTransactions
         [HttpGet("abnormal")]
-        public async Task<IActionResult> GetAbnormalTransactions([FromQuery] int iCustId, [FromQuery] int iBranchId, [FromQuery] int iYearID, [FromQuery] int iAbnormalType, [FromQuery] string sAmount)
+        public async Task<IActionResult> GetAbnormalTransactions([FromQuery] int iCustId, [FromQuery] int iBranchId, [FromQuery] int iYearID, [FromQuery] int iAbnormalType, [FromQuery] decimal dAmount)
         {
             try
             {
-                var result = await _AbnormalitiesService.GetAbnormalTransactionsAsync(iCustId, iBranchId, iYearID, iAbnormalType, sAmount);
+                var result = await _AbnormalitiesService.GetAbnormalTransactionsAsync(iCustId, iBranchId, iYearID, iAbnormalType, dAmount);
 
                 if (result == null || !result.Any())
                 {

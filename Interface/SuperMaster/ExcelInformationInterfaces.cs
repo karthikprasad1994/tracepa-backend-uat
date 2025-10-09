@@ -3,6 +3,8 @@
 using TracePca.Dto.SuperMaster;
 using Microsoft.AspNetCore.Mvc;
 
+
+
 namespace TracePca.Interface.SuperMaster
 {
     public interface ExcelInformationInterfaces
@@ -24,5 +26,17 @@ namespace TracePca.Interface.SuperMaster
 
         //SaveClientUser
         Task<List<int[]>> SuperMasterSaveClientUserAsync(int CompId, List<SaveClientUserDto> clientUser);
+
+        //DownloadEmployeeMaster
+        EmployeeMasterResult GetEmployeeMasterExcelTemplate();
+
+        //DownloadClientDetails
+        ClientDetailsResult GetClientDetailsExcelTemplate();
+
+        //DownloadClientuser
+        ClientUserResult GetClientUserExcelTemplate();
+
+        //DownloadExcelTemplateFiles
+        ExcelInformationTemplateResult GetExcelTemplate(string FileName);
     }
 }

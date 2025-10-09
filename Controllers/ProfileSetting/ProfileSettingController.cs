@@ -96,11 +96,11 @@ namespace TracePca.Controllers.ProfileSetting
 
         //GetLicenseInformation
         [HttpGet("GetLicenseInformation")]
-        public async Task<IActionResult> GetLicenseInformationAsync([FromQuery] int iCustomerId)
+        public async Task<IActionResult> GetLicenseInformationAsync([FromQuery] string sEmailId, [FromQuery] string sCustomerCode)
         {
             try
             {
-                var result = await _ProfileSettingService.GetLicenseInformationAsync(iCustomerId);
+                var result = await _ProfileSettingService.GetLicenseInformationAsync( sEmailId, sCustomerCode);
 
                 if (result == null || !result.Any())
                 {
@@ -125,6 +125,42 @@ namespace TracePca.Controllers.ProfileSetting
                 {
                     statusCode = 500,
                     message = "An error occurred while fetching company types.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //UpdateUserProfile
+        [HttpPut("UpdateUserProfile")]
+        public async Task<IActionResult> UpdateUserProfileAsync([FromBody] UpdateUserProfileDto dto)
+        {
+            try
+            {
+                var result = await _ProfileSettingService.UpdateUserProfileAsync(dto);
+
+                if (result <= 0)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "User profile not found or no changes made.",
+                        id = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "User profile updated successfully.",
+                    id = dto.Id
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while updating the user profile.",
                     error = ex.Message
                 });
             }

@@ -2,6 +2,7 @@
 using TracePca.Dto.Audit;
 using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
+using TracePca.Service.FIN_statement;
 using TracePca.Service.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
 using static TracePca.Service.SuperMaster.ExcelInformationService;
@@ -232,6 +233,66 @@ namespace TracePca.Controllers.SuperMaster
                     error = ex.Message
                 });
             }
+        }
+
+        //DownloadEmployeeMaster
+        [HttpGet("DownloadableEmployeeMasterExcelFile")]
+        [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
+        [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+        public IActionResult DownloadEmployeeMasterExcelTemplate()
+
+        {
+            var result = _ExcelInformationService.GetEmployeeMasterExcelTemplate();
+
+            if (result.FileBytes == null)
+                return NotFound("File not found.");
+
+            return File(result.FileBytes, result.ContentType, result.FileName);
+        }
+
+        //DownloadClientDetails
+        [HttpGet("DownloadableClientDetailsExcelFile")]
+        [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
+        [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+        public IActionResult DownloadClientDetailsExcelTemplate()
+
+        {
+            var result = _ExcelInformationService.GetClientDetailsExcelTemplate();
+
+            if (result.FileBytes == null)
+                return NotFound("File not found.");
+
+            return File(result.FileBytes, result.ContentType, result.FileName);
+        }
+
+        //DownloadClientuser
+        [HttpGet("DownloadableClientUserExcelFile")]
+        [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
+        [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+        public IActionResult DownloadClientUserExcelTemplate()
+
+        {
+            var result = _ExcelInformationService.GetClientUserExcelTemplate();
+
+            if (result.FileBytes == null)
+                return NotFound("File not found.");
+
+            return File(result.FileBytes, result.ContentType, result.FileName);
+        }
+
+        //DownloadExcelTemplateFiles
+        [HttpGet("Download")]
+        public IActionResult DownloadTemplate([FromQuery] string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return BadRequest("Template name is required.");
+
+            var result = _ExcelInformationService.GetExcelTemplate(name);
+
+            if (result == null)
+                return NotFound("Template not found.");
+
+            return File(result.FileBytes, result.ContentType, result.FileName);
         }
     }
 }

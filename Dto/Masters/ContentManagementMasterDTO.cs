@@ -84,6 +84,7 @@ namespace TracePca.Dto
         public int ACM_AssignmentTaskID { get; set; }
         public string? ACM_Heading { get; set; }
         public string? ACM_Checkpoint { get; set; }
+        public int ACM_BillingType { get; set; }
         public string? ACM_DELFLG { get; set; }
         public DateTime? ACM_CRON { get; set; }
         public int? ACM_CRBY { get; set; }
@@ -121,5 +122,27 @@ namespace TracePca.Dto
         public DateTime? ASM_RECALLON { get; set; }
         public string? ASM_IPAddress { get; set; }
         public int ASM_CompId { get; set; }
+    }
+
+    public class TRACeModuleMasterDTO
+    {
+        public int? TMM_ID { get; set; }
+        public string? TMM_Code { get; set; }
+        public int TMM_ProjectID { get; set; }
+        public string? TMM_ModuleName { get; set; }
+        public string? TMM_DELFLG { get; set; }
+        public DateTime? TMM_CRON { get; set; }
+        public int? TMM_CRBY { get; set; }
+        public int? TMM_APPROVEDBY { get; set; }
+        public DateTime? TMM_APPROVEDON { get; set; }
+        public string? TMM_STATUS { get; set; }
+        public int? TMM_UPDATEDBY { get; set; }
+        public DateTime? TMM_UPDATEDON { get; set; }
+        public int? TMM_DELETEDBY { get; set; }
+        public DateTime? TMM_DELETEDON { get; set; }
+        public int? TMM_RECALLBY { get; set; }
+        public DateTime? TMM_RECALLON { get; set; }
+        public string? TMM_IPAddress { get; set; }
+        public int TMM_CompId { get; set; }
     }
 }

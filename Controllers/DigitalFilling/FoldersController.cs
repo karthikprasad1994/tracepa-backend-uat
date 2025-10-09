@@ -144,7 +144,7 @@ namespace TracePca.Controllers.DigitalFiling
 				return Ok(new
 				{
 					statusCode = 200,
-					message = "Cabinet loaded successfully.",
+					message = "Folder loaded successfully.",
 					data = dropdownData  // Return the actual data
 				});
 			}

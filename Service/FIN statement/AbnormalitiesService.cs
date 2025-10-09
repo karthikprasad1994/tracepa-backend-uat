@@ -19,7 +19,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetAbnormalTransactions
-        public async Task<IEnumerable<AbnormalTransactionsDto>> GetAbnormalTransactionsAsync(int iCustId, int iBranchId, int iYearID, int iAbnormalType, string sAmount)
+        public async Task<IEnumerable<AbnormalTransactionsDto>> GetAbnormalTransactionsAsync(int iCustId, int iBranchId, int iYearID, int iAbnormalType, decimal dAmount)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -42,8 +42,8 @@ namespace TracePca.Service.FIN_statement
         WITH AvgValues AS (
             SELECT AJTB_DescName, AVG(ajtb_credit) AS AvgCreditAmt,
                    AVG(ajtb_debit) AS AvgDebitAmt,
-                   AVG(ajtb_credit * @sAmount) AS AvgCreditAmtRatio,
-                   AVG(ajtb_debit * @sAmount) AS AvgDebitAmtRatio
+                   AVG(ajtb_credit * @dAmount) AS AvgCreditAmtRatio,
+                   AVG(ajtb_debit * @dAmount) AS AvgDebitAmtRatio
             FROM Acc_JETransactions_Details
             WHERE Ajtb_Custid = @iCustId AND AJTB_BranchId = @iBranchId AND AJTB_YearID = @iYearID
             GROUP BY AJTB_DescName
@@ -63,8 +63,8 @@ namespace TracePca.Service.FIN_statement
         WITH AvgValues AS (
             SELECT AJTB_DescName, AVG(ajtb_credit) AS AvgCreditAmt,
                    AVG(ajtb_debit) AS AvgDebitAmt,
-                   AVG(ajtb_credit * @sAmount) AS AvgCreditAmtRatio,
-                   AVG(ajtb_debit * @sAmount) AS AvgDebitAmtRatio
+                   AVG(ajtb_credit * @dAmount) AS AvgCreditAmtRatio,
+                   AVG(ajtb_debit * @dAmount) AS AvgDebitAmtRatio
             FROM Acc_JETransactions_Details
             WHERE Ajtb_Custid = @iCustId AND AJTB_BranchId = @iBranchId AND AJTB_YearID = @iYearID
             GROUP BY AJTB_DescName
@@ -84,15 +84,15 @@ namespace TracePca.Service.FIN_statement
         SELECT AJTB_DescName, ajtb_credit, ajtb_debit
         FROM Acc_JETransactions_Details
         WHERE Ajtb_Custid = @iCustId AND AJTB_BranchId = @iBranchId AND AJTB_YearID = @iYearID
-        AND (AJTB_Credit >= @sAmount OR ajtb_debit >= @sAmount)";
+        AND (AJTB_Credit >= @dAmount OR ajtb_debit >= @dAmount)";
             }
             else if (iAbnormalType == 4)
             {
                 sql = @"
-        SELECT AJTB_DescName, ajtb_credit, ajtb_debit
+        SELECT AJTB_DescName, ajtb_credit AS CreditAmt, ajtb_debit AS DebitAmt
         FROM Acc_JETransactions_Details
         WHERE Ajtb_Custid = @iCustId AND AJTB_BranchId = @iBranchId AND AJTB_YearID = @iYearID
-        AND ((AJTB_Credit <= @sAmount AND ajtb_credit <> 0) OR (ajtb_debit <= @sAmount AND ajtb_debit <> 0))";
+        AND ((AJTB_Credit <= @dAmount AND ajtb_credit <> 0) OR (ajtb_debit <= @dAmount AND ajtb_debit <> 0))";
             }
 
             // ✅ Execute query once
@@ -101,7 +101,7 @@ namespace TracePca.Service.FIN_statement
                 iCustId,
                 iBranchId,
                 iYearID,
-                sAmount
+                dAmount
             });
 
             return result;

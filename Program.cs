@@ -23,6 +23,7 @@ using TracePca.Interface.Dashboard;
 using TracePca.Interface.DatabaseConnection;
 using TracePca.Interface.DigitalFiling;
 using TracePca.Interface.DigitalFilling;
+using TracePca.Interface.Permission;
 using TracePca.Interface.EmployeeMaster;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.FixedAssetsInterface;
@@ -188,7 +189,8 @@ builder.Services.AddScoped<LedgerMaterialityInterface, LedgerMaterialityService>
 builder.Services.AddScoped<LedgerDifferenceInterface, LedgerDifferenceService>();
 builder.Services.AddScoped<SchedulePartnerFundsInterface, SchedulePartnerFundsService>();
 builder.Services.AddScoped<AbnormalitiesInterface, AbnormalitiesService>();
-
+builder.Services.AddScoped<SelectedPartiesInterface, SelectedPartiesService>();
+builder.Services.AddScoped<FeatchingDataInterface, FeatchingDataService>();
 
 
 // Register your custom DbConnectionFactory
@@ -228,7 +230,8 @@ builder.Services.AddScoped<CustomerMasterInterface, CustomerMaster>();
 builder.Services.AddScoped<CustomerUserMasterInterface, CustomerUserMaster>();
 
 builder.Services.AddScoped<ApiPerformanceTracker>();
- 
+builder.Services.AddScoped<PermissionInterface, TracePca.Service.Permission.Permission>();
+
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
