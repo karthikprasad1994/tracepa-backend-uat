@@ -1162,7 +1162,25 @@ new { UserId = userId });
             }
         }
 
-       public async Task UpdateCustomerModulesAsync(int customerId, List<int> moduleIds)
+
+        public async Task<List<CustomerModuleDetailDto>> GetCustomerModulesAsync(int customerId)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+            await connection.OpenAsync();
+
+            var modules = await connection.QueryAsync<CustomerModuleDetailDto>(
+                @"
+        SELECT cm.MCM_ModuleID AS ModuleId, m.MP_ModuleName AS ModuleName
+        FROM MMCS_CustomerModules cm
+        INNER JOIN MMCS_MODULES m ON cm.MCM_ModuleID = m.MM_ID
+        WHERE cm.MCM_MCR_ID = @CustomerId",
+                new { CustomerId = customerId });
+
+            return modules.ToList();
+        }
+
+
+        public async Task UpdateCustomerModulesAsync(int customerId, List<int> moduleIds)
 {
     if (moduleIds == null) moduleIds = new List<int>();
 
