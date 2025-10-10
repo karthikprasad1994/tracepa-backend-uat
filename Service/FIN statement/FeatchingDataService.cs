@@ -110,6 +110,52 @@ namespace TracePca.Service.FIN_statement
 
             return outputFile;
         }
+
+        //Customer Registraction
+        public async Task<string> ExportCustomerRegistrationFullDatabaseAsync()
+        {
+            string connectionString = _configuration.GetConnectionString("CustomerRegistrationConnection");
+            string outputFile = "full_databaseCustomerRegistration.jsonl";
+
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            DataTable tables = connection.GetSchema("Tables");
+            await using var writer = new StreamWriter(outputFile, false);
+
+            foreach (DataRow table in tables.Rows)
+            {
+                string schema = table["TABLE_SCHEMA"].ToString()!;
+                string tableName = table["TABLE_NAME"].ToString()!;
+                string query = $"SELECT * FROM [{schema}].[{tableName}]";
+
+                var records = await connection.QueryAsync(query);
+
+                foreach (var record in records)
+                {
+                    // Convert the DapperRow (dynamic) to JObject safely
+                    var dict = (IDictionary<string, object>)record;
+                    var obj = new JObject();
+
+                    foreach (var kvp in dict)
+                    {
+                        obj[kvp.Key] = kvp.Value != null ? JToken.FromObject(kvp.Value) : JValue.CreateNull();
+                    }
+
+                    obj["table"] = tableName;
+
+                    // Use first column as ID or fallback to a GUID
+                    string firstKey = dict.Keys.FirstOrDefault() ?? "rowid";
+                    string idValue = dict[firstKey]?.ToString() ?? Guid.NewGuid().ToString();
+
+                    obj["id"] = $"{tableName}_{idValue}";
+
+                    await writer.WriteLineAsync(JsonConvert.SerializeObject(obj));
+                }
+            }
+
+            return outputFile;
+        }
     }
 }
 

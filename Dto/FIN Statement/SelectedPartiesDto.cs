@@ -10,7 +10,7 @@
             public int ATBU_Id { get; set; }
             public decimal ATBU_Closing_TotalDebit_Amount { get; set; }
             public decimal ATBU_Closing_TotalCredit_Amount { get; set; }
-            public string ATBU_STATUS {  get; set; }
+            public string ATBU_Status {  get; set; }
         }
 
         //UpdateSelectedPartiesStatus
