@@ -86,8 +86,6 @@ namespace TracePca.Service.ProfileSetting
             usr_LoginName = @LoginName 
             AND usr_Id = @UserId";
 
-            await connection.OpenAsync();
-
             var parameters = new
             {
                 UserId = dto.UserId,
