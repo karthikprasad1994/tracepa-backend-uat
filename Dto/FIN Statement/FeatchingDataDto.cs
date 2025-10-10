@@ -19,5 +19,14 @@
             public string? FilePath { get; set; }
             public DateTime ExportedAt { get; set; }
         }
+
+        //Customer Registraction
+        public class DatabaseExportResultCustomerRegistrationDto
+        {
+            public bool IsSuccess { get; set; }
+            public string? Message { get; set; }
+            public string? FilePath { get; set; }
+            public DateTime ExportedAt { get; set; }
+        }
     }
 }
