@@ -122,11 +122,11 @@ namespace TracePca.Service.ProfileSetting
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            // ✅ Step 3: Fetch the existing encrypted password
+            // ✅ Step 3: Optional — fetch existing encrypted password (for audit/log or validation if needed)
             var selectQuery = @"
-        SELECT usr_PassWord 
-        FROM Sad_Userdetails 
-        WHERE usr_LoginName = @LoginName AND usr_Id = @UserId";
+SELECT usr_PassWord 
+FROM Sad_Userdetails 
+WHERE usr_LoginName = @LoginName AND usr_Id = @UserId";
 
             var existingEncryptedPassword = await connection.QueryFirstOrDefaultAsync<string>(selectQuery, new
             {
@@ -137,23 +137,16 @@ namespace TracePca.Service.ProfileSetting
             if (string.IsNullOrEmpty(existingEncryptedPassword))
                 throw new Exception("User not found.");
 
-            // ✅ Step 4: Decrypt the existing password
-            var existingPassword = DecryptPassword(existingEncryptedPassword);
-
-            // ✅ Step 5: Compare with the current password provided
-            if (existingPassword != dto.CurrentPassword)
-                throw new Exception("Current password is incorrect.");
-
-            // ✅ Step 6: Encrypt the new password
+            // ✅ Step 4: Encrypt the new password
             var newEncryptedPassword = EncryptPassword(dto.NewPassword);
 
-            // ✅ Step 7: Update the password in the database
+            // ✅ Step 5: Update directly
             var updateQuery = @"
-        UPDATE Sad_Userdetails 
-        SET Usr_UpdatedBy = @UserId,
-            Usr_UpdatedOn = GETDATE(),
-            usr_PassWord = @NewPassword
-        WHERE usr_LoginName = @LoginName AND usr_Id = @UserId";
+UPDATE Sad_Userdetails 
+SET usr_PassWord = @NewPassword,
+    Usr_UpdatedBy = @UserId,
+    Usr_UpdatedOn = GETDATE()
+WHERE usr_LoginName = @LoginName AND usr_Id = @UserId";
 
             var rowsAffected = await connection.ExecuteAsync(updateQuery, new
             {
@@ -168,13 +161,15 @@ namespace TracePca.Service.ProfileSetting
             return new List<TracePaChangePasswordDto> { dto };
         }
 
-        // ✅ Encryption and Decryption methods (as you provided)
         private string EncryptPassword(string plainText)
         {
             string encryptionKey = "ML736@mmcs";
-            byte[] salt = new byte[] { 0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D,
-                               0x65, 0x64, 0x76, 0x65, 0x64, 0x65,
-                               0x76 };
+            byte[] salt = new byte[]
+            {
+        0x49, 0x76, 0x61, 0x6E, 0x20,
+        0x4D, 0x65, 0x64, 0x76, 0x65,
+        0x64, 0x65, 0x76
+            };
 
             byte[] plainBytes = Encoding.Unicode.GetBytes(plainText);
 
@@ -196,9 +191,12 @@ namespace TracePca.Service.ProfileSetting
             string decryptionKey = "ML736@mmcs";
             byte[] cipherBytes = Convert.FromBase64String(encryptedBase64);
 
-            byte[] salt = new byte[] { 0x49, 0x76, 0x61, 0x6E, 0x20, 0x4D,
-                               0x65, 0x64, 0x76, 0x65, 0x64, 0x65,
-                               0x76 };
+            byte[] salt = new byte[]
+            {
+        0x49, 0x76, 0x61, 0x6E, 0x20,
+        0x4D, 0x65, 0x64, 0x76, 0x65,
+        0x64, 0x65, 0x76
+            };
 
             using var aes = Aes.Create();
             var pdb = new Rfc2898DeriveBytes(decryptionKey, salt);
@@ -268,6 +266,5 @@ namespace TracePca.Service.ProfileSetting
 
             return dto.Id;
         }
-
     }
 }
