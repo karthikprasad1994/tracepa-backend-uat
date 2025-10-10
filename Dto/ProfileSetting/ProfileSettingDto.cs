@@ -18,14 +18,21 @@
         }
 
         //ChangePassword
+        //public class TracePaChangePasswordDto
+        //{
+        //    public string Status { get; set; }
+        //    public int UserId { get; set; }
+        //    public string LoginName { get; set; }
+        //    public string NewPassword { get; set; }
+        //}
         public class TracePaChangePasswordDto
         {
-            public string Status { get; set; }
-            public int UserId { get; set; }
-            public string LoginName { get; set; }
-            public string NewPassword { get; set; }
-
+            public int UserId { get; set; } 
+            public string LoginName { get; set; } 
+            public string NewPassword { get; set; }   
         }
+
+
 
         //LicenseInformation
         public class TracePaLicenseInformationDto

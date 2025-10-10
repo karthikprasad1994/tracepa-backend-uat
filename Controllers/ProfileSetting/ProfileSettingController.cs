@@ -64,7 +64,7 @@ namespace TracePca.Controllers.ProfileSetting
             {
                 var result = await _ProfileSettingService.PutChangePasswordAsync(dto);
 
-                if (result.Any() && result.First().Status == "Success")
+                if (result.Any())
                 {
                     return Ok(new
                     {
