@@ -100,6 +100,7 @@ namespace TracePca.Dto.DigitalFiling
 		public int FOL_CompID { get; set; }
 
 		public int FOL_Documents { get; set; }
+        public string DocumentPath { get; set; }
 
 	}
 }
