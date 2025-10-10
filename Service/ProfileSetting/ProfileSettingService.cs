@@ -130,8 +130,7 @@ WHERE usr_LoginName = @LoginName AND usr_Id = @UserId";
 
             var existingEncryptedPassword = await connection.QueryFirstOrDefaultAsync<string>(selectQuery, new
             {
-                dto.UserId,
-                dto.LoginName
+                dto.UserId
             });
 
             if (string.IsNullOrEmpty(existingEncryptedPassword))
@@ -151,7 +150,6 @@ WHERE usr_LoginName = @LoginName AND usr_Id = @UserId";
             var rowsAffected = await connection.ExecuteAsync(updateQuery, new
             {
                 dto.UserId,
-                dto.LoginName,
                 NewPassword = newEncryptedPassword
             });
 

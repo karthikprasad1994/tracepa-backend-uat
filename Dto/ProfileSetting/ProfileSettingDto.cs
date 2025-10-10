@@ -28,7 +28,6 @@
         public class TracePaChangePasswordDto
         {
             public int UserId { get; set; } 
-            public string LoginName { get; set; } 
             public string NewPassword { get; set; }   
         }
 
