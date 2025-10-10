@@ -6,6 +6,8 @@ using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.ProfileSetting;
 using static TracePca.Dto.ProfileSetting.ProfileSettingDto;
 using static TracePca.Dto.FIN_Statement.SelectedPartiesDto;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace TracePca.Service.ProfileSetting
 {
@@ -61,8 +63,53 @@ namespace TracePca.Service.ProfileSetting
         }
 
         //ChangePassword
+        //public async Task<IEnumerable<TracePaChangePasswordDto>> PutChangePasswordAsync(TracePaChangePasswordDto dto)
+        //{ 
+        //    // ✅ Step 1: Get DB name from session
+        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //    if (string.IsNullOrEmpty(dbName))
+        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //    // ✅ Step 2: Get the connection string
+        //    var connectionString = _configuration.GetConnectionString(dbName);
+
+        //    // ✅ Step 3: Use SqlConnection
+        //    using var connection = new SqlConnection(connectionString);
+        //    await connection.OpenAsync();
+
+        //    var query = @"
+        //UPDATE Sad_Userdetails 
+        //SET 
+        //    Usr_UpdatedBy = @UserId,
+        //    Usr_UpdatedOn = GETDATE(),
+        //    usr_PassWord = @Password
+        //WHERE
+        //    usr_LoginName = @LoginName 
+        //    AND usr_Id = @UserId";
+
+        //    var parameters = new
+        //    {
+        //        UserId = dto.UserId,
+        //        Password = dto.NewPassword,
+        //        LoginName = dto.LoginName
+        //    };
+
+        //    var rowsAffected = await connection.ExecuteAsync(query, parameters);
+
+        //    if (rowsAffected > 0)
+        //    {
+        //        // Set status manually for success case
+        //        dto.Status = "Success";
+        //        return new List<TracePaChangePasswordDto> { dto };
+        //    }
+
+        //    // Optionally set status to something else
+        //    dto.Status = "Failed";
+        //    return new List<TracePaChangePasswordDto>();
+        //}
         public async Task<IEnumerable<TracePaChangePasswordDto>> PutChangePasswordAsync(TracePaChangePasswordDto dto)
-        { 
+        {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -72,40 +119,96 @@ namespace TracePca.Service.ProfileSetting
             // ✅ Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            var query = @"
-        UPDATE Sad_Userdetails 
-        SET 
-            Usr_UpdatedBy = @UserId,
-            Usr_UpdatedOn = GETDATE(),
-            usr_PassWord = @Password
-        WHERE
-            usr_LoginName = @LoginName 
-            AND usr_Id = @UserId";
+            // ✅ Step 3: Optional — fetch existing encrypted password (for audit/log or validation if needed)
+            var selectQuery = @"
+SELECT usr_PassWord 
+FROM Sad_Userdetails 
+WHERE usr_LoginName = @LoginName AND usr_Id = @UserId";
 
-            var parameters = new
+            var existingEncryptedPassword = await connection.QueryFirstOrDefaultAsync<string>(selectQuery, new
             {
-                UserId = dto.UserId,
-                Password = dto.NewPassword,
-                LoginName = dto.LoginName
+                dto.UserId
+            });
+
+            if (string.IsNullOrEmpty(existingEncryptedPassword))
+                throw new Exception("User not found.");
+
+            // ✅ Step 4: Encrypt the new password
+            var newEncryptedPassword = EncryptPassword(dto.NewPassword);
+
+            // ✅ Step 5: Update directly
+            var updateQuery = @"
+UPDATE Sad_Userdetails 
+SET usr_PassWord = @NewPassword,
+    Usr_UpdatedBy = @UserId,
+    Usr_UpdatedOn = GETDATE()
+WHERE usr_LoginName = @LoginName AND usr_Id = @UserId";
+
+            var rowsAffected = await connection.ExecuteAsync(updateQuery, new
+            {
+                dto.UserId,
+                NewPassword = newEncryptedPassword
+            });
+
+            if (rowsAffected == 0)
+                throw new Exception("Password update failed.");
+
+            return new List<TracePaChangePasswordDto> { dto };
+        }
+
+        private string EncryptPassword(string plainText)
+        {
+            string encryptionKey = "ML736@mmcs";
+            byte[] salt = new byte[]
+            {
+        0x49, 0x76, 0x61, 0x6E, 0x20,
+        0x4D, 0x65, 0x64, 0x76, 0x65,
+        0x64, 0x65, 0x76
             };
 
-            var rowsAffected = await connection.ExecuteAsync(query, parameters);
+            byte[] plainBytes = Encoding.Unicode.GetBytes(plainText);
 
-            if (rowsAffected > 0)
-            {
-                // Set status manually for success case
-                dto.Status = "Success";
-                return new List<TracePaChangePasswordDto> { dto };
-            }
+            using var aes = Aes.Create();
+            var pdb = new Rfc2898DeriveBytes(encryptionKey, salt);
+            aes.Key = pdb.GetBytes(32);
+            aes.IV = pdb.GetBytes(16);
 
-            // Optionally set status to something else
-            dto.Status = "Failed";
-            return new List<TracePaChangePasswordDto>();
+            using var ms = new MemoryStream();
+            using var cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write);
+            cs.Write(plainBytes, 0, plainBytes.Length);
+            cs.Close();
+
+            return Convert.ToBase64String(ms.ToArray());
         }
+
+        private string DecryptPassword(string encryptedBase64)
+        {
+            string decryptionKey = "ML736@mmcs";
+            byte[] cipherBytes = Convert.FromBase64String(encryptedBase64);
+
+            byte[] salt = new byte[]
+            {
+        0x49, 0x76, 0x61, 0x6E, 0x20,
+        0x4D, 0x65, 0x64, 0x76, 0x65,
+        0x64, 0x65, 0x76
+            };
+
+            using var aes = Aes.Create();
+            var pdb = new Rfc2898DeriveBytes(decryptionKey, salt);
+            aes.Key = pdb.GetBytes(32);
+            aes.IV = pdb.GetBytes(16);
+
+            using var ms = new MemoryStream();
+            using var cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Write);
+            cs.Write(cipherBytes, 0, cipherBytes.Length);
+            cs.Close();
+
+            return Encoding.Unicode.GetString(ms.ToArray());
+        }
+
 
         //GetLicenseInformation
         public async Task<IEnumerable<TracePaLicenseInformationDto>> GetLicenseInformationAsync(string sEmailId, string sCustomerCode)
@@ -161,6 +264,5 @@ namespace TracePca.Service.ProfileSetting
 
             return dto.Id;
         }
-
     }
 }
