@@ -11,6 +11,7 @@
 
         public string? McrCustomerEmail { get; set; }
         public string? McrCustomerTelephoneNo { get; set; }
+        public string? Address { get; set; }
         public string? McrProductKey { get; private set; }
 
         public string? McrTstatus { get; set; }
