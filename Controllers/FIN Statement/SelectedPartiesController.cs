@@ -138,5 +138,48 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+        //UpdateJESeqReferenceNum
+        [HttpPut("UpdateSeqReference")]
+        public async Task<IActionResult> UpdateSeqReferenceAsync([FromBody] List<UpdateJournalEntrySeqRefDto> dtoList)
+        {
+            if (dtoList == null || !dtoList.Any())
+            {
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "No data provided for update."
+                });
+            }
+
+            try
+            {
+                var updatedCount = await _SelectedPartiesService.UpdateJournalEntrySeqRefAsync(dtoList);
+
+                if (updatedCount == 0)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No Journal Entry records found to update."
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = $"{updatedCount} Journal Entry records updated successfully."
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while updating Journal Entry SeqReference numbers.",
+                    error = ex.Message
+                });
+            }
+        }
     }
 }

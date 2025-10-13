@@ -159,6 +159,7 @@ builder.Services.AddScoped<SchedulePartnerFundsInterface, SchedulePartnerFundsSe
 builder.Services.AddScoped<AbnormalitiesInterface, AbnormalitiesService>();
 builder.Services.AddScoped<SelectedPartiesInterface, SelectedPartiesService>();
 builder.Services.AddScoped<FeatchingDataInterface, FeatchingDataService>();
+builder.Services.AddScoped<CashFlowInterface, CashFlowService>();
 
 
 // Register your custom DbConnectionFactory

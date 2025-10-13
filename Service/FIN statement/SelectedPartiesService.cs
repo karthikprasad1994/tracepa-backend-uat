@@ -54,49 +54,53 @@ namespace TracePca.Service.FIN_statement
         //UpdateSelectedPartiesStatus
         public async Task<int> UpdateTrailBalanceStatusAsync(List<UpdateTrailBalanceStatusDto> dtoList)
         {
-            // ✅ Step 1: Get DB name from session
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (dtoList == null || !dtoList.Any())
+                return 0; // Nothing to update
 
+            // Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get connection string
+            // Step 2: Get connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            // ✅ Step 3: Execute for all records one by one in a transaction
             using var transaction = connection.BeginTransaction();
 
             try
             {
-                int totalUpdated = 0;
+                // Build parameterized CASE statement
+                var caseStatements = dtoList
+                    .Select((d, i) => $"WHEN @Id{i} THEN @Status{i}")
+                    .ToList();
 
-                foreach (var dto in dtoList)
+                var sql = $@"
+          UPDATE Acc_TrailBalance_Upload
+          SET ATBU_STATUS = CASE ATBU_ID
+              {string.Join(" ", caseStatements)}
+          END
+          WHERE ATBU_ID IN ({string.Join(",", dtoList.Select((d, i) => $"@Id{i}"))});";
+
+                // Prepare parameters
+                var parameters = new DynamicParameters();
+                for (int i = 0; i < dtoList.Count; i++)
                 {
-                    // ✅ Define query inside the loop
-                    var query = @"
-            UPDATE Acc_TrailBalance_Upload
-            SET ATBU_STATUS = @Status
-            WHERE ATBU_ID = @Id;";
-
-                    // ✅ Execute query for each DTO
-                    totalUpdated += await connection.ExecuteAsync(query, new
-                    {
-                        Id = dto.Id,
-                        Status = dto.Status
-                    }, transaction);
+                    parameters.Add($"Id{i}", dtoList[i].Id);
+                    parameters.Add($"Status{i}", dtoList[i].Status);
                 }
 
-                transaction.Commit();
+                var updatedCount = await connection.ExecuteAsync(sql, parameters, transaction);
 
-                return totalUpdated; // ✅ Return total number of records updated
+                transaction.Commit();
+                return updatedCount;
             }
             catch
             {
                 transaction.Rollback();
-                throw; // Let the caller handle the error
+                throw;
             }
         }
 
@@ -123,7 +127,8 @@ namespace TracePca.Service.FIN_statement
             JED.AJTB_Debit,
             JED.AJTB_Credit,
             TBU.ATBU_Description,
-            TBU.ATBU_ID
+            TBU.ATBU_ID,
+            JED.AJTB_SeqReferenceNum as Status
         FROM Acc_JETransactions_Details AS JED
         LEFT JOIN Acc_TrailBalance_Upload AS TBU
             ON JED.AJTB_Deschead = TBU.ATBU_ID
@@ -142,6 +147,60 @@ namespace TracePca.Service.FIN_statement
                 YearId = yearId,
                 BranchId = branchId
             });
+        }
+
+        //UpdateJESeqReferenceNum
+        public async Task<int> UpdateJournalEntrySeqRefAsync(List<UpdateJournalEntrySeqRefDto> dtoList)
+        {
+            if (dtoList == null || !dtoList.Any())
+                return 0; // Nothing to update
+
+            // Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                // Step 3: Build dynamic CASE statement
+                var caseStatements = dtoList
+                    .Select((d, i) => $"WHEN @Id{i} THEN @SeqReferenceNum{i}")
+                    .ToList();
+
+                var sql = $@"
+        UPDATE Acc_JETransactions_Details
+        SET AJTB_SeqReferenceNum = CASE AJTB_ID
+            {string.Join(" ", caseStatements)}
+        END
+        WHERE AJTB_ID IN ({string.Join(",", dtoList.Select((d, i) => $"@Id{i}"))});";
+
+                // Step 4: Prepare parameters
+                var parameters = new DynamicParameters();
+                for (int i = 0; i < dtoList.Count; i++)
+                {
+                    parameters.Add($"Id{i}", dtoList[i].Id);
+                    parameters.Add($"SeqReferenceNum{i}", dtoList[i].SeqReferenceNum);
+                }
+
+                // Step 5: Execute query
+                var updatedCount = await connection.ExecuteAsync(sql, parameters, transaction);
+
+                transaction.Commit();
+                return updatedCount;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
         }
     }
 }

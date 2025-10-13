@@ -13,5 +13,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetJETransactionDetails
         Task<IEnumerable<JournalEntryWithTrailBalanceDto>> GetJournalEntryWithTrailBalanceAsync(int custId, int yearId, int branchId);
+
+        //UpdateJESeqReferenceNum
+        Task<int> UpdateJournalEntrySeqRefAsync(List<UpdateJournalEntrySeqRefDto> dtoList);
     }
 }

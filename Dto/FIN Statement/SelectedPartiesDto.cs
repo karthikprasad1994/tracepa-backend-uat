@@ -29,6 +29,15 @@
             public decimal AJTB_Credit { get; set; }
             public string ATBU_Description { get; set; }
             public int ATBU_ID { get; set; }
+            public int Status { get; set; }
+
+        }
+
+        //UpdateJESeqReferenceNum
+        public class UpdateJournalEntrySeqRefDto
+        {
+            public int Id { get; set; }
+            public int SeqReferenceNum { get; set; }
         }
     }
 }
