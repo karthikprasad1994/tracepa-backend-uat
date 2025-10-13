@@ -2504,11 +2504,24 @@ namespace TracePca.Service.Audit
                                 File.Copy(savedFilePath, destFilePath, true);
                             }
                         }
-                    }
+
+
+						await connection.ExecuteAsync(
+							 @"UPDATE edt_attachments SET Atch_FolderId = @Atch_FolderId, Atch_Path = @Atch_Path 
+                                WHERE ATCH_ID = @ATCH_ID AND Atch_DocID = @Atch_DocID",
+							new
+							{
+								Atch_FolderId = folderId,
+								Atch_Path = savedFilePath,
+								ATCH_ID = item.ATCH_ID,
+								Atch_DocID = item.ATCH_DOCID
+							});
+					}
 
                     if (!shouldIndexFile)
                         IndexingFileAsync(connection, cabinetId, subCabinetId, folderId, userId, compId, destFilePath, isBlobData);
-                }
+                     
+				}
             }
             catch (Exception ex)
             {
@@ -2516,7 +2529,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async void IndexingFileAsync(SqlConnection connection, int cabinetId, int folderId, int subCabinetId, int userId, int compId, string filePath, string isBlobData)
+        public async void IndexingFileAsync(SqlConnection connection, int cabinetId,  int subCabinetId, int folderId, int userId, int compId, string filePath, string isBlobData)
         {
             try
             {

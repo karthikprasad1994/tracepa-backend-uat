@@ -252,6 +252,7 @@ ORDER BY MM_ID
                         McrCustomerEmail = email,
                         McrCustomerTelephoneNo = dto.PhoneNumber?.Trim(),
                         McrCustomerName = dto.CompanyName?.Trim(),
+                         Address = dto.Address,
                         ModuleIds = dto.ModuleIds
                     };
 
@@ -377,10 +378,10 @@ ORDER BY MM_ID
                 string insertSql = @"
             INSERT INTO MMCS_CustomerRegistration 
             (MCR_ID, MCR_MP_ID, MCR_CustomerName, MCR_CustomerEmail, MCR_CustomerTelephoneNo, 
-             MCR_Status, MCR_TStatus, MCR_CustomerCode, MCR_ProductKey, MCR_emails)
+             MCR_Status, MCR_TStatus, MCR_CustomerCode, MCR_ProductKey, MCR_emails, MCR_Address)
             VALUES 
             (@McrId, @McrMpId, @McrCustomerName, @McrCustomerEmail, @McrCustomerTelephoneNo, 
-             'A', 'T', @McrCustomerCode, @McrProductKey, @MCR_emails)";
+             'A', 'T', @McrCustomerCode, @McrProductKey, @MCR_emails, @Address)";
 
                 var rowsInserted = await connection.ExecuteAsync(insertSql, new
                 {
@@ -391,6 +392,7 @@ ORDER BY MM_ID
                     McrCustomerTelephoneNo = registerModel.McrCustomerTelephoneNo,
                     McrCustomerCode = newCustomerCode,
                     McrProductKey = productKey,
+                    Address = registerModel.Address,
                     MCR_Emails = registerModel.McrCustomerEmail + ","
 
                 });
@@ -1061,7 +1063,7 @@ new { UserId = userId });
                  }
 
                 await InsertUserTokenAsync(userId, email, accessToken, refreshToken, accessExpiry, refreshExpiry, customerCode);
-               // _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
+              //  _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
                // _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
 
               

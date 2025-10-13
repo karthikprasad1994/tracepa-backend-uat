@@ -37,6 +37,7 @@ SELECT
     CUST_NAME AS CustName,
     CUST_CODE AS CustomerCode,
     CUST_EMAIL AS CustomerEmail,
+    CUST_ADDRESS AS CustAddress,
     CUST_WEBSITE AS CompanyUrl,
     CUST_GROUPNAME AS GroupName,
     CUST_GROUPINDIVIDUAL AS GroupIndividual,
@@ -177,7 +178,7 @@ ORDER BY CUST_ID";
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
 
             // 🔹 Duplicate Check for Insert and Update (Customer Code, Email, CIN No, Company URL)
-            if (!string.IsNullOrEmpty(dto.CustomerCode) || !string.IsNullOrEmpty(dto.CompanyEmail) || !string.IsNullOrEmpty(dto.CINNO) || !string.IsNullOrEmpty(dto.CompanyUrl))
+            if (!string.IsNullOrEmpty(dto.CustomerCode) || !string.IsNullOrEmpty(dto.CompanyEmail) || !string.IsNullOrEmpty(dto.CINNO) || !string.IsNullOrEmpty(dto.CompanyUrl) || !string.IsNullOrEmpty(dto.CustAddress))
             {
                 var duplicateQuery = @"
 SELECT 
@@ -200,13 +201,19 @@ SELECT
               AND CUST_ID <> ISNULL(@CustomerId, 0)
         ) THEN ',CIN No' ELSE '' END +
 
+        CASE WHEN EXISTS (
+            SELECT 1 FROM SAD_CUSTOMER_MASTER 
+            WHERE CUST_ADDRESS = @CustomerAddress 
+              AND CUST_ID <> ISNULL(@CustomerId, 0)
+        ) THEN ',Customer Address' ELSE '' END +
+
         CASE WHEN (@CompanyUrl IS NOT NULL AND LTRIM(RTRIM(@CompanyUrl)) <> '' 
                    AND EXISTS (
                         SELECT 1 FROM SAD_CUSTOMER_MASTER 
                         WHERE CUST_WEBSITE = @CompanyUrl 
                           AND CUST_ID <> ISNULL(@CustomerId, 0)
                    )
-        ) THEN ',Company URL' ELSE '' END
+        ) THEN ',Company URL' ELSE '' END 
     , 1, 1, '') AS DuplicateFields";
 
 
@@ -216,7 +223,8 @@ SELECT
                     CompanyEmail = dto.CompanyEmail,
                     CINNO = dto.CINNO,
                     CompanyUrl = dto.CompanyUrl,
-                    CustomerId = dto.CustomerId
+                    CustomerId = dto.CustomerId,
+                   CustomerAddress = dto.CustAddress,
                 });
 
                 if (!string.IsNullOrEmpty(duplicateFields))
@@ -260,7 +268,7 @@ SELECT
             parameters.Add("@CUST_COMM_FAX", "");
             parameters.Add("@CUST_COMM_TEL", "");
             parameters.Add("@CUST_COMM_Email", "");
-            parameters.Add("@CUST_ADDRESS", "");
+            parameters.Add("@CUST_ADDRESS", string.IsNullOrEmpty(dto.CustAddress) ? null : dto.CustAddress);
             parameters.Add("@CUST_CITY", "");
             parameters.Add("@CUST_PIN", "");
             parameters.Add("@CUST_STATE", "");
