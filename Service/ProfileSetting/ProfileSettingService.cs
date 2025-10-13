@@ -126,7 +126,7 @@ namespace TracePca.Service.ProfileSetting
             var selectQuery = @"
 SELECT usr_PassWord 
 FROM Sad_Userdetails 
-WHERE usr_LoginName = @LoginName AND usr_Id = @UserId";
+WHERE usr_Id = @UserId";
 
             var existingEncryptedPassword = await connection.QueryFirstOrDefaultAsync<string>(selectQuery, new
             {
@@ -145,7 +145,7 @@ UPDATE Sad_Userdetails
 SET usr_PassWord = @NewPassword,
     Usr_UpdatedBy = @UserId,
     Usr_UpdatedOn = GETDATE()
-WHERE usr_LoginName = @LoginName AND usr_Id = @UserId";
+WHERE usr_Id = @UserId";
 
             var rowsAffected = await connection.ExecuteAsync(updateQuery, new
             {
