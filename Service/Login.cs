@@ -1061,7 +1061,7 @@ new { UserId = userId });
                  }
 
                 await InsertUserTokenAsync(userId, email, accessToken, refreshToken, accessExpiry, refreshExpiry, customerCode);
-               // _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
+              //  _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
                // _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
 
               
