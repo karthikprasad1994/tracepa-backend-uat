@@ -7,5 +7,8 @@
 
         //Tr25_44
         Task<string> ExportTr25_44FullDatabaseAsync();
+
+        //Customer Registraction
+        Task<string> ExportCustomerRegistrationFullDatabaseAsync();
     }
 }

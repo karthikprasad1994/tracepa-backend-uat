@@ -1081,13 +1081,22 @@ namespace TracePca.Service.DigitalFilling
 				using var connection = new SqlConnection(connectionString);
 				await connection.OpenAsync();
 
+				//string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
+				//                            SELECT DISTINCT ATCH_FName as FileName, (SELECT TOP 1 SAD_Config_Value FROM [Sad_Config_Settings] 
+				//                                    WHERE sad_Config_key = 'DisplayPath') + 'BITMAPS\' 
+				//                                + CAST(FLOOR(CAST(A.Atch_DocID AS numeric)/301) AS varchar) + '\' + CAST(A.Atch_DocID AS varchar) 
+				//                                + '.' + A.ATCH_Ext AS URLPath FROM edt_Attachments A
+				//                            JOIN (SELECT DISTINCT CAST(value AS INT) AS Atch_ID FROM STRING_SPLIT(@ids, ',')) S
+				//                                ON A.Atch_ID = S.Atch_ID and A.Atch_FName != '' and atch_Ext != '';";
+
 				string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
-                                SELECT DISTINCT ATCH_FName as FileName, (SELECT TOP 1 SAD_Config_Value FROM [Sad_Config_Settings] 
-                                        WHERE sad_Config_key = 'DisplayPath') + 'BITMAPS\' 
-                                    + CAST(FLOOR(CAST(A.Atch_DocID AS numeric)/301) AS varchar) + '\' + CAST(A.Atch_DocID AS varchar) 
-                                    + '.' + A.ATCH_Ext AS URLPath FROM edt_Attachments A
+								SELECT DISTINCT C.Fol_Name as FolderName, ATCH_FName as FileName, (SELECT TOP 1 SAD_Config_Value FROM [Sad_Config_Settings] 
+								WHERE sad_Config_key = 'DisplayPath') + 'BITMAPS\' 
+								+ CAST(FLOOR(CAST(A.Atch_DocID AS numeric)/301) AS varchar) + '\' + CAST(A.Atch_DocID AS varchar) 
+								+ '.' + A.ATCH_Ext AS URLPath FROM edt_Attachments A
                                 JOIN (SELECT DISTINCT CAST(value AS INT) AS Atch_ID FROM STRING_SPLIT(@ids, ',')) S
-                                    ON A.Atch_ID = S.Atch_ID and A.Atch_FName != '' and atch_Ext != '';";
+								ON A.Atch_ID = S.Atch_ID and A.Atch_FName != '' and atch_Ext != ''
+								Left join edt_folder C on C.FOL_FolID = A.Atch_FolderId";
 
 				var result = await connection.QueryAsync<ArchivedDocumentFileDto>(query, new { AttachIDs = sAttachID });
 				return result ?? Enumerable.Empty<ArchivedDocumentFileDto>();

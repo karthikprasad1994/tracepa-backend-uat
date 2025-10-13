@@ -122,6 +122,7 @@ namespace TracePca.Dto.DigitalFilling
 	{
 		public string FileName { get; set; }
 		public string URLPath { get; set; }
+		public string FolderName { get; set; }
 	}
 
 	public class DepartmentDto

@@ -86,5 +86,36 @@ namespace TracePca.Controllers.FIN_Statement
                 return StatusCode(500, result);
             }
         }
+
+        //Customer Registraction
+        [HttpGet("CustomerRegistraction")]
+        public async Task<ActionResult<DatabaseExportResultCustomerRegistrationDto>> ExportCustomerRegistrationFullDatabaseAsync()
+        {
+            try
+            {
+                string filePath = await _FeatchingDataService.ExportCustomerRegistrationFullDatabaseAsync();
+
+                var result = new DatabaseExportResultCustomerRegistrationDto
+                {
+                    IsSuccess = true,
+                    Message = "TR25_044 database exported successfully.",
+                    FilePath = filePath,
+                    ExportedAt = DateTime.UtcNow
+                };
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                var result = new DatabaseExportResultCustomerRegistrationDto
+                {
+                    IsSuccess = false,
+                    Message = $"TR25_044 database export failed: {ex.Message}",
+                    ExportedAt = DateTime.UtcNow
+                };
+
+                return StatusCode(500, result);
+            }
+        }
     }
 }

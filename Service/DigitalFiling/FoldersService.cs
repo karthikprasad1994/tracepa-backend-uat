@@ -152,42 +152,47 @@ namespace TracePca.Service.DigitalFiling
 				using var connection = new SqlConnection(connectionString);
 				await connection.OpenAsync();
 
-                //    string query = @"
-                //SELECT 
-                //    FOL_FolID, 
-                //    FOL_Name, 
-                //    FOL_Note,
-                //    FOL_Cabinet,
-                //    FOL_CreatedBy AS FOL_CreatedBy,
-                //    FOL_CreatedOn,FOL_UpdatedBy,FOL_UpdatedOn,FOL_Status,
-                //    FOL_DelFlag
-                //FROM edt_Folder A 
-                //JOIN edt_Cabinet B ON A.Fol_Cabinet = B.cbn_ID  
-                // WHERE A.Fol_Status = @statusCode AND A.FOL_Cabinet = @subCabinetId";
 
 
-                string query = @"SELECT 
-                                  distinct  A.FOL_FolID, 
-                                    A.FOL_Name, 
-                                    A.FOL_Note,
-                                    B.cbn_name AS FOL_SubCabinet,
-                                    (
-                                        SELECT COUNT(*) 
-                                        FROM edt_page P
-                                        WHERE P.pge_Folder = A.FOL_FolID 
-                                          AND P.pge_SubCabinet = A.FOL_Cabinet
-                                    ) AS FOL_Documents,
-                                    C.Usr_FullName as FOL_CreatedBy,
-                                    A.FOL_CreatedOn,
-                                    A.FOL_UpdatedBy,
-                                    A.FOL_UpdatedOn,
-                                    A.FOL_Status,
-                                    A.FOL_DelFlag
+                //string query = @"SELECT 
+                //                  distinct  A.FOL_FolID, 
+                //                    A.FOL_Name, 
+                //                    A.FOL_Note,
+                //                    B.cbn_name AS FOL_SubCabinet,
+                //                    (
+                //                        SELECT COUNT(*) 
+                //                        FROM edt_page P
+                //                        WHERE P.pge_Folder = A.FOL_FolID 
+                //                          AND P.pge_SubCabinet = A.FOL_Cabinet
+                //                    ) AS FOL_Documents,
+                //                    C.Usr_FullName as FOL_CreatedBy,
+                //                    A.FOL_CreatedOn,
+                //                    A.FOL_UpdatedBy,
+                //                    A.FOL_UpdatedOn,
+                //                    A.FOL_Status,
+                //                    A.FOL_DelFlag
+                //                FROM edt_Folder A 
+                //                JOIN edt_Cabinet B ON A.FOL_Cabinet = B.cbn_ID  
+                //                join sad_userDetails C on A.Fol_CreatedBy = C.Usr_ID
+                //                WHERE A.FOL_Status = @statusCode 
+                //                  AND A.FOL_Cabinet = @subCabinetId;";
+
+                string query = @"SELECT DISTINCT A.FOL_FolID, A.FOL_Name, A.FOL_Note,B.cbn_name AS FOL_SubCabinet,
+                                (SELECT COUNT(*) FROM edt_page P WHERE P.pge_Folder = A.FOL_FolID AND P.pge_SubCabinet = A.FOL_Cabinet) AS 
+                                FOL_Documents,C.Usr_FullName AS FOL_CreatedBy,A.FOL_CreatedOn,A.FOL_UpdatedBy,
+                                A.FOL_UpdatedOn,A.FOL_Status,A.FOL_DelFlag,FOL_Cabinet as FOL_SubCabinetID,(
+                                SELECT STRING_AGG(DisplayPath + 'BITMAPS\'  
+                                + CAST(FLOOR(CAST(AT.Atch_DocID AS numeric)/301) AS varchar) + '\' 
+                                + CAST(AT.Atch_DocID AS varchar) + '.' + AT.ATCH_Ext, '| ')
+                                FROM edt_page P LEFT JOIN edt_Attachments AT ON P.PGE_BaseName = AT.Atch_ID
+                                CROSS JOIN (SELECT TOP 1 SAD_Config_Value AS DisplayPath FROM Sad_Config_Settings WHERE Sad_Config_Key = 'DisplayPath') cfg
+                                WHERE P.pge_Folder = A.FOL_FolID
+                                AND P.pge_SubCabinet = A.FOL_Cabinet) AS DocumentPath
                                 FROM edt_Folder A 
                                 JOIN edt_Cabinet B ON A.FOL_Cabinet = B.cbn_ID  
-                                join sad_userDetails C on A.Fol_CreatedBy = C.Usr_ID
-                                WHERE A.FOL_Status = @statusCode 
-                                  AND A.FOL_Cabinet = @subCabinetId;";
+                                JOIN sad_userDetails C ON A.FOL_CreatedBy = C.Usr_ID
+                                WHERE A.FOL_Status = @statusCode
+                                AND A.FOL_Cabinet = @subCabinetId";
              
 				var result = await connection.QueryAsync<FolderDetailDTO>(query, new
 				{
