@@ -23,6 +23,10 @@ namespace TracePca.Dto.CustomerMaster
         public string BoardOfDirectors { get; set; }
         public int FinancialYearId { get; set; }
 
+        public string CustAddress { get; set; }
+
+
+
    }
 
 }

@@ -21,6 +21,8 @@ namespace TracePca.Dto.CustomerMaster
         public string CINNO { get; set; }
         public int FinancialYearId { get; set; }
         public string CommitmentDate { get; set; }
+        public string CustAddress { get; set; }
         public int CreatedBy { get; set; }
+        
     }
 }
