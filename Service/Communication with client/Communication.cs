@@ -65,6 +65,7 @@ using DocumentFormat.OpenXml.Office2010.Word;
 using Microsoft.Playwright;
 //using Alignment = Xceed.Document.NET.Alignment;
 using Org.BouncyCastle.Asn1.Crmf;
+using TracePca.Interface.Master;
 
 
 
@@ -90,9 +91,10 @@ namespace TracePca.Service.Communication_with_client
         private readonly IWebHostEnvironment _env;
         private readonly DbConnectionProvider _dbConnectionProvider;
         private readonly EmailInterface _emailInterface;
+        private readonly IGoogleDriveService _driveService;
 
 
-        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider, EmailInterface emailinterface)
+        public Communication(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider, EmailInterface emailinterface, IGoogleDriveService driveService)
         {
 
             _configuration = configuration;
@@ -100,6 +102,8 @@ namespace TracePca.Service.Communication_with_client
             _env = env;
             _dbConnectionProvider = dbConnectionProvider;
             _emailInterface = emailinterface;
+            _driveService = driveService;
+
 
         }
 
@@ -3362,6 +3366,20 @@ ORDER BY
                         // STEP 1: Handle file upload if provided
                         if (dto.File != null && dto.File.Length > 0)
                         {
+                            var uploadedFile = await _driveService.UploadFileToFolderAsync(dto.File, "TracePA/Audit", dto.UserEmail);
+
+                            // ✅ Handle Drive upload failure early
+                            var statusProp = uploadedFile?.GetType().GetProperty("Status");
+                            var statusValue = statusProp?.GetValue(uploadedFile)?.ToString();
+
+                            if (statusValue == "Error")
+                            {
+                                var messageProp = uploadedFile?.GetType().GetProperty("Message");
+                                var errorMessage = messageProp?.GetValue(uploadedFile)?.ToString() ?? "Unknown Google Drive upload error.";
+
+                                await transaction.RollbackAsync();
+                                return $"Google Drive Upload Failed: {errorMessage}";
+                            }
                             // Check if attachment already exists for this DRL
                             if (attachId <= 0)
                             {
@@ -6271,12 +6289,24 @@ WHERE
             {
                 return savedAttachmentIds; // Return empty list
             }
-
             request.AccessCodeDirectory = GetConfigValue("ImgPath");
 
             foreach (var file in request.Files)
             {
                 var tempFolderPath = EnsureDirectoryExists(request.AccessCodeDirectory, request.UserId.ToString(), "Upload");
+                var uploadedFile = await _driveService.UploadFileToFolderAsync(file, "TracePA/Audit", request.UserEmail);
+
+                var statusProp = uploadedFile?.GetType().GetProperty("Status");
+                var statusValue = statusProp?.GetValue(uploadedFile)?.ToString();
+                if (statusValue == "Error")
+                {
+                    var messageProp = uploadedFile?.GetType().GetProperty("Message");
+                    var errorMessage = messageProp?.GetValue(uploadedFile)?.ToString() ?? "Unknown Google Drive upload error.";
+
+                    // ✅ Throw exception so controller can return proper message
+                    throw new Exception($"Google Drive Upload Failed: {errorMessage}");
+                }
+
 
                 var originalFileName = Path.GetFileName(file.FileName);
                 var tempFilePath = Path.Combine(tempFolderPath, originalFileName);

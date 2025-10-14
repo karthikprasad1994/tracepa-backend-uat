@@ -49,8 +49,11 @@ using TracePca.Service.Miidleware;
 using TracePca.Service.ProfileSetting;
 
 using TracePca.Service.SuperMaster;
-using TracePca.Utility; 
- 
+using TracePca.Utility;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
+
+
 var builder = WebApplication.CreateBuilder(args);
 var environment = builder.Environment;
 //QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
@@ -197,6 +200,8 @@ builder.Services.AddScoped<EmailInterface, EmailService>();
 builder.Services.AddScoped<EmployeeMasterInterface, EmployeeMaster>();
 builder.Services.AddScoped<CustomerMasterInterface, CustomerMaster>();
 builder.Services.AddScoped<CustomerUserMasterInterface, CustomerUserMaster>();
+builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
+
 
 builder.Services.AddScoped<ApiPerformanceTracker>();
 builder.Services.AddScoped<PermissionInterface, TracePca.Service.Permission.Permission>();
@@ -222,6 +227,19 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+})
+.AddCookie()
+.AddGoogle(options =>
+{
+    options.ClientId = "493423119535-jughepjld5acrqn90lk33onq2u1sveju.apps.googleusercontent.com";
+    options.ClientSecret = "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";
+    options.CallbackPath = "/signin-google"; // must match Google Cloud redirect URI
+    options.SaveTokens = true; // save access token in auth cookie
+});
 
 builder.Services.AddDbContext<CustomerRegistrationContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("CustomerRegistrationConnection")));

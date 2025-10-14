@@ -44,7 +44,7 @@ namespace TracePca.Dto.Audit
         
         public int AdrlId { get; set; }
 
-
+        public string UserEmail { get; set; }
 
     }
 }

@@ -1578,12 +1578,22 @@ namespace TracePca.Controllers
         [HttpPost("Local-upload-multiple")]
         public async Task<IActionResult> UploadMultiple([FromForm] LocalAttachmentDto dto)
         {
-            if (dto.Files == null || !dto.Files.Any())
-                return BadRequest("No files uploaded.");
+            try
+            {
+                if (dto.Files == null || !dto.Files.Any())
+                    return BadRequest(new { Status = "Error", Message = "No files uploaded." });
 
-            var ids = await _AuditInterface.SaveAttachmentsAsync(dto);
-            return Ok(new { UploadedAttachmentIds = ids });
+                var ids = await _AuditInterface.SaveAttachmentsAsync(dto);
+                return Ok(new { Status = "Success", Message = "Files uploaded successfully.", UploadedAttachmentIds = ids });
+            }
+            catch (Exception ex)
+            {
+                // Google Drive upload failure or any other exception
+                return BadRequest(new { Status = "Error", Message = ex.Message });
+            }
         }
+
+
 
         [HttpPost("GetDocumentPath")]
         public async Task<IActionResult> GetHttpsDocumentPathModulewise([FromBody] GetDocumentPathRequestDto dto)
