@@ -106,7 +106,7 @@ namespace TracePca.Service.DigitalFilling
 							FROM (SELECT A.CBN_ID, A.CBN_Name, A.CBN_SubCabCount,A.CBN_FolderCount,B.Usr_FullName AS CBN_CreatedBy,
 							A.CBN_CreatedOn,A.CBN_DelFlag,A.CBN_AuditID,A.CBN_Parent
 							FROM edt_Cabinet A
-							JOIN sad_UserDetails B ON A.CBN_CreatedBy = B.Usr_ID and CBN_Parent = -1) C
+							JOIN sad_UserDetails B ON A.CBN_CreatedBy = B.Usr_ID and CBN_Parent = -1 and CBN_Status='A') C
 							LEFT JOIN StandardAudit_Schedule D ON D.SA_ID = C.CBN_AuditID
 							WHERE C.CBN_ID NOT IN (SELECT C1.CBN_ID FROM edt_Cabinet C1 JOIN StandardAudit_Schedule S1 ON S1.SA_ID = C1.CBN_AuditID
 							WHERE S1.SA_ForCompleteAudit = 1 AND S1.SA_IsArchived = 1 ) order by cbn_id";
@@ -1067,7 +1067,7 @@ namespace TracePca.Service.DigitalFilling
                             OUTER APPLY (SELECT COUNT(*) AS AttachmentCount,
                             STRING_AGG(CAST(SAR_AttchId AS varchar), ',') AS SA_AttachmentID FROM (
                             SELECT SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory
-                            WHERE SAR_SA_ID = A.SA_ID AND SAR_AttchID <> 0) AS DistinctIds) D
+                            WHERE SAR_SA_ID = A.SA_ID AND SAR_AttchID <> 0 and SAR_EmailIds <> '') AS DistinctIds) D
                             WHERE A.SA_CompID = @SA_CompID AND A.SA_IsArchived = 1 AND A.SA_ForCompleteAudit = 1";   
 
 			var result = await connection.QueryAsync<ArchiveDetailsDto>(query, new
@@ -1114,11 +1114,21 @@ namespace TracePca.Service.DigitalFilling
 				//				ON A.Atch_ID = S.Atch_ID and A.Atch_FName != '' and atch_Ext != ''
 				//				Left join edt_folder C on C.FOL_FolID = A.Atch_FolderId";
 
+				//string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
+				//					select B.Fol_Name as Foldername, ATCH_FName as FileName,Atch_Path AS URLPath from edt_Attachments A  
+				//					JOIN (SELECT DISTINCT CAST(value AS INT) AS Atch_ID FROM STRING_SPLIT(@ids, ',')) S
+				//					ON A.Atch_ID = S.Atch_ID and A.Atch_FName != '' and atch_Ext != ''
+				//					left join edt_folder B on A.Atch_FolderId = B.FOL_FolID";
+
+
 				string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
-									select B.Fol_Name as Foldername, ATCH_FName as FileName,Atch_Path AS URLPath from edt_Attachments A  
-									JOIN (SELECT DISTINCT CAST(value AS INT) AS Atch_ID FROM STRING_SPLIT(@ids, ',')) S
-									ON A.Atch_ID = S.Atch_ID and A.Atch_FName != '' and atch_Ext != ''
-									left join edt_folder B on A.Atch_FolderId = B.FOL_FolID";
+								SELECT B.FOL_Name AS FolderName, A.Atch_FName AS FileName,
+								REPLACE(A.Atch_Path,'C:\inetpub\vhosts\multimedia.interactivedns.com\tracelites.multimedia.interactivedns.com\',
+								'https:\\tracelites.multimedia.interactivedns.com\') AS URLPath
+								FROM edt_Attachments A JOIN ( SELECT DISTINCT TRY_CAST(value AS INT) AS Atch_ID
+								FROM STRING_SPLIT(@ids, ',') WHERE TRY_CAST(value AS INT) IS NOT NULL
+								) S ON A.Atch_ID = S.Atch_ID
+								LEFT JOIN edt_Folder B ON A.Atch_FolderId = B.FOL_FolID WHERE A.Atch_FName <> ''  AND A.Atch_Ext <> '';";
 
 				var result = await connection.QueryAsync<ArchivedDocumentFileDto>(query, new { AttachIDs = sAttachID });
 				return result ?? Enumerable.Empty<ArchivedDocumentFileDto>();
