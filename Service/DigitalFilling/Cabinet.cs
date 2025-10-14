@@ -98,10 +98,26 @@ namespace TracePca.Service.DigitalFilling
 			await connection.OpenAsync();
 
 			// CheckandInsertMemberGroupAsync(userId, compID);
-			string query = @"
-            select CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,usr_FullName as CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag
-            from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' and CBN_Parent = -1 ";  //and A.cbn_Department=@cbn_Department and A.cbn_userID=@cbn_userID 
+			//string query = @"
+			//         select CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,usr_FullName as CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag
+			//         from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' and CBN_Parent = -1 ";  //and A.cbn_Department=@cbn_Department and A.cbn_userID=@cbn_userID 
 
+			string query = @"SELECT CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag,CBN_Parent
+							FROM (SELECT A.CBN_ID, A.CBN_Name, A.CBN_SubCabCount,A.CBN_FolderCount,B.Usr_FullName AS CBN_CreatedBy,
+							A.CBN_CreatedOn,A.CBN_DelFlag,A.CBN_AuditID,A.CBN_Parent
+							FROM edt_Cabinet A
+							JOIN sad_UserDetails B ON A.CBN_CreatedBy = B.Usr_ID and CBN_Parent = -1) C
+							LEFT JOIN StandardAudit_Schedule D ON D.SA_ID = C.CBN_AuditID
+							WHERE C.CBN_ID NOT IN (SELECT C1.CBN_ID FROM edt_Cabinet C1 JOIN StandardAudit_Schedule S1 ON S1.SA_ID = C1.CBN_AuditID
+							WHERE S1.SA_ForCompleteAudit = 1 AND S1.SA_IsArchived = 1 ) order by cbn_id";
+
+
+			//AND C.CBN_Parent NOT IN(
+   //SELECT C2.CBN_ID
+   //    FROM edt_Cabinet C2
+   //    JOIN StandardAudit_Schedule S2 ON S2.SA_ID = C2.CBN_AuditID
+   //    WHERE S2.SA_ForCompleteAudit = 1 AND S2.SA_IsArchived = 1
+   //)
 			var result = await connection.QueryAsync<CabinetDto>(query, new
 			{
 				CBN_CompID = compID
