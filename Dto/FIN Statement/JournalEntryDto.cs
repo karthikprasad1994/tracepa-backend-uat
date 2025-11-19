@@ -231,5 +231,31 @@
             public int CompId { get; set; }
             public string MasterName { get; set; } = string.Empty; // to generate Code if new
         }
+
+        //GetJETypeDropDown
+        public class JeTypeDto
+        {
+            public int JeTypeId { get; set; }
+            public string JeTypeName { get; set; }
+        }
+
+        //GetJETypeDropDownDetails
+        public class JETypeDropDownDetailsDto
+        {
+            public int Acc_JE_ID { get; set; }
+            public string? Acc_JE_TransactionNo { get; set; }
+            public int Acc_JE_BranchId { get; set; }
+            public string? BillDate { get; set; }
+            public string BillType { get; set; }
+            public int Acc_JE_Party { get; set; }
+            public string? Acc_JE_Status { get; set; }
+            public string? Acc_JE_Comnments { get; set; }
+            public int Acc_JE_QuarterId { get; set; }
+            public string AJTB_DescName { get; set; }
+            public decimal AJTB_Credit { get; set; }
+            public decimal AJTB_Debit { get; set; }
+            public string CUST_NAME { get; set; }
+
+        }
     }
 }

@@ -58,10 +58,11 @@ namespace TracePca.Dto.DigitalFilling
         public int CabinetID { get; set; }
         public int SubCabinetID { get; set; }
         public int FolderID { get; set; }
-        public int DocumentTypeID { get; set; }
+        public int? DocumentTypeID { get; set; }
         public int UserID { get; set; }
         public string Title { get; set; }
 		public string? Keyword { get; set; } = null;
+		public string? RentensionDate { get; set; } = null;
 		public int CompID { get; set; }
     }
 

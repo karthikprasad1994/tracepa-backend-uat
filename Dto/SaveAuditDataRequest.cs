@@ -47,7 +47,6 @@ namespace TracePca.Dto
 
         public int OpinionFlag { get; set; }
 
-        public string UserEmail { get; set; }
     }
 
 

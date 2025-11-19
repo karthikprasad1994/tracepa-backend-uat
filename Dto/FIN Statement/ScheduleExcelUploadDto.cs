@@ -311,6 +311,9 @@
             public string ATBUD_IPAddress { get; set; }
             public int ATBUD_CompId { get; set; }
             public int ATBUD_YEARId { get; set; }
+
+            // Custom field used for conditional delete/update
+            public int FlagUpdate { get; set; }
         }
 
         //SaveTrailBalance
@@ -369,6 +372,8 @@
             public string Excel_Item { get; set; }
             public string Excel_SubHeading { get; set; }
             public string Excel_Heading { get; set; }
+
+            public int FlagUpdate { get; set; }
 
         }
 

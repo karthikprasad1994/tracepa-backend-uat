@@ -192,8 +192,8 @@ namespace TracePca.Service.FIN_statement
 SELECT 
     ROUND(SUM(a.ATBU_Opening_Debit_Amount), 0) AS OpeningDebit,
     ROUND(SUM(a.ATBU_Opening_Credit_Amount), 0) AS OpeningCredit,
-    ROUND(SUM(a.ATBU_TR_Debit_Amount + ISNULL(g.TotalDebit, 0) + ISNULL(i.TotalDebit, 0)), 0) AS TrDebit,
-    ROUND(SUM(a.ATBU_TR_Credit_Amount + ISNULL(g.TotalCredit, 0) + ISNULL(i.TotalCredit, 0)), 0) AS TrCredit,
+    ROUND(SUM(a.ATBU_TR_Debit_Amount + ISNULL(g.TotalDebit, 0) ), 0) AS TrDebit,
+    ROUND(SUM(a.ATBU_TR_Credit_Amount + ISNULL(g.TotalCredit, 0) ), 0) AS TrCredit,
     ROUND(SUM(a.ATBU_Closing_TotalCredit_Amount), 0) AS ClosingCredit,
     ROUND(SUM(a.ATBU_Closing_TotalDebit_Amount), 0) AS ClosingDebit
 FROM Acc_TrailBalance_Upload a
@@ -203,33 +203,18 @@ LEFT JOIN (
         SUM(AJTB_Debit) AS TotalDebit,
         SUM(AJTB_Credit) AS TotalCredit
     FROM Acc_JETransactions_Details
-    WHERE AJTB_Status = 'A'
-        AND AJTB_CustId = @custId
+    WHERE  AJTB_CustId = @custId
         AND AJTB_YearID = @yearId
         AND AJTB_QuarterId = @durationId
         AND AJTB_BranchId = @branchId
     GROUP BY AJTB_DescName
 ) g ON g.AJTB_DescName = a.ATBU_Description
-LEFT JOIN (
-    SELECT 
-        AJTB_DescName,
-        SUM(AJTB_Debit) AS TotalDebit,
-        SUM(AJTB_Credit) AS TotalCredit
-    FROM Acc_LedgerTransactions_Details
-    WHERE AJTB_Status = 'A'
-        AND AJTB_CustId = @custId
-        AND AJTB_YearID = @yearId
-        AND AJTB_QuarterId = @durationId
-        AND AJTB_BranchId = @branchId
-    GROUP BY AJTB_DescName
-) i ON i.AJTB_DescName = a.ATBU_Description
 WHERE 
     a.ATBU_CustId = @custId
     AND a.ATBU_CompId = @compId
     AND a.ATBU_YearId = @yearId
     AND a.ATBU_BranchId = @branchId
-    AND a.ATBU_QuarterId = @durationId
-    AND a.ATBU_Description <> 'Net income';";
+    AND a.ATBU_QuarterId = @durationId;";
 
             return await connection.QueryAsync<CustCOASummaryDto>(query, new { CompId, CustId, YearId, BranchId, DurationId });
         }
@@ -259,8 +244,8 @@ SELECT
     ATBU_Description AS Description,
     CAST(ATBU_Opening_Debit_Amount AS DECIMAL(19, 2)) AS OpeningDebit,
     CAST(ATBU_Opening_Credit_Amount AS DECIMAL(19, 2)) AS OpeningCredit,
-    CAST(SUM(ATBU_TR_Debit_Amount + ISNULL(g.TotalDebit, 0) + ISNULL(i.TotalDebit, 0)) AS DECIMAL(19, 2)) AS TrDebit,
-    CAST(SUM(ATBU_TR_Credit_Amount + ISNULL(h.TotalCredit, 0) + ISNULL(i.TotalCredit, 0)) AS DECIMAL(19, 2)) AS TrCredit,
+    CAST(SUM(ATBU_TR_Debit_Amount + ISNULL(g.TotalDebit, 0) ) AS DECIMAL(19, 2)) AS TrDebit,
+    CAST(SUM(ATBU_TR_Credit_Amount + ISNULL(h.TotalCredit, 0) ) AS DECIMAL(19, 2)) AS TrCredit,
     CAST(ATBU_Closing_TotalDebit_Amount AS DECIMAL(19, 2)) AS ClosingDebit,
     CAST(ATBU_Closing_TotalCredit_Amount AS DECIMAL(19, 2)) AS ClosingCredit,
     ISNULL(b.ATBUD_SubItemId, 0) AS SubItemID,
@@ -287,8 +272,7 @@ LEFT JOIN ACC_ScheduleSubItems f ON f.ASSI_ID = b.ATBUD_SubItemId
 LEFT JOIN (
     SELECT AJTB_DescName, SUM(AJTB_Debit) AS TotalDebit
     FROM Acc_JETransactions_Details
-    WHERE AJTB_Status = 'A'
-        AND AJTB_CustId = @custId
+    WHERE  AJTB_CustId = @custId
         AND AJTB_YearID = @yearId
         AND AJTB_QuarterId = @durationId
         AND AJTB_BranchId = @branchId
@@ -298,24 +282,13 @@ LEFT JOIN (
 LEFT JOIN (
     SELECT AJTB_DescName, SUM(AJTB_Credit) AS TotalCredit
     FROM Acc_JETransactions_Details
-    WHERE AJTB_Status = 'A'
-        AND AJTB_CustId = @custId
+    WHERE  AJTB_CustId = @custId
         AND AJTB_YearID = @yearId
         AND AJTB_QuarterId = @durationId
         AND AJTB_BranchId = @branchId
         AND AJTB_Debit = 0
     GROUP BY AJTB_DescName
 ) h ON h.AJTB_DescName = a.ATBU_Description
-LEFT JOIN (
-    SELECT AJTB_DescName, SUM(AJTB_Debit) AS TotalDebit, SUM(AJTB_Credit) AS TotalCredit
-    FROM Acc_LedgerTransactions_Details
-    WHERE AJTB_Status = 'A'
-        AND AJTB_CustId = @custId
-        AND AJTB_YearID = @yearId
-        AND AJTB_QuarterId = @durationId
-        AND AJTB_BranchId = @branchId
-    GROUP BY AJTB_DescName
-) i ON i.AJTB_DescName = a.ATBU_Description
 WHERE a.ATBU_CustId = @custId
     AND a.ATBU_CompId = @compId
     AND a.ATBU_YEARId = @yearId
@@ -349,18 +322,14 @@ ORDER BY ATBU_ID;";
         }
 
         //FreezeForPreviousDuration
-        public async Task<int[]> FreezePreviousYearTrialBalanceAsync(FreezePreviousDurationRequestDto input)
+        public async Task<int[]> FreezePreviousDurationTrialBalanceAsync(List<FreezePreviousYearTrialBalanceDto> inputList)
         {
-            // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
@@ -369,122 +338,130 @@ ORDER BY ATBU_ID;";
 
             try
             {
-                var previousYearId = input.YearId - 1;
-
-                foreach (var item in input.ScheduleItems)
+                foreach (var record in inputList)
                 {
-                    // Step 1: Get ATBU_ID
-                    var query = @"
-SELECT ISNULL(atbu_id, 0)
+                    int nextYearId = record.AtbU_YEARId + 1;
+                    var AtbuPkId = await connection.ExecuteScalarAsync<int>(
+                        @"SELECT ISNULL(ATBU_ID, 0)
 FROM Acc_TrailBalance_Upload
-WHERE ATBU_Description = @AtbuDescription
-  AND ATBU_CustId = @AtbuCustId
-  AND ATBU_Branchid = @AtbuBranchId
-  AND ATBU_CompId = @AtbuCompId
-  AND ATBU_YEARId = @AtbuYearId
-  AND (@AtbuQuarterId = 0 OR ATBU_QuarterId = @AtbuQuarterId)";
-
-                    int atbuId = await connection.ExecuteScalarAsync<int>(
-                        query,
+WHERE ATBU_Custid = @CustId
+  AND ATBU_YEARId = @YearId
+  AND ISNULL(ATBU_Description, '') = @Description
+  AND ISNULL(ATBU_QuarterId, 0) = @QuarterId",
                         new
                         {
-                            AtbuDescription = input.AtbuDescription,
-                            AtbuCustId = input.AtbuCustId,
-                            AtbuBranchId = input.AtbuBranchId,
-                            AtbuCompId = input.AtbuCompId,
-                            AtbuYearId = previousYearId,
-                            AtbuQuarterId = input.AtbuQuarterId
+                            CustId = record.AtbU_CustId,
+                            YearId = nextYearId,
+                            Description = record.AtbU_Description ?? string.Empty,
+                            QuarterId = record.AtbU_QuarterId
                         },
-                        transaction);
+                        transaction
+                    );
 
-                    // Step 2: Get ATBUD_ID
-                    var detailQuery = @"
-SELECT ISNULL(atbud_id, 0)
+                    var AtbudPkId = await connection.ExecuteScalarAsync<int>(
+                        @"SELECT ISNULL(ATBUD_ID, 0)
 FROM Acc_TrailBalance_Upload_Details
-WHERE ATBUD_Description = @AtbudDescription
-  AND ATBUD_CustId = @AtbudCustId
-  AND Atbud_Branchnameid = @AtbudBranchId
-  AND ATBUD_CompId = @AtbudCompId
-  AND ATBUD_YEARId = @AtbudYearId
-  AND (@AtbudQuarterId = 0 OR ATBUD_QuarterId = @AtbudQuarterId)";
-
-                    int atbudId = await connection.ExecuteScalarAsync<int>(
-                        detailQuery,
+WHERE ATBUD_Custid = @CustId
+  AND ATBUD_YEARId = @YearId
+  AND ISNULL(ATBUD_Description, '') = @Description
+  AND ISNULL(ATBUD_QuarterId, 0) = @QuarterId",
                         new
                         {
-                            AtbudDescription = item.AtbudDescription,
-                            AtbudCustId = item.AtbudCustId,
-                            AtbudBranchId = item.AtbudBranchId,
-                            AtbudCompId = item.AtbudCompId,
-                            AtbudYearId = previousYearId,
-                            AtbudQuarterId = item.AtbudQuarterId
+                            CustId = record.AtbuD_CustId,
+                            YearId = nextYearId,
+                            Description = record.AtbuD_Description ?? string.Empty,
+                            QuarterId = record.AtbuD_QuarterId
                         },
-                        transaction);
+                        transaction
+                    );
 
-                    // Step 3: Call master stored procedure
-                    var masterParams = new DynamicParameters();
-                    masterParams.Add("@ATBU_ID", atbuId);
-                    masterParams.Add("@ATBU_CODE", input.AtbuCode ?? string.Empty);
-                    masterParams.Add("@ATBU_Description", input.AtbuDescription ?? string.Empty);
-                    masterParams.Add("@ATBU_CustId", input.AtbuCustId);
-                    masterParams.Add("@ATBU_Opening_Debit_Amount", input.OpeningDebitAmount);
-                    masterParams.Add("@ATBU_Opening_Credit_Amount", input.OpeningCreditAmount);
-                    masterParams.Add("@ATBU_TR_Debit_Amount", input.TrDebitAmount);
-                    masterParams.Add("@ATBU_TR_Credit_Amount", input.TrCreditAmount);
-                    masterParams.Add("@ATBU_Closing_Debit_Amount", input.ClosingDebitAmount);
-                    masterParams.Add("@ATBU_Closing_Credit_Amount", input.ClosingCreditAmount);
-                    masterParams.Add("@ATBU_DELFLG", input.AtbuDelflg ?? string.Empty);
-                    masterParams.Add("@ATBU_CRBY", input.AtbuCrBy);
-                    masterParams.Add("@ATBU_STATUS", input.AtbuStatus ?? string.Empty);
-                    masterParams.Add("@ATBU_UPDATEDBY", input.AtbuUpdatedBy);
-                    masterParams.Add("@ATBU_IPAddress", input.AtbuIpAddress ?? string.Empty);
-                    masterParams.Add("@ATBU_CompId", input.AtbuCompId);
-                    masterParams.Add("@ATBU_YEARId", previousYearId);
-                    masterParams.Add("@ATBU_Branchid", input.AtbuBranchId);
-                    masterParams.Add("@ATBU_QuarterId", input.AtbuQuarterId);
-                    masterParams.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
-                    masterParams.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-                    await connection.ExecuteAsync("spAcc_TrailBalance_Upload", masterParams, transaction, commandType: CommandType.StoredProcedure);
 
-                    // Step 4: Call detail stored procedure
-                    // Step 4: Call detail stored procedure
-                    var detailParams = new DynamicParameters();
-                    detailParams.Add("@ATBUD_ID", atbudId);
-                    detailParams.Add("@ATBUD_Masid", item.AtbudMasid);
-                    detailParams.Add("@ATBUD_CODE", item.AtbudCode ?? string.Empty);
-                    detailParams.Add("@ATBUD_Description", item.AtbudDescription ?? string.Empty);
-                    detailParams.Add("@ATBUD_CustId", item.AtbudCustId);
-                    detailParams.Add("@ATBUD_SChedule_Type", item.AtbudScheduleType);
-                    detailParams.Add("@ATBUD_Branchid", item.AtbudBranchId); // ✅ fixed casing
-                    detailParams.Add("@ATBUD_QuarterId", item.AtbudQuarterId);
-                    detailParams.Add("@ATBUD_Company_Type", item.AtbudCompanyType);
-                    detailParams.Add("@ATBUD_Headingid", item.AtbudHeadingId);
-                    detailParams.Add("@ATBUD_Subheading", item.AtbudSubheadingId);
-                    detailParams.Add("@ATBUD_itemid", item.AtbudItemId);
-                    detailParams.Add("@ATBUD_SubItemId", item.AtbudSubItemId);
-                    detailParams.Add("@ATBUD_DELFLG", item.AtbudDelflg ?? string.Empty); // expects string, not bool
-                    detailParams.Add("@ATBUD_CRBY", item.AtbudCrBy);
-                    detailParams.Add("@ATBUD_UPDATEDBY", item.AtbudUpdatedBy);
-                    detailParams.Add("@ATBUD_STATUS", item.AtbudStatus ?? string.Empty);
-                    detailParams.Add("@ATBUD_Progress", item.AtbudProgress ?? string.Empty);
-                    detailParams.Add("@ATBUD_IPAddress", item.AtbudIpAddress ?? string.Empty);
-                    detailParams.Add("@ATBUD_CompId", item.AtbudCompId);
-                    detailParams.Add("@ATBUD_YEARId", previousYearId);
-                    detailParams.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
-                    detailParams.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+                    // ✅ Step 1: Handle ATBU record (master)
+                    var atbuParams = new DynamicParameters();
+                    atbuParams.Add("@ATBU_ID", AtbuPkId);
+                    atbuParams.Add("@ATBU_CODE", record.AtbU_CODE ?? string.Empty);
+                    atbuParams.Add("@ATBU_Description", record.AtbU_Description ?? string.Empty);
+                    atbuParams.Add("@ATBU_CustId", record.AtbU_CustId);
+
+                    // ✅ Include your original condition logic here
+                    if (record.AtbuD_SChedule_Type == 4)
+                    {
+                        atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount);
+                        atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount);
+                        atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+                        atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+                        atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount);
+                        atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount);
+                    }
+                    else
+                    {
+                        atbuParams.Add("@ATBU_Opening_Debit_Amount", 0);
+                        atbuParams.Add("@ATBU_Opening_Credit_Amount", 0);
+                        atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+                        atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+                        atbuParams.Add("@ATBU_Closing_Debit_Amount", 0);
+                        atbuParams.Add("@ATBU_Closing_Credit_Amount", 0);
+                    }
+
+                    atbuParams.Add("@ATBU_DELFLG", record.AtbU_DELFLG ?? "N");
+                    atbuParams.Add("@ATBU_CRBY", record.AtbU_CRBY);
+                    atbuParams.Add("@ATBU_STATUS", record.AtbU_STATUS ?? "Active");
+                    atbuParams.Add("@ATBU_UPDATEDBY", record.AtbU_UPDATEDBY);
+                    atbuParams.Add("@ATBU_IPAddress", record.AtbU_IPAddress ?? string.Empty);
+                    atbuParams.Add("@ATBU_CompId", record.AtbU_CompId);
+                    atbuParams.Add("@ATBU_YEARId", nextYearId);
+                    atbuParams.Add("@ATBU_Branchid", record.AtbU_Branchid);
+                    atbuParams.Add("@ATBU_QuarterId", record.AtbU_QuarterId);
+                    atbuParams.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+                    atbuParams.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+                    await connection.ExecuteAsync(
+                        "spAcc_TrailBalance_Upload",
+                        atbuParams,
+                        transaction,
+                        commandType: CommandType.StoredProcedure
+                    );
+                    int masId = atbuParams.Get<int>("@iOper");
+
+
+                    // ✅ Step 2: Handle ATBUD record (detail)
+                    var atbudParams = new DynamicParameters();
+                    atbudParams.Add("@ATBUD_ID", AtbudPkId);
+                    atbudParams.Add("@ATBUD_Masid", masId);
+                    atbudParams.Add("@ATBUD_CODE", record.AtbuD_CODE ?? string.Empty);
+                    atbudParams.Add("@ATBUD_Description", record.AtbuD_Description ?? string.Empty);
+                    atbudParams.Add("@ATBUD_CustId", record.AtbuD_CustId);
+                    atbudParams.Add("@ATBUD_SChedule_Type", record.AtbuD_SChedule_Type);
+                    atbudParams.Add("@ATBUD_Branchid", record.AtbuD_Branchid);
+                    atbudParams.Add("@ATBUD_QuarterId", record.AtbuD_QuarterId);
+                    atbudParams.Add("@ATBUD_Company_Type", record.AtbuD_Company_Type);
+                    atbudParams.Add("@ATBUD_Headingid", record.AtbuD_Headingid);
+                    atbudParams.Add("@ATBUD_Subheading", record.AtbuD_Subheading);
+                    atbudParams.Add("@ATBUD_itemid", record.AtbuD_itemid);
+                    atbudParams.Add("@ATBUD_SubItemId", record.AtbuD_SubItemid);
+                    atbudParams.Add("@ATBUD_DELFLG", record.AtbuD_DELFLG ?? "N");
+                    atbudParams.Add("@ATBUD_CRBY", record.AtbuD_CRBY);
+                    atbudParams.Add("@ATBUD_UPDATEDBY", record.AtbuD_UPDATEDBY);
+                    atbudParams.Add("@ATBUD_STATUS", record.AtbuD_STATUS ?? "Active");
+                    atbudParams.Add("@ATBUD_Progress", record.AtbuD_Progress ?? string.Empty);
+                    atbudParams.Add("@ATBUD_IPAddress", record.AtbuD_IPAddress ?? string.Empty);
+                    atbudParams.Add("@ATBUD_CompId", record.AtbuD_CompId);
+                    atbudParams.Add("@ATBUD_YEARId", nextYearId);
+                    atbudParams.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+                    atbudParams.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
                     await connection.ExecuteAsync(
                         "spAcc_TrailBalance_Upload_Details",
-                        detailParams,
+                        atbudParams,
                         transaction,
                         commandType: CommandType.StoredProcedure
                     );
 
-
-                    int resultId = detailParams.Get<int>("@iOper");
-                    detailIds.Add(resultId);
+                    int detailResultId = atbudParams.Get<int>("@iOper");
+                    detailIds.Add(detailResultId);
                 }
+
                 transaction.Commit();
                 return detailIds.ToArray();
             }
@@ -496,18 +473,14 @@ WHERE ATBUD_Description = @AtbudDescription
         }
 
         //FreezeForNextDuration
-        public async Task<int[]> FreezeNextDurationrialBalanceAsync(FreezeNextDurationRequestDto input)
+        public async Task<int[]> FreezeNextDurationTrialBalanceAsync(List<FreezeNextYearTrialBalanceDto> inputList)
         {
-            // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
@@ -516,120 +489,143 @@ WHERE ATBUD_Description = @AtbudDescription
 
             try
             {
-                var previousYearId = input.YearId + 1;
-
-                foreach (var item in input.ScheduleItems)
+                foreach (var record in inputList)
                 {
-                    // Step 1: Get ATBU_ID
-                    var query = @"
-SELECT ISNULL(atbu_id, 0)
-FROM Acc_TrailBalance_Upload
-WHERE ATBU_Description = @AtbuDescription
-  AND ATBU_CustId = @AtbuCustId
-  AND ATBU_Branchid = @AtbuBranchId
-  AND ATBU_CompId = @AtbuCompId
-  AND ATBU_YEARId = @AtbuYearId
-  AND (@AtbuQuarterId = 0 OR ATBU_QuarterId = @AtbuQuarterId)";
-
-                    int atbuId = await connection.ExecuteScalarAsync<int>(
-                        query,
+                    int nextYearId = record.AtbU_YEARId + 1;
+                    var AtbuPkId = await connection.ExecuteScalarAsync<int>(
+                        @"SELECT ISNULL(ATBU_ID, 0)
+      FROM Acc_TrailBalance_Upload
+      WHERE ATBU_Custid = @CustId
+        AND ATBU_YEARId = @YearId
+        AND ISNULL(ATBU_Description, '') = @Description
+        AND ISNULL(ATBU_QuarterId, 0) = @QuarterId",
                         new
                         {
-                            AtbuDescription = input.AtbuDescription,
-                            AtbuCustId = input.AtbuCustId,
-                            AtbuBranchId = input.AtbuBranchId,
-                            AtbuCompId = input.AtbuCompId,
-                            AtbuYearId = previousYearId,
-                            AtbuQuarterId = input.AtbuQuarterId
+                            CustId = record.AtbU_CustId,
+                            YearId = nextYearId,
+                            Description = record.AtbU_Description ?? string.Empty,
+                            QuarterId = record.AtbU_QuarterId
                         },
-                        transaction);
+                        transaction
+                    );
 
-                    // Step 2: Get ATBUD_ID
-                    var detailQuery = @"
-SELECT ISNULL(atbud_id, 0)
-FROM Acc_TrailBalance_Upload_Details
-WHERE ATBUD_Description = @AtbudDescription
-  AND ATBUD_CustId = @AtbudCustId
-  AND Atbud_Branchnameid = @AtbudBranchId
-  AND ATBUD_CompId = @AtbudCompId
-  AND ATBUD_YEARId = @AtbudYearId
-  AND (@AtbudQuarterId = 0 OR ATBUD_QuarterId = @AtbudQuarterId)";
-
-                    int atbudId = await connection.ExecuteScalarAsync<int>(
-                        detailQuery,
+                    var AtbudPkId = await connection.ExecuteScalarAsync<int>(
+                        @"SELECT ISNULL(ATBUD_ID, 0)
+      FROM Acc_TrailBalance_Upload_Details
+      WHERE ATBUD_Custid = @CustId
+        AND ATBUD_YEARId = @YearId
+        AND ISNULL(ATBUD_Description, '') = @Description
+        AND ISNULL(ATBUD_QuarterId, 0) = @QuarterId",
                         new
                         {
-                            AtbudDescription = item.AtbudDescription,
-                            AtbudCustId = item.AtbudCustId,
-                            AtbudBranchId = item.AtbudBranchId,
-                            AtbudCompId = item.AtbudCompId,
-                            AtbudYearId = previousYearId,
-                            AtbudQuarterId = item.AtbudQuarterId
+                            CustId = record.AtbuD_CustId,
+                            YearId = nextYearId,
+                            Description = record.AtbuD_Description ?? string.Empty,
+                            QuarterId = record.AtbuD_QuarterId
                         },
-                        transaction);
+                        transaction
+                    );
 
-                    // Step 3: Call master stored procedure
-                    var masterParams = new DynamicParameters();
-                    masterParams.Add("@ATBU_ID", atbuId);
-                    masterParams.Add("@ATBU_CODE", input.AtbuCode ?? string.Empty);
-                    masterParams.Add("@ATBU_Description", input.AtbuDescription ?? string.Empty);
-                    masterParams.Add("@ATBU_CustId", input.AtbuCustId);
-                    masterParams.Add("@ATBU_Opening_Debit_Amount", input.OpeningDebitAmount);
-                    masterParams.Add("@ATBU_Opening_Credit_Amount", input.OpeningCreditAmount);
-                    masterParams.Add("@ATBU_TR_Debit_Amount", input.TrDebitAmount);
-                    masterParams.Add("@ATBU_TR_Credit_Amount", input.TrCreditAmount);
-                    masterParams.Add("@ATBU_Closing_Debit_Amount", input.ClosingDebitAmount);
-                    masterParams.Add("@ATBU_Closing_Credit_Amount", input.ClosingCreditAmount);
-                    masterParams.Add("@ATBU_DELFLG", input.AtbuDelflg ?? string.Empty);
-                    masterParams.Add("@ATBU_CRBY", input.AtbuCrBy);
-                    masterParams.Add("@ATBU_STATUS", input.AtbuStatus ?? string.Empty);
-                    masterParams.Add("@ATBU_UPDATEDBY", input.AtbuUpdatedBy);
-                    masterParams.Add("@ATBU_IPAddress", input.AtbuIpAddress ?? string.Empty);
-                    masterParams.Add("@ATBU_CompId", input.AtbuCompId);
-                    masterParams.Add("@ATBU_YEARId", previousYearId);
-                    masterParams.Add("@ATBU_Branchid", input.AtbuBranchId);
-                    masterParams.Add("@ATBU_QuarterId", input.AtbuQuarterId);
-                    masterParams.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
-                    masterParams.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-                    await connection.ExecuteAsync("spAcc_TrailBalance_Upload", masterParams, transaction, commandType: CommandType.StoredProcedure);
 
-                    // Step 4: Call detail stored procedure
-                    // Step 4: Call detail stored procedure
-                    var detailParams = new DynamicParameters();
-                    detailParams.Add("@ATBUD_ID", atbudId);
-                    detailParams.Add("@ATBUD_Masid", item.AtbudMasid);
-                    detailParams.Add("@ATBUD_CODE", item.AtbudCode ?? string.Empty);
-                    detailParams.Add("@ATBUD_Description", item.AtbudDescription ?? string.Empty);
-                    detailParams.Add("@ATBUD_CustId", item.AtbudCustId);
-                    detailParams.Add("@ATBUD_SChedule_Type", item.AtbudScheduleType);
-                    detailParams.Add("@ATBUD_Branchid", item.AtbudBranchId);
-                    detailParams.Add("@ATBUD_QuarterId", item.AtbudQuarterId);
-                    detailParams.Add("@ATBUD_Company_Type", item.AtbudCompanyType);
-                    detailParams.Add("@ATBUD_Headingid", item.AtbudHeadingId);
-                    detailParams.Add("@ATBUD_Subheading", item.AtbudSubheadingId);
-                    detailParams.Add("@ATBUD_itemid", item.AtbudItemId);
-                    detailParams.Add("@ATBUD_SubItemId", item.AtbudSubItemId);
-                    detailParams.Add("@ATBUD_DELFLG", item.AtbudDelflg ?? string.Empty); // expects string, not bool
-                    detailParams.Add("@ATBUD_CRBY", item.AtbudCrBy);
-                    detailParams.Add("@ATBUD_UPDATEDBY", item.AtbudUpdatedBy);
-                    detailParams.Add("@ATBUD_STATUS", item.AtbudStatus ?? string.Empty);
-                    detailParams.Add("@ATBUD_Progress", item.AtbudProgress ?? string.Empty);
-                    detailParams.Add("@ATBUD_IPAddress", item.AtbudIpAddress ?? string.Empty);
-                    detailParams.Add("@ATBUD_CompId", item.AtbudCompId);
-                    detailParams.Add("@ATBUD_YEARId", previousYearId);
-                    detailParams.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
-                    detailParams.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+                    // ✅ Step 1: Handle ATBU record (master)
+                    var atbuParams = new DynamicParameters();
+                    atbuParams.Add("@ATBU_ID", AtbuPkId);
+                    atbuParams.Add("@ATBU_CODE", record.AtbU_CODE ?? string.Empty);
+                    atbuParams.Add("@ATBU_Description", record.AtbU_Description ?? string.Empty);
+                    atbuParams.Add("@ATBU_CustId", record.AtbU_CustId);
+
+                    // ✅ Include your original condition logic here
+                    if (record.AtbuD_SChedule_Type == 4)
+                    {
+                        atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount);
+                        atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount);
+                        atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+                        atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+                        atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount);
+                        atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount);
+
+                        //if (!string.IsNullOrEmpty(record.AtbuD_Description) &&
+                        //     (record.AtbuD_Description.Trim().Equals("Income", StringComparison.OrdinalIgnoreCase) ||
+                        //     record.AtbuD_Description.Trim().Equals("Expenses", StringComparison.OrdinalIgnoreCase)))
+                        //{
+                        //    atbuParams.Add("@ATBU_Closing_Debit_Amount", 0);
+                        //    atbuParams.Add("@ATBU_Closing_Credit_Amount", 0);
+                        //}
+                        //else
+                        //{
+                        //    atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount);
+                        //    atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount);
+                        //}
+                    }
+                    else
+                    {
+                        atbuParams.Add("@ATBU_Opening_Debit_Amount", 0);
+                        atbuParams.Add("@ATBU_Opening_Credit_Amount", 0);
+                        atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+                        atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+                        atbuParams.Add("@ATBU_Closing_Debit_Amount", 0);
+                        atbuParams.Add("@ATBU_Closing_Credit_Amount", 0);
+                    }
+
+                    atbuParams.Add("@ATBU_DELFLG", record.AtbU_DELFLG ?? "N");
+                    atbuParams.Add("@ATBU_CRBY", record.AtbU_CRBY);
+                    atbuParams.Add("@ATBU_STATUS", record.AtbU_STATUS ?? "Active");
+                    atbuParams.Add("@ATBU_UPDATEDBY", record.AtbU_UPDATEDBY);
+                    atbuParams.Add("@ATBU_IPAddress", record.AtbU_IPAddress ?? string.Empty);
+                    atbuParams.Add("@ATBU_CompId", record.AtbU_CompId);
+                    atbuParams.Add("@ATBU_YEARId", nextYearId);
+                    atbuParams.Add("@ATBU_Branchid", record.AtbU_Branchid);
+                    atbuParams.Add("@ATBU_QuarterId", record.AtbU_QuarterId);
+                    atbuParams.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+                    atbuParams.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
                     await connection.ExecuteAsync(
-                        "spAcc_TrailBalance_Upload_Details",
-                        detailParams,
+                        "spAcc_TrailBalance_Upload",
+                        atbuParams,
                         transaction,
                         commandType: CommandType.StoredProcedure
                     );
-                    int resultId = detailParams.Get<int>("@iOper");
-                    detailIds.Add(resultId);
+                    int masId = atbuParams.Get<int>("@iOper");
+
+
+                    // ✅ Step 2: Handle ATBUD record (detail)
+                    var atbudParams = new DynamicParameters();
+                    atbudParams.Add("@ATBUD_ID", AtbudPkId);
+                    atbudParams.Add("@ATBUD_Masid", masId);
+                    atbudParams.Add("@ATBUD_CODE", record.AtbuD_CODE ?? string.Empty);
+                    atbudParams.Add("@ATBUD_Description", record.AtbuD_Description ?? string.Empty);
+                    atbudParams.Add("@ATBUD_CustId", record.AtbuD_CustId);
+                    atbudParams.Add("@ATBUD_SChedule_Type", record.AtbuD_SChedule_Type);
+                    atbudParams.Add("@ATBUD_Branchid", record.AtbuD_Branchid);
+                    atbudParams.Add("@ATBUD_QuarterId", record.AtbuD_QuarterId);
+                    atbudParams.Add("@ATBUD_Company_Type", record.AtbuD_Company_Type);
+                    atbudParams.Add("@ATBUD_Headingid", record.AtbuD_Headingid);
+                    atbudParams.Add("@ATBUD_Subheading", record.AtbuD_Subheading);
+                    atbudParams.Add("@ATBUD_itemid", record.AtbuD_itemid);
+                    atbudParams.Add("@ATBUD_SubItemId", record.AtbuD_SubItemid);
+                    atbudParams.Add("@ATBUD_DELFLG", record.AtbuD_DELFLG ?? "N");
+                    atbudParams.Add("@ATBUD_CRBY", record.AtbuD_CRBY);
+                    atbudParams.Add("@ATBUD_UPDATEDBY", record.AtbuD_UPDATEDBY);
+                    atbudParams.Add("@ATBUD_STATUS", record.AtbuD_STATUS ?? "Active");
+                    atbudParams.Add("@ATBUD_Progress", record.AtbuD_Progress ?? string.Empty);
+                    atbudParams.Add("@ATBUD_IPAddress", record.AtbuD_IPAddress ?? string.Empty);
+                    atbudParams.Add("@ATBUD_CompId", record.AtbuD_CompId);
+                    atbudParams.Add("@ATBUD_YEARId", nextYearId);
+                    atbudParams.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+                    atbudParams.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+                    await connection.ExecuteAsync(
+                        "spAcc_TrailBalance_Upload_Details",
+                        atbudParams,
+                        transaction,
+                        commandType: CommandType.StoredProcedure
+                    );
+
+                    int detailResultId = atbudParams.Get<int>("@iOper");
+                    detailIds.Add(detailResultId);
                 }
+
                 transaction.Commit();
                 return detailIds.ToArray();
             }
@@ -660,6 +656,44 @@ WHERE ATBUD_Description = @AtbudDescription
             };
         }
 
+        //CheckTrailBalanceRecordExists
+        public async Task<bool> CheckTrailBalanceRecordExistsAsync(int CompId, int CustId, int YearId, int BranchId, int QuarterId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            string checkQuery = @"
+        SELECT ATBU_ID 
+        FROM Acc_TrailBalance_Upload 
+        WHERE ATBU_CustId = @CustId 
+          AND ATBU_YEARId = @YearId 
+          AND ATBU_BranchId = @BranchId 
+          AND ISNULL(ATBU_QuarterId, 0) = @QuarterId
+          AND ATBU_CompId = @CompId";
+
+            var existingRecord = await connection.QueryFirstOrDefaultAsync<int?>(checkQuery, new
+            {
+                CustId,
+                YearId,
+                BranchId,
+                QuarterId,
+                CompId
+            });
+
+            return existingRecord.HasValue; // ✅ true if exists, false if not
+        }
+
+
         //SaveTrailBalnceDetails
         public async Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDetailsDto> dtos)
         {
@@ -678,9 +712,71 @@ WHERE ATBUD_Description = @AtbudDescription
             using var transaction = connection.BeginTransaction();
             var insertedIds = new List<int>();
             int CustId = 0;
+
+            // ✅ Step 1: Check if record already exists
+            string checkQuery = @"
+SELECT ATBU_ID 
+FROM Acc_TrailBalance_Upload 
+WHERE ATBU_Description = @Description
+  AND ATBU_CustId = @CustId 
+  AND ATBU_YEARId = @YearId 
+  AND ATBU_BranchId = @BranchId 
+  AND ISNULL(ATBU_QuarterId, 0) = @DurationId
+";
+
+            var existingRecord = await connection.QueryFirstOrDefaultAsync<int?>(checkQuery, new
+            {
+                Description = dtos[0].ATBU_Description,
+                CustId = dtos[0].ATBU_CustId,
+                YearId = dtos[0].ATBU_YEARId,
+                BranchId = dtos[0].ATBU_Branchid,
+                DurationId = dtos[0].ATBU_QuarterId
+            }, transaction);
+
+            // ✅ Step 2: If record exists → delete it before inserting new data
+            if (existingRecord.HasValue && dtos[0].FlagUpdate != 0)
+            {
+                // Delete details using all relevant parameters
+                string deleteDetailsQuery = @"
+DELETE FROM Acc_TrailBalance_Upload_Details
+  where ATBUD_CustId = @CustId
+  AND ATBUD_YEARId = @YearId
+  AND Atbud_Branchnameid = @BranchId
+  AND ATBUd_QuarterId = @DurationId
+  AND ATBUD_CompId = @CompId
+";
+
+                await connection.ExecuteAsync(deleteDetailsQuery, new
+                {
+                    CustId = dtos[0].ATBU_CustId,
+                    YearId = dtos[0].ATBU_YEARId,
+                    BranchId = dtos[0].ATBU_Branchid,
+                    DurationId = dtos[0].ATBU_QuarterId,
+                    CompId = dtos[0].ATBU_CompId
+                }, transaction);
+
+                // Delete master using all relevant parameters
+                string deleteMasterQuery = @"
+DELETE FROM Acc_TrailBalance_Upload
+WHERE 
+   ATBU_CustId = @CustId 
+  AND ATBU_YEARId = @YearId 
+  AND ATBU_BranchId = @BranchId 
+  AND ATBU_QuarterId = @DurationId
+  AND ATBU_CompId = @CompId
+";
+
+                await connection.ExecuteAsync(deleteMasterQuery, new
+                {
+                    CustId = dtos[0].ATBU_CustId,
+                    YearId = dtos[0].ATBU_YEARId,
+                    BranchId = dtos[0].ATBU_Branchid,
+                    DurationId = dtos[0].ATBU_QuarterId,
+                    CompId = dtos[0].ATBU_CompId
+                }, transaction);
+            }
             try
             {
-
                 var query = @"
                 select CUST_ORGTYPEID as OrgId 
                 from SAD_CUSTOMER_MASTER 
@@ -692,6 +788,69 @@ WHERE ATBUD_Description = @AtbudDescription
 
                 foreach (var dto in dtos)
                 {
+                    // 🔹 STEP A: Check if record exists (for update vs insert)
+                    var existingRecordForUpdate = await connection.QueryFirstOrDefaultAsync<int>(@"
+                SELECT ISNULL(ATBU_ID, 0)
+                FROM Acc_TrailBalance_Upload
+                WHERE ATBU_Custid = @CustId
+                  AND ATBU_YEARId = @YearId
+                  AND ISNULL(ATBU_Description, '') = @Description
+                  AND ATBU_BranchId = @BranchId
+                  AND ISNULL(ATBU_QuarterId, 0) = @QuarterId
+            ", new
+                    {
+                        CustId = dto.ATBU_CustId,
+                        YearId = dto.ATBU_YEARId,
+                        Description = dto.ATBU_Description ?? string.Empty,
+                        BranchId = dto.ATBU_Branchid,
+                        QuarterId = dto.ATBU_QuarterId
+                    }, transaction);
+
+                    if (existingRecordForUpdate > 0)
+                    {
+                        // 🔹 Record found → perform update
+                        dto.ATBU_ID = existingRecordForUpdate;
+                    }
+                    else
+                    {
+                        // 🔹 No existing record → new insert
+                        dto.ATBU_ID = 0;
+                    }
+
+                    var AtbuPkId = await connection.ExecuteScalarAsync<int>(
+                       @"SELECT ISNULL(ATBU_ID, 0)
+                       FROM Acc_TrailBalance_Upload
+                       WHERE ATBU_Custid = @CustId
+                          AND ATBU_YEARId = @YearId
+                          AND ISNULL(ATBU_Description, '') = @Description
+                          AND ISNULL(ATBU_QuarterId, 0) = @QuarterId",
+                       new
+                       {
+                           CustId = dto.ATBU_CustId,
+                           YearId = dto.ATBU_YEARId,
+                           Description = dto.ATBU_Description ?? string.Empty,
+                           QuarterId = dto.ATBU_QuarterId
+                       },
+                       transaction
+                    );
+
+                    var AtbudPkId = await connection.ExecuteScalarAsync<int>(
+                        @"SELECT ISNULL(ATBUD_ID, 0)
+                        FROM Acc_TrailBalance_Upload_Details
+                        WHERE ATBUD_Custid = @CustId
+                           AND ATBUD_YEARId = @YearId
+                           AND ISNULL(ATBUD_Description, '') = @Description
+                           AND ISNULL(ATBUD_QuarterId, 0) = @QuarterId",
+                        new
+                        {
+                            CustId = dto.ATBUD_CustId,
+                            YearId = dto.ATBUD_YEARId,
+                            Description = dto.ATBUD_Description ?? string.Empty,
+                            QuarterId = dto.ATBUD_QuarterId
+                        },
+                        transaction
+                    );
+
                     if (dto.ATBU_Description != "")
                     {
                         if (dto.ATBU_Opening_Debit_Amount != 0 || dto.ATBU_Opening_Credit_Amount != 0 || dto.ATBU_TR_Debit_Amount != 0 || dto.ATBU_TR_Credit_Amount != 0 || dto.ATBU_Closing_Debit_Amount != 0 || dto.ATBU_Closing_Credit_Amount != 0)
@@ -756,8 +915,6 @@ WHERE ATBUD_Description = @AtbudDescription
                                         }
                                         scheduleType = await GetScheduleTypeFromTemplateAsync(connection, transaction, subItemId, itemId, subHeadingId, headingId, dto.ATBU_CustId);
                                         goto saveFunction;
-
-
                                     }
                                 }
                                 else
@@ -765,7 +922,7 @@ WHERE ATBUD_Description = @AtbudDescription
                                     templateIds = await GetScheduleIDs(connection, transaction, subItemId, dto.ATBU_CustId, 4);
                                     if (templateIds.Rows.Count > 0)
                                     {
-                                       DataRow row = templateIds.Rows[0];
+                                        DataRow row = templateIds.Rows[0];
                                         headingId = Convert.ToInt32(row["ASH_ID"]);
                                         subHeadingId = Convert.ToInt32(row["ASSH_ID"]);
                                         itemId = Convert.ToInt32(row["ASI_ID"]);
@@ -798,9 +955,8 @@ WHERE ATBUD_Description = @AtbudDescription
                                         scheduleType = await GetScheduleTypeFromTemplateAsync(connection, transaction, subItemId, itemId, subHeadingId, headingId, dto.ATBU_CustId);
                                         goto saveFunction;
 
-
                                     }
-                                    
+
                                 }
                                 else
                                 {
@@ -839,10 +995,7 @@ WHERE ATBUD_Description = @AtbudDescription
                                         }
                                         scheduleType = await GetScheduleTypeFromTemplateAsync(connection, transaction, subItemId, itemId, subHeadingId, headingId, dto.ATBU_CustId);
                                         goto saveFunction;
-
-
                                     }
-                                    
                                 }
                                 else
                                 {
@@ -1006,7 +1159,7 @@ WHERE ATBUD_Description = @AtbudDescription
             int idValue = 0;
             if (LevelId == 4)
             {
-                
+
                 query = @"SELECT AST_HeadingID, a.ASH_ID, a.ASH_Name, ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
                       ISNULL(b.ASSH_ID,0) AS ASSH_ID, ISNULL(b.ASSH_Name,'') AS ASSH_Name, 
                       ISNULL(c.ASI_ID,0) AS ASI_ID, ISNULL(c.ASI_Name,'') AS ASI_Name,
@@ -1663,6 +1816,438 @@ WHERE ASSI_ItemsID = @ItemId
             });
 
             return true;
+        }
+
+
+        //SaveMappingTransactionDetails
+        public async Task<int[]> SaveMappingTransactionDetailsAsync(SaveMappingTransactionDetailsDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var transaction = connection.BeginTransaction();
+            string Transaction;
+            int updateOrSave = 0, oper = 0;
+            try
+            {
+                // --- Save Journal Entry Master ---
+                dto.Acc_JE_TransactionNo = await GenerateTransactionNoAsync(dto.Acc_JE_YearID, dto.Acc_JE_Party, dto.Acc_JE_QuarterId, dto.acc_JE_BranchId);
+                Transaction = dto.Acc_JE_TransactionNo;
+                int iPKId = dto.Acc_JE_ID;
+
+                using (var cmdMaster = new SqlCommand("spAcc_JE_Master", connection, transaction))
+                {
+                    cmdMaster.CommandType = CommandType.StoredProcedure;
+
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_ID", dto.Acc_JE_ID);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_TransactionNo", dto.Acc_JE_TransactionNo ?? string.Empty);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_Party", dto.Acc_JE_Party);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_Location", dto.Acc_JE_Location);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_BillType", dto.Acc_JE_BillType);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_BillNo", dto.Acc_JE_BillNo ?? string.Empty);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_BillDate", dto.Acc_JE_BillDate);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_BillAmount", dto.Acc_JE_BillAmount);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_AdvanceAmount", dto.Acc_JE_AdvanceAmount);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_AdvanceNaration", dto.Acc_JE_AdvanceNaration ?? string.Empty);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_BalanceAmount", dto.Acc_JE_BalanceAmount);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_NetAmount", dto.Acc_JE_NetAmount);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_PaymentNarration", dto.Acc_JE_PaymentNarration ?? string.Empty);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_ChequeNo", dto.Acc_JE_ChequeNo ?? string.Empty);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_ChequeDate", dto.Acc_JE_ChequeDate);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_IFSCCode", dto.Acc_JE_IFSCCode ?? string.Empty);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_BankName", dto.Acc_JE_BankName ?? string.Empty);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_BranchName", dto.Acc_JE_BranchName ?? string.Empty);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_CreatedBy", dto.Acc_JE_CreatedBy);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_YearID", dto.Acc_JE_YearID);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_CompID", dto.Acc_JE_CompID);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_Status", dto.Acc_JE_Status ?? string.Empty);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_Operation", dto.Acc_JE_Operation ?? string.Empty);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_IPAddress", dto.Acc_JE_IPAddress ?? string.Empty);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_BillCreatedDate", dto.Acc_JE_BillCreatedDate);
+                    cmdMaster.Parameters.AddWithValue("@acc_JE_BranchId", dto.acc_JE_BranchId);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_QuarterId", dto.Acc_JE_QuarterId);
+                    cmdMaster.Parameters.AddWithValue("@Acc_JE_Comnments", dto.Acc_JE_Comments ?? string.Empty);
+
+                    var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                    var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+
+                    cmdMaster.Parameters.Add(updateOrSaveParam);
+                    cmdMaster.Parameters.Add(operParam);
+
+                    await cmdMaster.ExecuteNonQueryAsync();
+
+                    updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
+                    oper = (int)(operParam.Value ?? 0);
+                }
+
+                // ✅ Handle Transactions for the single DTO
+                var t = dto.Transactions; // assumes frontend always sends one transaction
+
+                using (var cmdDetail = new SqlCommand("spAcc_JETransactions_Details", connection, transaction))
+                {
+                    cmdDetail.CommandType = CommandType.StoredProcedure;
+
+                    cmdDetail.Parameters.AddWithValue("@AJTB_ID", t.AJTB_ID);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_MasID", oper);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_TranscNo", Transaction ?? string.Empty);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_CustId", t.AJTB_CustId);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_ScheduleTypeid", t.AJTB_ScheduleTypeid);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_Deschead", t.AJTB_Deschead);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_Desc", t.AJTB_Desc);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_Debit", t.AJTB_Debit);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_Credit", t.AJTB_Credit);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_CreatedBy", t.AJTB_CreatedBy);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_UpdatedBy", t.AJTB_UpdatedBy);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_Status", t.AJTB_Status ?? string.Empty);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_IPAddress", t.AJTB_IPAddress ?? string.Empty);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_CompID", t.AJTB_CompID);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_YearID", t.AJTB_YearID);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_BillType", t.AJTB_BillType);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_DescName", t.AJTB_DescName ?? string.Empty);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_BranchId", t.AJTB_BranchId);
+                    cmdDetail.Parameters.AddWithValue("@AJTB_QuarterId", t.AJTB_QuarterId);
+
+                    var updateOrSaveDetail = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                    var operDetail = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+
+                    cmdDetail.Parameters.Add(updateOrSaveDetail);
+                    cmdDetail.Parameters.Add(operDetail);
+
+                    await cmdDetail.ExecuteNonQueryAsync();
+
+                    if (dto.Acc_JE_Status == "A")
+                    {
+                        await UpdateJeDetAsync(
+                            t.AJTB_CompID,
+                            t.AJTB_YearID,
+                            oper,                  // ✅ use new Master ID
+                            t.AJTB_CustId,
+                            (t.AJTB_Debit > 0 ? 0 : 1),  // 0=Debit, 1=Credit
+                            (t.AJTB_Debit > 0 ? t.AJTB_Debit : t.AJTB_Credit),
+                            t.AJTB_BranchId,
+                            t.AJTB_Debit,
+                            t.AJTB_Credit,
+                            t.AJTB_QuarterId,
+                            t.AJTB_Deschead,
+                            t.AJTB_Desc,
+                            t.AJTB_DescName
+                        );
+                    }
+                }
+
+
+                transaction.Commit();
+                return new int[] { updateOrSave, oper };
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
+        public async Task UpdateJeDetAsync(
+   int compId,
+   int yearId,
+   int id,                  // JE Master ID
+   int custId,
+   int transId,             // 0 = Debit, 1 = Credit
+   decimal transAmt,        // Net Transaction Amount
+   int branchId,
+   decimal transDbAmt,      // Transaction Debit
+   decimal transCrAmt,      // Transaction Credit
+   int durtnId,             // Quarter Id
+   int deschead,            // ATBU_ID → goes to AJTB_Deschead
+   int descId,              // Duplicate of ATBU_ID → goes to AJTB_Desc
+   string descName)        // ATBU_Description → goes to AJTB_DescName
+
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            await using var conn = new SqlConnection(connectionString);
+            await conn.OpenAsync();
+
+            // 🔹 Select the Trail Balance row for given parameters
+            string sql = @"
+        SELECT TOP 1 *
+        FROM Acc_TrailBalance_Upload
+        WHERE ATBU_CustId = @CustId
+          AND ATBU_CompID = @CompId
+          AND ATBU_QuarterId = @DurtnId
+          AND ATBU_ID = @Deschead
+          AND ATBU_BranchId = @BranchId";
+
+            var row = await conn.QueryFirstOrDefaultAsync(sql, new
+            {
+                CustId = custId,
+                CompId = compId,
+                DurtnId = durtnId,
+                BranchId = branchId,
+                Deschead = deschead
+            });
+
+            if (row == null) return;
+
+            // 🔹 Safe cast of values
+            decimal debitAmt = (decimal?)row.ATBU_Closing_TotalDebit_Amount ?? 0m;
+            decimal creditAmt = (decimal?)row.ATBU_Closing_TotalCredit_Amount ?? 0m;
+
+            string updateSql = string.Empty;
+
+            // 🔹 Debit Transaction (transId = 0)
+            if (transId == 0)
+            {
+                if (debitAmt != 0)
+                {
+                    // Case 1: Existing Debit ≠ 0 → Add incoming Debit
+                    debitAmt += transDbAmt;
+
+                    if (debitAmt >= 0)
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt,
+                        ATBU_Closing_TotalCredit_Amount = 0
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt,
+                        ATBU_Closing_TotalDebit_Amount = 0
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                        debitAmt = Math.Abs(debitAmt);
+                    }
+                }
+                else if (creditAmt != 0)
+                {
+                    // Case 2: Existing Credit ≠ 0 → Subtract incoming Debit
+                    debitAmt = creditAmt - transDbAmt;
+
+                    if (debitAmt >= 0)
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt,
+                        ATBU_Closing_TotalCredit_Amount = 0
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                        debitAmt = Math.Abs(debitAmt);
+                    }
+                }
+                else
+                {
+                    // Case 3: Both Debit & Credit = 0 → Just add to Debit
+                    debitAmt += transDbAmt;
+
+                    if (debitAmt >= 0)
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                        debitAmt = Math.Abs(debitAmt);
+                    }
+                }
+            }
+            // 🔹 Credit Transaction (transId = 1)
+            else if (transId == 1)
+            {
+                if (creditAmt != 0)
+                {
+                    // Case 1: Existing Credit ≠ 0 → Add incoming Credit
+                    creditAmt += transCrAmt;
+
+                    if (creditAmt >= 0)
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt,
+                        ATBU_Closing_TotalCredit_Amount = 0.00
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                        creditAmt = Math.Abs(creditAmt);
+                    }
+                }
+                else if (debitAmt != 0)
+                {
+                    // Case 2: Existing Debit ≠ 0 → Subtract incoming Credit
+                    creditAmt = debitAmt - transCrAmt;
+
+                    if (creditAmt >= 0)
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt,
+                        ATBU_Closing_TotalDebit_Amount = 0.00
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                        creditAmt = Math.Abs(creditAmt);
+                    }
+                }
+                else
+                {
+                    // Case 3: Both Debit & Credit = 0 → Just add to Credit
+                    creditAmt += transCrAmt;
+
+                    if (creditAmt >= 0)
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+                    UPDATE Acc_TrailBalance_Upload
+                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt
+                    WHERE ATBU_CustId = @CustId
+                      AND ATBU_CompID = @CompId
+                      AND ATBU_QuarterId = @DurtnId
+                      AND ATBU_ID = @Deschead
+                      AND ATBU_BranchId = @BranchId";
+                        creditAmt = Math.Abs(creditAmt);
+                    }
+                }
+            }
+
+            // 🔹 Execute Update if SQL was built
+            if (!string.IsNullOrEmpty(updateSql))
+            {
+                await conn.ExecuteAsync(updateSql, new
+                {
+                    CustId = custId,
+                    CompId = compId,
+                    DurtnId = durtnId,
+                    BranchId = branchId,
+                    DebitAmt = debitAmt,
+                    CreditAmt = creditAmt,
+                    Deschead = deschead,
+                    DescId = descId,
+                    DescName = descName
+                });
+            }
+        }
+        public async Task<string> GenerateTransactionNoAsync(int Yearid, int Custid, int duration, int branchid)
+        {
+            try
+            {
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                if (string.IsNullOrEmpty(dbName))
+                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                // ✅ Step 2: Get the connection string
+                var connectionString = _configuration.GetConnectionString(dbName);
+
+                // ✅ Step 3: Use SqlConnection
+                using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                string sql = $@"
+                SELECT ISNULL(MAX(Acc_JE_ID) + 1, 1) 
+                FROM Acc_JE_Master 
+                WHERE Acc_JE_YearID = {Yearid} 
+                  AND Acc_JE_Party = {Custid} 
+                  AND Acc_JE_QuarterId = {duration} 
+                  AND acc_JE_BranchId = {branchid}";
+
+                int iMax = await connection.ExecuteScalarAsync<int>(sql);
+
+                string prefix = $"JE00-{iMax}";
+
+                return prefix;
+            }
+            catch (Exception ex)
+            {
+                throw; // or handle logging
+            }
         }
     }
 }

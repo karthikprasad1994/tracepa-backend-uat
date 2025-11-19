@@ -836,7 +836,7 @@ ORDER BY ud.ATBUD_Subheading";
             int RoundOff = 1;
             int YearId = p.YearID;
             int CustId = p.CustID;
-            int selectedBranches = 1;
+            int selectedBranches = p.BranchId;
             decimal totalIncome = 0, totalPrevIncome = 0;
 
             // ✅ Step 1: Get DB name from session
@@ -1678,7 +1678,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
             return results;
         }
 
-       //GetDetailedReportBalanceSheet
+        //GetDetailedReportBalanceSheet
         public async Task<IEnumerable<DetailedReportBalanceSheetRow>> GetDetailedReportBalanceSheetAsync(int CompId, DetailedReportBalanceSheet p)
         {
             var results = new List<DetailedReportBalanceSheetRow>();
@@ -1783,8 +1783,8 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  left join ACC_SubHeadingNoteDesc e on e.ASHN_SubHeadingId = ASSH_ID and e.ASHN_CustomerId = @CustomerId and e.ASHN_YearID = @YearId
  left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0 and ATBUD_itemid = 0
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid
- left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0  And g.ATBU_YEARId = @PrevYearId
- and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid in (@BranchId)
+ left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0 and ATBUD_itemid = 0 And g.ATBU_YEARId = @PrevYearId
+ and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  
  where ATBUD_Subheading= @subHeadingId  And ATBUD_Subheading<>0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description,ATBUD_Description order by ATBUD_Subheading";
                             var descs = await connection.QueryAsync<DetailedReportBalanceSheetRow>(descriptionSql, new
@@ -1820,19 +1820,16 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
                                     { }
                                     decimal subNet = (desc.CrTotal1 ?? 0) - (desc.DbTotal1 ?? 0);
                                     decimal subPrevNet = (desc.CrTotal ?? 0) - (desc.DbTotalPrev ?? 0);
-                                    if (subNet != 0 || subPrevNet != 0)
+                                    totalIncome += subNet;
+                                    totalPrevIncome += subPrevNet;
+                                    results.Add(new DetailedReportBalanceSheetRow
                                     {
-                                        totalIncome += subNet;
-                                        totalPrevIncome += subPrevNet;
-                                        results.Add(new DetailedReportBalanceSheetRow
-                                        {
-                                            SrNo = (results.Count + 1).ToString(),
-                                            Status = "2",
-                                            Name = desc.Name,
-                                            HeaderSLNo = subNet.ToString($"N{RoundOff}"),
-                                            PrevYearTotal = subPrevNet.ToString($"N{RoundOff}")
-                                        });
-                                    }
+                                        SrNo = (results.Count + 1).ToString(),
+                                        Status = "2",
+                                        Name = desc.Name,
+                                        HeaderSLNo = subNet.ToString($"N{RoundOff}"),
+                                        PrevYearTotal = subPrevNet.ToString($"N{RoundOff}")
+                                    });
                                 }
                             }
                         }
@@ -1961,7 +1958,7 @@ LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description
     AND e.ATBU_YEARId = @PrevYearId AND e.ATBU_CustId = @CustomerId AND e.ATBU_Branchid = ud.Atbud_Branchnameid
 LEFT JOIN ACC_SubHeadingLedgerDesc ldg ON ldg.ASHL_SubHeadingId = ud.Atbud_ID 
     AND ldg.ASHL_CustomerId = @CustomerId AND ldg.ASHL_YearID = @YearId
-WHERE   ud.ATBUD_Subheading=@subHeadingId and ud.ATBUD_itemid=@ItemId and ud.ATBUD_SubItemId=0  and
+WHERE  ud.ATBUD_YEARId=@YearId and   ud.ATBUD_Subheading=@subHeadingId and ud.ATBUD_itemid=@ItemId and ud.ATBUD_SubItemId=0  and
     ud.ATBUD_Schedule_type = @ScheduleTypeId AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_compid = @CompanyId
 GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                     var itemDescriptions = await connection.QueryAsync<DetailedReportBalanceSheetRow>(itemDescSql, new
@@ -1976,21 +1973,23 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                     });
                                     foreach (var itemDescription in itemDescriptions)
                                     {
-                                        decimal itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
-                                        decimal itemPrevNet = (itemDescription.CrTotalPrev ?? 0) - (itemDescription.DbTotalPrev ?? 0);
-                                        if (itemNet != 0 || itemPrevNet != 0)
+                                        decimal itemNet;
+                                        decimal itemPrevNet;
+
+                                        itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
+                                        itemPrevNet = (itemDescription.CrTotalPrev ?? 0) - (itemDescription.DbTotalPrev ?? 0);
+
+                                        totalIncome += itemNet;
+                                        totalPrevIncome += itemPrevNet;
+                                        results.Add(new DetailedReportBalanceSheetRow
                                         {
-                                            totalIncome += itemNet;
-                                            totalPrevIncome += itemPrevNet;
-                                            results.Add(new DetailedReportBalanceSheetRow
-                                            {
-                                                SrNo = (results.Count + 1).ToString(),
-                                                Status = "2",
-                                                Name = itemDescription.Name,
-                                                HeaderSLNo = itemNet.ToString($"N{RoundOff}"),
-                                                PrevYearTotal = itemPrevNet.ToString($"N{RoundOff}")
-                                            });
-                                        }
+                                            SrNo = (results.Count + 1).ToString(),
+                                            Status = "2",
+                                            Name = itemDescription.Name,
+                                            HeaderSLNo = itemNet.ToString($"N{RoundOff}"),
+                                            PrevYearTotal = itemPrevNet.ToString($"N{RoundOff}")
+                                        });
+
                                     }
                                     // 1. Fetch  SubItems
                                     var subItemSql = $@"
@@ -2288,20 +2287,22 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                         BranchId = selectedBranches,
                                         CustomerId = CustId
                                     });
-                                    decimal itemNet; decimal itemPrevNet;
                                     foreach (var itemDescription in itemDescriptions)
                                     {
-                                        if ((itemDescription.CrTotal ?? 0) > (itemDescription.DbTotal ?? 0))
+                                        decimal itemNet;
+                                        decimal itemPrevNet;
+
+                                        if (itemDescription.DbTotal > itemDescription.CrTotal)
                                         {
-                                             itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
-                                             itemPrevNet = (itemDescription.CrTotalPrev ?? 0) - (itemDescription.DbTotalPrev ?? 0);
+                                            itemNet = (itemDescription.DbTotal ?? 0) - (itemDescription.CrTotal ?? 0);
+                                            itemPrevNet = (itemDescription.DbTotalPrev ?? 0) - (itemDescription.CrTotalPrev ?? 0);
                                         }
                                         else
                                         {
-                                             itemNet = (itemDescription.DbTotal ?? 0)-(itemDescription.CrTotal ?? 0)  ;
-                                             itemPrevNet = (itemDescription.DbTotalPrev ?? 0)-(itemDescription.CrTotalPrev ?? 0)  ;
+                                            itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
+                                            itemPrevNet = (itemDescription.CrTotalPrev ?? 0) - (itemDescription.DbTotalPrev ?? 0);
                                         }
-                                           
+
 
                                         totalIncome += itemNet;
                                         totalPrevIncome += itemPrevNet;
@@ -2651,7 +2652,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 return false;
 
             var selectQuery = @"
-  SELECT ATBU_ID 
+  SELECT * 
   FROM Acc_TrailBalance_Upload
   WHERE ATBU_Description = 'Net income'
     AND ATBU_CustId = @CustId
@@ -2669,35 +2670,54 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
 
             if (record == null)
                 return false;
-
+            decimal Debit = Convert.ToDecimal(record.ATBU_Opening_Debit_Amount);
+            decimal Credit = Convert.ToDecimal(record.ATBU_Opening_Credit_Amount);
+            decimal TrAmount;
             string updateQuery;
 
             if (decimal.TryParse(pnlAmount, out var pnlDecimal))
             {
+                TrAmount = pnlDecimal;
                 if (pnlDecimal < 0)
                 {
+                    if (Debit > 0)
+                    {
+                        pnlDecimal = pnlDecimal + Debit;
+                    }
+                    else
+                    {
+                        pnlDecimal = pnlDecimal - Credit;
+                    }
+
                     pnlDecimal = Math.Abs(pnlDecimal);
-
                     updateQuery = @"
-
           UPDATE Acc_TrailBalance_Upload 
           SET 
               ATBU_Closing_Debit_Amount = @PnlAmount,
               ATBU_Closing_TotalDebit_Amount = @PnlAmount,
               ATBU_Closing_Credit_Amount = '0.00',
-              ATBU_Closing_TotalCredit_Amount = '0.00'
+              ATBU_Closing_TotalCredit_Amount = '0.00',
+              ATBU_TR_Debit_Amount = @TrAmount
           WHERE ATBU_ID = @Id";
                 }
                 else
                 {
+                    if (Debit > 0)
+                    {
+                        pnlDecimal = pnlDecimal - Debit;
+                    }
+                    else
+                    {
+                        pnlDecimal = pnlDecimal + Credit;
+                    }
                     updateQuery = @"
-
           UPDATE Acc_TrailBalance_Upload 
           SET 
               ATBU_Closing_Credit_Amount = @PnlAmount,
               ATBU_Closing_TotalCredit_Amount = @PnlAmount,
               ATBU_Closing_Debit_Amount = '0.00',
-              ATBU_Closing_TotalDebit_Amount = '0.00'
+              ATBU_Closing_TotalDebit_Amount = '0.00',
+              ATBU_TR_Credit_Amount = @TrAmount
           WHERE ATBU_ID = @Id";
 
 
@@ -2706,6 +2726,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 var affected = await connection.ExecuteAsync(updateQuery, new
                 {
                     PnlAmount = pnlDecimal.ToString("F2"),
+                    TrAmount = TrAmount,
                     Id = (int)record.ATBU_ID
                 });
 

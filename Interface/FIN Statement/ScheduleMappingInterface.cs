@@ -26,13 +26,16 @@ namespace TracePca.Interface.FIN_Statement
         Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId);
 
         //FreezeForPreviousDuration
-        Task<int[]> FreezePreviousYearTrialBalanceAsync(FreezePreviousDurationRequestDto input);
+        Task<int[]> FreezePreviousDurationTrialBalanceAsync(List<FreezePreviousYearTrialBalanceDto> inputList);
 
         //FreezeForNextDuration
-        Task<int[]> FreezeNextDurationrialBalanceAsync(FreezeNextDurationRequestDto input);
+        Task<int[]> FreezeNextDurationTrialBalanceAsync(List<FreezeNextYearTrialBalanceDto> inputList);
 
         //DownloadUploadableExcelAndTemplate
         FileDownloadResult GetExcelTemplate();
+
+        //CheckTrailBalanceRecordExists
+        Task<bool> CheckTrailBalanceRecordExistsAsync(int CompId, int CustId, int YearId, int BranchId, int QuarterId);
 
         //SaveTrailbalnceDetails
         Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDetailsDto> dtos);
@@ -55,5 +58,7 @@ namespace TracePca.Interface.FIN_Statement
         //UpdateNetIncome
         Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, string branchId, int durationId);
 
+        //SaveMappingTransactionDetails
+        Task<int[]> SaveMappingTransactionDetailsAsync(SaveMappingTransactionDetailsDto dto);
     }
 }

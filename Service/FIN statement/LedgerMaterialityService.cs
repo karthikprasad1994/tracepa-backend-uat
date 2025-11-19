@@ -42,9 +42,9 @@ namespace TracePca.Service.FIN_statement
         SELECT  cmm.cmm_ID as cmm_ID,cmm.cmm_Desc as cmm_Desc, ISNULL(lm.lm_levelofrisk, 0) AS lm_levelofrisk,
     ISNULL(lm.lm_weightage, 0) AS lm_weightage, lm_Id
         FROM Content_Management_Master cmm
-LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND lm.lm_CustId = @iCustId  AND lm.lm_FinancialYearId = @iYearId
+LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND lm.lm_CustId = @iCustId  AND lm.lm_FinancialYearId = @iYearId AND cmm.cmm_Category = 'MT' 
         WHERE cmm.CMM_CompID = @CompID
-          AND cmm.cmm_Category = 'MT'
+          
         ORDER by cmm.cmm_ID";
 
             return await connection.QueryAsync<ContentManagementDto>(
@@ -151,11 +151,150 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
             }
         }
 
-        //GenerateIDButtonForContentMaterialityMaster
-        public async Task<string> GenerateAndInsertContentForMTAsync(int compId, string description)
+        //SaveOrUpdateContentMateriality
+        public async Task<string> SaveOrUpdateContentForMTAsync(int? id, int compId, string description, string remarks, string Category)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 3: Check if record exists
+            var existing = await connection.ExecuteScalarAsync<int>(
+                @"SELECT COUNT(*) 
+          FROM Content_Management_Master 
+          WHERE cmm_ID = @Id AND Cmm_CompID = @CompID",
+                new { Id = id, CompID = compId }
+            );
+
+            string newCode = string.Empty;
+
+            if (existing > 0)
+            {
+                // ✅ Step 4A: UPDATE existing record
+                var updateQuery = @"
+        UPDATE Content_Management_Master
+        SET cmm_Desc = @Desc,
+            cms_Remarks = @Remarks,
+            cmm_Delflag = @Delflag,
+            CMM_Status = @Status,
+            cmm_Category = @Category
+        WHERE cmm_ID = @Id AND Cmm_CompID = @CompID";
+
+                await connection.ExecuteAsync(updateQuery, new
+                {
+                    Id = id,
+                    Desc = description,
+                    Remarks = remarks,
+                    Delflag = "A",
+                    Status = "A",
+                    CompID = compId,
+                    Category = Category // ✅ Added missing parameter
+                });
+
+                newCode = $"MT_{id}";
+            }
+            else
+            {
+                // ✅ Step 4B: INSERT new record
+                var maxIdQuery = @"
+        SELECT ISNULL(MAX(cmm_ID), 0) + 1 
+        FROM Content_Management_Master 
+        WHERE Cmm_CompID = @CompID";
+
+                int newId = await connection.ExecuteScalarAsync<int>(maxIdQuery, new { CompID = compId });
+
+                newCode = $"MT_{newId}";
+
+                var insertQuery = @"
+        INSERT INTO Content_Management_Master
+            (cmm_ID, cmm_Code, cmm_Desc, Cmm_CompID, cms_Remarks, cmm_Delflag, CMM_Status, cmm_Category)
+        VALUES
+            (@Id, @Code, @Desc, @CompID, @Remarks, @Delflag, @Status, @Category)";
+
+                await connection.ExecuteAsync(insertQuery, new
+                {
+                    Id = newId,
+                    Code = newCode,
+                    Desc = description,
+                    CompID = compId,
+                    Remarks = remarks,
+                    Delflag = "A",
+                    Status = "A",
+                    Category = Category
+                });
+            }
+            return newCode;
+        }
+
+        //GetMaterialityId
+        public async Task<IEnumerable<GetMaterialityIdDto>> GetMaterialityIdAsync(int CompId, int Id)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Query using Dapper
+            const string query = @"
+        SELECT 
+            cmm_ID,
+            cmm_Desc, 
+            cms_Remarks, 
+            cmm_Code
+        FROM Content_Management_Master
+        WHERE cmm_CompID = @CompId
+          AND cmm_ID = @Id
+          AND cmm_Category = 'MT'";
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var result = await connection.QueryAsync<GetMaterialityIdDto>(
+                query,
+                new { CompId, Id} // ✅ parameter names match the SQL variables
+            );
+
+            return result;
+        }
+
+
+        //DeleteMaterialityById
+        public async Task<int> DeleteMaterialityByIdAsync(int Id)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"DELETE FROM Content_Management_Master WHERE cmm_ID = @Id";
+
+            int rowsAffected = await connection.ExecuteAsync(query, new { Id });
+
+            return rowsAffected; // returns number of deleted rows
+        }
+
+        //LoadDescription
+        public async Task<IEnumerable<LoadDescriptionDto>> LoadDescriptionAsync(int compId, string category)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
@@ -166,35 +305,18 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            // ✅ Step 4: Fetch MaxID from Content_Management_Master for MT
-            var maxIdQuery = @"
-        SELECT ISNULL(MAX(cmm_ID), 0) + 1 
-        FROM Content_Management_Master 
-        WHERE Cmm_CompID = @CompID";
+            // ✅ Step 4: Parameterized query to get cashflow data by category
+            var sql = @"
+            SELECT cmm_ID, cmm_Code, cmm_Desc, cms_Remarks
+            FROM Content_Management_Master
+            WHERE cmm_Category = @Category
+                  AND CMM_CompID = @CompId";
 
-            int maxId = await connection.ExecuteScalarAsync<int>(maxIdQuery, new { CompID = compId });
-
-            // ✅ Step 5: Build Code for MT only
-            string newCode = $"MT_{maxId}";
-
-            // ✅ Step 6: Insert new record into database
-            var insertQuery = @"
-        INSERT INTO Content_Management_Master
-            (cmm_ID, cmm_Code, cmm_Desc, Cmm_CompID, cmm_Delflag)
-        VALUES
-            (@Id, @Code, @Desc, @CompID, @Delflag)";
-
-            await connection.ExecuteAsync(insertQuery, new
+            return await connection.QueryAsync<LoadDescriptionDto>(sql, new
             {
-                Id = maxId,
-                Code = newCode,
-                Desc = description,
-                CompID = compId,
-                Delflag = "N" // default value
+                Category = category,
+                CompId = compId
             });
-
-            // ✅ Step 7: Return the newly generated code
-            return newCode;
         }
     }
 }

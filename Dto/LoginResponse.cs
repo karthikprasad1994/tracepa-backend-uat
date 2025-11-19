@@ -7,6 +7,7 @@
         public string? Token { get; set; }
 
         public int UsrId { get; set; }
+        public string usertype { get; set; }
 
         public string? MCR_emails { get; set; }
 

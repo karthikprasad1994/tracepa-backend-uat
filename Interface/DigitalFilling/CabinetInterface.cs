@@ -6,6 +6,7 @@ using TracePca.Dto.DigitalFiling;
 using TracePca.Dto.DigitalFilling;
 using TracePca.Service;
 using static TracePca.Service.DigitalFilling.Cabinet;
+using GoogleDriveFile = Google.Apis.Drive.v3.Data.File;
 
 namespace TracePca.Interface.DigitalFilling
 {
@@ -65,5 +66,8 @@ namespace TracePca.Interface.DigitalFilling
 
 		Task<int> UpdateDepartmentAsync(string Code, string DepartmentName, int iDepartmentID, int iUserID, int compID);
 
-	}
+		Task<GoogleDriveFile> GetFileByIdAsync(int DocId, string userEmail);
+
+
+    }
 }

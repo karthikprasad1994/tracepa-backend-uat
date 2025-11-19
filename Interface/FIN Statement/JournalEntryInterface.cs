@@ -38,5 +38,12 @@ namespace TracePca.Interface.FIN_Statement
         Task<List<TransactionDetailDto>> LoadTransactionDetailsAsync(int companyId, int yearId, int custId, int jeId, int branchId, int durationId);
         Task<(int UpdateOrSave, int Oper, int FinalId, string FinalCode)> SaveOrUpdateAsync(AdminMasterDto dto);
 
+        //GetJETypeDropDown
+        Task<IEnumerable<JeTypeDto>> GetJETypeListAsync(int CompId);
+
+        //GetJETypeDropDownDetails
+        Task<IEnumerable<JETypeDropDownDetailsDto>> GetJETypeDropDownDetailsAsync(
+int compId, int custId, int yearId, int BranchId, int jetype, string description);
+
     }
 }

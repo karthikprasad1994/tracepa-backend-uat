@@ -37,17 +37,39 @@
             public DateTime? lm_CrOn { get; set; }
         }
 
-        //GenerateIDButtonForContentMaterialityMaster
+        //SaveOrUpdateContentMateriality
         public class CreateMTContentRequestDto
         {
-            public int CompId { get; set; }               
-            public string Description { get; set; } = string.Empty; 
+            public int? cmm_ID { get; set; }
+            public int CMM_CompID { get; set; }
+            public string? cmm_Desc { get; set; }
+            public string? cms_Remarks { get; set; }
+            public string? cmm_Category { get; set; }
         }
-        public class CreateMTContentResponseDto
+
+        //GetMatrialityId
+        public class GetMaterialityIdDto
         {
-            public int StatusCode { get; set; }
-            public string Message { get; set; } = string.Empty;
-            public string NewCode { get; set; } = string.Empty;
+            public int cmm_ID { get; set; }
+            public string cmm_Desc { get; set; }
+            public string cms_Remarks { get; set; }
+            public string cmm_Code { get; set; }
+        }
+
+
+        //DeleteMaterialityById
+        public class DeleteMaterialityIdDto
+        {
+            public int cmm_ID { get; set; }
+        }
+
+        //LoadDescription
+        public class LoadDescriptionDto
+        {
+            public int cmm_ID { get; set; }
+            public string cmm_Code { get; set; }
+            public string cmm_Desc { get; set; }
+            public string cms_Remarks { get; set; }
         }
     }
 }

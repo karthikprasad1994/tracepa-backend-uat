@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using System.Data;
 using System.Text;
 using TracePca.Data;
+using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleMastersDto;
@@ -141,7 +142,6 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
 
-        //GetBranchName
         [HttpGet("GetBranchName")]
         public async Task<IActionResult> GetBranchName([FromQuery] int CompId, [FromQuery] int CustId)
         {
@@ -149,21 +149,11 @@ namespace TracePca.Controllers.FIN_Statement
             {
                 var result = await _ScheduleMastersService.GetBranchNameAsync(CompId, CustId);
 
-                if (result == null || !result.Any())
-                {
-                    return NotFound(new
-                    {
-                        statusCode = 404,
-                        message = "No Branch name found.",
-                        data = (object)null
-                    });
-                }
-
                 return Ok(new
                 {
                     statusCode = 200,
                     message = "Branch name loaded successfully.",
-                    data = result
+                    data = result ?? new List<ScheduleMastersDto.CustBranchDto>()  // ✅ FIXED
                 });
             }
             catch (Exception ex)
@@ -172,10 +162,13 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     statusCode = 500,
                     message = "An error occurred while fetching company types.",
-                    error = ex.Message
+                    error = ex.Message,
+                    data = new List<ScheduleMastersDto.CustBranchDto>()  // ✅ FIXED
                 });
             }
         }
+
+
 
         //GetScheduleHeading
         [HttpGet("GetScheduleHeading")]

@@ -22,5 +22,6 @@ namespace TracePca.Interface.Audit
         Task<string> GenerateReportAndGetURLPathAsync(int compId, int epPKid, string format);
         Task<string> GenerateReportAndGetTempPathAsync(int compId, int epPKid, string format);
         Task<bool> SendEmailAndSaveEngagementPlanExportDataAsync(EngagementPlanReportExportDetailsDTO dto);
+        string GetUserEmail();
     }
 }

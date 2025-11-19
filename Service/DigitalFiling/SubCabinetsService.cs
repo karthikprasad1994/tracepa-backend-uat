@@ -152,19 +152,20 @@ namespace TracePca.Service.DigitalFiling
 				await connection.OpenAsync();
 
 				string query = @"
-            SELECT 
-                CBN_ID, 
-                CBN_Name, 
-                CBN_SubCabCount,
-                CBN_FolderCount,
-                usr_FullName AS CBN_CreatedBy,
-                CBN_CreatedOn,
-                CBN_DelFlag
-            FROM edt_Cabinet A 
-            JOIN sad_UserDetails B ON A.CBN_CreatedBy = B.Usr_ID 
-            WHERE A.CBN_Status = @statusCode 
-              AND CBN_UserID = @userId 
-              AND CBN_Parent = @cabinetId";
+                                SELECT 
+                                    CBN_ID, 
+                                    CBN_Name, 
+                                    CBN_SubCabCount,
+                                    CBN_FolderCount,
+                                    usr_FullName AS CBN_CreatedBy,
+                                    CBN_CreatedOn,
+                                    CBN_DelFlag,
+                                    CBN_Parent
+                                FROM edt_Cabinet A 
+                                JOIN sad_UserDetails B ON A.CBN_CreatedBy = B.Usr_ID 
+                                WHERE A.CBN_Status = @statusCode 
+                                  AND CBN_UserID = @userId 
+                                  AND CBN_Parent = @cabinetId";
 
 				var result = await connection.QueryAsync<SubCabinetDetailsDTO>(query, new
 				{

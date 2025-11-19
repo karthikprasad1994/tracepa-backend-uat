@@ -4,6 +4,7 @@ using static TracePca.Dto.FIN_Statement.CashFlowDto;
 using TracePca.Service.FIN_statement;
 using Microsoft.Data.SqlClient;
 using TracePca.Dto.FIN_Statement;
+using DocumentFormat.OpenXml.Bibliography;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -24,255 +25,28 @@ namespace TracePca.Controllers.FIN_Statement
             _env = env;
         }
 
-        ////SaveCashFlow(Category 1)
-        //[HttpPost("SaveCashFlow(Category 1)")]
-        //public async Task<IActionResult> SaveCashFlowCategory1([FromBody] CashFlowCategory1 model)
-        //{
-        //    try
-        //    {
-        //        if (model == null)
-        //        {
-        //            return BadRequest(new
-        //            {
-        //                StatusCode = 400,
-        //                Message = "Invalid input. Please provide valid cash flow details.",
-        //                Data = new { }
-        //            });
-        //        }
-
-        //        var (updateOrSave, oper) = await _CashFlowService.SaveCashFlowCategory1Async(model.ACF_Compid, model);
-
-        //        return Ok(new
-        //        {
-        //            StatusCode = 200,
-        //            Message = "Cash flow saved successfully.",
-        //            Data = new
-        //            {
-        //                UpdateOrSave = updateOrSave,
-        //                Operation = oper
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "An unexpected error occurred while saving cash flow details.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
-
-        ////SaveCashFlow(Category 2)
-        //[HttpPost("SaveCashFlow(Category 2)")]
-        //public async Task<IActionResult> SaveCashFlowCategory2([FromBody] CashFlowCategory2 dto)
-        //{
-        //    try
-        //    {
-        //        if (dto == null)
-        //        {
-        //            return BadRequest(new
-        //            {
-        //                StatusCode = 400,
-        //                Message = "Invalid input. Please provide valid cash flow data.",
-        //                Data = new { }
-        //            });
-        //        }
-
-        //        var id = await _CashFlowService.SaveCashFlowCategory2Async(dto);
-
-        //        string message = dto.ACF_pkid == 0
-        //        ? "Cash flow record inserted successfully."
-        //        : "Cash flow record updated successfully.";
-
-        //        return Ok(new
-        //        {
-        //            StatusCode = 200,
-        //            Message = message,
-        //            Data = new { ACF_pkid = id }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "An error occurred while saving cash flow data.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
-
-        ////SaveCashFlow(Category 3)
-        //[HttpPost("SaveCashFlow(Category 3)")]
-        //public async Task<IActionResult> SaveCashFlowCategory3([FromBody] CashFlowCategory3 model)
-        //{
-        //    try
-        //    {
-        //        if (model == null)
-        //        {
-        //            return BadRequest(new
-        //            {
-        //                StatusCode = 400,
-        //                Message = "Invalid input. Please provide valid cash flow details.",
-        //                Data = new { }
-        //            });
-        //        }
-
-        //        var (updateOrSave, oper) = await _CashFlowService.SaveCashFlowCategory3Async(model.ACF_Compid, model);
-
-        //        return Ok(new
-        //        {
-        //            StatusCode = 200,
-        //            Message = "Cash flow saved successfully.",
-        //            Data = new
-        //            {
-        //                UpdateOrSave = updateOrSave,
-        //                Operation = oper
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "An unexpected error occurred while saving cash flow details.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
-
-        ////SaveCashFlow(Category 4)
-        //[HttpPost("SaveCashFlow(Category 4)")]
-        //public async Task<IActionResult> SaveCashFlowCategory4([FromBody] CashFlowCategory4 model)
-        //{
-        //    try
-        //    {
-        //        if (model == null)
-        //        {
-        //            return BadRequest(new
-        //            {
-        //                StatusCode = 400,
-        //                Message = "Invalid input. Please provide valid cash flow details.",
-        //                Data = new { }
-        //            });
-        //        }
-
-        //        var (updateOrSave, oper) = await _CashFlowService.SaveCashFlowCategory4Async(model.ACF_Compid, model);
-
-        //        return Ok(new
-        //        {
-        //            StatusCode = 200,
-        //            Message = "Cash flow saved successfully.",
-        //            Data = new
-        //            {
-        //                UpdateOrSave = updateOrSave,
-        //                Operation = oper
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "An unexpected error occurred while saving cash flow details.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
-
-        ////SaveCashFlow(Category 5)
-        //[HttpPost("SaveCashFlow(Category 5)")]
-        //public async Task<IActionResult> SaveCashFlowCategory5([FromBody] CashFlowCategory5 dto)
-        //{
-        //    try
-        //    {
-        //        if (dto == null)
-        //        {
-        //            return BadRequest(new
-        //            {
-        //                StatusCode = 400,
-        //                Message = "Invalid input. Please provide valid cash flow data.",
-        //                Data = new { }
-        //            });
-        //        }
-
-        //        var id = await _CashFlowService.SaveCashFlowCategory5Async(dto);
-
-        //        string message = dto.ACF_pkid == 0
-        //        ? "Cash flow record inserted successfully."
-        //        : "Cash flow record updated successfully.";
-
-        //        return Ok(new
-        //        {
-        //            StatusCode = 200,
-        //            Message = message,
-        //            Data = new { ACF_pkid = id }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "An error occurred while saving cash flow data.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
-
-        //SaveCashFlow(Category 1)
-        [HttpPost("SaveCashFlow(Category 1)")]
-        public async Task<IActionResult> SaveCashFlowCategory1([FromBody] List<CashFlowCategory1> dtos)
+        //DeleteCashFlowCategoryWise
+        [HttpDelete("DeleteCashFlowCategoryWise")]
+        public async Task<IActionResult> DeleteCashflowCategory1([FromBody] DeleteCashflowCategoryWiseDto dto)
         {
-            try
-            {
-                if (dtos == null || dtos.Count == 0)
-                {
-                    return BadRequest(new
-                    {
-                        StatusCode = 400,
-                        Message = "Invalid input. Please provide valid cash flow details.",
-                        Data = new { }
-                    });
-                }
-
-                // Call the service to save/update/delete all items
-                var processedIds = await _CashFlowService.SaveCashFlowCategory1Async(dtos);
-
-                // Generate message for each row dynamically
-                var messages = dtos.Select(dto =>
-                {
-                    if (dto.IsDeleted)
-                        return $"Cash flow record '{dto.ACF_Description}' deleted successfully.";
-                    else if (dto.ACF_pkid == 0)
-                        return $"Cash flow record '{dto.ACF_Description}' inserted successfully.";
-                    else
-                        return $"Cash flow record '{dto.ACF_Description}' updated successfully.";
-                }).ToList();
-
-                return Ok(new
-                {
-                    StatusCode = 200,
-                    Message = "Cash flow records processed successfully.",
-                    Details = messages,
-                    Data = new
-                    {
-                        ProcessedCount = processedIds.Count,
-                        ACF_pkids = processedIds
-                    }
-                });
-            }
-            catch (InvalidOperationException ex)
+            if (dto == null)
             {
                 return BadRequest(new
                 {
-                    StatusCode = 400,
-                    Message = ex.Message,
-                    Data = new { }
+                    statusCode = 400,
+                    message = "Invalid request data.",
+                    data = (object)null
+                });
+            }
+            try
+            {
+                await _CashFlowService.DeleteCashflowCategory1Async(dto.CompId, dto.PkId, dto.CustId, dto.Category);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Cashflow row deleted successfully.",
+                    data = (object)null
                 });
             }
             catch (Exception ex)
@@ -280,7 +54,304 @@ namespace TracePca.Controllers.FIN_Statement
                 return StatusCode(500, new
                 {
                     StatusCode = 500,
-                    Message = "An unexpected error occurred while processing cash flow records.",
+                    Message = "An error occurred while fetching Acc_CashFlow records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetCashFlowID(SearchButton)
+        [HttpGet("GetCashFlowID(SearchButton)")]
+        public async Task<IActionResult> GetCashFlowParticularsId(int compId, string description, int custId, int branchId)
+        {
+            try
+            {
+                var result = await _CashFlowService.GetCashFlowParticularsIdAsync(compId, description, custId, branchId);
+
+                if (result == null)
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = $"No records found.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"Records fetched successfully.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //GetCashFlowForAllCategory
+        [HttpGet("GetCashFlowForAllCategory")]
+        public async Task<IActionResult> GetCashFlowForAllCategory(int compId, int custId, int yearId, int branchId, int category)
+        {
+            try
+            {
+                var result = await _CashFlowService.GetCashFlowForAllCategoryAsync(compId, custId, yearId, branchId, category);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = $"No records found in Acc_CashFlow for category '{category}' and companyId '{compId}'.",
+                        Data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"Records fetched successfully for category '{category}'.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching Acc_CashFlow records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //SaveCashFlow(Category 1)
+        [HttpPost("SaveCashFlow(Category1)")]
+        public async Task<IActionResult> SaveCashFlowCategory1([FromBody] List<CashFlowCategory1> dtos)
+        {
+            try
+            {
+                // ✅ Basic validation
+                if (dtos == null || dtos.Count == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Please provide valid cash flow data.",
+                        Data = (object)null
+                    });
+                }
+
+                var processedIds = await _CashFlowService.SaveCashFlowCategory1Async(dtos);
+
+                string message = dtos.Any(d => d.ACF_pkid == 0)
+                    ? "Cash flow records saved successfully."
+                    : "Cash flow records updated successfully.";
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = message,
+                    Data = new
+                    {
+                        ProcessedCount = processedIds.Count,
+                        ACF_pkids = processedIds
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving cash flow records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //SaveCashFlow(Category3)
+        [HttpPost("SaveCashFlow(Category3)")]
+        public async Task<IActionResult> SaveCashFlowCategory3([FromBody] List<CashFlowCategory3> dtos)
+        {
+            try
+            {
+                // ✅ Basic validation
+                if (dtos == null || dtos.Count == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Please provide valid cash flow data.",
+                        Data = (object)null
+                    });
+                }
+
+                var processedIds = await _CashFlowService.SaveCashFlowCategory3Async(dtos);
+
+                string message = dtos.Any(d => d.ACF_pkid == 0)
+                    ? "Cash flow records saved successfully."
+                    : "Cash flow records updated successfully.";
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = message,
+                    Data = new
+                    {
+                        ProcessedCount = processedIds.Count,
+                        ACF_pkids = processedIds
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving cash flow records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //SaveCashFlow(Category4)
+        [HttpPost("SaveCashFlow(Category4)")]
+        public async Task<IActionResult> SaveCashFlowCategory4([FromBody] List<CashFlowCategory4> dtos)
+        {
+            try
+            {
+                // ✅ Basic validation
+                if (dtos == null || dtos.Count == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Please provide valid cash flow data.",
+                        Data = (object)null
+                    });
+                }
+
+                var processedIds = await _CashFlowService.SaveCashFlowCategory4Async(dtos);
+
+                string message = dtos.Any(d => d.ACF_pkid == 0)
+                    ? "Cash flow records saved successfully."
+                    : "Cash flow records updated successfully.";
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = message,
+                    Data = new
+                    {
+                        ProcessedCount = processedIds.Count,
+                        ACF_pkids = processedIds
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving cash flow records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //SaveCashFlow(Category2)
+        [HttpPost("SaveCashFlow(Category2)")]
+        public async Task<IActionResult> SaveCashFlowCategory2([FromBody] List<CashFlowCategory2> dtos)
+        {
+            try
+            {
+                // ✅ Basic validation
+                if (dtos == null || dtos.Count == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Please provide valid cash flow data.",
+                        Data = (object)null
+                    });
+                }
+
+                var processedIds = await _CashFlowService.SaveCashFlowCategory2Async(dtos);
+
+                string message = dtos.Any(d => d.ACF_pkid == 0)
+                    ? "Cash flow records saved successfully."
+                    : "Cash flow records updated successfully.";
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = message,
+                    Data = new
+                    {
+                        ProcessedCount = processedIds.Count,
+                        ACF_pkids = processedIds
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving cash flow records.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //SaveCashFlow(Category5)
+        [HttpPost("SaveCashFlow(Category5)")]
+        public async Task<IActionResult> SaveCashFlowCategory5([FromBody] List<CashFlowCategory5> dtos)
+        {
+            try
+            {
+                // ✅ Basic validation
+                if (dtos == null || dtos.Count == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Please provide valid cash flow data.",
+                        Data = (object)null
+                    });
+                }
+
+                var processedIds = await _CashFlowService.SaveCashFlowCategory5Async(dtos);
+
+                string message = dtos.Any(d => d.ACF_pkid == 0)
+                    ? "Cash flow records saved successfully."
+                    : "Cash flow records updated successfully.";
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = message,
+                    Data = new
+                    {
+                        ProcessedCount = processedIds.Count,
+                        ACF_pkids = processedIds
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving cash flow records.",
                     Error = ex.Message
                 });
             }

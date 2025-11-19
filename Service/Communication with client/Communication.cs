@@ -66,6 +66,7 @@ using Microsoft.Playwright;
 //using Alignment = Xceed.Document.NET.Alignment;
 using Org.BouncyCastle.Asn1.Crmf;
 using TracePca.Interface.Master;
+using DocumentFormat.OpenXml.Drawing.Charts;
 
 
 
@@ -241,7 +242,7 @@ WHERE SA.SA_ID = @AuditId AND SA.SA_CustID = @CustomerId;
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            //  var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            //  var connectionString = _configuration.GetConnectionString(dbName);
 
             //  using var connection = new SqlConnection(connectionString);
             //   await connection.OpenAsync();
@@ -330,7 +331,7 @@ WHERE LOET_CustomerId = @CustomerId
         //WHERE SA.SA_ID = @AuditId AND SA.SA_CompID = @CompanyId AND CM.CUST_CompID = @CompanyId;
         //";
 
-        //    var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        //    var connectionString = _configuration.GetConnectionString(dbName);
 
         //    using var connection = new SqlConnection(connectionString);
         //    await connection.OpenAsync();
@@ -349,8 +350,12 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<Dto.Audit.CustomerDto>> GetCustomerLoeAsync(int companyId)
         {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
 
 
             //  using var connection = _dbConnectionProvider.GetConnection();
@@ -395,7 +400,7 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<IEnumerable<AuditTypeDto>> GetAuditTypesAsync(int companyId)
         {
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -423,7 +428,7 @@ WHERE LOET_CustomerId = @CustomerId
 
         public async Task<CustomerAuditDropdownDto> GetCustomerAuditDropdownAsync(int companyId)
         {
-            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -1220,7 +1225,11 @@ ORDER BY
           AND ADRL_AuditNo = @AuditNo
           AND ADRL_RequestedListID = @RequestedId";
 
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            var connectionString = _configuration.GetConnectionString(dbName);
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
@@ -1237,16 +1246,22 @@ ORDER BY
 
         public async Task<string> GetDRLDescriptionByIdAsync(int companyId, int drlId)
         {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+            using var connection = new SqlConnection(connectionString);
+            //   using var connection = _dbConnectionProvider.GetConnection();
+            await connection.OpenAsync();
+
+
             const string query = @"
     SELECT ISNULL(Cms_Remarks, '') 
     FROM Content_Management_Master 
     WHERE CMM_CompID = @CompanyId AND CMM_ID = @DrlId";
 
-
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
-            using var connection = new SqlConnection(connectionString);
-            //   using var connection = _dbConnectionProvider.GetConnection();
-            await connection.OpenAsync();
 
             var result = await connection.ExecuteScalarAsync<string>(query, new
             {
@@ -1261,7 +1276,11 @@ ORDER BY
 
         public async Task<int> SaveDRLLogAsync(DRLLogDto dto)
         {
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            var connectionString = _configuration.GetConnectionString(dbName);
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
@@ -1443,7 +1462,7 @@ ORDER BY
 
         //public async Task<CustomerDataDto> GetCustomerDetailsWithTemplatesAsync(int companyId, int customerId, int reportTypeId)
         //{
-        //    var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        //    var connectionString = _configuration.GetConnectionString(dbName);
 
         //    using var connection = new SqlConnection(connectionString);
         //    await connection.OpenAsync();
@@ -1531,7 +1550,7 @@ ORDER BY
         // Existing method reused
         public async Task<CustomerDataDto> GetCustomerDetailsWithTemplatesAsync(int companyId, int customerId, int reportTypeId)
         {
-            //var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            //var connectionString = _configuration.GetConnectionString(dbName);
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -1898,7 +1917,11 @@ ORDER BY
 
         public async Task<int> SaveDRLLogWithAttachmentAsync(DRLLogDto dto, string filePath, string fileType)
         {
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
@@ -2218,7 +2241,7 @@ ORDER BY
 
         //    public async Task<int> SaveDRLLogWithAttachmentAsync(DRLLogDto dto, string filePath, string fileType)
         //    {
-        //        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        //        var connectionString = _configuration.GetConnectionString(dbName);
 
         //        using var connection = new SqlConnection(connectionString);
         //        await connection.OpenAsync();
@@ -2594,7 +2617,11 @@ ORDER BY
 
         public async Task<int> GetDuringSelfAttachIdAsync(int companyId, int yearId, int customerId, int auditId, int drlId)
         {
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
@@ -2636,7 +2663,7 @@ ORDER BY
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            //var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            //var connectionString = _configuration.GetConnectionString(dbName);
 
             //using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
@@ -2681,7 +2708,7 @@ ORDER BY
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            //var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            //var connectionString = _configuration.GetConnectionString(dbName);
 
             //using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
@@ -2763,7 +2790,11 @@ ORDER BY Atch_DocID desc";
 
         private async Task<int> GetOrCreateAttachmentIdAsync(int drlId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             var existingId = await connection.ExecuteScalarAsync<int?>(
@@ -2784,32 +2815,36 @@ ORDER BY Atch_DocID desc";
         {
             const string sql = "SELECT TOP 1 ATCH_ID FROM Edt_Attachments WHERE ATCH_drlid = @DrlId AND ATCH_AuditID = @AuditId ORDER BY ATCH_ID";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             return await connection.ExecuteScalarAsync<int?>(sql, new { DrlId = drlId, AuditId = auditId });
         }
 
-        private async Task<string> SaveAuditDocumentAsync(AddFileDto dto, int attachId, IFormFile file, int requestedId, int reportid)
+        private async Task<string> SaveAuditDocumentAsync(AddFileDto dto, int attachId, IFormFile file, int requestedId, int reportid,string fileBaseName, string fileExt)
         {
             if (file == null || file.Length == 0)
                 throw new ArgumentException("Invalid file.");
 
-            var safeFileName = Path.GetFileName(file.FileName);
-            var fileExt = Path.GetExtension(safeFileName)?.TrimStart('.');
-            var fileBaseName = Path.GetFileNameWithoutExtension(safeFileName)
-                                    .Replace("&", " and");
-            fileBaseName = fileBaseName.Substring(0, Math.Min(fileBaseName.Length, 95));
+            //var safeFileName = Path.GetFileName(file.FileName);
+            //var fileExt = Path.GetExtension(safeFileName)?.TrimStart('.');
+            //var fileBaseName = Path.GetFileNameWithoutExtension(safeFileName)
+            //                        .Replace("&", " and");
+            //fileBaseName = fileBaseName.Substring(0, Math.Min(fileBaseName.Length, 95));
 
-            // Step 1: Resolve base upload path
-            var basePath = EnsureDirectoryExists(GetConfigValue("ImgPath"), dto.UserId.ToString(), "Upload");
+            //// Step 1: Resolve base upload path
+            //var basePath = EnsureDirectoryExists(GetConfigValue("ImgPath"), dto.UserId.ToString(), "Upload");
 
-            // Step 2: Save the uploaded file to disk
-            var fullFilePath = Path.Combine(basePath, $"{fileBaseName}.{fileExt}");
-            using (var stream = new FileStream(fullFilePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
+            //// Step 2: Save the uploaded file to disk
+            //var fullFilePath = Path.Combine(basePath, $"{fileBaseName}.{fileExt}");
+            //using (var stream = new FileStream(fullFilePath, FileMode.Create))
+            //{
+            //    await file.CopyToAsync(stream);
+            //}
 
             // Step 3: Generate document ID
             var documentId = await GenerateNextDocIdAsync(dto.CustomerId, dto.AuditId);
@@ -2821,9 +2856,12 @@ ORDER BY Atch_DocID desc";
                 var existingAttachId = await GetExistingAttachmentIdByDrlIdAsync(requestedId, dto.AuditId);
                 newAttachId = existingAttachId ?? await GenerateNextAttachmentIdAsync(dto.AuditId);
             }
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
             // Step 5: Insert metadata into Edt_Attachments
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
 
@@ -2856,19 +2894,19 @@ VALUES (
                     Status = dto.Status
                 });
 
-                // Encrypt the file and move it to the final directory
-                string finalDirectory = GetOrCreateTargetDirectory(GetConfigValue("ImgPath"), "SamplingCU", documentId / 301, fullFilePath);
-                string finalFilePath = Path.Combine(finalDirectory, $"{documentId}.{fileExt}");
+                //// Encrypt the file and move it to the final directory
+                //string finalDirectory = GetOrCreateTargetDirectory(GetConfigValue("ImgPath"), "SamplingCU", documentId / 301, fullFilePath);
+                //string finalFilePath = Path.Combine(finalDirectory, $"{documentId}.{fileExt}");
 
-                if (File.Exists(finalFilePath))
-                    File.Delete(finalFilePath);
+                //if (File.Exists(finalFilePath))
+                //    File.Delete(finalFilePath);
 
-                EncryptFile(fullFilePath, finalFilePath);
+                //EncryptFile(fullFilePath, finalFilePath);
 
-                if (File.Exists(fullFilePath))
-                    File.Delete(fullFilePath);
+                //if (File.Exists(fullFilePath))
+                //    File.Delete(fullFilePath);
 
-                return finalFilePath;
+                return "finalFilePath";
             }
         }
 
@@ -2916,7 +2954,7 @@ VALUES (
         //                }
         //            }
 
-        //            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
         //            {
         //                await connection.OpenAsync();
 
@@ -2981,7 +3019,7 @@ VALUES (
 
         //            var docId = await GenerateNextDocIdAsync(dto.CustomerId, dto.AuditId);
 
-        //            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
         //            {
         //                await connection.OpenAsync();
 
@@ -3043,7 +3081,11 @@ VALUES (
 
         private async Task<int> GenerateNextDocIdAsync(int customerId, int auditId)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
@@ -3058,7 +3100,11 @@ VALUES (
 
         private async Task<int> InsertIntoAuditDrlLogAsync(AddFileDto dto, int requestedId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             using var transaction = await connection.BeginTransactionAsync();
@@ -3181,7 +3227,11 @@ VALUES (
         FROM StandardAudit_Audit
         WHERE SA_ID = @AuditId";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             return await connection.ExecuteScalarAsync<string>(query, new { AuditId = auditId }) ?? "N/A";
@@ -3352,7 +3402,14 @@ ORDER BY
 
         public async Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto)
         {
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+
+            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 using (var transaction = await connection.BeginTransactionAsync())
@@ -3366,20 +3423,8 @@ ORDER BY
                         // STEP 1: Handle file upload if provided
                         if (dto.File != null && dto.File.Length > 0)
                         {
-                            var uploadedFile = await _driveService.UploadFileToFolderAsync(dto.File, "TracePA/Audit", dto.UserEmail);
+                
 
-                            // ✅ Handle Drive upload failure early
-                            var statusProp = uploadedFile?.GetType().GetProperty("Status");
-                            var statusValue = statusProp?.GetValue(uploadedFile)?.ToString();
-
-                            if (statusValue == "Error")
-                            {
-                                var messageProp = uploadedFile?.GetType().GetProperty("Message");
-                                var errorMessage = messageProp?.GetValue(uploadedFile)?.ToString() ?? "Unknown Google Drive upload error.";
-
-                                await transaction.RollbackAsync();
-                                return $"Google Drive Upload Failed: {errorMessage}";
-                            }
                             // Check if attachment already exists for this DRL
                             if (attachId <= 0)
                             {
@@ -3398,15 +3443,35 @@ ORDER BY
                             }
 
 
+                            string extension = Path.GetExtension(dto.File.FileName);
+                            string nameOnly = Path.GetFileNameWithoutExtension(dto.File.FileName);
 
                             // Save file and insert into Edt_Attachments
-                            filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, dto.DrlId, dto.ReportType);
+                            filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, dto.DrlId, dto.ReportType, nameOnly, extension);
 
                             // Update references in DRL tables
                             int pkId = await GetDrlPkIdAsync(dto.CustomerId, dto.AuditId, attachId);
                             int docId = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
+
                             await UpdateDrlAttachIdAndDocIdAsync(dto.CustomerId, dto.AuditId, attachId, docId, pkId);
 
+                            dynamic uploadedFile = await _driveService.UploadFileToFolderAsync(dto.File, "TracePA/Audit", GetUserEmail(), GetCurrentDocID("ATCH_DOCID", dto.CompId));
+
+                            if (uploadedFile != null)
+                            {
+                                // Check status
+                                if (uploadedFile.Status == "Success")
+                                {
+                                    string fullFileName = uploadedFile.File.Name;
+
+                                }
+                                else if (uploadedFile.Status == "Error")
+                                {
+                                    string errorMessage = uploadedFile.Message ?? "Unknown Google Drive upload error.";
+                                    await transaction.RollbackAsync();
+                                    return $"Google Drive Upload Failed: {errorMessage}";
+                                }
+                            }
                             // You can trigger email sending here if needed
                             // await SendDuringAuditEmailAsync(dto);
                         }
@@ -3438,7 +3503,7 @@ ORDER BY
 
         //public async Task<string> UploadAndSaveAttachmentAsync(AddFileDto dto)
         //{
-        //    using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //    using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
         //    {
         //        await connection.OpenAsync();
         //        using (var transaction = await connection.BeginTransactionAsync())
@@ -3568,7 +3633,7 @@ ORDER BY
 
         //private async Task UpdateLatestEdtAttachmentStatusAsync(int customerId, int auditId)
         //{
-        //    using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //    using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
         //    {
         //        await connection.OpenAsync();
 
@@ -3591,7 +3656,7 @@ ORDER BY
 
         //private async Task<int> GenerateNextAttachmentIdAsync(int customerId, int auditId, int YearId)
         //{
-        //    using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //    using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
         //    {
         //        await connection.OpenAsync();
         //        return await connection.ExecuteScalarAsync<int>(
@@ -3617,7 +3682,7 @@ ORDER BY
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            //using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            //using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
 
@@ -3655,7 +3720,7 @@ ORDER BY
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            //using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            //using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
@@ -3681,7 +3746,7 @@ ORDER BY
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            // using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            // using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
@@ -3704,7 +3769,7 @@ ORDER BY
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            //using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            //using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
@@ -3727,7 +3792,7 @@ ORDER BY
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            //  using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            //  using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 await connection.ExecuteAsync(
@@ -3778,7 +3843,7 @@ ORDER BY
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            // using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            // using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 return await connection.ExecuteScalarAsync<int>(
@@ -3801,7 +3866,7 @@ ORDER BY
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            //  using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            //  using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 await connection.ExecuteAsync(
@@ -3823,7 +3888,7 @@ ORDER BY
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             var emailCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
@@ -3909,7 +3974,7 @@ WHERE SA_ID = @AuditId";
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             var result = await connection.QueryFirstOrDefaultAsync(query, new { AuditId = auditId });
@@ -4055,7 +4120,7 @@ WHERE SA_ID = @AuditId";
 
         //            var docId = await GenerateNextDocIdAsync(dto.CustomerId, dto.AuditId);
 
-        //            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
         //            {
         //                await connection.OpenAsync();
 
@@ -4096,7 +4161,7 @@ WHERE SA_ID = @AuditId";
 
         //        public async Task<int> InsertIntoAuditDrlLogAsync(AddFileDto dto, int requestedId, int reportTypeId)
         //        {
-        //            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
         //            {
         //                await connection.OpenAsync();
 
@@ -4135,7 +4200,7 @@ WHERE SA_ID = @AuditId";
 
         //        private async Task InsertIntoBeginingAuditDocRemarksLogAsync(AddFileDto dto, int requestedId, int remarkId, int attachId, int docId)
         //        {
-        //            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
         //            {
         //                await connection.OpenAsync();
         //                await connection.ExecuteAsync(
@@ -4520,7 +4585,7 @@ ORDER BY RCM_Id";
 
         //public async Task<List<LOEHeadingDto>> LoadLOEHeadingAsync(string sFormName, int compId, int reportTypeId, int loeTemplateId)
         //{
-        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
         //    await connection.OpenAsync();
 
         //    string query = @"
@@ -4639,14 +4704,19 @@ ORDER BY RCM_Id";
 
         public async Task<bool> CheckWorkpaperRefExists(int auditId, string workpaperRef, int? workpaperId)
         {
-            var query = @"
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                var query = @"
     SELECT COUNT(1) 
     FROM StandardAudit_ScheduleConduct_WorkPaper 
     WHERE SSW_SA_ID = @AuditId
     AND SSW_WorkpaperRef = @WorkpaperRef
     AND (@WorkpaperId = 0 OR SSW_ID != @WorkpaperId)";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             int count = await connection.ExecuteScalarAsync<int>(query, new
@@ -4662,10 +4732,14 @@ ORDER BY RCM_Id";
 
         public async Task<string> GenerateWorkpaperNo(int auditId)
         {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
             string prefix = $"WP_{auditId}_";
             string sql = "SELECT COUNT(*) FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID = @AuditId";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
             int count = await connection.ExecuteScalarAsync<int>(sql, new { auditId });
             return prefix + (count + 1).ToString("D3");
@@ -4674,9 +4748,13 @@ ORDER BY RCM_Id";
 
         public async Task<int> GetNextWorkpaperIdAsync()
         {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
             string sql = "SELECT ISNULL(MAX(SSW_ID), 0) FROM StandardAudit_ScheduleConduct_WorkPaper";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
             int maxId = await connection.ExecuteScalarAsync<int>(sql);
             return maxId + 1;
@@ -4755,8 +4833,11 @@ ORDER BY RCM_Id";
                 dto.IPAddress,
                 dto.CompanyId
             };
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
             return await connection.ExecuteScalarAsync<int>(sql, parameters);
         }
@@ -4795,8 +4876,11 @@ ORDER BY RCM_Id";
         LEFT JOIN sad_userdetails c ON c.Usr_ID = a.SSW_ReviewedBy
         WHERE SSW_SA_ID = @AuditId AND SSW_CompID = @CompanyId
         ORDER BY a.SSW_WorkpaperNo DESC";
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 var result = await connection.QueryAsync<WorkpaperViewDto>(query, new { AuditId = auditId, CompanyId = companyId });
@@ -4819,8 +4903,11 @@ ORDER BY RCM_Id";
         AND ACM_CompId = @CompanyId
         AND ACM_Heading <> '' 
         AND ACM_Heading <> 'NULL'";
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 var result = await connection.QueryAsync<StandardAuditHeadingDto>(query, new { AuditId = auditId, CompanyId = companyId });
@@ -4836,8 +4923,11 @@ ORDER BY RCM_Id";
         FROM StandardAudit_ScheduleConduct_WorkPaper
         WHERE SSW_SA_ID = @AuditId AND SSW_CompID = @CompanyId
         ORDER BY SSW_ID DESC";
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 var result = await connection.QueryAsync<WorkpaperNoDto>(query, new { AuditId = auditId, CompanyId = companyId });
@@ -4858,8 +4948,11 @@ ORDER BY RCM_Id";
         SAC_SA_ID = @AuditId AND 
         SAC_CompID = @CompanyId AND 
         SAC_CheckPointID = @CheckPointId"; // This is the full flow from the source
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 await connection.ExecuteAsync(query, dto);
@@ -4870,7 +4963,11 @@ ORDER BY RCM_Id";
         public async Task<IEnumerable<AuditCheckPointDto>> LoadSelectedAuditCheckPointDetailsAsync(
 int companyId, int auditId, int empId, bool isPartner, int headingId, string heading)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             string checkpointIds = "";
@@ -4978,8 +5075,12 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
                     dto.SACId,   // The primary key to identify the record
                     dto.CheckPointId // The CheckPointId to identify the record
                 };
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-                using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                if (string.IsNullOrEmpty(dbName))
+                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
                 {
                     await connection.ExecuteAsync(updateSql.ToString(), parameters);
                 }
@@ -5008,7 +5109,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
                 int drlLogId = await InsertIntoAuditDrlLogAsync(dto, requestedId);
 
                 // 4. Save the attachment and get the path (insert into Edt_Attachments)
-                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, drlLogId, dto.ReportType);
+                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, drlLogId, dto.ReportType,"","");
 
                 // 5. Get latest DocId for this customer and audit
                 int docId = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
@@ -5036,7 +5137,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
         //        private async Task<int> InsertAuditDrlLogAsync(InsertFileInfoDto dto, int requestedId)
         //        {
-        //            using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        //            using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
         //            {
         //                await connection.OpenAsync();
 
@@ -5077,7 +5178,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
         //private async Task InsertIntoRemarksLogAsync(InsertFileInfoDto dto, int drlLogId, int attachId)
         //{
-        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
         //    await connection.OpenAsync();
 
         //    await connection.ExecuteAsync(@"
@@ -5110,7 +5211,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
         //private async Task InsertIntoFormOperationLogAsync(InsertFileInfoDto dto, string module, string form, string eventName, int masterId, string masterName, int subMasterId, string subMasterName)
         //{
-        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
         //    await connection.OpenAsync();
 
         //    await connection.ExecuteAsync(@"
@@ -5145,7 +5246,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
         //int masterId, string masterName, int subMasterId, string subMasterName,
         //int attachId)
         //{
-        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
         //    await connection.OpenAsync();
 
         //    using var transaction = connection.BeginTransaction();
@@ -5272,7 +5373,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
         //private async Task InsertIntoRemarksLogAsync(InsertFileInfoDto dto, int drlLogId, int attachId)
         //    {
-        //        using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //        using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
         //        await connection.OpenAsync();
 
         //        await connection.ExecuteAsync(@"
@@ -5305,7 +5406,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
         //    private async Task InsertIntoFormOperationLogAsync(InsertFileInfoDto dto, string module, string form, string eventName, int masterId, string masterName, int subMasterId, string subMasterName)
         //    {
-        //        using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //        using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
         //        await connection.OpenAsync();
 
         //        await connection.ExecuteAsync(@"
@@ -5336,7 +5437,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
         //public async Task<int> SaveOrUpdateAuditDrlLogAsync(InsertAuditRemarksDto dto)
         //{
-        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
         //    var parameters = new DynamicParameters();
 
         //    parameters.Add("@ADRL_ID", dto.DrlId); // Pass actual ID for update
@@ -5376,8 +5477,8 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
         //    @UserId, GETDATE(), @IpAddress, @CompId, @EmailId, @TimelineToRespondOn,
         //    @YearId, 'W', @MasId, @AttachId, @DrlId);";
 
-        //    using var conn1 = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-        //    using var conn2 = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    using var conn1 = new SqlConnection(_configuration.GetConnectionString(dbName));
+        //    using var conn2 = new SqlConnection(_configuration.GetConnectionString(dbName));
 
         //    await conn1.ExecuteAsync(sql, dto);
         //    await conn2.ExecuteAsync(sql, dto);
@@ -5392,7 +5493,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
         //public async Task<int> SaveOrUpdateAuditDrlLogAsync(InsertAuditRemarksDto dto)
         //{
-        //    using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //    using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
         //    var parameters = new DynamicParameters();
 
         //    // Pass ID (0 for insert, or actual ID for update)
@@ -5444,7 +5545,7 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
             var emailCsv = dto.EmailId != null ? string.Join(",", dto.EmailId) : null;
 
@@ -5554,7 +5655,7 @@ VALUES (
     @UserId, GETDATE(), @IpAddress, @CompId, @EmailId, GETDATE(),
     @YearId, 'W', @MasId, @AttachId, @DrlId);";
 
-            //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var conn = new SqlConnection(_configuration.GetConnectionString(dbName));
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -5661,7 +5762,7 @@ VALUES (
 
         public async Task<List<DRLDetailDto>> LoadDRLdgAsync(int compId, int auditNo)
         {
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -5770,7 +5871,7 @@ WHERE ADRL_CompID = @CompId
 
         public async Task<int> GetDRLBeginningoftheAuditIDAsync(int compId)
         {
-            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -5794,7 +5895,7 @@ WHERE CMM_CompID = @CompId
 
         public async Task<int> GetDRLNearingCompletionoftheAuditIDAsync(int compId)
         {
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -5859,7 +5960,7 @@ WHERE CMM_CompID = @CompId
 
         public async Task<int> GetMaxAttachmentIdAsync(int customerId, int auditId, int yearId, int exportType)
         {
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -5903,7 +6004,7 @@ WHERE CMM_CompID = @CompId
           
           AND ATCH_ReportType = @ReportTypeId";
 
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -5919,7 +6020,7 @@ WHERE CMM_CompID = @CompId
 
         public async Task<IEnumerable<CustomerUserDto>> GetAllCustomerUsersAsync(int customerId)
         {
-            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -6212,7 +6313,11 @@ WHERE
             SAC_CompID = @CompanyId AND 
             SAC_CheckPointID = @CheckPointId";
 
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             return await connection.ExecuteScalarAsync<int?>(sql, dto);
@@ -6230,7 +6335,7 @@ WHERE
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
             using var transaction = await connection.BeginTransactionAsync();
 
@@ -6259,7 +6364,7 @@ WHERE
         }
         public string GetConfigValue(string key)
         {
-            // using (var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            // using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
 
 
 
@@ -6283,6 +6388,8 @@ WHERE
             var savedAttachmentIds = new List<int>();
             var attachmentId = 0;
             var documentId = 0;
+            string nameOnly = string.Empty;
+            string extension = string.Empty;
 
             // ✅ Skip if there are no files to process
             if (request.Files == null || !request.Files.Any())
@@ -6294,27 +6401,27 @@ WHERE
             foreach (var file in request.Files)
             {
                 var tempFolderPath = EnsureDirectoryExists(request.AccessCodeDirectory, request.UserId.ToString(), "Upload");
-                var uploadedFile = await _driveService.UploadFileToFolderAsync(file, "TracePA/Audit", request.UserEmail);
+                //var uploadedFile = await _driveService.UploadFileToFolderAsync(file, "TracePA/Audit", request.UserEmail);
 
-                var statusProp = uploadedFile?.GetType().GetProperty("Status");
-                var statusValue = statusProp?.GetValue(uploadedFile)?.ToString();
-                if (statusValue == "Error")
-                {
-                    var messageProp = uploadedFile?.GetType().GetProperty("Message");
-                    var errorMessage = messageProp?.GetValue(uploadedFile)?.ToString() ?? "Unknown Google Drive upload error.";
+                //var statusProp = uploadedFile?.GetType().GetProperty("Status");
+                //var statusValue = statusProp?.GetValue(uploadedFile)?.ToString();
+                //if (statusValue == "Error")
+                //{
+                //    var messageProp = uploadedFile?.GetType().GetProperty("Message");
+                //    var errorMessage = messageProp?.GetValue(uploadedFile)?.ToString() ?? "Unknown Google Drive upload error.";
 
-                    // ✅ Throw exception so controller can return proper message
-                    throw new Exception($"Google Drive Upload Failed: {errorMessage}");
-                }
+                //    // ✅ Throw exception so controller can return proper message
+                //    throw new Exception($"Google Drive Upload Failed: {errorMessage}");
+                //}
 
 
                 var originalFileName = Path.GetFileName(file.FileName);
                 var tempFilePath = Path.Combine(tempFolderPath, originalFileName);
 
-                using (var stream = new FileStream(tempFilePath, FileMode.Create))
-                {
-                    await file.CopyToAsync(stream);
-                }
+                //using (var stream = new FileStream(tempFilePath, FileMode.Create))
+                //{
+                //    await file.CopyToAsync(stream);
+                //}
 
                 var fileExtension = Path.GetExtension(originalFileName).TrimStart('.').ToLower();
                 var fileBaseName = Path.GetFileNameWithoutExtension(originalFileName).Replace("&", " and");
@@ -6326,7 +6433,7 @@ WHERE
                     fileBaseName = "";
                 }
 
-                var fileSize = new FileInfo(tempFilePath).Length;
+                var fileSize = file.Length; 
 
                 // ✅ Corrected: get attachmentId from DB if needed
                 string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -6360,6 +6467,7 @@ WHERE
                         attachmentId = GetNextId("ATCH_ID", request.CompanyId);
                         documentId = GetNextId("ATCH_DOCID", request.CompanyId);
                     }
+
                 }
 
                 if (IsFileStoredInDatabase(request.CompanyId))
@@ -6409,13 +6517,30 @@ WHERE
                         COMPID = request.CompanyId
                     });
 
-                    string finalDirectory = GetOrCreateTargetDirectory(request.AccessCodeDirectory, request.ModuleName, documentId / 301, tempFilePath);
-                    string finalFilePath = Path.Combine(finalDirectory, $"{documentId}.{fileExtension}");
-                    if (File.Exists(finalFilePath)) File.Delete(finalFilePath);
-                    EncryptFile(tempFilePath, finalFilePath);
-                    if (File.Exists(tempFilePath)) File.Delete(tempFilePath);
+                    //string finalDirectory = GetOrCreateTargetDirectory(request.AccessCodeDirectory, request.ModuleName, documentId / 301, tempFilePath);
+                    //string finalFilePath = Path.Combine(finalDirectory, $"{documentId}.{fileExtension}");
+                    //if (File.Exists(finalFilePath)) File.Delete(finalFilePath);
+                    //EncryptFile(tempFilePath, finalFilePath);
+                    //if (File.Exists(tempFilePath)) File.Delete(tempFilePath);
                 }
 
+                dynamic uploadedFile = await _driveService.UploadFileToFolderAsync(file, "TracePA/Audit", GetUserEmail(), GetCurrentDocID("ATCH_DOCID", request.CompanyId));
+
+                if (uploadedFile != null)
+                {
+                    // Check status
+                    if (uploadedFile.Status == "Success")
+                    {
+                        string fullFileName = uploadedFile.File.Name;
+                        nameOnly = Path.GetFileNameWithoutExtension(fullFileName);
+                        extension = Path.GetExtension(fullFileName);
+
+                    }
+                    else if (uploadedFile.Status == "Error")
+                    {
+                        string errorMessage = uploadedFile.Message ?? "Unknown Google Drive upload error.";
+                    }
+                }
                 savedAttachmentIds.Add(attachmentId);
             }
 
@@ -6436,7 +6561,7 @@ WHERE
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var conn = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             var parameters = new DynamicParameters();
@@ -6449,7 +6574,7 @@ WHERE SA_ID = @AuditId";
 
 
 
-            // using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             //await connection.OpenAsync();
 
             var result = await connection.QueryFirstOrDefaultAsync(query, new { AuditId = req.AuditNo });
@@ -6597,7 +6722,7 @@ WHERE SA_ID = @AuditId";
 
             using var connection = new SqlConnection(connectionString);
 
-            //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var conn = new SqlConnection(_configuration.GetConnectionString(dbName));
             return await connection.QueryFirstOrDefaultAsync<int?>(sql, new
             {
                 req.AuditNo,
@@ -6659,7 +6784,7 @@ WHERE SA_ID = @AuditId";
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var conn = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             using var transaction = connection.BeginTransaction();
@@ -6741,7 +6866,7 @@ WHERE SA_ID = @AuditId";
 
         private int GetNextId(string column, int companyId)
         {
-            // using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // using var conn = new SqlConnection(_configuration.GetConnectionString(dbName));
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -6755,6 +6880,46 @@ WHERE SA_ID = @AuditId";
             return connection.ExecuteScalar<int>(sql, new { CompID = companyId });
         }
 
+        private int GetCurrentDocID(string column, int companyId)
+        {
+            // using var conn = new SqlConnection(_configuration.GetConnectionString(dbName));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            string sql = $"SELECT ISNULL(MAX({column}), 0) FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompID";
+            return connection.ExecuteScalar<int>(sql, new { CompID = companyId });
+        }
+
+        private string GetUserEmail()
+        {
+            // ✅ Step 1: Get DB Name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Query the latest UserEmail
+            using var connection = new SqlConnection(connectionString);
+            connection.Open();
+
+            string sql = "SELECT TOP 1 UserEmail FROM UserDriveTokens ORDER BY Id DESC";
+
+            using var command = new SqlCommand(sql, connection);
+            var result = command.ExecuteScalar();
+
+            return result?.ToString();
+        }
+
+
         private bool DocumentIdExists(int companyId, int attachId)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -6766,14 +6931,14 @@ WHERE SA_ID = @AuditId";
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
-            // using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            // using var conn = new SqlConnection(_configuration.GetConnectionString(dbName));
             string sql = "SELECT 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompID AND ATCH_ID = @AttachID";
             return connection.ExecuteScalar<int?>(sql, new { CompID = companyId, AttachID = attachId }) == 1;
         }
 
         private bool IsFileStoredInDatabase(int companyId)
         {
-            //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var conn = new SqlConnection(_configuration.GetConnectionString(dbName));
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
@@ -6916,7 +7081,7 @@ WHERE SA_ID = @AuditId";
 
             using var connection = new SqlConnection(connectionString);
 
-            //using var conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            //using var conn = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             string sql = @"

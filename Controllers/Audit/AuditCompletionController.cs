@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using TracePca.Dto.Audit;
 using TracePca.Interface.Audit;
+using TracePca.Interface.Master;
 
 namespace TracePca.Controllers.Audit
 {
@@ -13,11 +14,13 @@ namespace TracePca.Controllers.Audit
     {
         private readonly AuditCompletionInterface _auditCompletionInterface;
         private readonly EngagementPlanInterface _engagementInterface;
+        private readonly IGoogleDriveService _googleDriveService;
 
-        public AuditCompletionController(AuditCompletionInterface auditCompletionInterface, EngagementPlanInterface engagementInterface)
+        public AuditCompletionController(AuditCompletionInterface auditCompletionInterface, EngagementPlanInterface engagementInterface, IGoogleDriveService googleDriveService)
         {
             _auditCompletionInterface = auditCompletionInterface;
             _engagementInterface = engagementInterface;
+            _googleDriveService = googleDriveService;
         }
 
         [HttpGet("LoadAllAuditDDLData")]
@@ -396,15 +399,26 @@ namespace TracePca.Controllers.Audit
         {
             try
             {
-                var (isFileExists, messageOrfileUrl) = await _engagementInterface.GetAttachmentDocDetailsByIdAsync(compId, attachId, docId, "StandardAudit");
-                if (isFileExists)
-                {
-                    return Ok(new { statusCode = 200, success = true, fileUrl = messageOrfileUrl });
-                }
-                else
-                {
-                    return Ok(new { statusCode = 200, success = false, message = messageOrfileUrl });
-                }
+                if (docId <= 0)
+                    return Ok(new { statusCode = 200, success = false, Message = "Document does not exist!" });
+
+                var userEmail = _engagementInterface?.GetUserEmail();
+                if (string.IsNullOrWhiteSpace(userEmail))
+                    return Ok(new { statusCode = 200, success = false, Message = "Unable to determine user email." });
+
+                var file = await _googleDriveService.GetFileByIdAsync(docId, userEmail);
+
+                if (file == null)
+                    return Ok(new { statusCode = 200, success = false, Message = "File not found or link unavailable." });
+
+                var link =
+                    (file.GetType().GetProperty("WebViewLink")?.GetValue(file, null)?.ToString()) ??
+                    (file.GetType().GetProperty("WebContentLink")?.GetValue(file, null)?.ToString());
+
+                if (string.IsNullOrEmpty(link))
+                    return Ok(new { statusCode = 200, success = false, Message = "No viewable link found for this file." });
+
+                return Ok(new { Status = "Success", Message = "File retrieved successfully.", Data = link });
             }
             catch (Exception ex)
             {

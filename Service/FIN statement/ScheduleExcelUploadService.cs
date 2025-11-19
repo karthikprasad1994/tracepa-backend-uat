@@ -1130,7 +1130,6 @@ namespace TracePca.Service.FIN_statement
         {
             var resultIds = new List<int>();
 
-
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -1147,8 +1146,132 @@ namespace TracePca.Service.FIN_statement
 
             try
             {
+                // ✅ Step 1: Check if record already exists (before inserting new data)
+                string checkQuery = @"
+         SELECT ATBU_ID 
+         FROM Acc_TrailBalance_Upload 
+         WHERE ATBU_Description = @Description
+            AND ATBU_CustId = @CustId 
+            AND ATBU_YEARId = @YearId 
+            AND ATBU_BranchId = @BranchId 
+            AND ISNULL(ATBU_QuarterId, 0) = @DurationId";
+
+                var existingRecord = await connection.QueryFirstOrDefaultAsync<int?>(checkQuery, new
+                {
+                    Description = dtos[0].ATBU_Description,
+                    CustId = dtos[0].ATBU_CustId,
+                    YearId = dtos[0].ATBU_YEARId,
+                    BranchId = dtos[0].ATBU_Branchid,
+                    DurationId = dtos[0].ATBU_QuarterId
+                }, transaction);
+
+                // ✅ Step 2: If record exists → delete it before inserting new data
+                if (existingRecord.HasValue && dtos[0].FlagUpdate != 0)
+                {
+                    // Delete details using all relevant parameters
+                    string deleteDetailsQuery = @"
+             DELETE FROM Acc_TrailBalance_Upload_Details
+             where ATBUD_CustId = @CustId
+                AND ATBUD_YEARId = @YearId
+                AND Atbud_Branchnameid = @BranchId
+                AND ATBUd_QuarterId = @DurationId
+                AND ATBUD_CompId = @CompId";
+
+                    await connection.ExecuteAsync(deleteDetailsQuery, new
+                    {
+                        CustId = dtos[0].ATBU_CustId,
+                        YearId = dtos[0].ATBU_YEARId,
+                        BranchId = dtos[0].ATBU_Branchid,
+                        DurationId = dtos[0].ATBU_QuarterId,
+                        CompId = dtos[0].ATBU_CompId
+                    }, transaction);
+
+                    // Delete master using all relevant parameters
+                    string deleteMasterQuery = @"
+             DELETE FROM Acc_TrailBalance_Upload
+             WHERE ATBU_CustId = @CustId 
+                AND ATBU_YEARId = @YearId 
+                AND ATBU_BranchId = @BranchId 
+                AND ATBU_QuarterId = @DurationId
+                AND ATBU_CompId = @CompId";
+
+                    await connection.ExecuteAsync(deleteMasterQuery, new
+                    {
+                        CustId = dtos[0].ATBU_CustId,
+                        YearId = dtos[0].ATBU_YEARId,
+                        BranchId = dtos[0].ATBU_Branchid,
+                        DurationId = dtos[0].ATBU_QuarterId,
+                        CompId = dtos[0].ATBU_CompId
+                    }, transaction);
+                }
+
+
+                // ✅ Step 3: Loop through DTOs for Insert/Update logic
                 foreach (var dto in dtos)
                 {
+                    // 🔹 STEP A: Check if record exists (for update vs insert)
+                    var existingRecordForUpdate = await connection.QueryFirstOrDefaultAsync<int>(@"
+             SELECT ISNULL(ATBU_ID, 0)
+             FROM Acc_TrailBalance_Upload
+             WHERE ATBU_Custid = @CustId
+                AND ATBU_YEARId = @YearId
+                AND ISNULL(ATBU_Description, '') = @Description
+                AND ATBU_BranchId = @BranchId
+                AND ISNULL(ATBU_QuarterId, 0) = @QuarterId",
+                    new
+
+                    {
+                        CustId = dto.ATBU_CustId,
+                        YearId = dto.ATBU_YEARId,
+                        Description = dto.ATBU_Description ?? string.Empty,
+                        BranchId = dto.ATBU_Branchid,
+                        QuarterId = dto.ATBU_QuarterId
+                    }, transaction);
+
+                    if (existingRecordForUpdate > 0)
+                    {
+                        // 🔹 Record found → perform update
+                        dto.ATBU_ID = existingRecordForUpdate;
+                    }
+                    else
+                    {
+                        // 🔹 No existing record → new insert
+                        dto.ATBU_ID = 0;
+                    }
+
+                    // 🔹 Fetch Master ID (if exists)
+                    var AtbuPkId = await connection.ExecuteScalarAsync<int>(@"
+             SELECT ISNULL(ATBU_ID, 0)
+             FROM Acc_TrailBalance_Upload
+             WHERE ATBU_Custid = @CustId
+                AND ATBU_YEARId = @YearId
+                AND ISNULL(ATBU_Description, '') = @Description
+                AND ISNULL(ATBU_QuarterId, 0) = @QuarterId",
+                    new
+                    {
+                        CustId = dto.ATBU_CustId,
+                        YearId = dto.ATBU_YEARId,
+                        Description = dto.ATBU_Description ?? string.Empty,
+                        QuarterId = dto.ATBU_QuarterId
+                    }, transaction);
+
+                    // 🔹 Fetch Detail ID (if exists)
+                    var AtbudPkId = await connection.ExecuteScalarAsync<int>(@"
+             SELECT ISNULL(ATBUD_ID, 0)
+             FROM Acc_TrailBalance_Upload_Details
+             WHERE ATBUD_Custid = @CustId
+                AND ATBUD_YEARId = @YearId
+                AND ISNULL(ATBUD_Description, '') = @Description
+                AND ISNULL(ATBUD_QuarterId, 0) = @QuarterId",
+                    new
+                    {
+                        CustId = dto.ATBUD_CustId,
+                        YearId = dto.ATBUD_YEARId,
+                        Description = dto.ATBUD_Description ?? string.Empty,
+                        QuarterId = dto.ATBUD_QuarterId
+                    }, transaction);
+
+                    // 🔹 Continue with your original save logic (unchanged)
                     int iPKId = dto.ATBU_ID;
                     int updateOrSave, oper;
 
@@ -1228,6 +1351,7 @@ namespace TracePca.Service.FIN_statement
                         }
                     }
                 }
+
                 transaction.Commit();
                 return resultIds;
             }
@@ -1238,10 +1362,10 @@ namespace TracePca.Service.FIN_statement
             }
         }
 
-        //SaveTrailBalnce
+
+        //SaveTrailBalance
         public async Task<int[]> SaveTrailBalanceDetailsAsync(int CompId, List<TrailBalanceDto> dtos)
         {
-
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -1260,11 +1384,125 @@ namespace TracePca.Service.FIN_statement
 
             try
             {
+                // ✅ Step 1: Check if record already exists (global pre-check for batch)
+                string checkQuery = @"
+         SELECT ATBU_ID 
+         FROM Acc_TrailBalance_Upload 
+         WHERE ATBU_Description = @Description
+            AND ATBU_CustId = @CustId 
+            AND ATBU_YEARId = @YearId 
+            AND ATBU_BranchId = @BranchId 
+            AND ISNULL(ATBU_QuarterId, 0) = @DurationId";
+
+                var existingRecord = await connection.QueryFirstOrDefaultAsync<int?>(checkQuery, new
+                {
+                    Description = dtos[0].ATBU_Description,
+                    CustId = dtos[0].ATBU_CustId,
+                    YearId = dtos[0].ATBU_YEARId,
+                    BranchId = dtos[0].ATBU_Branchid,
+                    DurationId = dtos[0].ATBU_QuarterId
+                }, transaction);
+
+                // ✅ Step 2: If record exists → delete before inserting new data
+                if (existingRecord.HasValue && dtos[0].FlagUpdate != 0)
+                {
+                    // Delete details using all relevant parameters
+                    string deleteDetailsQuery = @"
+             DELETE FROM Acc_TrailBalance_Upload_Details
+             where ATBUD_CustId = @CustId
+                AND ATBUD_YEARId = @YearId
+                AND Atbud_Branchnameid = @BranchId
+                AND ATBUd_QuarterId = @DurationId
+                AND ATBUD_CompId = @CompId";
+
+                    await connection.ExecuteAsync(deleteDetailsQuery, new
+                    {
+                        CustId = dtos[0].ATBU_CustId,
+                        YearId = dtos[0].ATBU_YEARId,
+                        BranchId = dtos[0].ATBU_Branchid,
+                        DurationId = dtos[0].ATBU_QuarterId,
+                        CompId = dtos[0].ATBU_CompId
+                    }, transaction);
+
+                    // Delete master using all relevant parameters
+                    string deleteMasterQuery = @"
+             DELETE FROM Acc_TrailBalance_Upload
+             WHERE ATBU_CustId = @CustId 
+                AND ATBU_YEARId = @YearId 
+                AND ATBU_BranchId = @BranchId 
+                AND ATBU_QuarterId = @DurationId
+                AND ATBU_CompId = @CompId";
+
+                    await connection.ExecuteAsync(deleteMasterQuery, new
+                    {
+                        CustId = dtos[0].ATBU_CustId,
+                        YearId = dtos[0].ATBU_YEARId,
+                        BranchId = dtos[0].ATBU_Branchid,
+                        DurationId = dtos[0].ATBU_QuarterId,
+                        CompId = dtos[0].ATBU_CompId
+                    }, transaction);
+                }
+
+
+                // ✅ Step 3: Process each DTO individually
                 foreach (var dto in dtos)
                 {
-                    int updateOrSave = 0, oper = 0;
+                    // 🔹 STEP A: Check if record exists (for update vs insert)
+                    var existingRecordForUpdate = await connection.QueryFirstOrDefaultAsync<int>(@"
+             SELECT ISNULL(ATBU_ID, 0)
+             FROM Acc_TrailBalance_Upload
+             WHERE ATBU_Custid = @CustId
+                AND ATBU_YEARId = @YearId
+                AND ISNULL(ATBU_Description, '') = @Description
+                AND ATBU_BranchId = @BranchId
+                AND ISNULL(ATBU_QuarterId, 0) = @QuarterId",
+                    new
+                    {
+                        CustId = dto.ATBU_CustId,
+                        YearId = dto.ATBU_YEARId,
+                        Description = dto.ATBU_Description ?? string.Empty,
+                        BranchId = dto.ATBU_Branchid,
+                        QuarterId = dto.ATBU_QuarterId
+                    }, transaction);
 
-                    // Step 1: Resolve schedule mapping IDs from names
+                    if (existingRecordForUpdate > 0)
+                        dto.ATBU_ID = existingRecordForUpdate; // record found → update
+                    else
+                        dto.ATBU_ID = 0; // no record → insert new
+
+                    // 🔹 Optional PK tracking for debug/reference
+                    var AtbuPkId = await connection.ExecuteScalarAsync<int>(@"
+             SELECT ISNULL(ATBU_ID, 0)
+             FROM Acc_TrailBalance_Upload
+             WHERE ATBU_Custid = @CustId
+                AND ATBU_YEARId = @YearId
+                AND ISNULL(ATBU_Description, '') = @Description
+                AND ISNULL(ATBU_QuarterId, 0) = @QuarterId",
+                    new
+                    {
+                        CustId = dto.ATBU_CustId,
+                        YearId = dto.ATBU_YEARId,
+                        Description = dto.ATBU_Description ?? string.Empty,
+                        QuarterId = dto.ATBU_QuarterId
+                    }, transaction);
+
+                    var AtbudPkId = await connection.ExecuteScalarAsync<int>(@"
+             SELECT ISNULL(ATBUD_ID, 0)
+             FROM Acc_TrailBalance_Upload_Details
+             WHERE ATBUD_Custid = @CustId
+                AND ATBUD_YEARId = @YearId
+                AND ISNULL(ATBUD_Description, '') = @Description
+                AND ISNULL(ATBUD_QuarterId, 0) = @QuarterId",
+                    new
+                    {
+                        CustId = dto.ATBUD_CustId,
+                        YearId = dto.ATBUD_YEARId,
+                        Description = dto.ATBUD_Description ?? string.Empty,
+                        QuarterId = dto.ATBUD_QuarterId
+                    }, transaction);
+
+                    // ✅ Your existing stored procedure logic (unchanged)
+                    int updateOrSave = 0, oper = 0;
                     int subItemId = 0, itemId = 0, subHeadingId = 0, headingId = 0, scheduleType = 0;
 
                     if (!string.IsNullOrWhiteSpace(dto.Excel_SubItem))
@@ -1279,14 +1517,12 @@ namespace TracePca.Service.FIN_statement
                     if (!string.IsNullOrWhiteSpace(dto.Excel_Heading))
                         headingId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleHeading", "ASH_ID", dto.Excel_Heading, dto.ATBU_CustId);
 
-                    // Optional: Fetch ScheduleType from template
                     scheduleType = await GetScheduleTypeFromTemplateAsync(connection, transaction, subItemId, itemId, subHeadingId, headingId, dto.ATBUD_Company_Type);
 
                     // --- Master Insert ---
                     using (var cmdMaster = new SqlCommand("spAcc_TrailBalance_Upload", connection, transaction))
                     {
                         cmdMaster.CommandType = CommandType.StoredProcedure;
-
                         cmdMaster.Parameters.AddWithValue("@ATBU_ID", dto.ATBU_ID);
                         cmdMaster.Parameters.AddWithValue("@ATBU_CODE", dto.ATBU_CODE ?? string.Empty);
                         cmdMaster.Parameters.AddWithValue("@ATBU_Description", dto.ATBU_Description ?? string.Empty);
@@ -1356,7 +1592,8 @@ namespace TracePca.Service.FIN_statement
                 }
 
                 transaction.Commit();
-                // ✅ Call UpdateNetIncomeAsync once with common values (from first dto)
+
+                // ✅ Call UpdateNetIncomeAsync once with common values
                 var firstDto = dtos.FirstOrDefault();
                 if (firstDto != null)
                 {
@@ -1366,7 +1603,7 @@ namespace TracePca.Service.FIN_statement
                         firstDto.ATBUD_CRBY,
                         firstDto.ATBUD_YEARId,
                         firstDto.ATBUD_Branchid,
-                        firstDto.ATBUD_QuarterId // Assuming durationId = schedule type
+                        firstDto.ATBUD_QuarterId
                     );
                 }
                 return insertedIds.ToArray();
@@ -1377,6 +1614,7 @@ namespace TracePca.Service.FIN_statement
                 throw;
             }
         }
+
         private async Task<int> GetIdFromNameAsync(SqlConnection conn, SqlTransaction tran, string table, string column, string name, int orgType)
         {
             string nameCol = column.Replace("_ID", "_Name");

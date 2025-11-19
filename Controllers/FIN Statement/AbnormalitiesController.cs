@@ -2,6 +2,7 @@
 using Microsoft.Data.SqlClient;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
+using static TracePca.Dto.FIN_Statement.AbnormalitiesDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -23,138 +24,19 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //GetAbnormalTransactions
-        //[HttpGet("abnormal")]
-        //public async Task<IActionResult> GetAbnormalTransactions([FromQuery] int iCustId, [FromQuery] int iBranchId, [FromQuery] int iYearID, [FromQuery] int iAbnormalType, [FromQuery] decimal dAmount)
-        //{
-        //    try
-        //    {
-        //        var result = await _AbnormalitiesService.GetAbnormalTransactionsAsync(iCustId, iBranchId, iYearID, iAbnormalType, dAmount);
-
-        //        if (result == null || !result.Any())
-        //        {
-        //            return NotFound(new
-        //            {
-        //                StatusCode = 404,
-        //                Message = "No abnormal transactions found.",
-        //                Data = new List<object>()
-        //            });
-        //        }
-
-        //        return Ok(new
-        //        {
-        //            StatusCode = 200,
-        //            Message = "Abnormal transactions retrieved successfully.",
-        //            Data = result
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "An error occurred while fetching abnormal transactions.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
-
-        //Type1
-        [HttpGet("GetAll")]
-        public async Task<IActionResult> GetAllAbnormalTransactions1(
-            [FromQuery] int iCustId,
-            [FromQuery] int iBranchId,
-            [FromQuery] int iYearID,
-            [FromQuery] decimal dAmount)
+        [HttpGet("Abnormal")]
+        public async Task<IActionResult> GetAbnormalTransactions([FromQuery] int iCustId, [FromQuery] int iBranchId, [FromQuery] int iYearID, [FromQuery] int iAbnormalType, [FromQuery] string sAmount)
         {
             try
             {
-                var transactions = await _AbnormalitiesService.GetAllAbnormalTransactions1Async(
-                    iCustId, iBranchId, iYearID, dAmount);
+                var result = await _AbnormalitiesService.GetAbnormalTransactionsAsync(iCustId, iBranchId, iYearID, iAbnormalType, sAmount);
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Abnormal transactions retrieved successfully.",
-                    data = transactions
-                });
-            }
-            catch (System.Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An error occurred while fetching abnormal transactions.",
-                    error = ex.Message
-                });
-            }
-        }
-
-        //Type2
-        [HttpGet("GetAbnormalTransactions")]
-        public async Task<IActionResult> GetAbnormalTransactions2(
-           int customerId,
-           int branchId,
-           int yearId,
-           decimal amount)
-        {
-            try
-            {
-                var abnormalTransactions = await _AbnormalitiesService
-                    .GetAbnormalTransactions2Async(customerId, branchId, yearId, amount);
-
-                if (abnormalTransactions == null || !abnormalTransactions.Any())
+                if (result == null || !result.Any())
                 {
                     return NotFound(new
                     {
                         StatusCode = 404,
-                        Message = "No abnormal transactions found for the specified filters.",
-                        Data = new object[] { }
-                    });
-                }
-
-                return Ok(new
-                {
-                    StatusCode = 200,
-                    Message = "Abnormal transactions retrieved successfully.",
-                    Data = abnormalTransactions
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    StatusCode = 500,
-                    Message = "An error occurred while fetching abnormal transactions.",
-                    Error = ex.Message
-                });
-            }
-        }
-
-        //Type3
-        [HttpGet("GetAbnormalTransactions3")]
-        public async Task<IActionResult> GetAbnormalTransactions3(
-        int iCustId,
-        int iBranchId,
-        int iYearID,
-        int iAbnormalType,
-        decimal dAmount)
-        {
-            try
-            {
-                var data = await _AbnormalitiesService.GetAbnormalTransactions3Async(
-                    iCustId,
-                    iBranchId,
-                    iYearID,
-                    iAbnormalType,
-                    dAmount
-                );
-
-                if (data == null || !data.Any())
-                {
-                    return NotFound(new
-                    {
-                        StatusCode = 404,
-                        Message = "No abnormal transactions found for the given criteria.",
+                        Message = "No abnormal transactions found.",
                         Data = new List<object>()
                     });
                 }
@@ -163,16 +45,7 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     StatusCode = 200,
                     Message = "Abnormal transactions retrieved successfully.",
-                    Data = data
-                });
-            }
-            catch (SqlException sqlEx)
-            {
-                return StatusCode(500, new
-                {
-                    StatusCode = 500,
-                    Message = "A database error occurred while fetching abnormal transactions.",
-                    Error = sqlEx.Message
+                    Data = result
                 });
             }
             catch (Exception ex)
@@ -182,6 +55,49 @@ namespace TracePca.Controllers.FIN_Statement
                     StatusCode = 500,
                     Message = "An error occurred while fetching abnormal transactions.",
                     Error = ex.Message
+                });
+            }
+        }
+
+        //UpdateJESeqReferenceNum
+        [HttpPost("UpdateSeqReference")]
+        public async Task<IActionResult> UpdateSeqReferenceAsync([FromBody] List<UpdateJournalEntrySeqRef1Dto> dtoList)
+        {
+            if (dtoList == null || !dtoList.Any())
+            {
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "No data provided for update."
+                });
+            }
+
+            try
+            {
+                var updatedCount = await _AbnormalitiesService.UpdateJournalEntrySeqRefAsync(dtoList);
+
+                if (updatedCount == 0)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No Journal Entry records found to update."
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = $"{updatedCount} Journal Entry records updated successfully."
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while updating Journal Entry SeqReference numbers.",
+                    error = ex.Message
                 });
             }
         }

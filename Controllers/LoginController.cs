@@ -180,7 +180,26 @@ namespace TracePca.Controllers
 
             return result; // Return as it is if not OkObjectResult
         }
+        [HttpPost("SendWelcomeEmail")]
+        public async Task<IActionResult> SendWelcomeEmail([FromBody] WelcomeEmailDto model)
+        {
+            if (string.IsNullOrEmpty(model.Gmail) || string.IsNullOrEmpty(model.Password))
+            {
+                return BadRequest(new { message = "Gmail and password are required." });
+            }
 
+            var success = await _LoginInterface.SendWelcomeEmailAsync(model.Gmail, model.Password);
+
+            if (success)
+                return Ok(new { statuscode = 200, message = "Welcome email sent successfully." });
+            else
+                return StatusCode(500, new { statuscode = 500, message = "Failed to send welcome email." });
+        }
+        public class WelcomeEmailDto
+        {
+            public string Gmail { get; set; } = string.Empty;
+            public string Password { get; set; } = string.Empty;
+        }
 
 
         [HttpGet("SessionInfo")]

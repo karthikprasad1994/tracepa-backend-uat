@@ -2,6 +2,7 @@
 using TracePca.Data;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
+using static TracePca.Dto.FIN_Statement.LedgerDifferenceDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -24,83 +25,9 @@ namespace TracePca.Controllers.FIN_Statement
             _dbcontext = dbcontext;
         }
 
-        //GetHeadWiseDetails
-        [HttpGet("GetHeadWiseDetails")]
-        public async Task<IActionResult> GetHeadWiseDetails(int compId, int custId, int branchId, int yearId, int durationId)
-        {
-            try
-            {
-                var result = await _LedgerDifferenceService.GetHeadWiseDetailsAsync(compId, custId, branchId, yearId, durationId);
-
-                if (result.ScheduleType3 == null && result.ScheduleType4 == null)
-                {
-                    return NotFound(new
-                    {
-                        StatusCode = 404,
-                        Message = "No records found."
-                    });
-                }
-
-                return Ok(new
-                {
-                    StatusCode = 200,
-                    Message = "Data fetched successfully.",
-                    ScheduleType3 = result.ScheduleType3,
-                    ScheduleType4 = result.ScheduleType4
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    StatusCode = 500,
-                    Message = "An error occurred while fetching data.",
-                    Error = ex.Message
-                });
-            }
-        }
-
-        //GetAccountWiseDetails
-        [HttpGet("GetAccountWiseDetails")]
-        public async Task<IActionResult> GetAccountWiseDetails(
-       int compId, int custId, int branchId, int yearId, int durationId)
-        {
-            try
-            {
-                var result = await _LedgerDifferenceService.GetAccountWiseDetailsAsync(compId, custId, branchId, yearId, durationId);
-
-                if ((result.ScheduleType3 == null || !result.ScheduleType3.Any()) &&
-                    (result.ScheduleType4 == null || !result.ScheduleType4.Any()))
-                {
-                    return NotFound(new
-                    {
-                        StatusCode = 404,
-                        Message = "No records found."
-                    });
-                }
-
-                return Ok(new
-                {
-                    StatusCode = 200,
-                    Message = "Data fetched successfully.",
-                    ScheduleType3 = result.ScheduleType3,
-                    ScheduleType4 = result.ScheduleType4
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    StatusCode = 500,
-                    Message = "An error occurred while fetching account-wise details.",
-                    Error = ex.Message
-                });
-            }
-        }
-
         //GetDescriptionWiseDetails
         [HttpGet("GetDescriptionWiseDetails")]
-        public async Task<IActionResult> GetDescriptionWiseDetails( int compId, int custId, int branchId, int yearId, int typeId)
+        public async Task<IActionResult> GetDescriptionWiseDetails(int compId, int custId, int branchId, int yearId, int typeId)
         {
             try
             {
@@ -133,5 +60,48 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
+        //UpdateDescriptionWiseDetailsStatus
+        [HttpPost("UpdateDescriptionWiseDetailsStatus")]
+        public async Task<IActionResult> UpdateTrailBalanceStatusBulk([FromBody] List<UpdateDescriptionWiseDetailsStatusDto> dtoList)
+        {
+            if (dtoList == null || dtoList.Count == 0)
+            {
+                return BadRequest(new
+                {
+                    StatusCode = 400,
+                    Message = "No records provided for update."
+                });
+            }
+
+            try
+            {
+                var updatedCount = await _LedgerDifferenceService.UpdateTrailBalanceStatusAsync(dtoList);
+
+                if (updatedCount == 0)
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = "No Trail Balance records found to update."
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"{updatedCount} Trail Balance record(s) updated successfully.",
+                    UpdatedCount = updatedCount
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while updating Trail Balance statuses.",
+                    Error = ex.Message
+                });
+            }
+        }
     }
 }

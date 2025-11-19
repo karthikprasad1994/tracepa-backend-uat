@@ -13,12 +13,16 @@ using BCrypt.Net;
 using Dapper;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Google.Apis.Auth;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.ReportingServices.ReportProcessing.ReportObjectModel;
+using MimeKit;
+using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Asn1.Crmf;
 using Org.BouncyCastle.Utilities.Net;
 using StackExchange.Redis;
@@ -205,7 +209,7 @@ ORDER BY MM_ID
 
             return result;
         }
-    
+
 
 
 
@@ -233,30 +237,31 @@ ORDER BY MM_ID
                     @"SELECT TOP 1 MCR_CustomerCode
               FROM MMCS_CustomerRegistration
               CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
-              WHERE LTRIM(RTRIM(Emails.value)) = @Email", new { Email = email });
+              WHERE LOWER(LTRIM(RTRIM(Emails.value))) = LOWER(@Email)",
+                    new { Email = email });
+
+                Console.WriteLine($"existingCustomerCode: {existingCustomerCode}");
 
                 if (!string.IsNullOrEmpty(existingCustomerCode))
                 {
                     // ✅ Existing user → Login
-                    var loginResult = await LoginUserAsync(email, "sa"); // optional: use passwordless logic here
-
+                    var loginResult = await LoginUserAsync(email, null); // or passwordless version
                     return loginResult.StatusCode == 200
                         ? new OkObjectResult(loginResult)
                         : new ObjectResult(loginResult) { StatusCode = loginResult.StatusCode };
                 }
                 else
                 {
-                    // ✅ New user → register only
+                    // ✅ New user → register
                     var registrationDto = new RegistrationDto
                     {
                         McrCustomerEmail = email,
                         McrCustomerTelephoneNo = dto.PhoneNumber?.Trim(),
                         McrCustomerName = dto.CompanyName?.Trim(),
-                         Address = dto.Address,
+                        Address = dto.Address?.Trim(),
                         ModuleIds = dto.ModuleIds
                     };
 
-                    // Return your normal sign-up response
                     return await SignUpUserAsync(registrationDto);
                 }
             }
@@ -271,7 +276,6 @@ ORDER BY MM_ID
                 { StatusCode = 500 };
             }
         }
-
 
 
         //public async Task<IActionResult> SignUpUserViaGoogleAsync(GoogleAuthDto dto)
@@ -310,7 +314,41 @@ ORDER BY MM_ID
         //        { StatusCode = 401 };
         //    }
         //}
+        public static void AddOrUpdateConnectionString(
+                string connectionName,
+                string server,
+                string database,
+                string userId,
+                string password)
+        {
+            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json");
 
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException("appsettings.json not found in the project root directory.");
+            }
+
+            // Read existing appsettings.json
+            var json = File.ReadAllText(filePath);
+            var jObject = JObject.Parse(json);
+
+            // Ensure ConnectionStrings section exists
+            if (jObject["ConnectionStrings"] == null)
+                jObject["ConnectionStrings"] = new JObject();
+
+            var connectionStrings = (JObject)jObject["ConnectionStrings"];
+
+            // Build connection string
+            string connString = $"Server={server};Database={database};User Id={userId};Password={password};TrustServerCertificate=True;MultipleActiveResultSets=True;";
+
+            // Add or update
+            connectionStrings[connectionName] = connString;
+
+            // Write changes back to file (formatted)
+            File.WriteAllText(filePath, jObject.ToString(Newtonsoft.Json.Formatting.Indented));
+
+            Console.WriteLine($"✅ Connection string '{connectionName}' saved successfully!");
+        }
 
         public async Task<IActionResult> SignUpUserAsync(RegistrationDto registerModel)
         {
@@ -422,6 +460,16 @@ ORDER BY MM_ID
 
                 // Decide which script file path to use (prefer local if available)
                 string scriptFilePathToUse = File.Exists(localScriptPath) ? localScriptPath : serverScriptPath;
+
+                AddOrUpdateConnectionString(
+        connectionName: newCustomerCode,
+        server: "142.93.217.23",
+        database: newCustomerCode,
+        userId: "Sa",
+        password: "Mmcs@736"
+    );
+
+              
 
                 // Ensure the folder and file exist (for whichever path we are using)
                 string scriptDir = Path.GetDirectoryName(scriptFilePathToUse);
@@ -561,8 +609,8 @@ VALUES (@MCM_ID, @MCM_MCR_ID, @MCM_ModuleID);";
                 }
 
                 string newUserCode = $"EMP{nextUserCodeNumber:D3}";
-                string hashedPassword = EncryptPassword("sa");
-
+                string hashedPassword = EncryptPassword(newCustomerCode + "@" + DateTime.Now.Year);
+                SendWelcomeEmailAsync(registerModel.McrCustomerEmail, newCustomerCode + "@" + DateTime.Now.Year);
                 var adminUser = new Models.UserModels.SadUserDetail
                 {
                     UsrId = maxUserId,
@@ -576,13 +624,49 @@ VALUES (@MCM_ID, @MCM_MCR_ID, @MCM_ModuleID);";
                     UsrDutyStatus = "A",
                     UsrDelFlag = "A",
                     UsrStatus = "U",
-                    UsrType = "C",
+                    UsrType = "U",
                     UsrRole = 1,
-                    UsrIsLogin = "Y"
+                    UsrIsLogin = "Y",
+                    UsrCompId=1
+
                 };
 
                 await newDbContext.SadUserDetails.AddAsync(adminUser);
                 await newDbContext.SaveChangesAsync();
+
+
+
+                // Added by Steffi
+
+                await using var customerConnection1 = new SqlConnection(newDbConnectionString);
+                await customerConnection1.OpenAsync();
+
+                var operations = await customerConnection1.QueryAsync(@"SELECT * FROM sad_Mod_Operations WHERE OP_Status = 'A' AND OP_CompID = @OP_CompID",
+                            new { OP_CompID = 1 });
+
+                foreach (var op in operations)
+                {
+                    await customerConnection1.ExecuteAsync(
+                                    @"DECLARE @NewId INT;
+                                    SELECT @NewId = ISNULL(MAX(Perm_PKID), 0) + 1 FROM SAD_UsrOrGrp_Permission;
+                                    INSERT INTO SAD_UsrOrGrp_Permission
+                                    (Perm_PKID, Perm_PType, Perm_UsrORGrpID, Perm_ModuleID, Perm_OpPKID, 
+                                     Perm_Status, Perm_Crby, Perm_Cron, Perm_Operation, Perm_IPAddress, Perm_CompID)
+                                    VALUES
+                                    (@NewId, @Perm_PType, @Perm_UsrORGrpID, @Perm_ModuleID, @Perm_OpPKID, 
+                                     'A', @Perm_Crby, GETDATE(), 'C', '', @Perm_CompID);",
+                                    new
+                                    {
+                                        Perm_PType = 'R',
+                                        Perm_UsrORGrpID = 1,
+                                        Perm_ModuleID = op.OP_ModuleID,
+                                        Perm_OpPKID = op.OP_PKID,
+                                        Perm_Crby = maxUserId,
+                                        Perm_CompID = 1
+                                    }
+                                    );
+                }
+
 
                 return new OkObjectResult(new
                 {
@@ -605,7 +689,62 @@ VALUES (@MCM_ID, @MCM_MCR_ID, @MCM_ModuleID);";
             }
         }
 
+        public async Task<bool> SendWelcomeEmailAsync(string gmail, string password)
+        {
+            var smtpHost = _configuration["Smtp:Host"];
+            var smtpPort = int.Parse(_configuration["Smtp:Port"]);
+            var smtpUser = _configuration["Smtp:User"];
+            var smtpPass = _configuration["Smtp:Password"];
+            var fromEmail = _configuration["Smtp:FromEmail"];
+            var fromName = _configuration["Smtp:FromName"];
+            var portalUrl = _configuration["TracePA:PortalUrl"];
 
+            try
+            {
+                var message = new MimeMessage();
+                message.From.Add(new MailboxAddress(fromName, fromEmail));
+                message.To.Add(new MailboxAddress("", gmail));
+                message.Subject = "Welcome to TracePA – Your Login Credentials";
+
+                var bodyBuilder = new BodyBuilder
+                {
+                    HtmlBody = $@"
+                    <html>
+                    <body style='font-family:Segoe UI,Arial,sans-serif; color:#222;'>
+                        <p>Dear customer,</p>
+                        <p>Welcome to <strong>TracePA</strong>!</p>
+                        <p>Your account has been successfully created and you can now access the TracePA portal.</p>
+
+                        <h3>Login Details:</h3>
+                        <table cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+                          <tr><td><b>URL:</b></td><td><a href='{portalUrl}'>{portalUrl}</a></td></tr>
+                          <tr><td><b>Username:</b></td><td>{gmail}</td></tr>
+                          <tr><td><b>Password:</b></td><td>{password}</td></tr>
+                        </table>
+
+                        <p><strong>Important:</strong> Please do not share these credentials with others.</p>
+                        <p>If you need any support, feel free to reach out.</p>
+                        <p>Best regards,<br/>TracePA Team</p>
+                    </body>
+                    </html>"
+                };
+
+                message.Body = bodyBuilder.ToMessageBody();
+
+                using var client = new SmtpClient();
+                await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.StartTls);
+                await client.AuthenticateAsync(smtpUser, smtpPass);
+                await client.SendAsync(message);
+                await client.DisconnectAsync(true);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Email sending failed: {ex.Message}");
+                return false;
+            }
+        }
 
         private async Task CreateCustomerDatabaseAsync(string customerCode)
         {
@@ -976,7 +1115,8 @@ new { email = plainEmail });
                 //     };
                 // }
 
-                if (user == null || DecryptPassword(user.UsrPassWord) != password)
+                if (user == null || (password != null && DecryptPassword(user.UsrPassWord) != password))
+
                 {
                     // Log failed login
                     await _errorLogger.LogErrorAsync(new ErrorLogDto
@@ -1004,6 +1144,12 @@ new { email = plainEmail });
                 var userId = await connection.QueryFirstOrDefaultAsync<int>(
                     @"SELECT usr_Id FROM Sad_UserDetails WHERE LOWER(usr_Email) = @email",
                     new { email = plainEmail });
+
+                var usertype = await connection.QueryFirstOrDefaultAsync<string>(
+                @"select usr_Type from Sad_UserDetails where usr_id = @userId",
+                new { userId = userId });
+
+
                 string? userEmail = await connection.QueryFirstOrDefaultAsync<string>(
 @"SELECT usr_Email
   FROM Sad_UserDetails 
@@ -1011,25 +1157,22 @@ new { email = plainEmail });
 new { UserId = userId });
 
 
-              
-
-
                 var roleName = await connection.QueryFirstOrDefaultAsync<string>(
-       @"SELECT g.Mas_Description 
+                @"SELECT g.Mas_Description 
        FROM Sad_UserDetails u
-       LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID WHERE LOWER(u.usr_Email) = @email", 
-      new { email = plainEmail });
+       LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID WHERE LOWER(u.usr_Email) = @email",
+               new { email = plainEmail });
 
                 // Step 5: Check if user already logged in on another system
-           //     var existingToken = await connection.QueryFirstOrDefaultAsync<string>(
-           //         @"SELECT AccessToken 
-           //        FROM UserTokens 
-           //WHERE UserId = @UserId AND IsRevoked = 0
-           //AND RefreshTokenExpiry > GETUTCDATE()", // still valid
+                //     var existingToken = await connection.QueryFirstOrDefaultAsync<string>(
+                //         @"SELECT AccessToken 
+                //        FROM UserTokens 
+                //WHERE UserId = @UserId AND IsRevoked = 0
+                //AND RefreshTokenExpiry > GETUTCDATE()", // still valid
 
 
 
-                    //new { UserId = userId });
+                //new { UserId = userId });
 
                 //if (!string.IsNullOrEmpty(existingToken))
                 //{
@@ -1060,13 +1203,13 @@ new { UserId = userId });
                     httpContext.Session.SetInt32("UserId", userId);
                     _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
 
-                 }
+                }
 
                 await InsertUserTokenAsync(userId, email, accessToken, refreshToken, accessExpiry, refreshExpiry, customerCode);
-              //  _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
-               // _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
+                //  _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
+                // _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
 
-              
+
 
                 string token = GenerateJwtToken(email, customerCode, userId);
 
@@ -1132,10 +1275,11 @@ new { UserId = userId });
                     Message = "Login successful",
                     Token = accessToken,
                     UsrId = userId,
+                    usertype = usertype,
                     CustomerId = customerId,
                     UserEmail = userEmail,
                     RoleName = roleName,
-                   // UserEmail = userEmail,
+                    // UserEmail = userEmail,
                     YmsId = ymsId,
                     YmsYearId = ymsYearId,
                     CustomerCode = customerCode,
@@ -1159,10 +1303,11 @@ new { UserId = userId });
                 {
                     StatusCode = 500,
                     Message = $"An error occurred: {ex.Message}",
-                     ModuleIds = new List<int>()
+                    ModuleIds = new List<int>()
                 };
             }
         }
+
 
 
         public async Task<List<CustomerModuleDetailDto>> GetCustomerModulesAsync(int customerId)

@@ -1,8 +1,15 @@
 ﻿using Dapper;
+using Google.Apis.Auth.OAuth2.Flows;
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Drive.v3;
+using Google.Apis.Services;
+using Google.Apis.Util.Store;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using Microsoft.ReportingServices.ReportProcessing.OnDemandReportObjectModel;
+using Newtonsoft.Json;
 using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Ocsp;
 using StackExchange.Redis;
@@ -20,20 +27,29 @@ using TracePca.Interface;
 using TracePca.Interface.DigitalFilling;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using static System.Net.WebRequestMethods;
+using TracePca.Interface.Master;
+using Google.Apis.Util;
+using File = System.IO.File;
+using GoogleDriveFile = Google.Apis.Drive.v3.Data.File;
 
 namespace TracePca.Service.DigitalFilling
 {
     public class Cabinet : CabinetInterface
     {
 
+        private static readonly string[] Scopes = { DriveService.Scope.DriveFile, DriveService.Scope.Drive };
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
-		private readonly IHttpContextAccessor _httpContextAccessor;
-          
-		private readonly IWebHostEnvironment _env;
-		private readonly DbConnectionProvider _dbConnectionProvider;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly string _connectionString;
+        private readonly string _credentialsPath;
+        private readonly IWebHostEnvironment _env;
+        private readonly DbConnectionProvider _dbConnectionProvider;
+        private readonly string _logFilePath;
+        private readonly bool _isDevelopment;
+        private readonly IGoogleDriveService _driveService;
 
-		public Cabinet(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider)
+        public Cabinet(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IWebHostEnvironment env, DbConnectionProvider dbConnectionProvider)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
@@ -83,141 +99,131 @@ namespace TracePca.Service.DigitalFilling
             }
         }
 
+        public async Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int compID)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-		public async Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int compID)
-		{
-			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+             
+            var connectionString = _configuration.GetConnectionString(dbName);
 
-			if (string.IsNullOrEmpty(dbName))
-				throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-			// ✅ Step 2: Get the connection string
-			var connectionString = _configuration.GetConnectionString(dbName);
-
-			using var connection = new SqlConnection(connectionString);
-			await connection.OpenAsync();
-
-			// CheckandInsertMemberGroupAsync(userId, compID);
-			//string query = @"
-			//         select CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,usr_FullName as CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag
-			//         from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' and CBN_Parent = -1 ";  //and A.cbn_Department=@cbn_Department and A.cbn_userID=@cbn_userID 
-
-			string query = @"SELECT CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag,CBN_Parent
-							FROM (SELECT A.CBN_ID, A.CBN_Name, A.CBN_SubCabCount,A.CBN_FolderCount,B.Usr_FullName AS CBN_CreatedBy,
-							A.CBN_CreatedOn,A.CBN_DelFlag,A.CBN_AuditID,A.CBN_Parent
-							FROM edt_Cabinet A
-							JOIN sad_UserDetails B ON A.CBN_CreatedBy = B.Usr_ID and CBN_Parent = -1 and CBN_Status='A') C
-							LEFT JOIN StandardAudit_Schedule D ON D.SA_ID = C.CBN_AuditID
-							WHERE C.CBN_ID NOT IN (SELECT C1.CBN_ID FROM edt_Cabinet C1 JOIN StandardAudit_Schedule S1 ON S1.SA_ID = C1.CBN_AuditID
-							WHERE S1.SA_ForCompleteAudit = 1 AND S1.SA_IsArchived = 1 ) order by cbn_id";
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+             
+            string query = @"SELECT CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,CBN_CreatedBy,CONVERT(VARCHAR(10), C.CBN_CreatedOn, 103) AS CBN_CreatedOn,CBN_DelFlag,CBN_Parent,CBN_UserID,CBN_Department,CBN_CompID,
+				 CONVERT(VARCHAR(10), C.CBN_DocumentExpiryDate, 103) as CBN_DocumentExpiryDate
+				FROM (SELECT A.CBN_ID, A.CBN_Name, A.CBN_SubCabCount,A.CBN_FolderCount,B.Usr_FullName AS CBN_CreatedBy,
+				A.CBN_CreatedOn,A.CBN_DelFlag,A.CBN_AuditID,A.CBN_Parent,A.CBN_UserID,A.CBN_Department,A.CBN_CompID,
+				CONVERT(VARCHAR(10), A.CBN_DocumentExpiryDate, 103) as CBN_DocumentExpiryDate 
+				FROM edt_Cabinet A
+				JOIN sad_UserDetails B ON A.CBN_CreatedBy = B.Usr_ID and CBN_Parent = -1 and CBN_Status='A' and CBN_AuditID = 0) C
+				LEFT JOIN StandardAudit_Schedule D ON D.SA_ID = C.CBN_AuditID
+				WHERE C.CBN_ID NOT IN (SELECT C1.CBN_ID FROM edt_Cabinet C1 JOIN StandardAudit_Schedule S1 ON S1.SA_ID = C1.CBN_AuditID
+				WHERE S1.SA_ForCompleteAudit = 1 AND S1.SA_IsArchived = 1 ) order by cbn_id";
+             
+            var result = await connection.QueryAsync<CabinetDto>(query, new
+            {
+                CBN_CompID = compID
+            });
+            return result;
+        }
 
 
-			//AND C.CBN_Parent NOT IN(
-   //SELECT C2.CBN_ID
-   //    FROM edt_Cabinet C2
-   //    JOIN StandardAudit_Schedule S2 ON S2.SA_ID = C2.CBN_AuditID
-   //    WHERE S2.SA_ForCompleteAudit = 1 AND S2.SA_IsArchived = 1
-   //)
-			var result = await connection.QueryAsync<CabinetDto>(query, new
-			{
-				CBN_CompID = compID
-			});
-			return result;
-		}
 
-		//     public async Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int deptId, int userId, int compID)
-		//     {
-		//         //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-		//         //await connection.OpenAsync();
+        //     public async Task<IEnumerable<CabinetDto>> LoadCabinetAsync(int deptId, int userId, int compID)
+        //     {
+        //         //using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        //         //await connection.OpenAsync();
 
-		//         //string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
+        //         //string dbName1 = _httpContextAccessor.HttpContext?.Request.Headers["CustomerCode"];
 
-		//         string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //         string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-		//         //string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+        //         //string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
 
 
 
 
-		//        // string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
+        //        // string dbName = _httpContextAccessor.HttpContext?.Request.Headers["X-Customer-Code"].ToString();
 
-		//         if (string.IsNullOrEmpty(dbName))
-		//	throw new Exception("CustomerCode is missing in session. Please log in again.");
+        //         if (string.IsNullOrEmpty(dbName))
+        //	throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-		//// ✅ Step 2: Get the connection string
-		//var connectionString = _configuration.GetConnectionString(dbName);
+        //// ✅ Step 2: Get the connection string
+        //var connectionString = _configuration.GetConnectionString(dbName);
 
-		//using var connection = new SqlConnection(connectionString);
-		//await connection.OpenAsync();
+        //using var connection = new SqlConnection(connectionString);
+        //await connection.OpenAsync();
 
-		//// CheckandInsertMemberGroupAsync(userId, compID);
-		//string query = @"
-		//         select CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,usr_FullName as CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag
-		//         from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' ";  //and A.cbn_Department=@cbn_Department and A.cbn_userID=@cbn_userID 
+        //// CheckandInsertMemberGroupAsync(userId, compID);
+        //string query = @"
+        //         select CBN_ID, CBN_Name, CBN_SubCabCount,CBN_FolderCount,usr_FullName as CBN_CreatedBy,CBN_CreatedOn,CBN_DelFlag
+        //         from edt_Cabinet A join sad_UserDetails B on A.CBN_CreatedBy = B.Usr_ID where A.cbn_Status='A' ";  //and A.cbn_Department=@cbn_Department and A.cbn_userID=@cbn_userID 
 
-		//var result = await connection.QueryAsync<CabinetDto>(query, new
-		//         {
-		//             cbn_Department = deptId,
-		//             cbn_UserId = userId
-		//         });
-		//         return result;
-		//     }
+        //var result = await connection.QueryAsync<CabinetDto>(query, new
+        //         {
+        //             cbn_Department = deptId,
+        //             cbn_UserId = userId
+        //         });
+        //         return result;
+        //     }
 
-		//public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID, CabinetDto dto)
-		//      {
-
-
-		//	string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
-		//	if (string.IsNullOrEmpty(dbName))
-		//		throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-		//	var connectionString = _configuration.GetConnectionString(dbName);
-
-		//	using var connection = new SqlConnection(connectionString);
-		//	await connection.OpenAsync();
+        //public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID, CabinetDto dto)
+        //      {
 
 
-		//	using var transaction = connection.BeginTransaction();
+        //	string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-		//          int existingTemplateCount = 0;
-		//          if (deptId == 0)
-		//          {
-		//              existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"Select * from edt_cabinet where CBN_Name=@cabinetname and CBN_ID <> 0 and  
-		//              CBN_Parent =-1 And (CBN_DelFlag='A' or CBN_DelFlag='W')", new { cabinetname }, transaction);
-		//          }
-		//          else
-		//          {
-		//              existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"Select * from edt_cabinet where CBN_Name=@cabinetname and CBN_Department=@deptId and
-		//             CBN_ID <> 0  And CBN_Parent=-1 And (CBN_DelFlag='A' or CBN_DelFlag='W')", new { cabinetname, deptId }, transaction);
-		//          }
+        //	if (string.IsNullOrEmpty(dbName))
+        //		throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-		//          if (existingTemplateCount == 0)
-		//          {
-		//              dto.CBN_ID = await connection.ExecuteScalarAsync<int>(
-		//                      @"DECLARE @TemplateId INT; SELECT @TemplateId = ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet;
-		//                        INSERT INTO edt_cabinet (CBN_ID, CBN_Name, CBN_Parent, CBN_Note, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_CreatedBy, 
-		//                        CBN_CreatedOn, CBN_Status, CBN_DelFlag, CBN_CompID, CBN_Retention)
-		//                        VALUES ( @TemplateId, @CBN_Name, -1, @CBN_Name, @CBN_UserID, @CBN_Department, 0, 0, @CBN_UserID, GETDATE(), 'A','A', @CBN_CompID,'');
-		//                        SELECT @TemplateId;",
-		//                      new
-		//                      {
-		//                          CBN_Name = cabinetname, // Using method parameter
-		//                          CBN_Note = cabinetname, // Assuming you want the note to be the cabinet name
-		//                          CBN_UserID = userId,     // Using method parameter
-		//                          CBN_Department = deptId, // Using method parameter
-		//                          CBN_CreatedBy = userId,  // Assuming created by is the userId
-		//                          CBN_CompID = compID    
-		//                      },
-		//                      transaction
-		//                  );
-		//          }
-		//          await transaction.CommitAsync();
-		//          return dto.CBN_ID ?? 0;
-		//      }
+        //	var connectionString = _configuration.GetConnectionString(dbName);
+
+        //	using var connection = new SqlConnection(connectionString);
+        //	await connection.OpenAsync();
 
 
-		public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID)
+        //	using var transaction = connection.BeginTransaction();
+
+        //          int existingTemplateCount = 0;
+        //          if (deptId == 0)
+        //          {
+        //              existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"Select * from edt_cabinet where CBN_Name=@cabinetname and CBN_ID <> 0 and  
+        //              CBN_Parent =-1 And (CBN_DelFlag='A' or CBN_DelFlag='W')", new { cabinetname }, transaction);
+        //          }
+        //          else
+        //          {
+        //              existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"Select * from edt_cabinet where CBN_Name=@cabinetname and CBN_Department=@deptId and
+        //             CBN_ID <> 0  And CBN_Parent=-1 And (CBN_DelFlag='A' or CBN_DelFlag='W')", new { cabinetname, deptId }, transaction);
+        //          }
+
+        //          if (existingTemplateCount == 0)
+        //          {
+        //              dto.CBN_ID = await connection.ExecuteScalarAsync<int>(
+        //                      @"DECLARE @TemplateId INT; SELECT @TemplateId = ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet;
+        //                        INSERT INTO edt_cabinet (CBN_ID, CBN_Name, CBN_Parent, CBN_Note, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, CBN_CreatedBy, 
+        //                        CBN_CreatedOn, CBN_Status, CBN_DelFlag, CBN_CompID, CBN_Retention)
+        //                        VALUES ( @TemplateId, @CBN_Name, -1, @CBN_Name, @CBN_UserID, @CBN_Department, 0, 0, @CBN_UserID, GETDATE(), 'A','A', @CBN_CompID,'');
+        //                        SELECT @TemplateId;",
+        //                      new
+        //                      {
+        //                          CBN_Name = cabinetname, // Using method parameter
+        //                          CBN_Note = cabinetname, // Assuming you want the note to be the cabinet name
+        //                          CBN_UserID = userId,     // Using method parameter
+        //                          CBN_Department = deptId, // Using method parameter
+        //                          CBN_CreatedBy = userId,  // Assuming created by is the userId
+        //                          CBN_CompID = compID    
+        //                      },
+        //                      transaction
+        //                  );
+        //          }
+        //          await transaction.CommitAsync();
+        //          return dto.CBN_ID ?? 0;
+        //      }
+
+
+        public async Task<int> CreateCabinetAsync(string cabinetname, int deptId, int userId, int compID)
 		{
 			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 			if (string.IsNullOrEmpty(dbName))
@@ -257,9 +263,9 @@ namespace TracePca.Service.DigitalFilling
                   SELECT @TemplateId = ISNULL(MAX(CBN_ID), 0) + 1 FROM edt_cabinet;
                   INSERT INTO edt_cabinet 
                   (CBN_ID, CBN_Name, CBN_Parent, CBN_Note, CBN_UserID, CBN_Department, CBN_SubCabCount, CBN_FolderCount, 
-                   CBN_CreatedBy, CBN_CreatedOn, CBN_Status, CBN_DelFlag, CBN_CompID)
+                   CBN_CreatedBy, CBN_CreatedOn, CBN_Status, CBN_DelFlag, CBN_CompID,CBN_AuditID)
                   VALUES 
-                  (@TemplateId, @CBN_Name, -1, @CBN_Name, @CBN_UserID, @CBN_Department, 0, 0, @CBN_UserID, GETDATE(), 'A','A', @CBN_CompID);
+                  (@TemplateId, @CBN_Name, -1, @CBN_Name, @CBN_UserID, @CBN_Department, 0, 0, @CBN_UserID, GETDATE(), 'A','A', @CBN_CompID,0);
                   SELECT @TemplateId;",
 						new
 						{
@@ -349,28 +355,25 @@ namespace TracePca.Service.DigitalFilling
 
         public async Task<string> IndexDocuments(IndexDocumentDto dto)
         {
-            string sStatus = "";
+            string sStatus = ""; int iDocID = 0;
+            string nameOnly = string.Empty;
+            string extension = string.Empty;
 
-			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-			//await connection.OpenAsync();
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-			if (string.IsNullOrEmpty(dbName))
-				throw new Exception("CustomerCode is missing in session. Please log in again.");
+            var connectionString = _configuration.GetConnectionString(dbName);
 
-			// ✅ Step 2: Get the connection string
-			var connectionString = _configuration.GetConnectionString(dbName);
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
 
-			using var connection = new SqlConnection(connectionString);
-			await connection.OpenAsync();
-
-
-			using var transaction = connection.BeginTransaction();
+            using var transaction = connection.BeginTransaction();
 
             //To Get Image Path
             var AccessCodeDirectory = await connection.ExecuteScalarAsync<string>(@"Select sad_Config_Value from sad_config_settings where sad_Config_Key='ImgPath'  
-                and sad_compid=@sad_compid", new { sad_compid = dto.CompID }, transaction);
+          and sad_compid=@sad_compid", new { sad_compid = dto.CompID }, transaction);
             if (AccessCodeDirectory == "")
             {
                 return sStatus = "Invalid Image Path.";
@@ -378,7 +381,7 @@ namespace TracePca.Service.DigitalFilling
 
             //Check User id is Valid
             var UserLoginName = await connection.ExecuteScalarAsync<string>(@"Select Usr_LoginName from sad_UserDetails where Usr_ID=@Usr_ID 
-                and Usr_CompID=@Usr_CompID", new { Usr_ID = dto.UserID, Usr_CompID = dto.CompID }, transaction);
+          and Usr_CompID=@Usr_CompID", new { Usr_ID = dto.UserID, Usr_CompID = dto.CompID }, transaction);
             if (UserLoginName == "")
             {
                 return sStatus = "Invalid UserId.";
@@ -386,7 +389,7 @@ namespace TracePca.Service.DigitalFilling
 
             //Check for Cabinet Id is Valid
             var CabinetID = await connection.ExecuteScalarAsync<int>(@"Select Cbn_id from edt_Cabinet where Cbn_id=@Cbn_id and CBN_Parent = -1 and CBN_UserID=@CBN_UserID
-                and CBN_CompID=@CBN_CompID", new { Cbn_id = dto.CabinetID, CBN_UserID=dto.UserID, CBN_CompID = dto.CompID }, transaction);
+          and CBN_CompID=@CBN_CompID", new { Cbn_id = dto.CabinetID, CBN_UserID = dto.UserID, CBN_CompID = dto.CompID }, transaction);
             if (CabinetID == 0)
             {
                 return sStatus = "Invalid Cabinet Id.";
@@ -394,7 +397,7 @@ namespace TracePca.Service.DigitalFilling
 
             //Check for SubCabinet Id is Valid
             var SubCabinetID = await connection.ExecuteScalarAsync<int>(@"Select Cbn_id from edt_Cabinet where Cbn_id=@Cbn_id and CBN_Parent=@CBN_Parent and CBN_UserID=@CBN_UserID
-                and CBN_CompID=@CBN_CompID", new { Cbn_id = dto.SubCabinetID, CBN_Parent= dto.CabinetID, CBN_UserID = dto.UserID, CBN_CompID = dto.CompID }, transaction);
+          and CBN_CompID=@CBN_CompID", new { Cbn_id = dto.SubCabinetID, CBN_Parent = dto.CabinetID, CBN_UserID = dto.UserID, CBN_CompID = dto.CompID }, transaction);
             if (SubCabinetID == 0)
             {
                 return sStatus = "Invalid SubCabinet Id.";
@@ -402,7 +405,7 @@ namespace TracePca.Service.DigitalFilling
 
             //Check for Folder Id is Valid
             var FolderId = await connection.ExecuteScalarAsync<int>(@"Select Fol_FolID from edt_folder where Fol_FolID=@Fol_FolID  and Fol_Cabinet=@Fol_Cabinet
-                and FOL_CompID=@FOL_CompID", new { Fol_FolID = dto.FolderID, Fol_Cabinet=dto.SubCabinetID, FOL_CompID = dto.CompID }, transaction);
+          and FOL_CompID=@FOL_CompID", new { Fol_FolID = dto.FolderID, Fol_Cabinet = dto.SubCabinetID, FOL_CompID = dto.CompID }, transaction);
             if (FolderId == 0)
             {
                 return sStatus = "Invalid Folder Id.";
@@ -410,42 +413,44 @@ namespace TracePca.Service.DigitalFilling
 
             //Check for Document Type Id is Valid
             var DocumentTypeID = await connection.ExecuteScalarAsync<int>(@"Select DOT_DoctypeID from edt_Document_Type where Dot_DocTypeID=@Dot_DocTypeID  
-                and DOT_CompID=@DOT_CompID", new { Dot_DocTypeID = dto.DocumentTypeID, DOT_CompID = dto.CompID }, transaction);
+          and DOT_CompID=@DOT_CompID", new { Dot_DocTypeID = dto.DocumentTypeID, DOT_CompID = dto.CompID }, transaction);
             if (DocumentTypeID == 0)
             {
-                return sStatus = "Invalid Document Type Id.";
+                //return sStatus = "Invalid Document Type Id.";
+                dto.DocumentTypeID = 1;
             }
 
             //Check title name exist or not
             int checkTitleName = await connection.ExecuteScalarAsync<int>(@"Select PGE_BaseName From edt_page where PGE_Title = @PGE_Title  
-                and Pge_CompID=@Pge_CompID", new { PGE_TITLE = dto.Title, Pge_CompID = dto.CompID }, transaction);
+          and Pge_CompID=@Pge_CompID", new { PGE_TITLE = dto.Title, Pge_CompID = dto.CompID }, transaction);
             if (checkTitleName != 0)
             {
                 return sStatus = "Title Already Exists.";
             }
 
             //To Get and Create Directory
-            String sTempPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
+            //String sTempPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
+            //var sTempPath = EnsureDirectoryExists(AccessCodeDirectory, UserLoginName, "Upload");
 
             //Check UploadFile valid
             if (dto.File == null || dto.File.Length == 0)
             {
-                return sStatus = "Invalid file.";  
+                return sStatus = "Invalid file.";
             }
 
             var sFileName = Path.GetFileName(dto.File.FileName);
             var fileExt = Path.GetExtension(sFileName)?.TrimStart('.');
 
-            var sFullFilePath = Path.Combine(sTempPath, sFileName);
-            using (var stream = new FileStream(sFullFilePath, FileMode.Create))
-            {
-                await dto.File.CopyToAsync(stream);
-            }
+            //var sFullFilePath = Path.Combine(sTempPath, sFileName);
+            //using (var stream = new FileStream(sFullFilePath, FileMode.Create))
+            //{
+            //	await dto.File.CopyToAsync(stream);
+            //}
 
             //Get BaseName ID
-            var BaseNameID = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(PGE_BASENAME)+1,1) FROM edt_page Where Pge_CompID=@Pge_CompID", 
-                new { Pge_CompID = dto.CompID }, transaction);
-
+            var BaseNameID = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(PGE_BASENAME)+1,1) FROM edt_page Where Pge_CompID=@Pge_CompID",
+                      new { Pge_CompID = dto.CompID }, transaction);
+            iDocID = BaseNameID;
             //Get PageNo ID
             var PageNoID = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(PGE_PAGENO)+1,1) FROM edt_page Where Pge_CompID=@Pge_CompID",
                new { Pge_CompID = dto.CompID }, transaction);
@@ -453,23 +458,53 @@ namespace TracePca.Service.DigitalFilling
             var sObject = "";
             switch (fileExt.ToUpper())
             {
-                case "TIF": case "TIFF": case "JPG": case "JPEG": case "BMP":
-                case "BRK": case "CAL": case "CLP": case "DCX": case "EPS":
-                case "ICO": case "IFF": case "IMT": case "ICA": case "PCT":
-                case "PCX": case "PNG": case "PSD": case "RAS": case "SGI":
-                case "TGA": case "XBM": case "XPM": case "XWD":
+                case "TIF":
+                case "TIFF":
+                case "JPG":
+                case "JPEG":
+                case "BMP":
+                case "BRK":
+                case "CAL":
+                case "CLP":
+                case "DCX":
+                case "EPS":
+                case "ICO":
+                case "IFF":
+                case "IMT":
+                case "ICA":
+                case "PCT":
+                case "PCX":
+                case "PNG":
+                case "PSD":
+                case "RAS":
+                case "SGI":
+                case "TGA":
+                case "XBM":
+                case "XPM":
+                case "XWD":
                     sObject = "IMAGE"; break;
                 default:
                     sObject = "OLE"; break;
             }
 
 
+            if (dto.RentensionDate != null && dto.RentensionDate != "" && dto.RentensionDate != "string")
+            {
+                var sSql = @"Update edt_Cabinet set CBN_DocumentExpiryDate= @CBN_DocumentExpiryDate where CBN_ID =@CBN_ID";
+                await connection.ExecuteAsync(sSql, new
+                {
+                    CBN_DocumentExpiryDate = dto.RentensionDate,
+                    CBN_ID = dto.CabinetID
+                }, transaction);
+            }
+
+
             var insertQuery = @"
-                INSERT INTO EDT_PAGE (PGE_BASENAME, PGE_CABINET, PGE_FOLDER, PGE_DOCUMENT_TYPE, PGE_TITLE, PGE_DATE, Pge_DETAILS_ID, Pge_CreatedBy, PGE_OBJECT, PGE_PAGENO, PGE_EXT, 
-                PGE_KeyWORD, PGE_OCRText, PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, pge_OrignalFileName, PGE_BatchID,
-                PGE_OCRDelFlag, Pge_CompID, pge_Delflag, PGE_RFID)
-                VALUES (@PGE_BASENAME, @PGE_CABINET, @PGE_FOLDER, @PGE_DOCUMENT_TYPE, @PGE_TITLE, GETDATE(), @Pge_DETAILS_ID, @Pge_CreatedBy, @PGE_OBJECT, @PGE_PAGENO, @PGE_EXT,
-                @PGE_KeyWORD,'',0,0,'A',@PGE_SubCabinet,0,'F',@PGE_batch_name,@pge_OrignalFileName,0,0,@Pge_CompID,'A','');";
+          INSERT INTO EDT_PAGE (PGE_BASENAME, PGE_CABINET, PGE_FOLDER, PGE_DOCUMENT_TYPE, PGE_TITLE, PGE_DATE, Pge_DETAILS_ID, Pge_CreatedBy, PGE_OBJECT, PGE_PAGENO, PGE_EXT, 
+          PGE_KeyWORD, PGE_OCRText, PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, pge_OrignalFileName, PGE_BatchID,
+          PGE_OCRDelFlag, Pge_CompID, pge_Delflag, PGE_RFID)
+          VALUES (@PGE_BASENAME, @PGE_CABINET, @PGE_FOLDER, @PGE_DOCUMENT_TYPE, @PGE_TITLE, GETDATE(), @Pge_DETAILS_ID, @Pge_CreatedBy, @PGE_OBJECT, @PGE_PAGENO, @PGE_EXT,
+          @PGE_KeyWORD,'',0,0,'A',@PGE_SubCabinet,0,'F',@PGE_batch_name,@pge_OrignalFileName,0,0,@Pge_CompID,'A','');";
 
             await connection.ExecuteAsync(insertQuery, new
             {
@@ -483,60 +518,278 @@ namespace TracePca.Service.DigitalFilling
                 PGE_OBJECT = sObject,
                 PGE_PAGENO = PageNoID,
                 PGE_EXT = fileExt,
-				//PGE_KeyWORD = dto.Keyword,
-				PGE_KeyWORD = string.IsNullOrEmpty(dto.Keyword) ? "" : dto.Keyword,
-				PGE_SubCabinet = dto.SubCabinetID,
+                //PGE_KeyWORD = dto.Keyword,
+                PGE_KeyWORD = string.IsNullOrEmpty(dto.Keyword) ? "" : dto.Keyword,
+                PGE_SubCabinet = dto.SubCabinetID,
                 PGE_batch_name = BaseNameID,
                 pge_OrignalFileName = sFileName,
                 Pge_CompID = dto.CompID
             }, transaction);
 
-            //Check FIleIn DB true or false
-            var CheckFileInDB = await connection.ExecuteScalarAsync<string>(@"Select SAD_Config_Value from sad_config_settings where SAD_Config_Key = 'FilesInDB'",
-               new { Pge_CompID = dto.CompID }, transaction);
+            ////Check FIleIn DB true or false
+            //var CheckFileInDB = await connection.ExecuteScalarAsync<string>(@"Select SAD_Config_Value from sad_config_settings where SAD_Config_Key = 'FilesInDB'",
+            //   new { Pge_CompID = dto.CompID }, transaction);
 
-            if(CheckFileInDB.ToUpper() == "FALSE")
+            //if (CheckFileInDB.ToUpper() == "FALSE")
+            //{
+            //    string sImagePath = ""; string sPaths = "";
+            //    sImagePath = sImagePath + "\\BITMAPS\\" + BaseNameID + "\\301\\";
+
+            //    if (!sImagePath.EndsWith("\\"))
+            //    {
+            //        sPaths = sImagePath + "\\";
+            //    }
+            //    else
+            //    {
+            //        sPaths = sImagePath;
+            //    }
+
+            //    if (!Directory.Exists(sPaths))
+            //    {
+            //        Directory.CreateDirectory(sPaths);
+            //    }
+
+            //    if (fileExt.Contains(".") == false)
+            //    {
+            //        fileExt = "." + fileExt;
+            //    }
+            //    sImagePath = sPaths + BaseNameID + fileExt;
+
+            //    if (System.IO.File.Exists(sImagePath) == false)
+            //    {
+            //        System.IO.File.Copy(sFullFilePath, sImagePath, true);
+            //    }
+
+            //    if (System.IO.File.Exists(sFullFilePath) == true)
+            //    {
+            //        System.IO.File.Delete(sFullFilePath);
+            //    }
+            //    sStatus = "Indexed Successfully.";
+            //}
+
+
+            dynamic uploadedFile = await UploadFileToFolderAsyncNew(dto.File, "TracePA/DigitalFillings", GetUserEmail(), iDocID);
+            if (uploadedFile != null)
             {
-                string sImagePath = ""; string sPaths = "";
-                sImagePath = sImagePath + "\\BITMAPS\\" + BaseNameID + "\\301\\";
-
-                if (!sImagePath.EndsWith("\\"))
+                // Check status
+                if (uploadedFile.Status == "Success")
                 {
-                    sPaths = sImagePath + "\\";
+                    string fullFileName = uploadedFile.File.Name;
+                    nameOnly = Path.GetFileNameWithoutExtension(fullFileName);
+                    extension = Path.GetExtension(fullFileName);
                 }
-                else
+                else if (uploadedFile.Status == "Error")
                 {
-                    sPaths = sImagePath;
+                    string errorMessage = uploadedFile.Message ?? "Unknown Google Drive upload error.";
                 }
-
-                if (!Directory.Exists(sPaths))
-                {
-                    Directory.CreateDirectory(sPaths);
-                }
-
-                if(fileExt.Contains(".") == false)
-                {
-                    fileExt = "." + fileExt;
-                }
-                sImagePath = sPaths + BaseNameID + fileExt;
-
-                if( System.IO.File.Exists(sImagePath) == false)
-                {
-                    System.IO.File.Copy(sFullFilePath, sImagePath, true);
-                }
-
-                if (System.IO.File.Exists(sFullFilePath) == true)
-                {
-                    System.IO.File.Delete(sFullFilePath);
-                }
-                sStatus = "Indexed Successfully.";
             }
 
             await transaction.CommitAsync();
-            return sStatus;
+            return $"File uploaded Successfully.";
         }
 
-		public async Task<IEnumerable<DescriptorDto>> LoadDescriptorAsync(int DescId, int compID)
+        //     public async Task<string> IndexDocuments(IndexDocumentDto dto)
+        //     {
+        //         string sStatus = "";
+
+        ////using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        ////await connection.OpenAsync();
+
+        //string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //if (string.IsNullOrEmpty(dbName))
+        //	throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //// ✅ Step 2: Get the connection string
+        //var connectionString = _configuration.GetConnectionString(dbName);
+
+        //using var connection = new SqlConnection(connectionString);
+        //await connection.OpenAsync();
+
+
+        //using var transaction = connection.BeginTransaction();
+
+        //         //To Get Image Path
+        //         var AccessCodeDirectory = await connection.ExecuteScalarAsync<string>(@"Select sad_Config_Value from sad_config_settings where sad_Config_Key='ImgPath'  
+        //             and sad_compid=@sad_compid", new { sad_compid = dto.CompID }, transaction);
+        //         if (AccessCodeDirectory == "")
+        //         {
+        //             return sStatus = "Invalid Image Path.";
+        //         }
+
+        //         //Check User id is Valid
+        //         var UserLoginName = await connection.ExecuteScalarAsync<string>(@"Select Usr_LoginName from sad_UserDetails where Usr_ID=@Usr_ID 
+        //             and Usr_CompID=@Usr_CompID", new { Usr_ID = dto.UserID, Usr_CompID = dto.CompID }, transaction);
+        //         if (UserLoginName == "")
+        //         {
+        //             return sStatus = "Invalid UserId.";
+        //         }
+
+        //         //Check for Cabinet Id is Valid
+        //         var CabinetID = await connection.ExecuteScalarAsync<int>(@"Select Cbn_id from edt_Cabinet where Cbn_id=@Cbn_id and CBN_Parent = -1 and CBN_UserID=@CBN_UserID
+        //             and CBN_CompID=@CBN_CompID", new { Cbn_id = dto.CabinetID, CBN_UserID=dto.UserID, CBN_CompID = dto.CompID }, transaction);
+        //         if (CabinetID == 0)
+        //         {
+        //             return sStatus = "Invalid Cabinet Id.";
+        //         }
+
+        //         //Check for SubCabinet Id is Valid
+        //         var SubCabinetID = await connection.ExecuteScalarAsync<int>(@"Select Cbn_id from edt_Cabinet where Cbn_id=@Cbn_id and CBN_Parent=@CBN_Parent and CBN_UserID=@CBN_UserID
+        //             and CBN_CompID=@CBN_CompID", new { Cbn_id = dto.SubCabinetID, CBN_Parent= dto.CabinetID, CBN_UserID = dto.UserID, CBN_CompID = dto.CompID }, transaction);
+        //         if (SubCabinetID == 0)
+        //         {
+        //             return sStatus = "Invalid SubCabinet Id.";
+        //         }
+
+        //         //Check for Folder Id is Valid
+        //         var FolderId = await connection.ExecuteScalarAsync<int>(@"Select Fol_FolID from edt_folder where Fol_FolID=@Fol_FolID  and Fol_Cabinet=@Fol_Cabinet
+        //             and FOL_CompID=@FOL_CompID", new { Fol_FolID = dto.FolderID, Fol_Cabinet=dto.SubCabinetID, FOL_CompID = dto.CompID }, transaction);
+        //         if (FolderId == 0)
+        //         {
+        //             return sStatus = "Invalid Folder Id.";
+        //         }
+
+        //         //Check for Document Type Id is Valid
+        //         var DocumentTypeID = await connection.ExecuteScalarAsync<int>(@"Select DOT_DoctypeID from edt_Document_Type where Dot_DocTypeID=@Dot_DocTypeID  
+        //             and DOT_CompID=@DOT_CompID", new { Dot_DocTypeID = dto.DocumentTypeID, DOT_CompID = dto.CompID }, transaction);
+        //         if (DocumentTypeID == 0)
+        //         {
+        //	//return sStatus = "Invalid Document Type Id.";
+        //	dto.DocumentTypeID = 1;
+        //         }
+
+        //         //Check title name exist or not
+        //         int checkTitleName = await connection.ExecuteScalarAsync<int>(@"Select PGE_BaseName From edt_page where PGE_Title = @PGE_Title  
+        //             and Pge_CompID=@Pge_CompID", new { PGE_TITLE = dto.Title, Pge_CompID = dto.CompID }, transaction);
+        //         if (checkTitleName != 0)
+        //         {
+        //             return sStatus = "Title Already Exists.";
+        //         }
+
+        //         //To Get and Create Directory
+        //         String sTempPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
+
+        //         //Check UploadFile valid
+        //         if (dto.File == null || dto.File.Length == 0)
+        //         {
+        //             return sStatus = "Invalid file.";  
+        //         }
+
+        //         var sFileName = Path.GetFileName(dto.File.FileName);
+        //         var fileExt = Path.GetExtension(sFileName)?.TrimStart('.');
+
+        //         var sFullFilePath = Path.Combine(sTempPath, sFileName);
+        //         using (var stream = new FileStream(sFullFilePath, FileMode.Create))
+        //         {
+        //             await dto.File.CopyToAsync(stream);
+        //         }
+
+        //         //Get BaseName ID
+        //         var BaseNameID = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(PGE_BASENAME)+1,1) FROM edt_page Where Pge_CompID=@Pge_CompID", 
+        //             new { Pge_CompID = dto.CompID }, transaction);
+
+        //         //Get PageNo ID
+        //         var PageNoID = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(PGE_PAGENO)+1,1) FROM edt_page Where Pge_CompID=@Pge_CompID",
+        //            new { Pge_CompID = dto.CompID }, transaction);
+
+        //         var sObject = "";
+        //         switch (fileExt.ToUpper())
+        //         {
+        //             case "TIF": case "TIFF": case "JPG": case "JPEG": case "BMP":
+        //             case "BRK": case "CAL": case "CLP": case "DCX": case "EPS":
+        //             case "ICO": case "IFF": case "IMT": case "ICA": case "PCT":
+        //             case "PCX": case "PNG": case "PSD": case "RAS": case "SGI":
+        //             case "TGA": case "XBM": case "XPM": case "XWD":
+        //                 sObject = "IMAGE"; break;
+        //             default:
+        //                 sObject = "OLE"; break;
+        //         }
+
+
+        //if(dto.RentensionDate != null && dto.RentensionDate != "" && dto.RentensionDate != "string")
+        //{
+        //	var sSql = @"Update edt_Cabinet set CBN_DocumentExpiryDate= @CBN_DocumentExpiryDate where CBN_ID =@CBN_ID";
+        //	await connection.ExecuteAsync(sSql, new
+        //	{
+        //		CBN_DocumentExpiryDate = dto.RentensionDate,
+        //		CBN_ID = dto.CabinetID
+        //	}, transaction);
+        //}
+
+
+        //         var insertQuery = @"
+        //             INSERT INTO EDT_PAGE (PGE_BASENAME, PGE_CABINET, PGE_FOLDER, PGE_DOCUMENT_TYPE, PGE_TITLE, PGE_DATE, Pge_DETAILS_ID, Pge_CreatedBy, PGE_OBJECT, PGE_PAGENO, PGE_EXT, 
+        //             PGE_KeyWORD, PGE_OCRText, PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, pge_OrignalFileName, PGE_BatchID,
+        //             PGE_OCRDelFlag, Pge_CompID, pge_Delflag, PGE_RFID)
+        //             VALUES (@PGE_BASENAME, @PGE_CABINET, @PGE_FOLDER, @PGE_DOCUMENT_TYPE, @PGE_TITLE, GETDATE(), @Pge_DETAILS_ID, @Pge_CreatedBy, @PGE_OBJECT, @PGE_PAGENO, @PGE_EXT,
+        //             @PGE_KeyWORD,'',0,0,'A',@PGE_SubCabinet,0,'F',@PGE_batch_name,@pge_OrignalFileName,0,0,@Pge_CompID,'A','');";
+
+        //         await connection.ExecuteAsync(insertQuery, new
+        //         {
+        //             PGE_BASENAME = BaseNameID,
+        //             PGE_CABINET = dto.CabinetID,
+        //             PGE_FOLDER = dto.FolderID,
+        //             PGE_DOCUMENT_TYPE = dto.DocumentTypeID,
+        //             PGE_TITLE = dto.Title,
+        //             Pge_DETAILS_ID = BaseNameID,
+        //             Pge_CreatedBy = dto.UserID,
+        //             PGE_OBJECT = sObject,
+        //             PGE_PAGENO = PageNoID,
+        //             PGE_EXT = fileExt,
+        //	//PGE_KeyWORD = dto.Keyword,
+        //	PGE_KeyWORD = string.IsNullOrEmpty(dto.Keyword) ? "" : dto.Keyword,
+        //	PGE_SubCabinet = dto.SubCabinetID,
+        //             PGE_batch_name = BaseNameID,
+        //             pge_OrignalFileName = sFileName,
+        //             Pge_CompID = dto.CompID
+        //         }, transaction);
+
+        //         //Check FIleIn DB true or false
+        //         var CheckFileInDB = await connection.ExecuteScalarAsync<string>(@"Select SAD_Config_Value from sad_config_settings where SAD_Config_Key = 'FilesInDB'",
+        //            new { Pge_CompID = dto.CompID }, transaction);
+
+        //         if(CheckFileInDB.ToUpper() == "FALSE")
+        //         {
+        //             string sImagePath = ""; string sPaths = "";
+        //             sImagePath = sImagePath + "\\BITMAPS\\" + BaseNameID + "\\301\\";
+
+        //             if (!sImagePath.EndsWith("\\"))
+        //             {
+        //                 sPaths = sImagePath + "\\";
+        //             }
+        //             else
+        //             {
+        //                 sPaths = sImagePath;
+        //             }
+
+        //             if (!Directory.Exists(sPaths))
+        //             {
+        //                 Directory.CreateDirectory(sPaths);
+        //             }
+
+        //             if(fileExt.Contains(".") == false)
+        //             {
+        //                 fileExt = "." + fileExt;
+        //             }
+        //             sImagePath = sPaths + BaseNameID + fileExt;
+
+        //             if( System.IO.File.Exists(sImagePath) == false)
+        //             {
+        //                 System.IO.File.Copy(sFullFilePath, sImagePath, true);
+        //             }
+
+        //             if (System.IO.File.Exists(sFullFilePath) == true)
+        //             {
+        //                 System.IO.File.Delete(sFullFilePath);
+        //             }
+        //             sStatus = "Indexed Successfully.";
+        //         }
+
+        //         await transaction.CommitAsync();
+        //         return sStatus;
+        //     }
+
+        public async Task<IEnumerable<DescriptorDto>> LoadDescriptorAsync(int DescId, int compID)
 		{
 			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
 			//await connection.OpenAsync();
@@ -1836,7 +2089,311 @@ namespace TracePca.Service.DigitalFilling
 			}
 		}
 
-	}
+        public async Task<Google.Apis.Drive.v3.Data.File> GetFileByIdAsync(int DocId, string userEmail)
+        {
+            if (DocId <= 0)
+                throw new ArgumentException("Document Not Exist!");
+
+            string fileId;
+
+            // Retrieve FileId from database
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                fileId = await connection.QuerySingleOrDefaultAsync<string>(
+                    "SELECT FileId FROM UserDriveItemsNumeric WHERE DocId = @DocId",
+                    new { DocId });
+            }
+
+            if (string.IsNullOrEmpty(fileId))
+            {
+                throw new Exception($"No FileId found in database for DocId {DocId}");
+            }
+
+            var service = await GetDriveServiceAsync(userEmail);
+
+            try
+            {
+                var request = service.Files.Get(fileId);
+                request.Fields = "id, name, mimeType, size, createdTime, modifiedTime, webViewLink, webContentLink, parents, thumbnailLink, fileExtension, fullFileExtension, originalFilename";
+
+                var file = await request.ExecuteAsync();
+
+                LogInfo($"Retrieved file by ID: {fileId} for user {userEmail}");
+                return file;
+            }
+            catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                LogError($"File not found with ID: {fileId} for user {userEmail}");
+                throw new Exception($"File with ID '{fileId}' not found.", ex);
+            }
+            catch (Exception ex)
+            {
+                LogError($"Error getting file by ID {fileId} for user {userEmail}: {ex.Message}");
+                throw;
+            }
+        }
+
+        private string GetUserEmail()
+        {
+            // ✅ Step 1: Get DB Name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Query the latest UserEmail
+            using var connection = new SqlConnection(connectionString);
+            connection.Open();
+
+            string sql = "SELECT TOP 1 UserEmail FROM UserDriveTokens ORDER BY Id DESC";
+
+            using var command = new SqlCommand(sql, connection);
+            var result = command.ExecuteScalar();
+
+            return result?.ToString();
+        }
+
+
+        #region Drive Initialization
+        public async Task<DriveService> GetDriveServiceAsync(string userEmail)
+        {
+            if (string.IsNullOrEmpty(userEmail))
+                throw new ArgumentException("User email must be provided.", nameof(userEmail));
+
+            UserCredential credential;
+
+            try
+            {
+
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                if (string.IsNullOrEmpty(dbName))
+                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                // ✅ Step 2: Get the connection string
+                var connectionString = _configuration.GetConnectionString(dbName);
+
+
+                using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                string query = "SELECT TokenJson FROM UserDriveTokens WHERE UserEmail = @UserEmail";
+                var tokenJson = await connection.QueryFirstOrDefaultAsync<string>(query, new { UserEmail = userEmail });
+
+                using var stream = new FileStream(_credentialsPath, FileMode.Open, FileAccess.Read);
+
+                var clientSecrets = GoogleClientSecrets.FromStream(stream).Secrets;
+
+                var flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
+                {
+                    ClientSecrets = clientSecrets,
+                    Scopes = Scopes,
+                    DataStore = new NullDataStore()
+                });
+
+                if (!string.IsNullOrEmpty(tokenJson))
+                {
+                    var token = JsonConvert.DeserializeObject<Google.Apis.Auth.OAuth2.Responses.TokenResponse>(tokenJson);
+                    credential = new UserCredential(flow, userEmail, token);
+
+                    // ✅ Check and refresh token if expired
+                    if (credential.Token.IsExpired(SystemClock.Default))
+                    {
+                        LogInfo($"Token expired for {userEmail}, refreshing...");
+
+                        bool success = await credential.RefreshTokenAsync(CancellationToken.None);
+                        if (success)
+                        {
+                            string updateQuery = "UPDATE UserDriveTokens SET TokenJson = @TokenJson, UpdatedOn = @UpdatedOn WHERE UserEmail = @UserEmail";
+                            await connection.ExecuteAsync(updateQuery, new
+                            {
+                                UserEmail = userEmail,
+                                TokenJson = JsonConvert.SerializeObject(credential.Token),
+                                UpdatedOn = DateTime.UtcNow
+                            });
+
+                            LogInfo($"Token refreshed and updated in DB for {userEmail}");
+                        }
+                        else
+                        {
+                            LogError($"Failed to refresh token for {userEmail}. Reauthorization required.");
+                            throw new UnauthorizedAccessException("Google Drive token refresh failed. User needs to reauthorize.");
+                        }
+                    }
+                    else
+                    {
+                        LogInfo($"Loaded valid Google Drive token from DB for {userEmail}");
+                    }
+                }
+                else
+                {
+                    // No token found → trigger Google OAuth login
+                    credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+                        clientSecrets,
+                        Scopes,
+                        userEmail,
+                        CancellationToken.None,
+                        new FileDataStore("Tokens", true)
+                    );
+
+                    string insertQuery = @"
+                INSERT INTO UserDriveTokens (UserEmail, TokenJson, CreatedOn)
+                VALUES (@UserEmail, @TokenJson, @CreatedOn)";
+                    await connection.ExecuteAsync(insertQuery, new
+                    {
+                        UserEmail = userEmail,
+                        TokenJson = JsonConvert.SerializeObject(credential.Token),
+                        CreatedOn = DateTime.UtcNow
+                    });
+
+                    LogInfo($"Saved new Google Drive token to DB for {userEmail}");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError($"Error creating DriveService for {userEmail}: {ex.Message}");
+                throw;
+            }
+
+            var driveService = new DriveService(new BaseClientService.Initializer
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = "TracePA Drive Integration"
+            });
+
+            LogInfo($"DriveService successfully created for {userEmail}");
+            return driveService;
+        }
+
+        #endregion
+
+        #region Logging
+        private void LogInfo(string message)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath)!);
+                File.AppendAllText(_logFilePath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [INFO] {message}{Environment.NewLine}");
+            }
+            catch { }
+        }
+
+        private void LogError(string message)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath)!);
+                File.AppendAllText(_logFilePath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [ERROR] {message}{Environment.NewLine}");
+            }
+            catch { }
+        }
+        #endregion
+
+
+        public async Task<string> GetFolderIdByPathAsync(string folderPath, string userEmail)
+        {
+            var service = await GetDriveServiceAsync(userEmail);
+            string parentId = null;
+            var folders = folderPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var folder in folders)
+            {
+                var listRequest = service.Files.List();
+                listRequest.Q = $"mimeType='application/vnd.google-apps.folder' and name='{folder}' and trashed=false";
+                if (!string.IsNullOrEmpty(parentId))
+                    listRequest.Q += $" and '{parentId}' in parents";
+                listRequest.Fields = "files(id, name)";
+                var result = await listRequest.ExecuteAsync();
+
+                if (!result.Files.Any()) return null;
+                parentId = result.Files.First().Id;
+            }
+
+            return parentId;
+        }
+
+
+        public async Task<object> UploadFileToFolderAsyncNew(IFormFile file, string folderPath, string userEmail, int docid)
+        {
+            if (file == null || file.Length == 0)
+                return new { Status = "Error", Message = "No file uploaded." };
+
+            var service = await GetDriveServiceAsync(userEmail);
+            var folderId = await GetFolderIdByPathAsync(folderPath, userEmail);
+
+            if (folderId == null)
+                return new { Status = "Error", Message = $"Folder path '{folderPath}' does not exist." };
+
+            var fileMetadata = new GoogleDriveFile
+            {
+                Name = file.FileName,
+                Parents = new[] { folderId }
+            };
+
+            using var stream = file.OpenReadStream();
+            var request = service.Files.Create(fileMetadata, stream, "application/octet-stream");
+            request.Fields = "id, name, parents, mimeType";
+            await request.UploadAsync();
+
+            // 🔹 Insert File record into UserDriveItemsNumeric table
+            try
+            {
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                if (string.IsNullOrEmpty(dbName))
+                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                var connectionString = _configuration.GetConnectionString(dbName);
+
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+                string insertQuery = @"
+              INSERT INTO UserDriveItemsNumeric (UserEmail, FolderPath, FolderId, FileName, FileId, MimeType, CreatedOn,DocId)
+              VALUES (@UserEmail, @FolderPath, @FolderId, @FileName, @FileId, @MimeType, GETUTCDATE(), @DocId);";
+
+                await connection.ExecuteScalarAsync(insertQuery, new
+                {
+                    UserEmail = userEmail,
+                    FolderPath = folderPath,
+                    FolderId = folderId,
+                    FileName = file.FileName,
+                    FileId = request.ResponseBody.Id,
+                    MimeType = request.ResponseBody.MimeType,
+                    DocId = docid
+                });
+                LogInfo($"File '{file.FileName}' saved to UserDriveItemsNumeric table for {userEmail}");
+            }
+            catch (Exception ex)
+            {
+                LogError($"Failed to insert file info: {ex.Message}");
+            }
+
+            return new
+            {
+                Status = "Success",
+                Message = "File uploaded successfully.",
+                File = new
+                {
+                    request.ResponseBody.Id,
+                    request.ResponseBody.Name,
+                    request.ResponseBody.Parents
+                }
+            };
+        }
+
+        private string EnsureDirectoryExists(string rootPath, string user, string subFolder)
+        {
+            var path = Path.Combine(rootPath, "Tempfolder", user, subFolder);
+            if (!Directory.Exists(path))
+                Directory.CreateDirectory(path);
+            return path;
+        }
+
+    }
 }
 
 

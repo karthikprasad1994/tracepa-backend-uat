@@ -61,7 +61,7 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //UpdateSelectedPartiesStatus
-        [HttpPut("UpdateTrailBalanceStatusBulk")]
+        [HttpPost("UpdateTrailBalanceStatusBulk")]
         public async Task<IActionResult> UpdateTrailBalanceStatusBulk([FromBody] List<UpdateTrailBalanceStatusDto> dtoList)
         {
             if (dtoList == null || dtoList.Count == 0)
@@ -140,7 +140,7 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //UpdateJESeqReferenceNum
-        [HttpPut("UpdateSeqReference")]
+        [HttpPost("UpdateSeqReference")]
         public async Task<IActionResult> UpdateSeqReferenceAsync([FromBody] List<UpdateJournalEntrySeqRefDto> dtoList)
         {
             if (dtoList == null || !dtoList.Any())

@@ -379,5 +379,78 @@ namespace TracePca.Controllers.FIN_Statement
                 FinalCode = result.FinalCode
             });
         }
+
+        //GetJETypeDropDown
+        [HttpGet("GetJETypeDropDown")]
+        public async Task<IActionResult> GetJETypeList(int CompId)
+        {
+            try
+            {
+                var result = await _JournalEntryService.GetJETypeListAsync(CompId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No Journal Entry types found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Journal Entry types loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching Journal Entry types.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //GetJETypeDropDownDetails
+        [HttpGet("GetJETypeDropDownDetails")]
+        public async Task<IActionResult> GetJETypeDropDownDetails([FromQuery] int compId, [FromQuery] int custId, [FromQuery] int yearId, [FromQuery] int BranchId, int jetype, [FromQuery] string description)
+        {
+            try
+            {
+                var result = await _JournalEntryService.GetJETypeDropDownDetailsAsync(compId, custId, yearId, BranchId, jetype, description);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No journal entry information found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Journal entry information loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching journal entry information.",
+                    error = ex.Message
+                });
+            }
+        }
+
     }
 }

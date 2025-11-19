@@ -259,11 +259,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //FreezeForPreviousDuration
         [HttpPost("FreezePreviousDurationTrialBalance")]
-        public async Task<IActionResult> FreezePreviousYearTrialBalance([FromBody] FreezePreviousDurationRequestDto input)
+        public async Task<IActionResult> FreezePreviousDurationTrialBalance([FromBody] List<FreezePreviousYearTrialBalanceDto> inputList)
         {
             try
             {
-                var detailIds = await _ScheduleMappingService.FreezePreviousYearTrialBalanceAsync(input);
+                var detailIds = await _ScheduleMappingService.FreezePreviousDurationTrialBalanceAsync(inputList);
 
                 return Ok(new
                 {
@@ -287,12 +287,21 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //FreezrForNextDuration
-        [HttpPost("FreezeNextDuratiionrialBalance")]
-        public async Task<IActionResult> FreezeNextDurationTrialBalance([FromBody] FreezeNextDurationRequestDto input)
+        [HttpPost("FreezeNextDurationTrialBalance")]
+        public async Task<IActionResult> FreezeNextDurationTrialBalance([FromBody] List<FreezeNextYearTrialBalanceDto> inputList)
         {
             try
             {
-                var detailIds = await _ScheduleMappingService.FreezeNextDurationrialBalanceAsync(input);
+                if (inputList == null || !inputList.Any())
+                {
+                    return BadRequest(new
+                    {
+                        status = 400,
+                        message = "No data provided to freeze trial balance."
+                    });
+                }
+
+                var detailIds = await _ScheduleMappingService.FreezeNextDurationTrialBalanceAsync(inputList);
 
                 return Ok(new
                 {
@@ -314,6 +323,7 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+        
 
         //DownloadUploadableExcelAndTemplate
         [HttpGet("DownloadableExcelFile")]
@@ -328,6 +338,33 @@ namespace TracePca.Controllers.FIN_Statement
 
             return File(result.FileBytes, result.ContentType, result.FileName);
         }
+
+        //CheckTrailBalanceRecordExists 
+        [HttpGet("CheckTrailBalanceRecordExists")]
+        public async Task<IActionResult> CheckTrailBalanceRecordExists(int CompId, int CustId, int YearId, int BranchId, int QuarterId)
+        {
+            try
+            {
+                bool exists = await _ScheduleMappingService.CheckTrailBalanceRecordExistsAsync(CompId, CustId, YearId, BranchId, QuarterId);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = exists ? "Trail Balance record already exists." : "No duplicate found. Safe to proceed.",
+                    data = new { exists }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while checking the trail balance record.",
+                    error = ex.Message
+                });
+            }
+        }
+
 
         //SaveTrailBalanceDetails
         [HttpPost("SaveTrailBalanceDetails")]
@@ -549,6 +586,53 @@ namespace TracePca.Controllers.FIN_Statement
                     statusCode = 500,
                     message = "An error occurred while processing Net Income.",
                     error = ex.Message
+                });
+            }
+        }
+
+        //SaveMappingTransactionDetails
+        [HttpPost("SaveMappingTransactionDetails")]
+        public async Task<IActionResult> SaveMappingTransactionDetails([FromBody] SaveMappingTransactionDetailsDto dto)
+        {
+            if (dto == null)
+            {
+                return BadRequest(new
+                {
+                    Status = 400,
+                    Message = "Invalid input: DTO is null",
+                    Data = (object)null
+                });
+            }
+
+            try
+            {
+                var isUpdate = dto.Acc_JE_ID > 0;  // ✅ FIXED — no [0]
+                var result = await _ScheduleMappingService.SaveMappingTransactionDetailsAsync(dto);
+
+                string successMessage = isUpdate
+                    ? "Schedule Heading successfully updated."
+                    : "Schedule Heading successfully created.";
+
+                return Ok(new
+                {
+                    Status = 200,
+                    Message = successMessage,
+                    Data = new
+                    {
+                        UpdateOrSave = result[0],
+                        Oper = result[1],
+                        IsUpdate = isUpdate
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Status = 500,
+                    Message = "An error occurred while processing your request.",
+                    Error = ex.Message,
+                    InnerException = ex.InnerException?.Message
                 });
             }
         }

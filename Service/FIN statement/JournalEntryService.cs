@@ -62,12 +62,11 @@ namespace TracePca.Service.FIN_statement
             acc_JE_BranchId AS BranchID,
             '' AS BillNo,
             FORMAT(Acc_JE_BillDate, @dateFormat) AS BillDate,
-            Acc_JE_BillType as BillType,
+            a.cmm_Desc as BillType,
             Acc_JE_Party AS PartyID,
             Acc_JE_Status AS Status,
 Acc_JE_Comnments as comments,acc_JE_QuarterId
-        FROM Acc_JE_Master
-        WHERE Acc_JE_Party = @custId 
+        FROM Acc_JE_Master left join content_management_master a on a.cmm_ID = Acc_JE_BillType WHERE Acc_JE_Party = @custId 
             AND Acc_JE_CompID = @compId 
             AND Acc_JE_YearId = @yearId");
 
@@ -223,7 +222,6 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
             ATBU_Description 
         FROM Acc_TrailBalance_Upload 
         WHERE 
-            ATBU_STATUS = 'C' AND 
             ATBU_CustId = @CustId AND 
             ATBU_CompId = @CompId AND 
             ATBU_YEARId = @YearId AND 
@@ -1101,6 +1099,122 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                 var result = await cmd.ExecuteScalarAsync();
                 return result != DBNull.Value ? Convert.ToInt32(result) : 0;
             }
+        }
+
+        //GetJETypeDropDown
+        public async Task<IEnumerable<JeTypeDto>> GetJETypeListAsync(int CompId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 4: SQL Query
+            var query = @"
+  SELECT 
+      CMM_ID AS JeTypeId,
+      CMM_Desc AS JeTypeName
+  FROM Content_Management_Master
+  WHERE CMM_CompId = @CompId
+    AND CMM_Category = 'JE'
+    AND CMM_DELFLAG = 'A'";
+
+            // ✅ Step 5: Execute and return
+            return await connection.QueryAsync<JeTypeDto>(query, new { CompID = CompId });
+        }
+
+        //GetJETypeDropDownDetails
+        public async Task<IEnumerable<JETypeDropDownDetailsDto>> GetJETypeDropDownDetailsAsync(int compId, int custId, int yearId, int BranchId, int jetype, string description)
+        {
+            // Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // Step 2: Get Connection String
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // Check if Description Already Exists
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                string duplicateCheckSql = @"
+              SELECT COUNT(1)
+              FROM Acc_JETransactions_Details aj
+              INNER JOIN Acc_JE_Master je ON je.Acc_JE_ID = aj.Ajtb_Masid
+              WHERE aj.AJTB_DescName = @description
+                 AND je.Acc_JE_CompID = @compId
+                 AND je.Acc_JE_Party = @custId
+                 AND je.Acc_JE_YearId = @yearId
+                 AND je.Acc_JE_BranchId = @branchId";
+
+                int count = await connection.ExecuteScalarAsync<int>(
+                duplicateCheckSql,
+                    new { description, compId, custId, yearId, BranchId }
+                );
+
+                if (count > 0)
+                {
+                    throw new Exception("Description already exists.");
+                }
+            }
+
+            // Step 3: SQL base query
+            var sql = @"
+    SELECT 
+        je.Acc_JE_ID, 
+        je.Acc_JE_TransactionNo, 
+        je.acc_JE_BranchId, 
+        je.Acc_JE_BillDate AS BillDate,
+        cmm.cmm_Desc AS BillType, 
+        je.Acc_JE_Party, 
+        je.Acc_JE_Status, 
+        je.Acc_JE_Comnments, 
+        je.acc_JE_QuarterId,
+     scm.CUST_NAME,
+     ajtb.AJTB_Credit,
+     ajtb.AJTB_Debit,
+     ajtb.AJTB_DescName
+    FROM Acc_JE_Master je
+    LEFT JOIN Content_Management_Master cmm 
+        ON cmm.cmm_id = je.Acc_JE_BillType
+        AND cmm.cmm_category = 'JE'
+    LEFT JOIN SAD_Customer_master scm
+        ON scm.CUST_ID = je.Acc_JE_Party
+    LEFT JOIN Acc_JETransactions_Details ajtb
+        ON ajtb.Ajtb_Masid = je.Acc_JE_ID
+    WHERE je.Acc_JE_Party = @custId 
+      AND je.Acc_JE_CompID = @compId 
+      AND je.Acc_JE_YearId = @yearId
+      AND je.Acc_JE_BranchId = @BranchId 
+";
+
+            // Step 4: Add conditional filter
+            if (jetype > 0)
+            {
+                sql += " AND je.Acc_JE_BillType = @jetype ";
+            }
+
+            sql += " ORDER BY je.Acc_JE_ID ASC";
+
+            // Step 5: Execute
+            var result = await connection.QueryAsync<JETypeDropDownDetailsDto>(
+                sql,
+                new { compId, custId, yearId, BranchId, jetype }
+            );
+
+            return result.ToList();
         }
     }
 }

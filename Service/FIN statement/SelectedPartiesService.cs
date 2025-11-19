@@ -4,8 +4,6 @@ using Microsoft.Data.SqlClient;
 using System.Data.SqlClient;
 using TracePca.Data;
 using TracePca.Interface.FIN_Statement;
-using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
-using static TracePca.Dto.FIN_Statement.SchedulePartnerFundsDto;
 using static TracePca.Dto.FIN_Statement.SelectedPartiesDto;
 
 namespace TracePca.Service.FIN_statement
@@ -37,7 +35,7 @@ namespace TracePca.Service.FIN_statement
             var query = @"
         SELECT ATBU_Description,ATBU_ID,
             ATBU_Closing_TotalDebit_Amount, 
-            ATBU_Closing_TotalCredit_Amount, ATBU_Status      
+            ATBU_Closing_TotalCredit_Amount, ATBU_Delflg    
             FROM Acc_TrailBalance_Upload
         WHERE ATBU_CustId = @CustId
           AND ATBU_YEARId = @FinancialYearId
@@ -79,7 +77,7 @@ namespace TracePca.Service.FIN_statement
 
                 var sql = $@"
           UPDATE Acc_TrailBalance_Upload
-          SET ATBU_STATUS = CASE ATBU_ID
+          SET ATBU_DELFLG = CASE ATBU_ID
               {string.Join(" ", caseStatements)}
           END
           WHERE ATBU_ID IN ({string.Join(",", dtoList.Select((d, i) => $"@Id{i}"))});";
@@ -128,17 +126,16 @@ namespace TracePca.Service.FIN_statement
             JED.AJTB_Credit,
             TBU.ATBU_Description,
             TBU.ATBU_ID,
-            JED.AJTB_SeqReferenceNum as Status
+            JED.AJTB_SeqReferenceNum as status
         FROM Acc_JETransactions_Details AS JED
         LEFT JOIN Acc_TrailBalance_Upload AS TBU
             ON JED.AJTB_Deschead = TBU.ATBU_ID
         WHERE 
-            TBU.ATBU_STATUS = 'A'
+            TBU.ATBU_DELFLG = 'S'
             AND JED.AJTB_CustId = @CustId
             AND JED.AJTB_YearId = @YearId
             AND JED.AJTB_BranchId = @BranchId
-        ORDER BY 
-            JED.AJTB_ID;";
+        ORDER BY       JED.AJTB_DescName;";
 
             // ✅ Step 4: Execute query with parameters
             return await connection.QueryAsync<JournalEntryWithTrailBalanceDto>(query, new

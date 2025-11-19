@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Bibliography;
 using DocumentFormat.OpenXml.Drawing.Charts;
 using DocumentFormat.OpenXml.Office2010.Word;
 using DocumentFormat.OpenXml.Wordprocessing;
+using Google.Apis.Drive.v3;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.AspNetCore.Mvc;
@@ -14,7 +15,9 @@ using QuestPDF.Infrastructure;
 using System.Linq;
 using TracePca.Data;
 using TracePca.Dto.Audit;
+using TracePca.Interface;
 using TracePca.Interface.Audit;
+using TracePca.Interface.Master;
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
 using Document = DocumentFormat.OpenXml.Wordprocessing.Document;
@@ -31,12 +34,15 @@ namespace TracePca.Service.Audit
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly string _connectionString;
-
-        public EngagementPlanService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        private readonly EmailInterface _emailInterface;
+        private readonly IGoogleDriveService _driveService;
+        public EngagementPlanService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, EmailInterface emailinterface, IGoogleDriveService driveService)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
             _connectionString = GetConnectionStringFromSession();
+            _emailInterface = emailinterface;
+            _driveService = driveService;
         }
 
         private string GetConnectionStringFromSession()
@@ -67,8 +73,12 @@ namespace TracePca.Service.Audit
                 var customerList = connection.QueryAsync<DropDownListData>(@"SELECT CUST_ID AS ID, CUST_NAME AS Name FROM SAD_CUSTOMER_MASTER
                     WHERE CUST_DELFLG = 'A' AND CUST_CompID = @CompId ORDER BY CUST_NAME ASC", parameters);
 
-                var auditTypeList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master
-                    WHERE CMM_Category = 'AT' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
+                //var auditTypeList = connection.QueryAsync<DropDownListData>(@"SELECT cmm_ID AS ID, cmm_Desc AS Name FROM Content_Management_Master
+                //    WHERE CMM_Category = 'AT' AND CMM_Delflag = 'A' AND CMM_CompID = @CompId ORDER BY cmm_Desc ASC", parameters);
+
+                var auditTypeList = connection.QueryAsync<DropDownListData>(@"SELECT DISTINCT c.cmm_ID AS ID, c.cmm_Desc AS Name FROM Content_Management_Master c " +
+                    "INNER JOIN AuditType_Checklist_Master a ON a.ACM_AuditTypeID = c.cmm_ID " +
+                    "WHERE c.CMM_Category = 'AT' AND c.CMM_Delflag = 'A' AND c.CMM_CompID = @CompId ORDER BY c.cmm_Desc ASC", parameters);
 
                 var reportTypeList = connection.QueryAsync<DropDownListData>(@"SELECT RTM_Id AS ID, RTM_ReportTypeName As Name FROM SAD_ReportTypeMaster
                     WHERE RTM_TemplateId = 1 And RTM_DelFlag = 'A' AND RTM_CompID = @CompId ORDER BY RTM_ReportTypeName ASC", parameters);
@@ -479,6 +489,27 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public string GetUserEmail()
+        {
+            var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrWhiteSpace(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connStr = _configuration.GetConnectionString(dbName);
+            if (string.IsNullOrWhiteSpace(connStr))
+                throw new Exception($"Connection string for '{dbName}' not found in configuration.");
+
+            using var connection = new SqlConnection(connStr);
+            connection.Open();
+
+            string sql = "SELECT TOP 1 UserEmail FROM UserDriveTokens ORDER BY Id DESC";
+
+            using var command = new SqlCommand(sql, connection);
+            var result = command.ExecuteScalar();
+
+            return result.ToString() ?? "";
+        }
+
         public async Task<(int attachmentId, string relativeFilePath)> UploadAndSaveAttachmentAsync(FileAttachmentDTO dto, string module)
         {
             try
@@ -489,52 +520,40 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                // Generate attachment and document IDs
                 int attachId = dto.ATCH_ID == 0 ? await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID }) : dto.ATCH_ID;
                 int docId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID });
 
-                // Prepare file metadata
                 string originalName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
                 string safeFileName = (originalName.Replace("&", " and")).Substring(0, Math.Min(95, originalName.Length));
                 string fileExt = Path.GetExtension(dto.File.FileName)?.ToLower() ?? ".unk";
                 long fileSize = dto.File.Length;
 
-                // Determine file type
-                string[] imageExtensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv"};
-                string[] documentExtensions = {".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar"};
-                string fileType = imageExtensions.Contains(fileExt) ? "Images" : documentExtensions.Contains(fileExt) ? "Documents" : "Others";
-
-                // Build file path
-                string basePath = GetTRACeConfigValue("ImgPath"); // Or Directory.GetCurrentDirectory()
-                string folderChunk = (docId / 301).ToString();
-                string savePath = Path.Combine(basePath, module, fileType, folderChunk);
-                if (!Directory.Exists(savePath))
-                    Directory.CreateDirectory(savePath);
-
-                // Save the file
-                string uniqueFileName = $"{docId}{fileExt}";
-                string fullPath = Path.Combine(savePath, uniqueFileName);
-                using (var stream = new FileStream(fullPath, FileMode.Create))
+                dynamic uploadedFile = await _driveService.UploadFileToFolderAsync(dto.File, "TracePA/Audit", GetUserEmail(), docId);
+                if (uploadedFile != null)
                 {
-                    await dto.File.CopyToAsync(stream);
+                    if (uploadedFile.Status == "Success")
+                    {
+                        var insertQuery = @"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
+                            ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID) VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
+
+                        await connection.ExecuteAsync(insertQuery, new
+                        {
+                            AtchId = attachId,
+                            DocId = docId,
+                            FileName = safeFileName,
+                            FileExt = fileExt.Trim('.'),
+                            CreatedBy = dto.ATCH_CREATEDBY,
+                            Size = fileSize,
+                            CompId = dto.ATCH_COMPID
+                        });
+
+                    }
+                    else if (uploadedFile.Status == "Error")
+                    {
+                        string errorMessage = uploadedFile.Message ?? "Unknown Google Drive upload error.";
+                    }
                 }
-
-                // Insert metadata into database
-                var insertQuery = @"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
-                ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID) VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
-
-                await connection.ExecuteAsync(insertQuery, new
-                {
-                    AtchId = attachId,
-                    DocId = docId,
-                    FileName = safeFileName,
-                    FileExt = fileExt.Trim('.'),
-                    CreatedBy = dto.ATCH_CREATEDBY,
-                    Size = fileSize,
-                    CompId = dto.ATCH_COMPID
-                });
-
-                return (attachId, fullPath.Replace("\\", "/"));
+                return (attachId, "");
             }
             catch (Exception ex)
             {
@@ -925,7 +944,8 @@ namespace TracePca.Service.Audit
                                 int count = 1;
                                 foreach (var item in dto.EngagementTemplateDetails)
                                 {
-                                    column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
+                                    if (item.LTD_Heading?.ToString().Trim() != "-")
+                                        column.Item().Text($"{count}. {item.LTD_Heading}").FontSize(11).Bold();
                                     if (!string.IsNullOrWhiteSpace(item.LTD_Decription))
                                         column.Item().Text(item.LTD_Decription).FontSize(10);
 
@@ -1156,11 +1176,11 @@ namespace TracePca.Service.Audit
                 }
                 message.Body = builder.ToMessageBody();
 
-                var smtpServer = _configuration["EmailSettings:SmtpServer"];
-                var smtpPort = int.Parse(_configuration["EmailSettings:SmtpPort"]);
-                var smtpUser = _configuration["EmailSettings:SmtpUser"];
-                var smtpPassword = _configuration["EmailSettings:SmtpPassword"];
-                var fromEmail = _configuration["EmailSettings:FromEmail"];
+                var smtpServer = _configuration["Smtp:Host"];
+                var smtpPort = int.Parse(_configuration["Smtp:Port"]);
+                var smtpUser = _configuration["Smtp:User"];
+                var smtpPassword = _configuration["Smtp:Password"];
+                var fromEmail = _configuration["Smtp:FromEmail"];
 
                 using var client = new SmtpClient();
                 await client.ConnectAsync(smtpServer, smtpPort, SecureSocketOptions.StartTls);

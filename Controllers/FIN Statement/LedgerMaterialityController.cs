@@ -107,38 +107,145 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GenerateIDButtonForContentMaterialityMaster
-        [HttpPost("SaveContentMaterialityMaster")]
-        public async Task<IActionResult> CreateMTContent([FromBody] CreateMTContentRequestDto dto)
+        //SaveOrUpdateContentMateriality
+        [HttpPost("SaveOrUpdateContentMateriality")]
+        public async Task<IActionResult> SaveOrUpdateMTContent([FromBody] CreateMTContentRequestDto dto)
         {
-            if (dto == null || string.IsNullOrWhiteSpace(dto.Description))
+            if (dto == null)
             {
-                return BadRequest(new CreateMTContentResponseDto
+                return BadRequest(new
                 {
-                    StatusCode = 400,
-                    Message = "Invalid request. CompId and Description are required."
+                    statusCode = 400,
+                    message = "Invalid request payload."
                 });
             }
 
             try
             {
-                // Call service to generate MT code and insert record
-                string newCode = await _LedgerMaterialityService.GenerateAndInsertContentForMTAsync(dto.CompId, dto.Description);
+                string newCode = await _LedgerMaterialityService.SaveOrUpdateContentForMTAsync(dto.cmm_ID, dto.CMM_CompID, dto.cmm_Desc, dto.cms_Remarks, dto.cmm_Category);
 
-                return Ok(new CreateMTContentResponseDto
+                return Ok(new
                 {
-                    StatusCode = 200,
-                    Message = "MT content created successfully.",
-                    NewCode = newCode
+                    statusCode = 200,
+                    message = dto.cmm_ID.HasValue && dto.cmm_ID.Value > 0
+                        ? "MT Content updated successfully."
+                        : "MT Content created successfully.",
+                    newCode = newCode
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new CreateMTContentResponseDto
+                return StatusCode(500, new
                 {
-                    StatusCode = 500,
-                    Message = $"An error occurred while creating MT content: {ex.Message}",
-                    NewCode = string.Empty
+                    statusCode = 500,
+                    message = "An error occurred while saving or updating MT content.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //GetMaterialityId
+        [HttpGet("GetMatrialityId")]
+        public async Task<IActionResult> GetMatrialityId([FromQuery] int CompId, [FromQuery] int Id)
+        {
+            try
+            {
+                var result = await _LedgerMaterialityService.GetMaterialityIdAsync(CompId, Id);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        status = 404,
+                        message = "No content found for the given parameters.",
+                        data = new List<GetMaterialityIdDto>()
+                    });
+                }
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Content retrieved successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving content.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //DeleteMaterialityById
+        [HttpDelete("DeleteMaterialityById")]
+        public async Task<IActionResult> DeleteMaterialityById([FromQuery] int Id)
+        {
+            try
+            {
+                int rowsDeleted = await _LedgerMaterialityService.DeleteMaterialityByIdAsync(Id);
+
+                if (rowsDeleted == 0)
+                {
+                    return NotFound(new
+                    {
+                        status = 404,
+                        message = "No record found with the given ID or it may have been already deleted."
+                    });
+                }
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Record deleted successfully."
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while deleting the record.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //LoadDescription
+        [HttpGet("LoadDescription")]
+        public async Task<IActionResult> LoadDescription([FromQuery] int compId, [FromQuery] string category)
+        {
+            try
+            {
+                var result = await _LedgerMaterialityService.LoadDescriptionAsync(compId, category);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        status = 404,
+                        message = "No descriptions found for the given company and category.",
+                        data = new List<LoadDescriptionDto>()
+                    });
+                }
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Descriptions loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while loading descriptions.",
+                    error = ex.Message
                 });
             }
         }

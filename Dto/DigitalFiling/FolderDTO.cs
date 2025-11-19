@@ -34,7 +34,9 @@ namespace TracePca.Dto.DigitalFiling
         public string FOL_Status { get; set; }
         public string FOL_DelFlag { get; set; }
         public int FOL_CompID { get; set; }
-        public FolderPermissionDTO FolderPermissionDTODetails { get; set; } = new FolderPermissionDTO();
+
+		public int cbn_CabinetID { get; set; }
+		public FolderPermissionDTO FolderPermissionDTODetails { get; set; } = new FolderPermissionDTO();
     }
 
     public class FolderPermissionDTO
@@ -103,6 +105,7 @@ namespace TracePca.Dto.DigitalFiling
         public string DocumentPath { get; set; }
 
 		public string FOL_SubCabinetID { get; set; }
+        public string FOL_CabinetID { get; set; }
 
 
 	}

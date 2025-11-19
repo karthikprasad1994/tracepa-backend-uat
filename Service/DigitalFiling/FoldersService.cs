@@ -180,7 +180,7 @@ namespace TracePca.Service.DigitalFiling
                 string query = @"SELECT DISTINCT A.FOL_FolID, A.FOL_Name, A.FOL_Note,B.cbn_name AS FOL_SubCabinet,
                                 (SELECT COUNT(*) FROM edt_page P WHERE P.pge_Folder = A.FOL_FolID AND P.pge_SubCabinet = A.FOL_Cabinet) AS 
                                 FOL_Documents,C.Usr_FullName AS FOL_CreatedBy,A.FOL_CreatedOn,A.FOL_UpdatedBy,
-                                A.FOL_UpdatedOn,A.FOL_Status,A.FOL_DelFlag,FOL_Cabinet as FOL_SubCabinetID,(
+                                A.FOL_UpdatedOn,A.FOL_Status,A.FOL_DelFlag,FOL_Cabinet as FOL_SubCabinetID,B.cbn_parent as FOL_CabinetID,(
                                 SELECT STRING_AGG(DisplayPath + 'BITMAPS\'  
                                 + CAST(FLOOR(CAST(AT.Atch_DocID AS numeric)/301) AS varchar) + '\' 
                                 + CAST(AT.Atch_DocID AS varchar) + '.' + AT.ATCH_Ext, '| ')

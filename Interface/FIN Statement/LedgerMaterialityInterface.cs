@@ -11,8 +11,17 @@ namespace TracePca.Interface.FIN_Statement
 
         //SaveOrUpdateLedgerMaterialityMaster
         Task<List<int[]>> SaveOrUpdateLedgerMaterialityAsync(IEnumerable<LedgerMaterialityMasterDto> dtos);
-        
-        //GenerateIDButtonForContentMaterialityMaster
-        Task<string> GenerateAndInsertContentForMTAsync(int compId, string description);
+
+        //SaveOrUpdateContentMateriality
+        Task<string> SaveOrUpdateContentForMTAsync(int? id, int compId, string description, string remarks, string Category);
+
+        //GetMaterialityId
+        Task<IEnumerable<GetMaterialityIdDto>> GetMaterialityIdAsync(int CompId, int Id);
+
+        //DeleteMaterialityById
+        Task<int> DeleteMaterialityByIdAsync(int Id);
+
+        //LoadDescription
+        Task<IEnumerable<LoadDescriptionDto>> LoadDescriptionAsync(int compId, string category);
     }
 }

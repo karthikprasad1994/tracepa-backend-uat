@@ -73,102 +73,91 @@ namespace TracePca.Dto.FIN_Statement
         }
 
         //FreezeForPreviousDuration
-        public class FreezePreviousDurationRequestDto
+        public class FreezePreviousYearTrialBalanceDto
         {
-            public int AtbuId { get; set; }
-            public string AtbuCode { get; set; }
-            public string AtbuDescription { get; set; }
-            public int AtbuCustId { get; set; }
-            public decimal OpeningDebitAmount { get; set; }
-            public decimal OpeningCreditAmount { get; set; }
-            public decimal TrDebitAmount { get; set; }
-            public decimal TrCreditAmount { get; set; }
-            public decimal ClosingDebitAmount { get; set; }
-            public decimal ClosingCreditAmount { get; set; }
-            public string AtbuDelflg { get; set; }
-            public int AtbuCrBy { get; set; }
-            public string AtbuStatus { get; set; }
-            public int AtbuUpdatedBy { get; set; }
-            public string AtbuIpAddress { get; set; }
-            public int AtbuCompId { get; set; }
-            public int YearId { get; set; }
-            public int AtbuBranchId { get; set; }
-            public int AtbuQuarterId { get; set; }
+            // 🔹 Master Table (Acc_TrailBalance_Upload)
+            public int AtbU_ID { get; set; }
+            public string? AtbU_CODE { get; set; }
+            public string? AtbU_Description { get; set; }
+            public int AtbU_CustId { get; set; }
+            public int AtbU_YEARId { get; set; }
+            public decimal AtbU_Closing_Debit_Amount { get; set; }
+            public decimal AtbU_Closing_Credit_Amount { get; set; }
+            public string? AtbU_DELFLG { get; set; }
+            public int AtbU_CRBY { get; set; }
+            public string? AtbU_STATUS { get; set; }
+            public int AtbU_UPDATEDBY { get; set; }
+            public string? AtbU_IPAddress { get; set; }
+            public int AtbU_CompId { get; set; }
+            public int AtbU_Branchid { get; set; }
+            public int AtbU_QuarterId { get; set; }
 
-            public List<TrailBalanceUploadDetailDto> ScheduleItems { get; set; }
-            public class TrailBalanceUploadDetailDto
-            {
-                public int? AtbudId { get; set; }
-                public int AtbudMasid { get; set; }
-                public string AtbudCode { get; set; }
-                public string AtbudDescription { get; set; }
-                public int AtbudCustId { get; set; }
-                public int AtbudScheduleType { get; set; }
-                public int AtbudBranchId { get; set; }
-                public int AtbudQuarterId { get; set; }
-                public int AtbudCompanyType { get; set; }
-                public int AtbudHeadingId { get; set; }
-                public int AtbudSubheadingId { get; set; }
-                public int AtbudItemId { get; set; }
-                public int AtbudSubItemId { get; set; }
-                public string AtbudDelflg { get; set; } = "A";
-                public int AtbudCrBy { get; set; }
-                public int AtbudUpdatedBy { get; set; }
-                public string AtbudStatus { get; set; } = "C";
-                public string AtbudProgress { get; set; } = string.Empty;
-                public string AtbudIpAddress { get; set; } = string.Empty;
-                public int AtbudCompId { get; set; }
-                public int YearId { get; set; }
-            }
+            // 🔹 Detail Table (Acc_TrailBalance_Upload_Details)
+            public int AtbuD_ID { get; set; }
+            public int AtbuD_Masid { get; set; }
+            public string? AtbuD_CODE { get; set; }
+            public string? AtbuD_Description { get; set; }
+            public int AtbuD_CustId { get; set; }
+            public int AtbuD_SChedule_Type { get; set; }
+            public int AtbuD_Branchid { get; set; }
+            public int AtbuD_QuarterId { get; set; }
+            public int AtbuD_Company_Type { get; set; }
+            public int AtbuD_Headingid { get; set; }
+            public int AtbuD_Subheading { get; set; }
+            public int AtbuD_itemid { get; set; }
+            public int AtbuD_SubItemid { get; set; }
+            public string? AtbuD_DELFLG { get; set; }
+            public int AtbuD_CRBY { get; set; }
+            public int AtbuD_UPDATEDBY { get; set; }
+            public string? AtbuD_STATUS { get; set; }
+            public string? AtbuD_Progress { get; set; }
+            public string? AtbuD_IPAddress { get; set; }
+            public int AtbuD_CompId { get; set; }
         }
 
         //FreezeForNextDuration
-        public class FreezeNextDurationRequestDto
+
+        public class FreezeNextYearTrialBalanceDto
         {
-            public int AtbuId { get; set; }
-            public string AtbuCode { get; set; }
-            public string AtbuDescription { get; set; }
-            public int AtbuCustId { get; set; }
-            public decimal OpeningDebitAmount { get; set; }
-            public decimal OpeningCreditAmount { get; set; }
-            public decimal TrDebitAmount { get; set; }
-            public decimal TrCreditAmount { get; set; }
-            public decimal ClosingDebitAmount { get; set; }
-            public decimal ClosingCreditAmount { get; set; }
-            public string AtbuDelflg { get; set; }
-            public int AtbuCrBy { get; set; }
-            public string AtbuStatus { get; set; }
-            public int AtbuUpdatedBy { get; set; }
-            public string AtbuIpAddress { get; set; }
-            public int AtbuCompId { get; set; }
-            public int YearId { get; set; }
-            public int AtbuBranchId { get; set; }
-            public int AtbuQuarterId { get; set; }
-            public List<TrailBalanceUploadDetails1Dto> ScheduleItems { get; set; }
-            public class TrailBalanceUploadDetails1Dto
-            {
-                public int? AtbudId { get; set; }
-                public int AtbudMasid { get; set; }
-                public string AtbudCode { get; set; }
-                public string AtbudDescription { get; set; }
-                public int AtbudCustId { get; set; }
-                public int AtbudScheduleType { get; set; }
-                public int AtbudBranchId { get; set; }
-                public int AtbudQuarterId { get; set; }
-                public int AtbudCompanyType { get; set; }
-                public int AtbudHeadingId { get; set; }
-                public int AtbudSubheadingId { get; set; }
-                public int AtbudItemId { get; set; }
-                public int AtbudSubItemId { get; set; }
-                public string AtbudDelflg { get; set; } = "A";
-                public int AtbudCrBy { get; set; }
-                public int AtbudUpdatedBy { get; set; }
-                public string AtbudStatus { get; set; } = "C";
-                public string AtbudProgress { get; set; } = string.Empty;
-                public string AtbudIpAddress { get; set; } = string.Empty;
-                public int AtbudCompId { get; set; }
-                public int YearId { get; set; }
-            }
+            // 🔹 Master Table (Acc_TrailBalance_Upload)
+            public int AtbU_ID { get; set; }
+            public string? AtbU_CODE { get; set; }
+            public string? AtbU_Description { get; set; }
+            public int AtbU_CustId { get; set; }
+            public int AtbU_YEARId { get; set; }
+            public decimal AtbU_Closing_Debit_Amount { get; set; }
+            public decimal AtbU_Closing_Credit_Amount { get; set; }
+            public string? AtbU_DELFLG { get; set; }
+            public int AtbU_CRBY { get; set; }
+            public string? AtbU_STATUS { get; set; }
+            public int AtbU_UPDATEDBY { get; set; }
+            public string? AtbU_IPAddress { get; set; }
+            public int AtbU_CompId { get; set; }
+            public int AtbU_Branchid { get; set; }
+            public int AtbU_QuarterId { get; set; }
+
+            // 🔹 Detail Table (Acc_TrailBalance_Upload_Details)
+            public int AtbuD_ID { get; set; }
+            public int AtbuD_Masid { get; set; }
+            public string? AtbuD_CODE { get; set; }
+            public string? AtbuD_Description { get; set; }
+            public int AtbuD_CustId { get; set; }
+            public int AtbuD_SChedule_Type { get; set; }
+            public int AtbuD_Branchid { get; set; }
+            public int AtbuD_QuarterId { get; set; }
+            public int AtbuD_Company_Type { get; set; }
+            public int AtbuD_Headingid { get; set; }
+            public int AtbuD_Subheading { get; set; }
+            public int AtbuD_itemid { get; set; }
+            public int AtbuD_SubItemid { get; set; }
+            public string? AtbuD_DELFLG { get; set; }
+            public int AtbuD_CRBY { get; set; }
+            public int AtbuD_UPDATEDBY { get; set; }
+            public string? AtbuD_STATUS { get; set; }
+            public string? AtbuD_Progress { get; set; }
+            public string? AtbuD_IPAddress { get; set; }
+            public int AtbuD_CompId { get; set; }
+            public string? HeadingName { get; set; }
         }
 
         //DownloadExcelFileAndTemplate
@@ -177,6 +166,17 @@ namespace TracePca.Dto.FIN_Statement
             public byte[] FileBytes { get; set; }
             public string FileName { get; set; }
             public string ContentType { get; set; }
+        }
+
+        //CheckTrailBalanceRecordExists
+        public class CheckTrailBalanceRecordExistsDto
+        {
+            public int CompId { get; set; }
+            public int CustId { get; set; }
+            public int YearId { get; set; }
+            public int BranchId { get; set; }
+            public int QuarterId { get; set; }
+            public string Description { get; set; }
         }
 
         //SaveTrailBalanceDetails
@@ -235,6 +235,8 @@ namespace TracePca.Dto.FIN_Statement
             public string Excel_Item { get; set; }
             public string Excel_SubHeading { get; set; }
             public string Excel_Heading { get; set; }
+
+            public int FlagUpdate { get; set; }
 
         }
 
@@ -314,6 +316,64 @@ namespace TracePca.Dto.FIN_Statement
             public int DurationId { get; set; }
         }
 
+        //SaveMappingTransactionDetails
+        public class SaveMappingTransactionDetailsDto
+        {
+            public int Acc_JE_ID { get; set; }
+            public string Acc_JE_TransactionNo { get; set; }
+            public int Acc_JE_Party { get; set; }
+            public int Acc_JE_Location { get; set; }
+            public int Acc_JE_BillType { get; set; }
+            public string Acc_JE_BillNo { get; set; }
+            public DateTime? Acc_JE_BillDate { get; set; }
+            public decimal Acc_JE_BillAmount { get; set; }
+            public decimal Acc_JE_AdvanceAmount { get; set; }
+            public string Acc_JE_AdvanceNaration { get; set; }
+            public decimal Acc_JE_BalanceAmount { get; set; }
+            public decimal Acc_JE_NetAmount { get; set; }
+            public string Acc_JE_PaymentNarration { get; set; }
+            public string Acc_JE_ChequeNo { get; set; }
+            public DateTime? Acc_JE_ChequeDate { get; set; }
+            public string Acc_JE_IFSCCode { get; set; }
+            public string Acc_JE_BankName { get; set; }
+            public string Acc_JE_BranchName { get; set; }
+            public int Acc_JE_CreatedBy { get; set; }
+            public int Acc_JE_YearID { get; set; }
+            public int Acc_JE_CompID { get; set; }
+            public string Acc_JE_Status { get; set; }
+            public string Acc_JE_Operation { get; set; }
+            public string Acc_JE_IPAddress { get; set; }
+            public DateTime? Acc_JE_BillCreatedDate { get; set; }
+            public int acc_JE_BranchId { get; set; }
+            public int Acc_JE_QuarterId { get; set; }
+            public string Acc_JE_Comments { get; set; }
+
+            // ✅ Add this property:
+            public MappingTransactionDto Transactions { get; set; }
+        }
+
+        public class MappingTransactionDto
+        {
+            public int AJTB_ID { get; set; }
+            public int AJTB_MasID { get; set; }
+            public string AJTB_TranscNo { get; set; }
+            public int AJTB_CustId { get; set; }
+            public int AJTB_ScheduleTypeid { get; set; }
+            public int AJTB_Deschead { get; set; }
+            public int AJTB_Desc { get; set; }
+            public decimal AJTB_Debit { get; set; }
+            public decimal AJTB_Credit { get; set; }
+            public int AJTB_CreatedBy { get; set; }
+            public int AJTB_UpdatedBy { get; set; }
+            public string AJTB_Status { get; set; }
+            public string AJTB_IPAddress { get; set; }
+            public int AJTB_CompID { get; set; }
+            public int AJTB_YearID { get; set; }
+            public int AJTB_BillType { get; set; }
+            public string AJTB_DescName { get; set; }
+            public int AJTB_BranchId { get; set; }
+            public int AJTB_QuarterId { get; set; }
+        }
     }
 }
 

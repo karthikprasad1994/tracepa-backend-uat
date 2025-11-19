@@ -308,7 +308,7 @@ namespace TracePca.Controllers.DigitalFilling
 		}
 
 
-		[HttpPut("UpdateCabinet")]
+		[HttpPost("UpdateCabinet")]
         public async Task<IActionResult> UpdateCabinet(string CabinetName, int iCabinetId, int iUserID, int compID)
         {
             var result = await _CabinetInterface.UpdateCabinetAsync(CabinetName, iCabinetId, iUserID, compID);
@@ -326,7 +326,7 @@ namespace TracePca.Controllers.DigitalFilling
 
 
 
-		[HttpPut("UpdateSubCabinet")]
+		[HttpPost("UpdateSubCabinet")]
 		public async Task<IActionResult> UpdateSubCabinet(string SubCabinetName, int iSubCabinetId, int iUserID, int compID)
 		{
 			var result = await _CabinetInterface.UpdateSubCabinetAsync(SubCabinetName, iSubCabinetId, iUserID, compID);
@@ -342,7 +342,7 @@ namespace TracePca.Controllers.DigitalFilling
 		}
 
 
-		[HttpPut("UpdateFolder")]
+		[HttpPost("UpdateFolder")]
 		public async Task<IActionResult> UpdateFolder(string FolderName, int iFolderID, int iUserID, int compID)
 		{
 			var result = await _CabinetInterface.UpdateFolderAsync(FolderName, iFolderID, iUserID, compID);
@@ -359,7 +359,7 @@ namespace TracePca.Controllers.DigitalFilling
 
 
 
-		[HttpPut("UpdateArchiveDetails")]
+		[HttpPost("UpdateArchiveDetails")]
 		public async Task<IActionResult> UpdateArchiveDetails(string retentionDate, int retentionPeriod, int archiveId, int compId)
 		{
 			try
@@ -445,7 +445,7 @@ namespace TracePca.Controllers.DigitalFilling
 			}
 		}
 
-		[HttpPut("UpdateDescriptor")]
+		[HttpPost("UpdateDescriptor")]
 		public async Task<IActionResult> UpdateDescriptor([FromBody] DescriptorDto dto)
 		{
 			var result = await _CabinetInterface.UpdateDescriptorAsync(dto);
@@ -477,7 +477,7 @@ namespace TracePca.Controllers.DigitalFilling
 		}
 
 
-		[HttpPut("UpdateDocumentType")]
+		[HttpPost("UpdateDocumentType")]
 		public async Task<IActionResult> UpdateDocumentType(int iDocTypeID, string DocumentName, int userID, int CompID)
 		{
 			var result = await _CabinetInterface.UpdateDocumentTypeAsync(iDocTypeID, DocumentName, userID, CompID);
@@ -560,7 +560,7 @@ namespace TracePca.Controllers.DigitalFilling
 
 
 
-		[HttpPut("DeleteArchiveDocuments")]
+		[HttpPost("DeleteArchiveDocuments")]
 		public async Task<IActionResult> DeleteArchiveDocuments(int archiveId, string AttachID, int compId)
 		{
 			try
@@ -582,7 +582,7 @@ namespace TracePca.Controllers.DigitalFilling
 		}
 
 
-		[HttpPut("UpdateDepartment")]
+		[HttpPost("UpdateDepartment")]
 		public async Task<IActionResult> UpdateDepartment(string Code, string DepartmentName, int iDepartmentID, int iUserID, int compID)
 		{
 			var result = await _CabinetInterface.UpdateDepartmentAsync(Code, DepartmentName, iDepartmentID, iUserID, compID);
@@ -597,5 +597,26 @@ namespace TracePca.Controllers.DigitalFilling
 			}
 		}
 
-	}
+        [HttpGet("getfilebyid")]
+        public async Task<IActionResult> GetFileById([FromQuery] string userEmail, [FromQuery] int DocId)
+        {
+            if (DocId <= 0)
+                return BadRequest(new { Status = "Error", Message = "Document Not Exist!" });
+
+            try
+            {
+                var file = await _CabinetInterface.GetFileByIdAsync(DocId, userEmail);
+                return Ok(new
+                {
+                    Status = "Success",
+                    Message = "File retrieved successfully.",
+                    Data = file
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Status = "Error", Message = ex.Message });
+            }
+        }
+    }
 }
