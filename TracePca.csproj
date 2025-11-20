@@ -82,6 +82,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Folder Include="DBBackups\" />
 		<Folder Include="SqlScripts\" />
 	</ItemGroup>
 

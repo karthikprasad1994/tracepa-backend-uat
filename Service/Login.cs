@@ -350,6 +350,226 @@ ORDER BY MM_ID
             Console.WriteLine($"✅ Connection string '{connectionName}' saved successfully!");
         }
 
+
+        public async Task RestoreDatabaseFromBackup(string newDbName)
+        {
+            try
+            {
+                string masterConnection = _configuration.GetConnectionString("MasterConnection");
+
+                if (string.IsNullOrEmpty(masterConnection))
+                    throw new Exception("MasterConnection missing in appsettings.json");
+
+                string backupPath = @"C:\Program Files\backups\TRACEPadefault.bak";
+
+                if (!File.Exists(backupPath))
+                    throw new Exception("Backup file NOT FOUND: " + backupPath);
+
+                using var connection = new SqlConnection(masterConnection);
+                await connection.OpenAsync();
+
+                string restoreSql = $@"
+ALTER DATABASE [{newDbName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+
+RESTORE DATABASE [{newDbName}]
+FROM DISK = '{backupPath}'
+WITH REPLACE,
+MOVE '{newDbName}' TO 'C:\Program Files (x86)\Plesk\Databases\MSSQL\MSSQL15.MSSQLSERVER2019\MSSQL\Backup\{newDbName}.mdf',
+MOVE '{newDbName}_log' TO 'C:\Program Files (x86)\Plesk\Databases\MSSQL\MSSQL15.MSSQLSERVER2019\MSSQL\Backup\{newDbName}.ldf';
+
+ALTER DATABASE [{newDbName}] SET MULTI_USER;
+";
+
+                // 🔥 Use Retry Here
+                await ExecuteWithRetry(async () =>
+                {
+                    await connection.ExecuteAsync(restoreSql);
+                }, retries: 5, delayMs: 1500);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Restore failed for DB '{newDbName}': {ex.Message}", ex);
+            }
+        }
+
+        public async Task ExecuteWithRetry(Func<Task> action, int retries = 5, int delayMs = 1000)
+        {
+            int attempt = 0;
+
+            while (true)
+            {
+                try
+                {
+                    await action();
+                    return;
+                }
+                catch (SqlException)
+                {
+                    attempt++;
+
+                    if (attempt > retries)
+                        throw;
+
+                    await Task.Delay(delayMs);
+                }
+            }
+        }
+
+
+        public async Task<bool> CloneDatabaseAsync(string sourceDb, string newDb)
+        {
+            string masterConnection = _configuration.GetConnectionString("MasterConnection");
+
+
+            using var connection = new SqlConnection(masterConnection);
+            await connection.OpenAsync();
+
+            // 1️⃣ Create new database
+            string createDbSql = $"IF DB_ID('{newDb}') IS NULL CREATE DATABASE [{newDb}];";
+            await new SqlCommand(createDbSql, connection).ExecuteNonQueryAsync();
+
+            // 2️⃣ Build clone script
+            var sb = new StringBuilder();
+
+            sb.Append(@$"
+-----------------------------------------------------------------------
+-- Clone TABLES (Schema + Data)
+-----------------------------------------------------------------------
+DECLARE @tbl NVARCHAR(300), @sql NVARCHAR(MAX);
+
+DECLARE cur CURSOR FOR
+SELECT QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME)
+FROM   [{sourceDb}].INFORMATION_SCHEMA.TABLES
+WHERE  TABLE_TYPE = 'BASE TABLE';
+
+OPEN cur;
+FETCH NEXT FROM cur INTO @tbl;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @sql = '
+        SELECT * INTO [{newDb}].' + @tbl + '
+        FROM [{sourceDb}].' + @tbl + ';
+    ';
+
+    EXEC(@sql);
+    FETCH NEXT FROM cur INTO @tbl;
+END
+
+CLOSE cur;
+DEALLOCATE cur;
+
+
+-----------------------------------------------------------------------
+-- Clone VIEWS
+-----------------------------------------------------------------------
+DECLARE @view NVARCHAR(MAX);
+
+DECLARE view_cur CURSOR FOR
+SELECT sm.definition
+FROM   [{sourceDb}].sys.sql_modules sm
+JOIN   [{sourceDb}].sys.objects o ON o.object_id = sm.object_id
+WHERE  o.type = 'V';
+
+OPEN view_cur;
+FETCH NEXT FROM view_cur INTO @view;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    EXEC('USE [{newDb}]; ' + @view);
+    FETCH NEXT FROM view_cur INTO @view;
+END
+
+CLOSE view_cur;
+DEALLOCATE view_cur;
+
+
+-----------------------------------------------------------------------
+-- Clone STORED PROCEDURES
+-----------------------------------------------------------------------
+DECLARE @sp NVARCHAR(MAX);
+
+DECLARE sp_cur CURSOR FOR
+SELECT sm.definition
+FROM   [{sourceDb}].sys.objects o
+JOIN   [{sourceDb}].sys.sql_modules sm ON o.object_id = sm.object_id
+WHERE  o.type = 'P';
+
+OPEN sp_cur;
+FETCH NEXT FROM sp_cur INTO @sp;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    EXEC('USE [{newDb}]; ' + @sp);
+    FETCH NEXT FROM sp_cur INTO @sp;
+END
+
+CLOSE sp_cur;
+DEALLOCATE sp_cur;
+
+
+-----------------------------------------------------------------------
+-- Clone FUNCTIONS
+-----------------------------------------------------------------------
+DECLARE @fn NVARCHAR(MAX);
+
+DECLARE fn_cur CURSOR FOR
+SELECT sm.definition
+FROM   [{sourceDb}].sys.objects o
+JOIN   [{sourceDb}].sys.sql_modules sm ON o.object_id = sm.object_id
+WHERE  o.type IN ('FN','TF','IF');
+
+OPEN fn_cur;
+FETCH NEXT FROM fn_cur INTO @fn;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    EXEC('USE [{newDb}]; ' + @fn);
+    FETCH NEXT FROM fn_cur INTO @fn;
+END
+
+CLOSE fn_cur;
+DEALLOCATE fn_cur;
+
+
+-----------------------------------------------------------------------
+-- Clone TRIGGERS
+-----------------------------------------------------------------------
+DECLARE @tr NVARCHAR(MAX);
+
+DECLARE tr_cur CURSOR FOR
+SELECT sm.definition
+FROM   [{sourceDb}].sys.objects o
+JOIN   [{sourceDb}].sys.sql_modules sm ON o.object_id = sm.object_id
+WHERE  o.type = 'TR';
+
+OPEN tr_cur;
+FETCH NEXT FROM tr_cur INTO @tr;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    EXEC('USE [{newDb}]; ' + @tr);
+    FETCH NEXT FROM tr_cur INTO @tr;
+END
+
+CLOSE tr_cur;
+DEALLOCATE tr_cur;
+");
+
+            string finalSql = sb.ToString();
+
+            // 3️⃣ Execute clone script
+            var command = new SqlCommand(finalSql, connection)
+            {
+                CommandType = CommandType.Text
+            };
+
+            await command.ExecuteNonQueryAsync();
+
+            return true;
+        }
+
+
         public async Task<IActionResult> SignUpUserAsync(RegistrationDto registerModel)
         {
             try
@@ -434,10 +654,10 @@ ORDER BY MM_ID
                     MCR_Emails = registerModel.McrCustomerEmail + ","
 
                 });
-                
+
 
                 // ✅ Step 1: Validate that customer exists (safety check before inserting modules)
-                
+
 
 
 
@@ -455,11 +675,19 @@ ORDER BY MM_ID
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
                 string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
 
-                string localScriptPath = Path.Combine(_env.ContentRootPath, "SQL_Scripts", "Tables.txt");
-                string serverScriptPath = Path.Combine(@"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SQL_Scripts", "Tables.txt");
+                //string localScriptPath = Path.Combine(_env.ContentRootPath, "SQL_Scripts", "CloneDatabase.sql");
+                //string serverScriptPath = Path.Combine(
+                //    @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SQL_Scripts",
+                //    "CloneDatabase.sql");
 
-                // Decide which script file path to use (prefer local if available)
-                string scriptFilePathToUse = File.Exists(localScriptPath) ? localScriptPath : serverScriptPath;
+                //// Pick local or server
+                //string scriptFilePathToUse = File.Exists(localScriptPath)
+                //    ? localScriptPath
+                //    : serverScriptPath;
+
+                //// 🚀 Execute FULL DB Clone Script (Schema + Data + SPs + Views)
+                //await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePathToUse);
+
 
                 AddOrUpdateConnectionString(
         connectionName: newCustomerCode,
@@ -469,23 +697,26 @@ ORDER BY MM_ID
         password: "Mmcs@736"
     );
 
-              
+                CloneDatabaseAsync("TracepaScriptDB", newCustomerCode);
+
+
+
 
                 // Ensure the folder and file exist (for whichever path we are using)
-                string scriptDir = Path.GetDirectoryName(scriptFilePathToUse);
-                if (!Directory.Exists(scriptDir))
-                {
-                    Directory.CreateDirectory(scriptDir);
-                }
+                //string scriptDir = Path.GetDirectoryName(scriptFilePathToUse);
+                //if (!Directory.Exists(scriptDir))
+                //{
+                //    Directory.CreateDirectory(scriptDir);
+                //}
 
-                if (!File.Exists(scriptFilePathToUse))
-                {
-                    string defaultSql = "-- Initial SQL script\n-- Example: CREATE TABLE TestTable (Id INT PRIMARY KEY);";
-                    File.WriteAllText(scriptFilePathToUse, defaultSql);
-                }
+                //if (!File.Exists(scriptFilePathToUse))
+                //{
+                //    string defaultSql = "-- Initial SQL script\n-- Example: CREATE TABLE TestTable (Id INT PRIMARY KEY);";
+                //    File.WriteAllText(scriptFilePathToUse, defaultSql);
+                //}
 
                 // Execute the script
-                 await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePathToUse);
+                //await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePathToUse);
 
                 string seedConfigSql = $@"
 INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Config_Value], [SAD_UpdatedBy], [SAD_UpdatedOn], [SAD_Config_Operation], [SAD_Config_IPAddress], [SAD_CompID]) VALUES 
@@ -511,8 +742,8 @@ INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Conf
                 await newDbConnection.OpenAsync();
 
                 // 5️⃣ Execute table creation scripts in the new database
-               
-               // await newDbConnection.ExecuteAsync(seedConfigSql);
+
+                // await newDbConnection.ExecuteAsync(seedConfigSql);
                 //           var customerExists = await connection.ExecuteScalarAsync<int>(
                 //"SELECT COUNT(1) FROM MMCS_CustomerRegistration WHERE MCR_ID = @CustomerId",
                 //new { CustomerId = customerId });
@@ -627,7 +858,7 @@ VALUES (@MCM_ID, @MCM_MCR_ID, @MCM_ModuleID);";
                     UsrType = "U",
                     UsrRole = 1,
                     UsrIsLogin = "Y",
-                    UsrCompId=1
+                    UsrCompId = 1
 
                 };
 
@@ -1328,36 +1559,36 @@ new { UserId = userId });
 
 
         public async Task UpdateCustomerModulesAsync(int customerId, List<int> moduleIds)
-{
-    if (moduleIds == null) moduleIds = new List<int>();
+        {
+            if (moduleIds == null) moduleIds = new List<int>();
 
-    using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
-    await connection.OpenAsync();
+            using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+            await connection.OpenAsync();
 
-    // Fetch existing modules
-    var existingModules = await connection.QueryAsync<int>(
-        "SELECT MCM_ModuleID FROM MMCS_CustomerModules WHERE MCM_MCR_ID = @CustomerId",
-        new { CustomerId = customerId });
+            // Fetch existing modules
+            var existingModules = await connection.QueryAsync<int>(
+                "SELECT MCM_ModuleID FROM MMCS_CustomerModules WHERE MCM_MCR_ID = @CustomerId",
+                new { CustomerId = customerId });
 
-    // Insert missing modules
-    var modulesToInsert = moduleIds.Except(existingModules);
-    foreach (var moduleId in modulesToInsert)
-    {
-        await connection.ExecuteAsync(
-            @"INSERT INTO MMCS_CustomerModules (MCM_MCR_ID, MCM_ModuleID)
+            // Insert missing modules
+            var modulesToInsert = moduleIds.Except(existingModules);
+            foreach (var moduleId in modulesToInsert)
+            {
+                await connection.ExecuteAsync(
+                    @"INSERT INTO MMCS_CustomerModules (MCM_MCR_ID, MCM_ModuleID)
               VALUES (@CustomerId, @ModuleId)",
-            new { CustomerId = customerId, ModuleId = moduleId });
-    }
+                    new { CustomerId = customerId, ModuleId = moduleId });
+            }
 
-    // Delete modules that are no longer selected
-    var modulesToDelete = existingModules.Except(moduleIds);
-    foreach (var moduleId in modulesToDelete)
-    {
-        await connection.ExecuteAsync(
-            "DELETE FROM MMCS_CustomerModules WHERE MCM_MCR_ID = @CustomerId AND MCM_ModuleID = @ModuleId",
-            new { CustomerId = customerId, ModuleId = moduleId });
-    }
-}
+            // Delete modules that are no longer selected
+            var modulesToDelete = existingModules.Except(moduleIds);
+            foreach (var moduleId in modulesToDelete)
+            {
+                await connection.ExecuteAsync(
+                    "DELETE FROM MMCS_CustomerModules WHERE MCM_MCR_ID = @CustomerId AND MCM_ModuleID = @ModuleId",
+                    new { CustomerId = customerId, ModuleId = moduleId });
+            }
+        }
 
 
         public async Task<bool> LogoutUserAsync(string accessToken)
@@ -1967,7 +2198,7 @@ WHERE UserId = @UserId
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
-            
+
             string query = @"
 SELECT 
     ut.UserId,

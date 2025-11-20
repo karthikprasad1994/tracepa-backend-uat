@@ -60,6 +60,8 @@ using TracePA.Interfaces;
 using TracePA.Services;
 using TracePca.Services;
 using OfficeOpenXml;
+using TracePca.Interface.ClientPortal;
+using TracePca.Service.ClientPortal;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -212,6 +214,7 @@ builder.Services.AddScoped<ReportanIssueInterface, ReportanIssueService>();
 builder.Services.AddScoped<ConductAuditInterface, TracePca.Service.Audit.ConductAuditService>();
 
 builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMasterService>();
+builder.Services.AddScoped<IClientPortalInterface, ClientPortalService>();
 
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();
