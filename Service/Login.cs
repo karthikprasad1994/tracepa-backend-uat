@@ -11,6 +11,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using BCrypt.Net;
 using Dapper;
+using DocumentFormat.OpenXml.Drawing.Diagrams;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Google.Apis.Auth;
 using MailKit.Net.Smtp;
@@ -415,161 +416,6 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
             }
         }
 
-
-        public async Task<bool> CloneDatabaseAsync(string sourceDb, string newDb)
-        {
-            string masterConnection = _configuration.GetConnectionString("MasterConnection");
-
-
-            using var connection = new SqlConnection(masterConnection);
-            await connection.OpenAsync();
-
-            // 1️⃣ Create new database
-            string createDbSql = $"IF DB_ID('{newDb}') IS NULL CREATE DATABASE [{newDb}];";
-            await new SqlCommand(createDbSql, connection).ExecuteNonQueryAsync();
-
-            // 2️⃣ Build clone script
-            var sb = new StringBuilder();
-
-            sb.Append(@$"
------------------------------------------------------------------------
--- Clone TABLES (Schema + Data)
------------------------------------------------------------------------
-DECLARE @tbl NVARCHAR(300), @sql NVARCHAR(MAX);
-
-DECLARE cur CURSOR FOR
-SELECT QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME)
-FROM   [{sourceDb}].INFORMATION_SCHEMA.TABLES
-WHERE  TABLE_TYPE = 'BASE TABLE';
-
-OPEN cur;
-FETCH NEXT FROM cur INTO @tbl;
-
-WHILE @@FETCH_STATUS = 0
-BEGIN
-    SET @sql = '
-        SELECT * INTO [{newDb}].' + @tbl + '
-        FROM [{sourceDb}].' + @tbl + ';
-    ';
-
-    EXEC(@sql);
-    FETCH NEXT FROM cur INTO @tbl;
-END
-
-CLOSE cur;
-DEALLOCATE cur;
-
-
------------------------------------------------------------------------
--- Clone VIEWS
------------------------------------------------------------------------
-DECLARE @view NVARCHAR(MAX);
-
-DECLARE view_cur CURSOR FOR
-SELECT sm.definition
-FROM   [{sourceDb}].sys.sql_modules sm
-JOIN   [{sourceDb}].sys.objects o ON o.object_id = sm.object_id
-WHERE  o.type = 'V';
-
-OPEN view_cur;
-FETCH NEXT FROM view_cur INTO @view;
-
-WHILE @@FETCH_STATUS = 0
-BEGIN
-    EXEC('USE [{newDb}]; ' + @view);
-    FETCH NEXT FROM view_cur INTO @view;
-END
-
-CLOSE view_cur;
-DEALLOCATE view_cur;
-
-
------------------------------------------------------------------------
--- Clone STORED PROCEDURES
------------------------------------------------------------------------
-DECLARE @sp NVARCHAR(MAX);
-
-DECLARE sp_cur CURSOR FOR
-SELECT sm.definition
-FROM   [{sourceDb}].sys.objects o
-JOIN   [{sourceDb}].sys.sql_modules sm ON o.object_id = sm.object_id
-WHERE  o.type = 'P';
-
-OPEN sp_cur;
-FETCH NEXT FROM sp_cur INTO @sp;
-
-WHILE @@FETCH_STATUS = 0
-BEGIN
-    EXEC('USE [{newDb}]; ' + @sp);
-    FETCH NEXT FROM sp_cur INTO @sp;
-END
-
-CLOSE sp_cur;
-DEALLOCATE sp_cur;
-
-
------------------------------------------------------------------------
--- Clone FUNCTIONS
------------------------------------------------------------------------
-DECLARE @fn NVARCHAR(MAX);
-
-DECLARE fn_cur CURSOR FOR
-SELECT sm.definition
-FROM   [{sourceDb}].sys.objects o
-JOIN   [{sourceDb}].sys.sql_modules sm ON o.object_id = sm.object_id
-WHERE  o.type IN ('FN','TF','IF');
-
-OPEN fn_cur;
-FETCH NEXT FROM fn_cur INTO @fn;
-
-WHILE @@FETCH_STATUS = 0
-BEGIN
-    EXEC('USE [{newDb}]; ' + @fn);
-    FETCH NEXT FROM fn_cur INTO @fn;
-END
-
-CLOSE fn_cur;
-DEALLOCATE fn_cur;
-
-
------------------------------------------------------------------------
--- Clone TRIGGERS
------------------------------------------------------------------------
-DECLARE @tr NVARCHAR(MAX);
-
-DECLARE tr_cur CURSOR FOR
-SELECT sm.definition
-FROM   [{sourceDb}].sys.objects o
-JOIN   [{sourceDb}].sys.sql_modules sm ON o.object_id = sm.object_id
-WHERE  o.type = 'TR';
-
-OPEN tr_cur;
-FETCH NEXT FROM tr_cur INTO @tr;
-
-WHILE @@FETCH_STATUS = 0
-BEGIN
-    EXEC('USE [{newDb}]; ' + @tr);
-    FETCH NEXT FROM tr_cur INTO @tr;
-END
-
-CLOSE tr_cur;
-DEALLOCATE tr_cur;
-");
-
-            string finalSql = sb.ToString();
-
-            // 3️⃣ Execute clone script
-            var command = new SqlCommand(finalSql, connection)
-            {
-                CommandType = CommandType.Text
-            };
-
-            await command.ExecuteNonQueryAsync();
-
-            return true;
-        }
-
-
         public async Task<IActionResult> SignUpUserAsync(RegistrationDto registerModel)
         {
             try
@@ -579,16 +425,15 @@ DEALLOCATE tr_cur;
 
                 // Step 1: Check if customer already exists
                 var existingCustomer = await connection.QueryFirstOrDefaultAsync<int>(
-       @"SELECT COUNT(1) 
-      FROM MMCS_CustomerRegistration 
-      WHERE ',' + MCR_emails + ',' LIKE @EmailPattern 
-         OR MCR_CustomerTelephoneNo = @Phone",
-       new
-       {
-           EmailPattern = "%," + registerModel.McrCustomerEmail + ",%",
-           Phone = registerModel.McrCustomerTelephoneNo
-       });
-
+                    @"SELECT COUNT(1) 
+              FROM MMCS_CustomerRegistration 
+              WHERE ',' + MCR_emails + ',' LIKE @EmailPattern 
+                 OR MCR_CustomerTelephoneNo = @Phone",
+                    new
+                    {
+                        EmailPattern = "%," + registerModel.McrCustomerEmail + ",%",
+                        Phone = registerModel.McrCustomerTelephoneNo
+                    });
 
                 if (existingCustomer > 0)
                 {
@@ -622,7 +467,6 @@ DEALLOCATE tr_cur;
                 if (!string.IsNullOrEmpty(latestCode))
                 {
                     var parts = latestCode.Split('_');
-
                     if (parts.Length == 2 && int.TryParse(parts[1], out int lastNumber))
                     {
                         nextNumber = lastNumber + 1;
@@ -652,16 +496,8 @@ DEALLOCATE tr_cur;
                     McrProductKey = productKey,
                     Address = registerModel.Address,
                     MCR_Emails = registerModel.McrCustomerEmail + ","
-
                 });
 
-
-                // ✅ Step 1: Validate that customer exists (safety check before inserting modules)
-
-
-
-
-                await CheckAndAddAccessCodeConnectionStringAsync(newCustomerCode);
                 if (rowsInserted == 0)
                 {
                     return new ObjectResult(new { statuscode = 500, message = "Failed to insert customer." }) { StatusCode = 500 };
@@ -672,154 +508,70 @@ DEALLOCATE tr_cur;
                 // Step 4: Create Customer Database
                 await CreateCustomerDatabaseAsync(newCustomerCode);
                 await Task.Delay(500);
+
+                // Step 5: Clone Database from Template
+                await CloneDatabaseAsync("TracepaScriptDB", newCustomerCode);
+
+                // Step 6: Add Connection String
+                AddOrUpdateConnectionString(
+                    connectionName: newCustomerCode,
+                    server: "142.93.217.23",
+                    database: newCustomerCode,
+                    userId: "Sa",
+                    password: "Mmcs@736"
+                );
+
+                // Step 7: Setup new database connection
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
                 string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
 
-                //string localScriptPath = Path.Combine(_env.ContentRootPath, "SQL_Scripts", "CloneDatabase.sql");
-                //string serverScriptPath = Path.Combine(
-                //    @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SQL_Scripts",
-                //    "CloneDatabase.sql");
-
-                //// Pick local or server
-                //string scriptFilePathToUse = File.Exists(localScriptPath)
-                //    ? localScriptPath
-                //    : serverScriptPath;
-
-                //// 🚀 Execute FULL DB Clone Script (Schema + Data + SPs + Views)
-                //await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePathToUse);
-
-
-                AddOrUpdateConnectionString(
-        connectionName: newCustomerCode,
-        server: "142.93.217.23",
-        database: newCustomerCode,
-        userId: "Sa",
-        password: "Mmcs@736"
-    );
-
-                CloneDatabaseAsync("TracepaScriptDB", newCustomerCode);
-
-
-
-
-                // Ensure the folder and file exist (for whichever path we are using)
-                //string scriptDir = Path.GetDirectoryName(scriptFilePathToUse);
-                //if (!Directory.Exists(scriptDir))
-                //{
-                //    Directory.CreateDirectory(scriptDir);
-                //}
-
-                //if (!File.Exists(scriptFilePathToUse))
-                //{
-                //    string defaultSql = "-- Initial SQL script\n-- Example: CREATE TABLE TestTable (Id INT PRIMARY KEY);";
-                //    File.WriteAllText(scriptFilePathToUse, defaultSql);
-                //}
-
-                // Execute the script
-                //await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePathToUse);
-
+                // Step 8: Insert Seed Configuration Data
                 string seedConfigSql = $@"
-INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Config_Value], [SAD_UpdatedBy], [SAD_UpdatedOn], [SAD_Config_Operation], [SAD_Config_IPAddress], [SAD_CompID]) VALUES 
-(1, N'ImgPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(2, N'ExcelPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\Tempfolder\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(3, N'FilesInDB', N'False', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(4, N'HTP', N'http://', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(5, N'AppName', N'TRACe', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(6, N'FtpServer', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\FTPROOT\ROOT\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(7, N'RDBMS', N'SQL', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(8, N'Currency', N'1', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(9, N'ErrorLog', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\ErrorLog\ErrorLog.txt', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(10, N'DateFormat', N'1', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(11, N'FileSize', N'7', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(12, N'TimeOut', N'40', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(13, N'TimeOutWarning', N'5', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(14, N'FileInDBPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\TRACePA Doc', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(15, N'OutlookEMail', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\Outlook\MSG', 3, GETDATE(), N'U', N'192.168.0.118', 1),
-(16, N'TempPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\', 1, GETDATE(), N'U', N'192.168.0.118', 1),
-(17, N'DisplayPath', N'https://tracepacore.multimedia.interactivedns.com/{newCustomerCode}/', 1, GETDATE(), N'U', N'192.168.0.118', 1);
-";
+            INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Config_Value], [SAD_UpdatedBy], [SAD_UpdatedOn], [SAD_Config_Operation], [SAD_Config_IPAddress], [SAD_CompID]) VALUES 
+            (1, N'ImgPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (2, N'ExcelPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\Tempfolder\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (3, N'FilesInDB', N'False', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (4, N'HTP', N'http://', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (5, N'AppName', N'TRACe', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (6, N'FtpServer', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\FTPROOT\ROOT\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (7, N'RDBMS', N'SQL', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (8, N'Currency', N'1', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (9, N'ErrorLog', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\ErrorLog\ErrorLog.txt', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (10, N'DateFormat', N'1', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (11, N'FileSize', N'7', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (12, N'TimeOut', N'40', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (13, N'TimeOutWarning', N'5', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (14, N'FileInDBPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\TRACePA Doc', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (15, N'OutlookEMail', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\Outlook\MSG', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+            (16, N'TempPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\', 1, GETDATE(), N'U', N'192.168.0.118', 1),
+            (17, N'DisplayPath', N'https://tracepacore.multimedia.interactivedns.com/{newCustomerCode}/', 1, GETDATE(), N'U', N'192.168.0.118', 1);";
+
                 await using var newDbConnection = new SqlConnection(newDbConnectionString);
                 await newDbConnection.OpenAsync();
+                await newDbConnection.ExecuteAsync(seedConfigSql);
 
-                // 5️⃣ Execute table creation scripts in the new database
-
-                // await newDbConnection.ExecuteAsync(seedConfigSql);
-                //           var customerExists = await connection.ExecuteScalarAsync<int>(
-                //"SELECT COUNT(1) FROM MMCS_CustomerRegistration WHERE MCR_ID = @CustomerId",
-                //new { CustomerId = customerId });
-
-                //           if (customerExists == 0)
-                //               throw new Exception("Customer not found. Module mapping cannot proceed.");
-
-                // ✅ Step 2: Fetch all active modules (no name translation here)
-                // Step 1: Get all modules for MpId = 1
-                // 1️⃣ Fetch all modules for a given MP_ID (e.g., 1)
-
+                // Step 9: Insert Customer Modules
                 string customerDbConnectionString = _configuration.GetConnectionString("CustomerRegistrationConnection");
-
                 await using var customerConnection = new SqlConnection(customerDbConnectionString);
                 await customerConnection.OpenAsync();
 
-                // 1️⃣ Fetch modules
-                // Step 1: Get modules for given MP_ID
-                // Step 1: Get current max MCM_ID
                 int currentMaxMcmId = await customerConnection.ExecuteScalarAsync<int>(
-         "SELECT ISNULL(MAX(MCM_ID), 0) FROM MMCS_CustomerModules");
+                    "SELECT ISNULL(MAX(MCM_ID), 0) FROM MMCS_CustomerModules");
 
-                // Step 2: Prepare data for each selected module
                 var moduleInsertList = registerModel.ModuleIds?.Select((moduleId, index) => new
                 {
-                    MCM_ID = currentMaxMcmId + index + 1, // Auto increment manually
-                    MCM_MCR_ID = maxMcrId,                // Registered customer ID
-                    MCM_ModuleID = moduleId               // Module ID from request body
+                    MCM_ID = currentMaxMcmId + index + 1,
+                    MCM_MCR_ID = maxMcrId,
+                    MCM_ModuleID = moduleId
                 }).ToList();
 
-                // Step 3: Bulk insert all selected modules
                 const string insertQuery = @"
-INSERT INTO MMCS_CustomerModules (MCM_ID, MCM_MCR_ID, MCM_ModuleID)
-VALUES (@MCM_ID, @MCM_MCR_ID, @MCM_ModuleID);";
+            INSERT INTO MMCS_CustomerModules (MCM_ID, MCM_MCR_ID, MCM_ModuleID)
+            VALUES (@MCM_ID, @MCM_MCR_ID, @MCM_ModuleID);";
 
                 await customerConnection.ExecuteAsync(insertQuery, moduleInsertList);
 
-                // 5️⃣ Execute all inserts in one go (batch)
-
-
-
-
-
-
-                //using (var seedConnection = new SqlConnection(newDbConnectionString))
-                //{
-                //    await seedConnection.ExecuteAsync(seedConfigSql);
-                //}
-
-
-                // Step 5: Setup Schema
-                //string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
-                //string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
-                //string localScriptPath = Path.Combine(_env.ContentRootPath, "SQL_Scripts", "Tables.txt");
-                //string scriptFilePath = Path.Combine(@"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SQL_Scripts", "Tables.txt");
-
-                //// Ensure the folder and file exist
-                //if (!Directory.Exists(Path.GetDirectoryName(scriptFilePath)))
-                //{
-                //    Directory.CreateDirectory(Path.GetDirectoryName(scriptFilePath));
-                //}
-
-                //if (!File.Exists(scriptFilePath))
-                //{
-                //    string defaultSql = "-- Initial SQL script\n-- Example: CREATE TABLE TestTable (Id INT PRIMARY KEY);";
-                //    File.WriteAllText(scriptFilePath, defaultSql);
-                //}
-
-                //// Execute the script
-                //await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptFilePath);
-
-
-                //   string scriptsFolderPath = Path.Combine(_env.ContentRootPath, "SqlScripts", "Cleaned_Sign-up.sql");
-                //   await ExecuteAllSqlScriptsAsync(newDbConnectionString, scriptsFolderPath);
-
-                // Step 6: Insert Admin User in new DB (EF Core)
+                // Step 10: Create Admin User in new DB
                 var optionsBuilder = new DbContextOptionsBuilder<DynamicDbContext>();
                 optionsBuilder.UseSqlServer(newDbConnectionString);
 
@@ -841,7 +593,10 @@ VALUES (@MCM_ID, @MCM_MCR_ID, @MCM_ModuleID);";
 
                 string newUserCode = $"EMP{nextUserCodeNumber:D3}";
                 string hashedPassword = EncryptPassword(newCustomerCode + "@" + DateTime.Now.Year);
+
+                // Send welcome email
                 SendWelcomeEmailAsync(registerModel.McrCustomerEmail, newCustomerCode + "@" + DateTime.Now.Year);
+
                 var adminUser = new Models.UserModels.SadUserDetail
                 {
                     UsrId = maxUserId,
@@ -859,45 +614,52 @@ VALUES (@MCM_ID, @MCM_MCR_ID, @MCM_ModuleID);";
                     UsrRole = 1,
                     UsrIsLogin = "Y",
                     UsrCompId = 1
-
                 };
 
                 await newDbContext.SadUserDetails.AddAsync(adminUser);
                 await newDbContext.SaveChangesAsync();
 
-
-
-                // Added by Steffi
-
+                // Step 11: Add Permissions for Admin User
                 await using var customerConnection1 = new SqlConnection(newDbConnectionString);
                 await customerConnection1.OpenAsync();
 
-                var operations = await customerConnection1.QueryAsync(@"SELECT * FROM sad_Mod_Operations WHERE OP_Status = 'A' AND OP_CompID = @OP_CompID",
-                            new { OP_CompID = 1 });
+                var operations = await customerConnection1.QueryAsync(
+                    @"SELECT * FROM sad_Mod_Operations WHERE OP_Status = 'A' AND OP_CompID = @OP_CompID",
+                    new { OP_CompID = 1 });
 
                 foreach (var op in operations)
                 {
                     await customerConnection1.ExecuteAsync(
-                                    @"DECLARE @NewId INT;
-                                    SELECT @NewId = ISNULL(MAX(Perm_PKID), 0) + 1 FROM SAD_UsrOrGrp_Permission;
-                                    INSERT INTO SAD_UsrOrGrp_Permission
-                                    (Perm_PKID, Perm_PType, Perm_UsrORGrpID, Perm_ModuleID, Perm_OpPKID, 
-                                     Perm_Status, Perm_Crby, Perm_Cron, Perm_Operation, Perm_IPAddress, Perm_CompID)
-                                    VALUES
-                                    (@NewId, @Perm_PType, @Perm_UsrORGrpID, @Perm_ModuleID, @Perm_OpPKID, 
-                                     'A', @Perm_Crby, GETDATE(), 'C', '', @Perm_CompID);",
-                                    new
-                                    {
-                                        Perm_PType = 'R',
-                                        Perm_UsrORGrpID = 1,
-                                        Perm_ModuleID = op.OP_ModuleID,
-                                        Perm_OpPKID = op.OP_PKID,
-                                        Perm_Crby = maxUserId,
-                                        Perm_CompID = 1
-                                    }
-                                    );
+                        @"DECLARE @NewId INT;
+                  SELECT @NewId = ISNULL(MAX(Perm_PKID), 0) + 1 FROM SAD_UsrOrGrp_Permission;
+                  INSERT INTO SAD_UsrOrGrp_Permission
+                  (Perm_PKID, Perm_PType, Perm_UsrORGrpID, Perm_ModuleID, Perm_OpPKID, 
+                   Perm_Status, Perm_Crby, Perm_Cron, Perm_Operation, Perm_IPAddress, Perm_CompID)
+                  VALUES
+                  (@NewId, @Perm_PType, @Perm_UsrORGrpID, @Perm_ModuleID, @Perm_OpPKID, 
+                   'A', @Perm_Crby, GETDATE(), 'C', '', @Perm_CompID);",
+                        new
+                        {
+                            Perm_PType = 'R',
+                            Perm_UsrORGrpID = 1,
+                            Perm_ModuleID = op.OP_ModuleID,
+                            Perm_OpPKID = op.OP_PKID,
+                            Perm_Crby = maxUserId,
+                            Perm_CompID = 1
+                        });
                 }
+                string sql = @"
+        IF NOT EXISTS (
+            SELECT 1 FROM sys.default_constraints 
+            WHERE name = 'DF_UserTokens_IsRevoked'
+        )
+        BEGIN
+            ALTER TABLE UserTokens
+            ADD CONSTRAINT DF_UserTokens_IsRevoked DEFAULT(0) FOR IsRevoked;
+        END
+    ";
 
+                await customerConnection1.ExecuteAsync(sql);
 
                 return new OkObjectResult(new
                 {
@@ -920,6 +682,95 @@ VALUES (@MCM_ID, @MCM_MCR_ID, @MCM_ModuleID);";
             }
         }
 
+        // Database Cloning Method
+        private async Task CloneDatabaseAsync(string sourceDb, string newDb)
+        {
+            using var connection = new SqlConnection(_configuration.GetConnectionString("MasterConnection"));
+            await connection.OpenAsync();
+
+            try
+            {
+                string cloningScript = $@"
+            DECLARE @SourceDB SYSNAME = '{sourceDb}';
+            DECLARE @NewDB SYSNAME   = '{newDb}';
+
+            -- 1. Clone TABLES
+            DECLARE @tbl NVARCHAR(300), @sql NVARCHAR(MAX);
+            DECLARE cur CURSOR FOR
+            SELECT QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME)
+            FROM   [{sourceDb}].INFORMATION_SCHEMA.TABLES
+            WHERE  TABLE_TYPE = 'BASE TABLE';
+
+            OPEN cur;
+            FETCH NEXT FROM cur INTO @tbl;
+
+            WHILE @@FETCH_STATUS = 0
+            BEGIN
+                SET @sql = 'SELECT * INTO [' + @NewDB + '].' + @tbl + ' FROM [' + @SourceDB + '].' + @tbl + ';';
+                EXEC(@sql);
+                FETCH NEXT FROM cur INTO @tbl;
+            END
+            CLOSE cur;
+            DEALLOCATE cur;
+
+            -- 2. Clone VIEWS, STORED PROCEDURES, FUNCTIONS, and TRIGGERS
+            DECLARE @object_type CHAR(2), @object_name NVARCHAR(300), @object_definition NVARCHAR(MAX);
+            DECLARE object_cur CURSOR FOR
+            SELECT 
+                o.type as object_type,
+                QUOTENAME(SCHEMA_NAME(o.schema_id)) + '.' + QUOTENAME(o.name) as object_name,
+                sm.definition
+            FROM   [{sourceDb}].sys.sql_modules sm
+            JOIN   [{sourceDb}].sys.objects o ON o.object_id = sm.object_id
+            WHERE  o.type IN ('V', 'P', 'FN', 'TF', 'IF', 'TR');
+
+            OPEN object_cur;
+            FETCH NEXT FROM object_cur INTO @object_type, @object_name, @object_definition;
+
+            WHILE @@FETCH_STATUS = 0
+            BEGIN
+                IF CHARINDEX('USE ', @object_definition) > 0
+                BEGIN
+                    SET @object_definition = REPLACE(@object_definition, 'USE {sourceDb}', 'USE {newDb}');
+                END
+                
+                DECLARE @exec_sql NVARCHAR(MAX) = 'USE [' + @NewDB + ']; EXEC(''' + REPLACE(@object_definition, '''', '''''') + ''')';
+                
+                BEGIN TRY
+                    EXEC(@exec_sql);
+                END TRY
+                BEGIN CATCH
+                    PRINT 'Error creating ' + 
+                        CASE @object_type 
+                            WHEN 'V' THEN 'view'
+                            WHEN 'P' THEN 'stored procedure' 
+                            WHEN 'FN' THEN 'function'
+                            WHEN 'TF' THEN 'function'
+                            WHEN 'IF' THEN 'function'
+                            WHEN 'TR' THEN 'trigger'
+                        END + ' ' + @object_name + ': ' + ERROR_MESSAGE();
+                END CATCH
+                
+                FETCH NEXT FROM object_cur INTO @object_type, @object_name, @object_definition;
+            END
+
+            CLOSE object_cur;
+            DEALLOCATE object_cur;
+
+            PRINT 'Database cloning completed successfully from ' + @SourceDB + ' to ' + @NewDB;";
+
+                using var command = new SqlCommand(cloningScript, connection);
+                command.CommandTimeout = 0;
+                await command.ExecuteNonQueryAsync();
+
+                Console.WriteLine($"✅ Database cloned successfully from {sourceDb} to {newDb}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Database cloning failed: {ex.Message}");
+                throw;
+            }
+        }
         public async Task<bool> SendWelcomeEmailAsync(string gmail, string password)
         {
             var smtpHost = _configuration["Smtp:Host"];
@@ -1795,6 +1646,7 @@ WHERE UserId = @UserId
     DateTime refreshExpiry,
     string customerCode)
         {
+
             const string sql = @"
     INSERT INTO UserTokens 
     (UserEmail, AccessToken, RefreshToken, AccessTokenExpiry, RefreshTokenExpiry, RevokedAt, 
@@ -1895,7 +1747,7 @@ WHERE UserId = @UserId
                 RefreshToken = refreshToken,
                 AccessTokenExpiry = DateTime.UtcNow.AddHours(1),
                 RefreshTokenExpiry = DateTime.UtcNow.AddDays(7),
-                RevokedAt = (DateTime?)null,
+                RevokedAt = false,
                 Device = device,
                 Browser = browser,
                 IpAddress = ipAddress, // ✅ Always IPv4 or LAN IP
