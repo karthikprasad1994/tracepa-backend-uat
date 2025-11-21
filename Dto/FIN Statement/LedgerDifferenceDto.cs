@@ -26,5 +26,22 @@
             public int Id { get; set; }
             public string Status { get; set; } = string.Empty;
         }
+
+        //GetDescriptionDetails
+        public class DescriptionDetailsDto
+        {
+            public string HeadingName { get; set; }     
+                        public int HeadingId { get; set; }
+                 public decimal CYamt { get; set; }
+            public decimal PYamt { get; set; }
+            public decimal Difference_Amt { get; set; }
+            public decimal? Difference_Avg { get; set; }
+
+            public decimal CyCr { get; set; }
+            public decimal CyDb { get; set; }
+            public decimal PyCr { get; set; }
+            public decimal PyDb { get; set; }
+            public string status { get; set; }
+        }
     }
 }

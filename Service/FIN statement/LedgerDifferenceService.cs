@@ -74,7 +74,9 @@ e.ATBU_Closing_TotalCredit_Amount,e.ATBU_Closing_TotalDebit_Amount ";
                             abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount),0)) -
                                 abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount),0)) as Difference_Amt,
                             (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount),0)) /
-                                NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount),0)),0)) as Difference_Avg
+                                NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount),0)),0)) as Difference_Avg,
+sum(isnull (d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull (d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
+sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb
                         from Acc_TrailBalance_Upload_Details
                             left join ACC_ScheduleHeading a on a.ASH_ID= ATBUD_Headingid
                             left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
@@ -100,7 +102,9 @@ e.ATBU_Closing_TotalCredit_Amount,e.ATBU_Closing_TotalDebit_Amount ";
                             abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount),0)) -
                                 abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount),0)) as Difference_Amt,
                             (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount),0)) /
-                                NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount),0)),0)) as Difference_Avg
+                                NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount),0)),0)) as Difference_Avg,
+sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
+sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb
                         from Acc_TrailBalance_Upload_Details
                             left join ACC_SchedulesubHeading a on a.ASsH_ID= ATBUD_subHeading
                             left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
@@ -125,7 +129,9 @@ e.ATBU_Closing_TotalCredit_Amount,e.ATBU_Closing_TotalDebit_Amount ";
                             abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount),0)) -
                                 abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount),0)) as Difference_Amt,
                             (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount),0)) /
-                                NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount),0)),0)) as Difference_Avg
+                                NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount),0)),0)) as Difference_Avg,
+sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
+sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0))As pydb
                         from Acc_TrailBalance_Upload_Details
                             left join ACC_ScheduleItems a on a.ASI_ID= ATBUD_itemid
                             left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
@@ -151,7 +157,9 @@ e.ATBU_Closing_TotalCredit_Amount,e.ATBU_Closing_TotalDebit_Amount ";
                             abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount),0)) -
                                 abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount),0)) as Difference_Amt,
                             (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount),0)) /
-                                NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount),0)),0)) as Difference_Avg
+                                NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount),0)),0)) as Difference_Avg,
+sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
+sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb
                         from Acc_TrailBalance_Upload_Details
                             left join ACC_ScheduleSUBItems a on a.ASSI_ID= ATBUD_SUBitemid
                             left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
@@ -233,6 +241,147 @@ e.ATBU_Closing_TotalCredit_Amount,e.ATBU_Closing_TotalDebit_Amount ";
             {
                 transaction.Rollback();
                 throw;
+            }
+        }
+
+        //GetDescriptionDetails
+        public async Task<IEnumerable<DescriptionDetailsDto>> GetDescriptionDetailsAsync(int compId, int custId, int branchId, int yearId, int typeId, int pkId)
+        {
+            {
+                // ✅ Step 1: Get DB name from session
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                if (string.IsNullOrEmpty(dbName))
+                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                // ✅ Step 2: Get the connection string
+                var connectionString = _configuration.GetConnectionString(dbName);
+
+                // ✅ Step 3: Use SqlConnection
+                using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+                {
+                    string sql = string.Empty;
+                    if (typeId == 2)
+                    {
+                        sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
+                      abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
+                      abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
+                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
+                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
+                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
+                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
+isnull (d.ATBU_Closing_TotalCredit_Amount,0) As cyCr,isnull (d.ATBU_Closing_TotalDebit_Amount,0) As cydb,
+isnull (e.ATBU_Closing_TotalCredit_Amount,0) As pyCr,isnull (e.ATBU_Closing_TotalDebit_Amount,0) As pydb,
+                       d.ATBU_STATUS as Status
+                  From Acc_TrailBalance_Upload_Details
+                      Left Join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
+                          And d.ATBU_YEARId=@YearId And d.ATBU_CustId=@CustId 
+                          And ATBUD_YEARId=@YearId And d.ATBU_Branchid=Atbud_Branchnameid  
+                          And d.Atbu_Branchid=@BranchId
+                      Left Join Acc_TrailBalance_Upload e on e.ATBU_Description = ATBUD_Description 
+                          And e.ATBU_YEARId=@PrevYearId And e.ATBU_CustId=@CustId
+                          And ATBUD_YEARId=@YearId And e.ATBU_Branchid=Atbud_Branchnameid  
+                          And e.Atbu_Branchid=@BranchId
+                  WHERE ATBUD_CustId = @CustId
+                        AND Atbud_Branchnameid = @BranchId
+                        AND atbud_yearid = @YearId
+                        AND ATBUD_Headingid = @iPkId
+                  GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS
+,d.ATBU_Closing_TotalCredit_Amount,d.ATBU_Closing_TotalDebit_Amount,
+e.ATBU_Closing_TotalCredit_Amount,e.ATBU_Closing_TotalDebit_Amount ";
+                    }
+                    else if (typeId == 3)
+                    {
+                        sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
+                      abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
+                      abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
+                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
+                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
+                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
+                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
+sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
+sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb,
+                       d.ATBU_STATUS as Status
+                  From Acc_TrailBalance_Upload_Details
+                      Left Join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
+                          And d.ATBU_YEARId=@YearId And d.ATBU_CustId=@CustId 
+                          And ATBUD_YEARId=@YearId And d.ATBU_Branchid=Atbud_Branchnameid  
+                          And d.Atbu_Branchid=@BranchId
+                      Left Join Acc_TrailBalance_Upload e on e.ATBU_Description = ATBUD_Description 
+                          And e.ATBU_YEARId=@PrevYearId And e.ATBU_CustId=@CustId
+                          And ATBUD_YEARId=@YearId And e.ATBU_Branchid=Atbud_Branchnameid  
+                          And e.Atbu_Branchid=@BranchId
+                  WHERE ATBUD_CustId = @CustId
+                        AND Atbud_Branchnameid = @BranchId
+                        AND atbud_yearid = @YearId
+                        AND ATBUD_Subheading = @iPkId
+                  GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS";
+                    }
+                    else if (typeId == 4)
+                    {
+                        sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
+                      abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
+                      abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
+                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
+                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
+                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
+                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
+sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
+sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb,
+                       d.ATBU_STATUS as Status
+                  From Acc_TrailBalance_Upload_Details
+                      Left Join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
+                          And d.ATBU_YEARId=@YearId And d.ATBU_CustId=@CustId 
+                          And ATBUD_YEARId=@YearId And d.ATBU_Branchid=Atbud_Branchnameid  
+                          And d.Atbu_Branchid=@BranchId
+                      Left Join Acc_TrailBalance_Upload e on e.ATBU_Description = ATBUD_Description 
+                          And e.ATBU_YEARId=@PrevYearId And e.ATBU_CustId=@CustId
+                          And ATBUD_YEARId=@YearId And e.ATBU_Branchid=Atbud_Branchnameid  
+                          And e.Atbu_Branchid=@BranchId
+                  WHERE ATBUD_CustId = @CustId
+                        AND Atbud_Branchnameid = @BranchId
+                        AND atbud_yearid = @YearId
+                        AND ATBUD_itemid = @iPkId
+                  GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS";
+                    }
+                    else if (typeId == 5)
+                    {
+                        sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
+                      abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
+                      abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
+                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
+                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
+                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
+                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
+sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
+sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb,
+                       d.ATBU_STATUS as Status
+                  From Acc_TrailBalance_Upload_Details
+                      Left Join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
+                          And d.ATBU_YEARId=@YearId And d.ATBU_CustId=@CustId 
+                          And ATBUD_YEARId=@YearId And d.ATBU_Branchid=Atbud_Branchnameid  
+                          And d.Atbu_Branchid=@BranchId
+                      Left Join Acc_TrailBalance_Upload e on e.ATBU_Description = ATBUD_Description 
+                          And e.ATBU_YEARId=@PrevYearId And e.ATBU_CustId=@CustId
+                          And ATBUD_YEARId=@YearId And e.ATBU_Branchid=Atbud_Branchnameid  
+                          And e.Atbu_Branchid=@BranchId
+                  WHERE ATBUD_CustId = @CustId
+                        AND Atbud_Branchnameid = @BranchId
+                        AND atbud_yearid = @YearId
+                        AND ATBUD_SubItemId = @iPkId
+                  GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS ";
+                    }
+                    var result = await connection.QueryAsync<DescriptionDetailsDto>(sql, new
+                    {
+                        CustId = custId,
+                        BranchId = branchId,
+                        YearId = yearId,
+                        PrevYearId = yearId - 1,
+                        iPkId= pkId
+                    });
+                    return result;
+                }
             }
         }
     }

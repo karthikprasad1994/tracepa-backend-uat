@@ -103,5 +103,40 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+        //GetDescriptionDetails
+        [HttpGet("GetDescriptionDetails")]
+        public async Task<IActionResult> GetDescriptionDetails(int compId, int custId, int branchId, int yearId, int typeId, int pkId)
+        {
+            try
+            {
+                var result = await _LedgerDifferenceService.GetDescriptionDetailsAsync(compId, custId, branchId, yearId, typeId, pkId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = "No records found."
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "Data fetched successfully.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching description-by-accountwise details.",
+                    Error = ex.Message
+                });
+            }
+        }
     }
 }
