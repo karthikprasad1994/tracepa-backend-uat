@@ -43,5 +43,42 @@ namespace TracePca.Controllers.ClientPortal
                 data = response
             });
         }
+        [HttpPost("load")]
+        public async Task<IActionResult> LoadDRL([FromBody] LoadDRLLogRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest(new LoadDRLLogResponse
+                {
+                    Success = false,
+                    Message = "Invalid request payload"
+                });
+            }
+
+            var data = await _service.LoadDRLLogAsync(
+                request.CompanyId,
+                request.AuditNo,
+                request.CustId,
+                request.YearId
+            );
+
+            return Ok(new LoadDRLLogResponse
+            {
+                Success = true,
+                Data = data,
+                Message = "DRL log loaded successfully"
+            });
+        }
+        [HttpPost("loadDetails")]
+        public async Task<IActionResult> LoadAttachments([FromBody] AttachmentRequestDto request)
+        {
+            var result = await _service.LoadAttachmentsAsync(request);
+            return Ok(new
+            {
+                success = true,
+                data = result,
+                message = "Attachments loaded successfully"
+            });
+        }
     }
 }
