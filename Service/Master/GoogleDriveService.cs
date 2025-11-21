@@ -381,7 +381,6 @@ namespace TracePca.Service.Master
 
         public async Task ExchangeCodeAsync(string userEmail, string code)
         {
-            userEmail = GetUserEmail();
             if (string.IsNullOrEmpty(userEmail) || string.IsNullOrEmpty(code))
                 throw new ArgumentException("UserEmail and Code are required.");
 
