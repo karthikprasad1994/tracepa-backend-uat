@@ -10,5 +10,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //UpdateDescriptionWiseDetailsStatus
         Task<int> UpdateTrailBalanceStatusAsync(List<UpdateDescriptionWiseDetailsStatusDto> dtoList);
+
+        //GetDescriptionDetails
+        Task<IEnumerable<DescriptionDetailsDto>> GetDescriptionDetailsAsync(int compId, int custId, int branchId, int yearId, int typeId, int pkId);
     }
 }

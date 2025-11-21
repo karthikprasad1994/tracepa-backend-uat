@@ -80,7 +80,7 @@ SELECT
     END AS Status
 FROM Sad_UserDetails u
 LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID
-WHERE u.Usr_CompId = @CompanyId
+WHERE u.Usr_CompId = @CompanyId and u.Usr_type='U'
 ORDER BY u.usr_Id"; // ✅ Added ORDER BY
 
 
@@ -207,7 +207,7 @@ SELECT
             parameters.Add("@Usr_DelFlag", "N");
             parameters.Add("@Usr_IPAddress", "127.0.0.1"); // or from HttpContext
             parameters.Add("@Usr_CompId", 1);
-            parameters.Add("@Usr_Type", "C");
+            parameters.Add("@Usr_Type", "U");
 
             parameters.Add("@usr_IsSuperuser", 0);
             parameters.Add("@USR_DeptID", 0);
