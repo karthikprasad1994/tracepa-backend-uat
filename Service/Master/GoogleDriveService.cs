@@ -39,7 +39,7 @@ namespace TracePca.Service.Master
 
             _isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
 
-            string localPath = @"C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\client_secret_desktop.json";
+            string localPath = @"C:\inetpub\wwwroot\TracePA\tracepa-corebackend\client_secret_desktop.json";
             string cloudPath = @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\GoogleDrive\client_secret.json";
             _credentialsPath = _isDevelopment ? localPath : cloudPath;
 
