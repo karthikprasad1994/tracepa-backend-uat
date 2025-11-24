@@ -6469,6 +6469,17 @@ WHERE
                     }
 
                 }
+                string Vstatus;
+                if (request.status == "C")
+                {
+                    Vstatus = "A";
+                }
+                else
+                {
+                    Vstatus = "C";
+
+                }
+
 
                 if (IsFileStoredInDatabase(request.CompanyId))
                 {
@@ -6478,9 +6489,9 @@ WHERE
                     string sql = @"INSERT INTO EDT_ATTACHMENTS 
                           (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, 
                            ATCH_VERSION, ATCH_FLAG, ATCH_OLE, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
-                           ATCH_Status, ATCH_CompID)
+                           ATCH_Status, ATCH_CompID,Atch_Vstatus)
                           VALUES (@ATCH_ID, @ATCH_DOCID, @ATCH_FNAME, @ATCH_EXT, @CREATEDBY, @MODIFIEDBY, 1, 0, @ATCH_OLE, 
-                          @SIZE, 0, 0, GETDATE(), 'X', @COMPID)";
+                          @SIZE, 0, 0, GETDATE(), 'X', @COMPID,@Vstatus)";
 
                     await connection.ExecuteAsync(sql, new
                     {
@@ -6492,7 +6503,9 @@ WHERE
                         MODIFIEDBY = request.UserId,
                         ATCH_OLE = fileData,
                         SIZE = fileSize,
-                        COMPID = request.CompanyId
+                        COMPID = request.CompanyId,
+                        Vstatus = Vstatus
+
                     });
                 }
                 else
@@ -6503,7 +6516,7 @@ WHERE
                            ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
                            ATCH_Status, ATCH_CompID, Atch_Vstatus)
                           VALUES (@ATCH_ID, @ATCH_DOCID, @ATCH_FNAME, @ATCH_EXT, @CREATEDBY, @MODIFIEDBY, 1, 0, 
-                                  @SIZE, 0, 0, GETDATE(), 'X', @COMPID, 'A')";
+                                  @SIZE, 0, 0, GETDATE(), 'X', @COMPID, @Vstatus)";
 
                     await connection.ExecuteAsync(sql, new
                     {
@@ -6514,7 +6527,8 @@ WHERE
                         CREATEDBY = request.UserId,
                         MODIFIEDBY = request.UserId,
                         SIZE = fileSize,
-                        COMPID = request.CompanyId
+                        COMPID = request.CompanyId,
+                        Vstatus = Vstatus
                     });
 
                     //string finalDirectory = GetOrCreateTargetDirectory(request.AccessCodeDirectory, request.ModuleName, documentId / 301, tempFilePath);
@@ -6659,7 +6673,6 @@ WHERE SA_ID = @AuditId";
                 documentId
             );
 
-
             var remarkInsertSql = @"
         DECLARE @NewId INT = (SELECT ISNULL(MAX(SAR_ID) + 1, 1) FROM StandardAudit_Audit_DRLLog_RemarksHistory);
 
@@ -6669,7 +6682,7 @@ WHERE SA_ID = @AuditId";
             SAR_AtthachDocId, SAR_ReportType, SAR_MASid, SAR_AttchId, SAR_DRLId
         )
         VALUES (
-            @NewId, @AuditID, @CustID, @CheckPointID, 'C', @Remarks, @UserID, GETDATE(),
+            @NewId, @AuditID, @CustID, @CheckPointID, @status, @Remarks, @UserID, GETDATE(),
             @IPAddress, @CompanyID, @EmailIds, @RespondTime, @YearID, 'A',
             @DocID, @TabType, @MasID, @AttachID, @DRLID
         );
@@ -6691,7 +6704,8 @@ WHERE SA_ID = @AuditId";
                 TabType = req.ReportType,
                 MasID = iOper, // You can replace with actual MasID if needed
                 AttachID = attachmentId,
-                DRLID = req.RequestedListId
+                DRLID = req.RequestedListId,
+                status = req.status
             });
             if (req.OpinionFlag == 1)
             {
