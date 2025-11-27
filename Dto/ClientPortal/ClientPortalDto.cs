@@ -58,6 +58,7 @@
             public int AuditId { get; set; }
             public int AttachId { get; set; }
             public int Type { get; set; }
+            public int YearId { get; set; }
             public string DuringAttachIds { get; set; }  // comma-separated
         }
         public class AttachmentResponseDto
