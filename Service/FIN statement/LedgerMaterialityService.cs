@@ -42,9 +42,8 @@ namespace TracePca.Service.FIN_statement
         SELECT  cmm.cmm_ID as cmm_ID,cmm.cmm_Desc as cmm_Desc, ISNULL(lm.lm_levelofrisk, 0) AS lm_levelofrisk,
     ISNULL(lm.lm_weightage, 0) AS lm_weightage, lm_Id
         FROM Content_Management_Master cmm
-LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND lm.lm_CustId = @iCustId  AND lm.lm_FinancialYearId = @iYearId AND cmm.cmm_Category = 'MT' 
-        WHERE cmm.CMM_CompID = @CompID
-          
+LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND lm.lm_CustId = @iCustId  AND lm.lm_FinancialYearId = @iYearId 
+        WHERE cmm.CMM_CompID = @CompID AND cmm.cmm_Category = 'MT'           
         ORDER by cmm.cmm_ID";
 
             return await connection.QueryAsync<ContentManagementDto>(
