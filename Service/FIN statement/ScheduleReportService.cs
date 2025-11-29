@@ -740,6 +740,7 @@ ORDER BY ud.ATBUD_Headingid";
                     YearID = p.YearID,
                     PrevYearID = p.YearID - 1,
                     CustID = p.CustID,
+                    BranchId = p.BranchId,
                     ScheduleTypeID,
                     HeadingID = heading.HeadingID,
                     CompID = CompId
@@ -791,6 +792,7 @@ ORDER BY ud.ATBUD_Subheading";
                         YearID = p.YearID,
                         PrevYearID = p.YearID - 1,
                         CustID = p.CustID,
+                        BranchId = p.BranchId,
                         ScheduleTypeID,
                         SubHeadingID = sub.SubHeadingID
                     });
