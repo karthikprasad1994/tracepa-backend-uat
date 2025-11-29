@@ -214,8 +214,40 @@ namespace TracePca.Service.ClientPortal
             using var connection = _db.CreateConnection();
 
             var result = new List<AttachmentResponseDto>();
+            var beginId = await connection.ExecuteScalarAsync<int>(
+               @"SELECT ISNULL(cmm_ID,0) 
+              FROM Content_Management_Master
+              WHERE cmm_Category='DRL' AND cmm_Desc='Beginning of the Audit'");
 
-            string sql = req.Type == 3
+            var endId = await connection.ExecuteScalarAsync<int>(
+                @"SELECT ISNULL(cmm_ID,0) 
+              FROM Content_Management_Master
+              WHERE cmm_Category='DRL' AND cmm_Desc='Nearing completion of the Audit'");
+
+            string requestedListIds = $"{beginId},{endId}";
+
+            string condition = req.Type == 3
+         ? $"AND ADRL_RequestedListID NOT IN ({requestedListIds})"
+         : "";
+
+            var Attchids = await connection.ExecuteScalarAsync<string>($@"
+    SELECT STRING_AGG(val, ', ') AS Attchids
+    FROM (
+        SELECT DISTINCT 
+            CASE 
+                WHEN ADRL_AttachID IS NULL THEN 'NULL'
+                ELSE CAST(ADRL_AttachID AS VARCHAR(10))
+            END AS val
+        FROM Audit_DRLLog
+        WHERE ADRL_YearId =  {req.YearId}
+          AND ADRL_AuditNo =  {req.AuditId}
+          AND ADRL_Custid = {req.CustomerId}
+          {condition}
+    ) AS tmp;
+");
+
+
+            string sql = req.Type != 3
                 ? @"SELECT Atch_ReportType, Atch_DocID, Atch_Id, ATCH_FNAME,
                         (SELECT TOP 1 SAR_Remarks 
                          FROM StandardAudit_Audit_DRLLog_RemarksHistory r 
@@ -247,7 +279,7 @@ namespace TracePca.Service.ClientPortal
             var rows = (await connection.QueryAsync(sql, new
             {
                 AttachId = req.AttachId,
-                DuringAttachIds = req.DuringAttachIds
+                DuringAttachIds = Attchids
             })).ToList();
 
             int sr = 1;
