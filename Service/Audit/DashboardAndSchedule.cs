@@ -436,8 +436,10 @@ ORDER BY SrNo";
                     DENSE_RANK() OVER (ORDER BY ACM_ID) AS SlNo,
                     ACM_Heading,
                     ACM_ID,
+ISNULL(SAC_Mandatory, 0) AS SAC_Mandatory,
                     ACM_Checkpoint
                 FROM AuditType_Checklist_Master
+                     left join StandardAudit_ScheduleCheckPointList on SAC_CheckPointID = ACM_ID  
                 WHERE 
                     ACM_CompId = @CompId
                     AND ACM_DELFLG = 'A'
