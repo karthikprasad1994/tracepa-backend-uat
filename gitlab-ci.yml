@@ -1,0 +1,41 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOTNET_ROOT: "C:\\Program Files\\dotnet"
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+build_job:
+  stage: build
+  tags:
+    - windows
+  script:
+    - echo "Restoring packages..."
+    - dotnet restore "TracePca.csproj"
+
+    - echo "Building project..."
+    - dotnet build "TracePca.csproj" -c Release --no-restore
+
+    - echo "Publishing project..."
+    - dotnet publish "TracePca.csproj" -c Release -o publish
+
+  artifacts:
+    paths:
+      - publish/
+    expire_in: 1 week
+
+
+deploy_job:
+  stage: deploy
+  tags:
+    - windows
+  script:
+    - echo "Copying files to IIS website..."
+    - xcopy publish "C:\\inetpub\\vhosts\\multimedia.interactivedns.com\\tracepacore.multimedia.interactivedns.com\\" /s /e /y
+
+    - echo "Restarting IIS"
+    - iisreset
+
+  only:
+    - main
