@@ -43,8 +43,8 @@ namespace TracePca.Service.FIN_statement
     ISNULL(lm.lm_weightage, 0) AS lm_weightage, lm_Id
         FROM Content_Management_Master cmm
 LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND lm.lm_CustId = @iCustId  AND lm.lm_FinancialYearId = @iYearId  
-        WHERE cmm.CMM_CompID = @CompID AND cmm.cmm_Category = 'MT'          
-        ORDER by cmm.cmm_ID";
+        WHERE cmm.CMM_CompID = @CompID AND cmm.cmm_Category = 'MT'        
+                 ORDER by cmm.cmm_ID";
 
             return await connection.QueryAsync<ContentManagementDto>(
                 query, new { CompID = CompId, Category = cmmCategory, iYearId = YearId, iCustId = CustId }

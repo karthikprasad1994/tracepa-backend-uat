@@ -220,10 +220,10 @@ SELECT ud.ATBUD_Headingid AS HeadingID,    h.ASH_Name AS Name,
 FROM Acc_TrailBalance_Upload_Details ud
 LEFT JOIN ACC_ScheduleHeading h ON h.ASH_ID = ud.ATBUD_Headingid AND h.ASH_Notes = 1
 LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description
-    AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND d.ATBU_Branchid = ud.Atbud_Branchnameid AND d.ATBU_Branchid =@BranchId
+    AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND d.ATBU_Branchid = ud.Atbud_Branchnameid AND d.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description
-    AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid =@BranchId
-WHERE  ud.Atbud_Branchnameid =@BranchId and   ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_compid = @CompID AND ud.ATBUD_CustId = @CustID AND ud.ATBUD_Headingid = @HeadingID
+    AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+WHERE  ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and   ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_compid = @CompID AND ud.ATBUD_CustId = @CustID AND ud.ATBUD_Headingid = @HeadingID
     AND EXISTS (SELECT 1 FROM ACC_ScheduleTemplates s WHERE s.AST_HeadingID = ud.ATBUD_Headingid AND s.AST_AccHeadId IN (1, 2))
 GROUP BY ud.ATBUD_Headingid, h.ASH_Name, h.ASH_Notes ORDER BY ud.ATBUD_Headingid";
                 var headingBalance = await connection.QueryAsync<SummaryReportPnLRow>(headingBalanceSql, new
@@ -270,9 +270,9 @@ SELECT  ud.ATBUD_Subheading AS SubHeadingID,
     ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount), 0) AS PrevDbTotal
 FROM Acc_TrailBalance_Upload_Details ud
 LEFT JOIN ACC_ScheduleSubHeading sh ON sh.ASSH_ID = ud.ATBUD_Subheading
-LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid AND d.ATBU_Branchid =@BranchId
-LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid =@BranchId
-WHERE ud.Atbud_Branchnameid =@BranchId and ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_Subheading = @SubHeadingID AND ud.ATBUD_CustId = @CustID
+LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid AND d.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+WHERE ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_Subheading = @SubHeadingID AND ud.ATBUD_CustId = @CustID
 GROUP BY ud.ATBUD_Subheading, sh.ASSH_Name, sh.ASSH_Notes
 ORDER BY ud.ATBUD_Subheading";
 
@@ -358,9 +358,9 @@ SELECT
     ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount), 0) AS PrevDbTotal
 FROM Acc_TrailBalance_Upload_Details ud
 LEFT JOIN ACC_ScheduleHeading h ON h.ASH_ID = ud.ATBUD_Headingid AND h.ASH_Notes = 2
-LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid AND d.ATBU_Branchid =@BranchId
-LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid =@BranchId
-WHERE ud.Atbud_Branchnameid =@BranchId and ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_compid = @CompID AND ud.ATBUD_CustId = @CustID AND ud.ATBUD_Headingid = @HeadingID
+LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid AND d.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+WHERE ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_compid = @CompID AND ud.ATBUD_CustId = @CustID AND ud.ATBUD_Headingid = @HeadingID
     AND EXISTS (SELECT 1 FROM ACC_ScheduleTemplates s WHERE s.AST_HeadingID = ud.ATBUD_Headingid AND s.AST_AccHeadId IN (1, 2))
 GROUP BY ud.ATBUD_Headingid, h.ASH_Name, h.ASH_Notes ORDER BY ud.ATBUD_Headingid";
                 var headingBalance = await connection.QueryAsync<SummaryReportPnLRow>(expenseBalanceSql, new
@@ -430,9 +430,9 @@ GROUP BY AST_SubHeadingID, ASsH_Name, ASSH_Notes";
     ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount), 0) AS PrevDbTotal
 FROM Acc_TrailBalance_Upload_Details ud
 LEFT JOIN ACC_ScheduleSubHeading ssh ON ssh.ASSH_ID = ud.ATBUD_Subheading
-LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid AND d.ATBU_Branchid =@BranchId
-LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid =@BranchId
-WHERE ud.Atbud_Branchnameid =@BranchId and ud.ATBUD_Subheading = @SubHeadingID AND ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_CustId = @CustID
+LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid AND d.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+WHERE ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and ud.ATBUD_Subheading = @SubHeadingID AND ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_CustId = @CustID
 GROUP BY ud.ATBUD_Subheading, ssh.ASSH_Name, ssh.ASSH_Notes
 ORDER BY ud.ATBUD_Subheading";
                                     var subBalance = await connection.QueryAsync<SummaryReportPnLRow>(subBalSql, new
@@ -593,10 +593,10 @@ SELECT  ud.ATBUD_Headingid AS HeadingID,
 FROM Acc_TrailBalance_Upload_Details ud
 LEFT JOIN ACC_ScheduleHeading h ON h.ASH_ID = ud.ATBUD_Headingid AND h.ASH_Notes = 2
 LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description
-    AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND d.ATBU_Branchid = ud.Atbud_Branchnameid  AND d.ATBU_Branchid =@BranchId
+    AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND d.ATBU_Branchid = ud.Atbud_Branchnameid  AND d.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description
-    AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid =@BranchId
-WHERE  ud.Atbud_Branchnameid =@BranchId and   ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_compid = @CompID AND ud.ATBUD_CustId = @CustID AND ud.ATBUD_Headingid = @HeadingID
+    AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+WHERE  ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and   ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_compid = @CompID AND ud.ATBUD_CustId = @CustID AND ud.ATBUD_Headingid = @HeadingID
     AND EXISTS (SELECT 1 FROM ACC_ScheduleTemplates s WHERE s.AST_HeadingID = ud.ATBUD_Headingid AND s.AST_AccHeadId IN (1, 2))
 GROUP BY ud.ATBUD_Headingid, h.ASH_Name, h.ASH_Notes
 ORDER BY ud.ATBUD_Headingid";
@@ -651,7 +651,7 @@ FROM Acc_TrailBalance_Upload_Details ud
 LEFT JOIN ACC_ScheduleSubHeading sh ON sh.ASSH_ID = ud.ATBUD_Subheading
 LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid
 LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid
-WHERE ud.Atbud_Branchnameid =@BranchId and ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_Subheading = @SubHeadingID AND ud.ATBUD_CustId = @CustID
+WHERE ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_Subheading = @SubHeadingID AND ud.ATBUD_CustId = @CustID
 GROUP BY ud.ATBUD_Subheading, sh.ASSH_Name, sh.ASSH_Notes
 ORDER BY ud.ATBUD_Subheading";
                         var subBalance = await connection.QueryFirstOrDefaultAsync(subBalSql, new
@@ -731,7 +731,7 @@ FROM Acc_TrailBalance_Upload_Details ud
 LEFT JOIN ACC_ScheduleHeading h ON h.ASH_ID = ud.ATBUD_Headingid AND h.ASH_Notes = 1
 LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid
 LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid
-WHERE ud.Atbud_Branchnameid =@BranchId and ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_compid = @CompID AND ud.ATBUD_CustId = @CustID AND ud.ATBUD_Headingid = @HeadingID
+WHERE ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_compid = @CompID AND ud.ATBUD_CustId = @CustID AND ud.ATBUD_Headingid = @HeadingID
     AND EXISTS (SELECT 1 FROM ACC_ScheduleTemplates s WHERE s.AST_HeadingID = ud.ATBUD_Headingid AND s.AST_AccHeadId IN (1, 2))
 GROUP BY ud.ATBUD_Headingid, h.ASH_Name, h.ASH_Notes
 ORDER BY ud.ATBUD_Headingid";
@@ -780,9 +780,9 @@ SELECT
     ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount), 0) AS PrevDbTotal
 FROM Acc_TrailBalance_Upload_Details ud
 LEFT JOIN ACC_ScheduleSubHeading ssh ON ssh.ASSH_ID = ud.ATBUD_Subheading
-LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid AND d.ATBU_Branchid =@BranchId
-LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid =@BranchId
-WHERE ud.Atbud_Branchnameid =@BranchId and ud.ATBUD_Subheading = @SubHeadingID AND ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_CustId = @CustID
+LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid AND d.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+WHERE ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and ud.ATBUD_Subheading = @SubHeadingID AND ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_CustId = @CustID
 GROUP BY ud.ATBUD_Subheading, ssh.ASSH_Name, ssh.ASSH_Notes
 ORDER BY ud.ATBUD_Subheading";
 
@@ -828,7 +828,7 @@ ORDER BY ud.ATBUD_Subheading";
             int RoundOff = 1;
             int YearId = p.YearID;
             int CustId = p.CustID;
-            int selectedBranches = p.BranchId;
+            string selectedBranches = p.BranchId;
             decimal totalIncome = 0, totalPrevIncome = 0;
 
             // ✅ Step 1: Get DB name from session
@@ -878,12 +878,12 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  ISNULL(Sum(g.ATBU_Closing_TotalDebit_Amount + 0), 0)  As DbTotalPrev
  from Acc_TrailBalance_Upload_Details left join ACC_ScheduleSubHeading a on a.ASSH_ID = ATBUD_Subheading
  left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description And d.ATBU_YEARId = @YearId
- and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid in (@BranchId)
+ and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  left join ACC_SubHeadingNoteDesc e on e.ASHN_SubHeadingId = ASSH_ID and e.ASHN_CustomerId = @CustomerId and e.ASHN_YearID = @YearId
  left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0 and ATBUD_itemid = 0
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid
  left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0  And g.ATBU_YEARId = @PrevYearId
- and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid in (@BranchId)
+ and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  where ATBUD_Headingid = @HeadingId And ATBUD_Subheading<>0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description order by ATBUD_Subheading";
                     var subHeadingTotals = await connection.QueryAsync<DetailedReportPandLRow>(subHeadingTotalsSql, new
@@ -920,12 +920,12 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  ISNULL(Sum(g.ATBU_Closing_TotalDebit_Amount + 0), 0)  As DbTotalPrev
  from Acc_TrailBalance_Upload_Details left join ACC_ScheduleSubHeading a on a.ASSH_ID = ATBUD_Subheading
  left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description And d.ATBU_YEARId = @YearId
- and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid in (@BranchId)
+ and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  left join ACC_SubHeadingNoteDesc e on e.ASHN_SubHeadingId = ASSH_ID and e.ASHN_CustomerId = @CustomerId and e.ASHN_YearID = @YearId
  left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0 and ATBUD_itemid = 0
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid
  left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0  And g.ATBU_YEARId = @PrevYearId
- and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid in (@BranchId)
+ and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  where ATBUD_Subheading= @subHeadingId  And ATBUD_Subheading<>0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description,ATBUD_Description order by ATBUD_Subheading";
                             var descs = await connection.QueryAsync<DetailedReportPandLRow>(descriptionSql, new
@@ -1145,12 +1145,12 @@ GROUP BY ud.ATBUD_ID, ud.ATBUD_Description, si.ASSI_ID, si.ASSI_Name, ldg.ASHL_D
   ISNULL(Sum(f.ATBU_Closing_TotalDebit_Amount + 0), 0) as PrevDbTotal,g.ASHL_Description
   from Acc_TrailBalance_Upload_Details left join ACC_ScheduleSubHeading a on a.ASSH_ID = ATBUD_Subheading
   left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description  And d.ATBU_YEARId = @YearId
-  and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid  And d.Atbu_Branchid in (@BranchId)
+  and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid  And d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
   left join ACC_SubHeadingNoteDesc e on e.ASHN_SubHeadingId = ASSH_ID and e.ASHN_CustomerId = @CustomerId and e.ASHN_YearID = @YearId
   left join ACC_SubHeadingLedgerDesc g on g.ASHL_SubHeadingId = Atbud_ID and g.ASHL_CustomerId = @CustomerId  and g.ASHL_YearID = @YearId
-  And g.ASHL_BranchId in (@BranchId)
+  And g.ASHL_BranchId IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
   left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description And f.ATBU_YEARId = @PrevYearId and f.ATBU_CustId = @CustomerId
-  and ATBUD_YEARId = @PrevYearId and f.ATBU_Branchid = Atbud_Branchnameid  And f.Atbu_Branchid in (@BranchId)
+  and ATBUD_YEARId = @PrevYearId and f.ATBU_Branchid = Atbud_Branchnameid  And f.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
   where ATBUD_Subheading = @subHeadingId And ATBUD_Subheading<>0 and ATBUD_Schedule_type = @ScheduleTypeID and ATBUD_CustId = @CustomerId
   and ATBUD_SubItemId = 0 and ATBUD_itemid = 0  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description,ATBUD_Description,
   g.ASHL_Description order by ATBUD_Subheading";
@@ -1400,12 +1400,12 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  ISNULL(Sum(g.ATBU_Closing_TotalDebit_Amount + 0), 0)  As DbTotalPrev
  from Acc_TrailBalance_Upload_Details left join ACC_ScheduleSubHeading a on a.ASSH_ID = ATBUD_Subheading
  left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description And d.ATBU_YEARId = @YearId
- and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid in (@BranchId)
+ and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  left join ACC_SubHeadingNoteDesc e on e.ASHN_SubHeadingId = ASSH_ID and e.ASHN_CustomerId = @CustomerId and e.ASHN_YearID = @YearId
  left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0 and ATBUD_itemid = 0
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid
  left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0  And g.ATBU_YEARId = @PrevYearId
- and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid in (@BranchId)
+ and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  where ATBUD_Headingid = @HeadingId And ATBUD_Subheading<>0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description order by ATBUD_Subheading";
                     var subHeadingTotals = await connection.QueryAsync<DetailedReportPandLRow>(subHeadingTotalsSql, new
@@ -1440,12 +1440,12 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  ISNULL(Sum(g.ATBU_Closing_TotalDebit_Amount + 0), 0)  As DbTotalPrev
  from Acc_TrailBalance_Upload_Details left join ACC_ScheduleSubHeading a on a.ASSH_ID = ATBUD_Subheading
  left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description And d.ATBU_YEARId = @YearId
- and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid in (@BranchId)
+ and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  left join ACC_SubHeadingNoteDesc e on e.ASHN_SubHeadingId = ASSH_ID and e.ASHN_CustomerId = @CustomerId and e.ASHN_YearID = @YearId
  left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0 and ATBUD_itemid = 0
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid
  left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0  And g.ATBU_YEARId = @PrevYearId
- and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid in (@BranchId)
+ and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  where ATBUD_Subheading= @subHeadingId  And ATBUD_Subheading<>0 And ATBUD_itemid=0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description,ATBUD_Description order by ATBUD_Subheading";
                         var descs = await connection.QueryAsync<DetailedReportPandLRow>(descriptionSql, new
@@ -1489,10 +1489,10 @@ SELECT ud.ATBUD_itemid AS ItemId,i.ASI_Name AS ItemName,
 FROM Acc_TrailBalance_Upload_Details ud
 LEFT JOIN ACC_ScheduleItems i ON i.ASI_ID = ud.ATBUD_itemid
 LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description
-    AND d.ATBU_YEARId = @YearId AND d.ATBU_CustId = @CustomerId AND d.ATBU_Branchid = ud.Atbud_Branchnameid and d.Atbu_Branchid in (@BranchId)
+    AND d.ATBU_YEARId = @YearId AND d.ATBU_CustId = @CustomerId AND d.ATBU_Branchid = ud.Atbud_Branchnameid and d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 LEFT JOIN Acc_TrailBalance_Upload f ON f.ATBU_Description = ud.ATBUD_Description
-    AND f.ATBU_YEARId = @YearId AND f.ATBU_CustId = @CustomerId AND f.ATBU_Branchid = ud.Atbud_Branchnameid AND ud.ATBUD_SubItemId = 0 and f.Atbu_Branchid in (@BranchId)
-LEFT JOIN Acc_TrailBalance_Upload g ON g.ATBU_Description = ud.ATBUD_Description and g.Atbu_Branchid in (@BranchId)
+    AND f.ATBU_YEARId = @YearId AND f.ATBU_CustId = @CustomerId AND f.ATBU_Branchid = ud.Atbud_Branchnameid AND ud.ATBUD_SubItemId = 0 and f.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+LEFT JOIN Acc_TrailBalance_Upload g ON g.ATBU_Description = ud.ATBUD_Description and g.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
     AND g.ATBU_YEARId = @PrevYearId AND g.ATBU_CustId = @CustomerId AND g.ATBU_Branchid = ud.Atbud_Branchnameid AND ud.ATBUD_SubItemId = 0
 WHERE    ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_Schedule_type = @ScheduleTypeId and ATBUD_Headingid=@HeadingId And ATBUD_Subheading= @subHeadingId 
  GROUP BY ud.ATBUD_itemid, i.ASI_Name";
@@ -1573,9 +1573,9 @@ SELECT  ud.ATBUD_SubItemId AS SubItemId,
 FROM Acc_TrailBalance_Upload_Details ud
 LEFT JOIN ACC_ScheduleSubItems si ON si.ASSI_ID = ud.ATBUD_SubItemId
 LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearId 
-AND d.ATBU_CustId = @CustId AND d.ATBU_Branchid = ud.Atbud_Branchnameid  and d.Atbu_Branchid in (@BranchId)
+AND d.ATBU_CustId = @CustId AND d.ATBU_Branchid = ud.Atbud_Branchnameid  and d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 LEFT JOIN Acc_TrailBalance_Upload f ON f.ATBU_Description = ud.ATBUD_Description AND f.ATBU_YEARId = @PrevYearId
-AND f.ATBU_CustId = @CustId AND f.ATBU_Branchid = ud.Atbud_Branchnameid and f.Atbu_Branchid in (@BranchId)
+AND f.ATBU_CustId = @CustId AND f.ATBU_Branchid = ud.Atbud_Branchnameid and f.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 WHERE ud.ATBUD_Headingid=@HeadingId And ud.ATBUD_Subheading=@subHeadingId  And ud.ATBUD_SubItemId<>0 And ud.ATBUD_itemid =@ItemId 
    and  ud.ATBUD_Schedule_type = @ScheduleTypeId AND ud.ATBUD_CustId = @CustId GROUP BY ud.ATBUD_SubItemId, si.ASSI_Name";
                                     var subItems = (await connection.QueryAsync<DetailedReportPandLRow>(subItemSql, new
@@ -1611,13 +1611,13 @@ ISNULL(Sum(f.ATBU_Closing_TotalDebit_Amount + 0), 0) as PrevDbTotal,g.ASHL_Descr
 from Acc_TrailBalance_Upload_Details
 left join ACC_ScheduleSubItems a on a.ASSI_ID = ATBUD_SubItemId
 left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description  And d.ATBU_YEARId = @YearId
-and d.ATBU_CustId = @CustId and ATBUD_YEARId = @YearId  and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid in (@BranchId)
+and d.ATBU_CustId = @CustId and ATBUD_YEARId = @YearId  and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description And f.ATBU_YEARId = @PrevYearId and f.ATBU_CustId = @CustId
-and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid  And f.Atbu_Branchid in (@BranchId)
+and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid  And f.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 left join ACC_SubHeadingLedgerDesc g on g.ASHL_SubHeadingId = Atbud_ID and g.ASHL_CustomerId = @CustId  and g.ASHL_YearID = @YearId
-And g.ASHL_BranchId in (@BranchId)
+And g.ASHL_BranchId IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 where ATBUD_SChedule_Type = @ScheduleTypeId and ATBUD_CustId = @CustId  and ATBUD_Headingid = @HeadingId
-And Atbud_Branchnameid in (@BranchId) And ATBUD_Subheading = @subHeadingId And ATBUD_SubItemId<>0 And ATBUD_SubItemId = @subItemId
+And Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) And ATBUD_Subheading = @subHeadingId And ATBUD_SubItemId<>0 And ATBUD_SubItemId = @subItemId
 And ATBUD_itemid = @ItemId and atbud_yearid = @YearId 
 group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description order by ATBUD_ID";
                                         var subItemDescriptions = (await connection.QueryAsync<DetailedReportPandLRow>(subDescSql, new
@@ -1678,7 +1678,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
             int RoundOff = 1;
             int YearId = p.YearID;
             int CustId = p.CustID;
-            int selectedBranches = 1;
+            string selectedBranches = p.BranchId;
             decimal totalIncome = 0, totalPrevIncome = 0;
 
             // ✅ Step 1: Get DB name from session
@@ -1737,12 +1737,12 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  ISNULL(Sum(g.ATBU_Closing_TotalDebit_Amount + 0), 0)  As DbTotalPrev
  from Acc_TrailBalance_Upload_Details left join ACC_ScheduleSubHeading a on a.ASSH_ID = ATBUD_Subheading
  left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description And d.ATBU_YEARId = @YearId
- and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid in (@BranchId)
+ and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  left join ACC_SubHeadingNoteDesc e on e.ASHN_SubHeadingId = ASSH_ID and e.ASHN_CustomerId = @CustomerId and e.ASHN_YearID = @YearId
  left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0 and ATBUD_itemid = 0
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid
  left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0  And g.ATBU_YEARId = @PrevYearId
- and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid in (@BranchId)
+ and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  where ATBUD_Headingid = @HeadingId And ATBUD_Subheading<>0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description order by ATBUD_Subheading";
                     var subHeadingTotals = await connection.QueryAsync<DetailedReportBalanceSheetRow>(subHeadingTotalsSql, new
@@ -1771,7 +1771,7 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  ISNULL(Sum(g.ATBU_Closing_TotalDebit_Amount + 0), 0)  As DbTotalPrev
  from Acc_TrailBalance_Upload_Details left join ACC_ScheduleSubHeading a on a.ASSH_ID = ATBUD_Subheading
  left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description And d.ATBU_YEARId = @YearId
- and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid in (@BranchId)
+ and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  left join ACC_SubHeadingNoteDesc e on e.ASHN_SubHeadingId = ASSH_ID and e.ASHN_CustomerId = @CustomerId and e.ASHN_YearID = @YearId
  left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0 and ATBUD_itemid = 0
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid
@@ -1838,12 +1838,12 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  ISNULL(Sum(g.ATBU_Closing_TotalDebit_Amount + 0), 0)  As DbTotalPrev
  from Acc_TrailBalance_Upload_Details left join ACC_ScheduleSubHeading a on a.ASSH_ID = ATBUD_Subheading
  left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description And d.ATBU_YEARId = @YearId
- and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid in (@BranchId)
+ and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  left join ACC_SubHeadingNoteDesc e on e.ASHN_SubHeadingId = ASSH_ID and e.ASHN_CustomerId = @CustomerId and e.ASHN_YearID = @YearId
  left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0 and ATBUD_itemid = 0
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid
  left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0  And g.ATBU_YEARId = @PrevYearId
- and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid in (@BranchId)
+ and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  where ATBUD_Subheading= @subHeadingId  And ATBUD_Subheading<>0 and ATBUD_ItemId = 0 and ATBUD_SubItemId = 0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description,ATBUD_Description order by ATBUD_Subheading";
                             var descs = await connection.QueryAsync<DetailedReportBalanceSheetRow>(descriptionSql, new
@@ -2134,12 +2134,12 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  ISNULL(Sum(g.ATBU_Closing_TotalDebit_Amount + 0), 0)  As DbTotalPrev
  from Acc_TrailBalance_Upload_Details left join ACC_ScheduleSubHeading a on a.ASSH_ID = ATBUD_Subheading
  left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description And d.ATBU_YEARId = @YearId
- and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid in (@BranchId)
+ and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  left join ACC_SubHeadingNoteDesc e on e.ASHN_SubHeadingId = ASSH_ID and e.ASHN_CustomerId = @CustomerId and e.ASHN_YearID = @YearId
  left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0 and ATBUD_itemid = 0
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid
  left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0  And g.ATBU_YEARId = @PrevYearId
- and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid in (@BranchId)
+ and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  where ATBUD_Headingid = @HeadingId And ATBUD_Subheading<>0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description order by ATBUD_Subheading";
                     var subHeadingTotals = await connection.QueryAsync<DetailedReportBalanceSheetRow>(subHeadingTotalsSql, new
@@ -2174,12 +2174,12 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  ISNULL(Sum(g.ATBU_Closing_TotalDebit_Amount + 0), 0)  As DbTotalPrev
  from Acc_TrailBalance_Upload_Details left join ACC_ScheduleSubHeading a on a.ASSH_ID = ATBUD_Subheading
  left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description And d.ATBU_YEARId = @YearId
- and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid in (@BranchId)
+ and d.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  left join ACC_SubHeadingNoteDesc e on e.ASHN_SubHeadingId = ASSH_ID and e.ASHN_CustomerId = @CustomerId and e.ASHN_YearID = @YearId
  left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0 and ATBUD_itemid = 0
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid
  left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0  And g.ATBU_YEARId = @PrevYearId
- and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid in (@BranchId)
+ and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  where ATBUD_Subheading= @subHeadingId  And ATBUD_Subheading<>0 And ATBUD_itemid=0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description,ATBUD_Description order by ATBUD_Subheading";
                         var descs = await connection.QueryAsync<DetailedReportBalanceSheetRow>(descriptionSql, new
@@ -2221,10 +2221,10 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
 FROM Acc_TrailBalance_Upload_Details ud
 LEFT JOIN ACC_ScheduleItems i ON i.ASI_ID = ud.ATBUD_itemid
 LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description
-    AND d.ATBU_YEARId = @YearId AND d.ATBU_CustId = @CustomerId AND d.ATBU_Branchid = ud.Atbud_Branchnameid and d.Atbu_Branchid in (@BranchId)
+    AND d.ATBU_YEARId = @YearId AND d.ATBU_CustId = @CustomerId AND d.ATBU_Branchid = ud.Atbud_Branchnameid and d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 LEFT JOIN Acc_TrailBalance_Upload f ON f.ATBU_Description = ud.ATBUD_Description
-    AND f.ATBU_YEARId = @YearId AND f.ATBU_CustId = @CustomerId AND f.ATBU_Branchid = ud.Atbud_Branchnameid AND ud.ATBUD_SubItemId = 0 and f.Atbu_Branchid in (@BranchId)
-LEFT JOIN Acc_TrailBalance_Upload g ON g.ATBU_Description = ud.ATBUD_Description and g.Atbu_Branchid in (@BranchId)
+    AND f.ATBU_YEARId = @YearId AND f.ATBU_CustId = @CustomerId AND f.ATBU_Branchid = ud.Atbud_Branchnameid AND ud.ATBUD_SubItemId = 0 and f.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+LEFT JOIN Acc_TrailBalance_Upload g ON g.ATBU_Description = ud.ATBUD_Description and g.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
     AND g.ATBU_YEARId = @PrevYearId AND g.ATBU_CustId = @CustomerId AND g.ATBU_Branchid = ud.Atbud_Branchnameid AND ud.ATBUD_SubItemId = 0
 WHERE    ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_Schedule_type = @ScheduleTypeId and ATBUD_Headingid=@HeadingId And ATBUD_Subheading= @subHeadingId 
  GROUP BY ud.ATBUD_itemid, i.ASI_Name";
@@ -2318,9 +2318,9 @@ SELECT  ud.ATBUD_SubItemId AS SubItemId,
 FROM Acc_TrailBalance_Upload_Details ud
 LEFT JOIN ACC_ScheduleSubItems si ON si.ASSI_ID = ud.ATBUD_SubItemId
 LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearId 
-AND d.ATBU_CustId = @CustId AND d.ATBU_Branchid = ud.Atbud_Branchnameid  and d.Atbu_Branchid in (@BranchId)
+AND d.ATBU_CustId = @CustId AND d.ATBU_Branchid = ud.Atbud_Branchnameid  and d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 LEFT JOIN Acc_TrailBalance_Upload f ON f.ATBU_Description = ud.ATBUD_Description AND f.ATBU_YEARId = @PrevYearId
-AND f.ATBU_CustId = @CustId AND f.ATBU_Branchid = ud.Atbud_Branchnameid and f.Atbu_Branchid in (@BranchId)
+AND f.ATBU_CustId = @CustId AND f.ATBU_Branchid = ud.Atbud_Branchnameid and f.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 WHERE ud.ATBUD_Headingid=@HeadingId And ud.ATBUD_Subheading=@subHeadingId  And ud.ATBUD_SubItemId<>0 And ud.ATBUD_itemid =@ItemId 
    and  ud.ATBUD_Schedule_type = @ScheduleTypeId AND ud.ATBUD_CustId = @CustId GROUP BY ud.ATBUD_SubItemId, si.ASSI_Name";
                                     var subItems = (await connection.QueryAsync<DetailedReportBalanceSheetRow>(subItemSql, new
@@ -2357,13 +2357,13 @@ ISNULL(Sum(f.ATBU_Closing_TotalDebit_Amount + 0), 0) as PrevDbTotal,g.ASHL_Descr
 from Acc_TrailBalance_Upload_Details
 left join ACC_ScheduleSubItems a on a.ASSI_ID = ATBUD_SubItemId
 left join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description  And d.ATBU_YEARId = @YearId
-and d.ATBU_CustId = @CustId and ATBUD_YEARId = @YearId  and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid in (@BranchId)
+and d.ATBU_CustId = @CustId and ATBUD_YEARId = @YearId  and d.ATBU_Branchid = Atbud_Branchnameid   And d.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 left join Acc_TrailBalance_Upload f on f.ATBU_Description = ATBUD_Description And f.ATBU_YEARId = @PrevYearId and f.ATBU_CustId = @CustId
-and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid  And f.Atbu_Branchid in (@BranchId)
+and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid  And f.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 left join ACC_SubHeadingLedgerDesc g on g.ASHL_SubHeadingId = Atbud_ID and g.ASHL_CustomerId = @CustId  and g.ASHL_YearID = @YearId
-And g.ASHL_BranchId in (@BranchId)
+And g.ASHL_BranchId IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 where ATBUD_SChedule_Type = @ScheduleTypeId and ATBUD_CustId = @CustId  and ATBUD_Headingid = @HeadingId
-And Atbud_Branchnameid in (@BranchId) And ATBUD_Subheading = @subHeadingId And ATBUD_SubItemId<>0 And ATBUD_SubItemId = @subItemId
+And Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) And ATBUD_Subheading = @subHeadingId And ATBUD_SubItemId<>0 And ATBUD_SubItemId = @subItemId
 And ATBUD_itemid = @ItemId and atbud_yearid = @YearId 
 group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description order by ATBUD_ID";
                                         var subItemDescriptions = (await connection.QueryAsync<DetailedReportBalanceSheetRow>(subDescSql, new
