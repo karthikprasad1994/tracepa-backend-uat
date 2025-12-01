@@ -20,6 +20,7 @@ using TracePca.Interface.Audit;
 using TracePca.Models.CustomerRegistration;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
+using OfficeOpenXml.Export.ToDataTable;
 namespace TracePca.Service.Audit
 {
     public class DashboardAndSchedule : AuditAndDashboardInterface
@@ -42,7 +43,7 @@ namespace TracePca.Service.Audit
 
         public async Task<List<DashboardAndScheduleDto>> GetDashboardAuditAsync(
        int? id, int? customerId, int? compId, int? financialYearId, int? loginUserId)
-        
+
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1730,8 +1731,18 @@ ISNULL(SAC_Mandatory, 0) AS SAC_Mandatory,
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
             using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
+
             using var connectionMMCS = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
             await connectionMMCS.OpenAsync();
+
+            var emailExistsQuery = "SELECT COUNT(1) FROM Sad_Userdetails WHERE usr_LoginName = @Email";
+            bool gmailExists = await connection.ExecuteScalarAsync<int>(emailExistsQuery, new { Email = emp.UsrEmail }) > 0;
+
+            if (gmailExists)
+            {
+                throw new Exception("Email already exists!");
+
+            }
 
             // Step 1: Get auto-generated employee code if missing
             if (string.IsNullOrWhiteSpace(emp.UsrCode))
@@ -1805,17 +1816,29 @@ ISNULL(SAC_Mandatory, 0) AS SAC_Mandatory,
             );
 
             // Append email only if not already present
-            if (!string.IsNullOrWhiteSpace(emp.UsrEmail) && (existingEmails == null || !existingEmails.Split(',').Contains(emp.UsrEmail)))
+            if (!string.IsNullOrWhiteSpace(emp.UsrEmail))
             {
-                var updatedEmails = string.IsNullOrWhiteSpace(existingEmails)
-                    ? emp.UsrEmail
-                    : existingEmails + "," + emp.UsrEmail;
+                // Normalize existing emails and trim spaces safely
+                existingEmails = existingEmails?.Trim().Trim(',');
 
-                await connectionMMCS.ExecuteAsync(
-                    "UPDATE [dbo].[MMCS_CustomerRegistration] SET MCR_emails = @Emails WHERE MCR_CustomerCode = @CustomerCode",
-                    new { Emails = updatedEmails, CustomerCode = customerCode } // Replace 'trdm' if needed
-                );
+                var emailList = string.IsNullOrWhiteSpace(existingEmails)
+                    ? new List<string>()
+                    : existingEmails.Split(',').Select(e => e.Trim()).ToList();
+
+                // Only add if NOT already in list
+                if (!emailList.Contains(emp.UsrEmail.Trim(), StringComparer.OrdinalIgnoreCase))
+                {
+                    emailList.Add(emp.UsrEmail.Trim());
+
+                    string updatedEmails = string.Join(",", emailList);
+
+                    await connectionMMCS.ExecuteAsync(
+                        "UPDATE [dbo].[MMCS_CustomerRegistration] SET MCR_emails = @Emails WHERE MCR_CustomerCode = @CustomerCode",
+                        new { Emails = updatedEmails, CustomerCode = customerCode }
+                    );
+                }
             }
+
 
             return new string[]
             {
