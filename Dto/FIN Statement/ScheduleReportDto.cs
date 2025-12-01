@@ -68,7 +68,7 @@ namespace TracePca.Dto.FIN_Statement
         {
             public int YearID { get; set; }
             public int CustID { get; set; }
-            public int BranchId { get; set; }
+            public string BranchId { get; set; }
         }
         public class SummaryReportBalanceSheetRow
         {
