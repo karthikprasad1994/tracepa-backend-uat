@@ -232,7 +232,8 @@ builder.Services.AddScoped<CustomerUserMasterInterface, CustomerUserMaster>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
 builder.Services.AddScoped<IDropboxService, DropboxService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
-
+builder.Services.AddScoped<ReportTemplateInterface, ReportTemplateService>();
+builder.Services.AddScoped<CompanyDetailsInterface, CompanyDetailsService>();
 // ✅ use 'Services' (not lowercase)
 
 
