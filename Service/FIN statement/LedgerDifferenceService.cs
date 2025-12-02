@@ -1,6 +1,7 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
+using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.LedgerDifferenceDto;
 namespace TracePca.Service.FIN_statement
@@ -244,8 +245,8 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
             }
         }
 
-        //GetDescriptionDetails
-        public async Task<IEnumerable<DescriptionDetailsDto>> GetDescriptionDetailsAsync(int compId, int custId, int branchId, int yearId, int typeId, int pkId)
+        //GetAccountDetails
+        public async Task<IEnumerable<DescriptionDetailsDto>> GetAccountDetailsAsync(int compId, int custId, int branchId, int yearId, int typeId, int pkId)
         {
             {
                 // ✅ Step 1: Get DB name from session
@@ -260,10 +261,20 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
                 // ✅ Step 3: Use SqlConnection
                 using var connection = new SqlConnection(connectionString);
                 await connection.OpenAsync();
+                using var tran = connection.BeginTransaction();
                 {
                     string sql = string.Empty;
-                    if (typeId == 2)
+                    if (typeId == 1)
                     {
+                        int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+                        int headExpenseId = await GetHeadingId(connection, tran, custId, "IV Expenses");
+
+                        var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+                        var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
+
+                        decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
+                        decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
+
                         sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
                       abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
                       abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
@@ -291,7 +302,7 @@ isnull (e.ATBU_Closing_TotalCredit_Amount,0) As pyCr,isnull (e.ATBU_Closing_Tota
 ,d.ATBU_Closing_TotalCredit_Amount,d.ATBU_Closing_TotalDebit_Amount,
 e.ATBU_Closing_TotalCredit_Amount,e.ATBU_Closing_TotalDebit_Amount ";
                     }
-                    else if (typeId == 3)
+                    else if (typeId == 2)
                     {
                         sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
                       abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
@@ -318,7 +329,7 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
                         AND ATBUD_Subheading = @iPkId
                   GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS";
                     }
-                    else if (typeId == 4)
+                    else if (typeId == 3)
                     {
                         sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
                       abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
@@ -344,6 +355,33 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
                         AND atbud_yearid = @YearId
                         AND ATBUD_itemid = @iPkId
                   GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS";
+                    }
+                    else if (typeId == 4)
+                    {
+                        sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
+                      abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
+                      abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
+                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
+                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
+                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
+                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
+sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
+sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb,
+                       d.ATBU_STATUS as Status
+                  From Acc_TrailBalance_Upload_Details
+                      Left Join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
+                          And d.ATBU_YEARId=@YearId And d.ATBU_CustId=@CustId 
+                          And ATBUD_YEARId=@YearId And d.ATBU_Branchid=Atbud_Branchnameid  
+                          And d.Atbu_Branchid=@BranchId
+                      Left Join Acc_TrailBalance_Upload e on e.ATBU_Description = ATBUD_Description 
+                          And e.ATBU_YEARId=@PrevYearId And e.ATBU_CustId=@CustId
+                          And ATBUD_YEARId=@YearId And e.ATBU_Branchid=Atbud_Branchnameid  
+                          And e.Atbu_Branchid=@BranchId
+                  WHERE ATBUD_CustId = @CustId
+                        AND Atbud_Branchnameid = @BranchId
+                        AND atbud_yearid = @YearId
+                        AND ATBUD_SubItemId = @iPkId
+                  GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS ";
                     }
                     else if (typeId == 5)
                     {
@@ -384,6 +422,84 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
                 }
             }
         }
+
+        #region DB Helper Methods
+
+        private async Task<int> GetHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string headName)
+        {
+            const string sql = @"SELECT ISNULL(ASH_ID,0) FROM ACC_ScheduleHeading WHERE ASH_Name = @HeadName AND ASH_OrgType = @CustId";
+            return await conn.ExecuteScalarAsync<int>(sql, new { HeadName = headName, CustId = customerId }, tran);
+        }
+
+        private async Task<int> GetSubHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string subHeadName)
+        {
+            const string sql = @"SELECT ISNULL(ASSH_ID,0) FROM ACC_SchedulesubHeading WHERE ASSH_Name = @SubHeadName AND ASSH_OrgType = @CustId";
+            return await conn.ExecuteScalarAsync<int>(sql, new { SubHeadName = subHeadName, CustId = customerId }, tran);
+        }
+
+        private async Task<ScheduleAccountingRatioDto.HeadingAmount> GetHeadingAmt(SqlConnection conn, SqlTransaction tran,
+            int yearId, int customerId, int schedType, int headingId)
+        {
+            if (headingId == 0) return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = 0m, DP1 = 0m };
+
+            // Ensure SQL names match your schema — adapted for safety
+            var sql = @"
+                SELECT 
+                  ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
+                  ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
+                FROM Acc_TrailBalance_Upload_Details ud
+                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
+                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_HeadingId = @HeadingId
+            ";
+
+            var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, HeadingId = headingId }, tran);
+
+            if (row == null) return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = 0m, DP1 = 0m };
+
+            decimal dc1 = row.Dc1 == null ? 0m : Convert.ToDecimal(row.Dc1);
+            decimal dp1 = row.DP1 == null ? 0m : Convert.ToDecimal(row.DP1);
+
+            return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1 };
+        }
+
+        private async Task<ScheduleAccountingRatioDto.HeadingAmount> GetSubHeadingAmt(SqlConnection conn, SqlTransaction tran,
+            int yearId, int customerId, int schedType, int subHeadingId)
+        {
+            if (subHeadingId == 0) return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = 0m, DP1 = 0m };
+
+            var sql = @"
+                SELECT 
+                  ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
+                  ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
+                FROM Acc_TrailBalance_Upload_Details ud
+                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
+                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_SubHeading = @SubHeadingId
+            ";
+
+            var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, SubHeadingId = subHeadingId }, tran);
+
+            if (row == null) return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = 0m, DP1 = 0m };
+
+            decimal dc1 = row.Dc1 == null ? 0m : Convert.ToDecimal(row.Dc1);
+            decimal dp1 = row.DP1 == null ? 0m : Convert.ToDecimal(row.DP1);
+
+            return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1 };
+        }
+
+        private async Task<decimal> GetPandLFinalAmt(SqlConnection conn, SqlTransaction tran, int yearId, int customerId, int branchId)
+        {
+            const string sql = @"
+                SELECT ISNULL(SUM(ATBU_Closing_TotalDebit_Amount - ATBU_Closing_TotalCredit_Amount), 0)
+                FROM Acc_TrailBalance_Upload
+                WHERE ATBU_Description = 'Net Income' AND ATBU_YearId = @YearId AND ATBU_CustId = @CustomerId AND ATBU_BranchId = @BranchId
+            ";
+            var value = await conn.ExecuteScalarAsync<decimal?>(sql, new { YearId = yearId, CustomerId = customerId, BranchId = branchId }, tran);
+            return value ?? 0m;
+        }
+
+        #endregion
     }
 }
 
