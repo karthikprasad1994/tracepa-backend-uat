@@ -14,6 +14,9 @@
         public string? Address { get; set; }
         public string? McrProductKey { get; private set; }
 
+        public string? MCR_IPAddress { get; private set; }
+        public string? MCR_Location { get; set; }
+
         public string? McrTstatus { get; set; }
 
         //  public string? McrEmailsJson { get; set; }

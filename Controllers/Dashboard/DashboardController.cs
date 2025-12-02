@@ -35,7 +35,7 @@ namespace TracePca.Controllers.Dashboard
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { StatusCode = 400, Message = ex.Message });
+                return BadRequest(new { status = 400, Message = ex.Message });
             }
             catch (Exception ex)
             {

@@ -477,26 +477,56 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
                 string productKey = $"PRD-{Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()}";
 
                 // Step 3: Insert into MMCS_CustomerRegistration
-                string insertSql = @"
-            INSERT INTO MMCS_CustomerRegistration 
-            (MCR_ID, MCR_MP_ID, MCR_CustomerName, MCR_CustomerEmail, MCR_CustomerTelephoneNo, 
-             MCR_Status, MCR_TStatus, MCR_CustomerCode, MCR_ProductKey, MCR_emails, MCR_Address)
-            VALUES 
-            (@McrId, @McrMpId, @McrCustomerName, @McrCustomerEmail, @McrCustomerTelephoneNo, 
-             'A', 'T', @McrCustomerCode, @McrProductKey, @MCR_emails, @Address)";
+                //    string insertSql = @"
+                //INSERT INTO MMCS_CustomerRegistration 
+                //(MCR_ID, MCR_MP_ID, MCR_CustomerName, MCR_CustomerEmail, MCR_CustomerTelephoneNo, 
+                // MCR_Status, MCR_TStatus, MCR_CustomerCode, MCR_ProductKey, MCR_emails, MCR_Address)
+                //VALUES 
+                //(@McrId, @McrMpId, @McrCustomerName, @McrCustomerEmail, @McrCustomerTelephoneNo, 
+                // 'A', 'T', @McrCustomerCode, @McrProductKey, @MCR_emails, @Address)";
 
-                var rowsInserted = await connection.ExecuteAsync(insertSql, new
-                {
-                    McrId = maxMcrId,
-                    McrMpId = 1,
-                    McrCustomerName = registerModel.McrCustomerName,
-                    McrCustomerEmail = registerModel.McrCustomerEmail,
-                    McrCustomerTelephoneNo = registerModel.McrCustomerTelephoneNo,
-                    McrCustomerCode = newCustomerCode,
-                    McrProductKey = productKey,
-                    Address = registerModel.Address,
-                    MCR_Emails = registerModel.McrCustomerEmail + ","
-                });
+                //    var rowsInserted = await connection.ExecuteAsync(insertSql, new
+                //    {
+                //        McrId = maxMcrId,
+                //        McrMpId = 1,
+                //        McrCustomerName = registerModel.McrCustomerName,
+                //        McrCustomerEmail = registerModel.McrCustomerEmail,
+                //        McrCustomerTelephoneNo = registerModel.McrCustomerTelephoneNo,
+                //        McrCustomerCode = newCustomerCode,
+                //        McrProductKey = productKey,
+                //        Address = registerModel.Address,
+                //        MCR_Emails = registerModel.McrCustomerEmail + ","
+                //    });
+
+                var parameters = new DynamicParameters();
+
+                parameters.Add("@MCR_ID", maxMcrId);
+                parameters.Add("@MCR_MP_ID", 1);
+                parameters.Add("@MCR_CustomerName", registerModel.McrCustomerName);
+                parameters.Add("@MCR_CustomerCode", newCustomerCode);
+                parameters.Add("@MCR_CustomerEmail", registerModel.McrCustomerEmail);
+                parameters.Add("@MCR_CustomerTelephoneNo", registerModel.McrCustomerTelephoneNo);
+                parameters.Add("@MCR_ContactPersonName", "");
+                parameters.Add("@MCR_ContactPersonPhoneNo", "");
+                parameters.Add("@MCR_ContactPersonEmail", "");
+                parameters.Add("@MCR_GSTNo", "");
+                parameters.Add("@MCR_NumberOfUsers", 0);
+                parameters.Add("@MCR_Address", registerModel.Address);
+                parameters.Add("@MCR_City", "");
+                parameters.Add("@MCR_State", "");
+                parameters.Add("@MCR_BillingFrequency", 1);
+                parameters.Add("@MCR_FromDate", null);
+                parameters.Add("@MCR_ToDate", null);
+                parameters.Add("@MCR_CreatedDate", null);
+                parameters.Add("@MCR_Status", 'A');
+                parameters.Add("@MCR_ProductKey", productKey);
+                parameters.Add("@MCR_TStatus", 'T');
+                parameters.Add("@mcr_emails", registerModel.McrCustomerEmail + ",");
+                parameters.Add("@MCR_IPAddress", registerModel.MCR_IPAddress);
+                parameters.Add("@MCR_Location", registerModel.MCR_Location);
+                parameters.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+                parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+                var rowsInserted = await connection.ExecuteAsync("spMMCS_CustomerRegistration", parameters, commandType: CommandType.StoredProcedure);
 
                 if (rowsInserted == 0)
                 {
@@ -681,6 +711,273 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
                 };
             }
         }
+
+        //working code 02-12-2025
+        //    public async Task<IActionResult> SignUpUserAsync(RegistrationDto registerModel)
+        //    {
+        //        try
+        //        {
+        //            using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+        //            await connection.OpenAsync();
+
+        //            // Step 1: Check if customer already exists
+        //            var existingCustomer = await connection.QueryFirstOrDefaultAsync<int>(
+        //                @"SELECT COUNT(1) 
+        //          FROM MMCS_CustomerRegistration 
+        //          WHERE ',' + MCR_emails + ',' LIKE @EmailPattern 
+        //             OR MCR_CustomerTelephoneNo = @Phone",
+        //                new
+        //                {
+        //                    EmailPattern = "%," + registerModel.McrCustomerEmail + ",%",
+        //                    Phone = registerModel.McrCustomerTelephoneNo
+        //                });
+
+        //            if (existingCustomer > 0)
+        //            {
+        //                return new ConflictObjectResult(new
+        //                {
+        //                    statuscode = 409,
+        //                    message = "Customer with this email or phone number already exists."
+        //                });
+        //            }
+
+        //            // Step 2: Generate Customer Code and IDs
+        //            int maxMcrId = (await connection.ExecuteScalarAsync<int?>(
+        //                "SELECT ISNULL(MAX(MCR_ID), 0) FROM MMCS_CustomerRegistration") ?? 0) + 1;
+
+        //            string currentYear = DateTime.Now.ToString("yy");
+        //            string yearPrefix = $"TR{currentYear}";
+
+        //            // Get latest MCR_CustomerCode with the year prefix
+        //            string latestCode = await connection.ExecuteScalarAsync<string>(
+        //                @"SELECT TOP 1 MCR_CustomerCode 
+        //          FROM MMCS_CustomerRegistration 
+        //          WHERE MCR_CustomerCode LIKE @PrefixPattern 
+        //          ORDER BY TRY_CAST(RIGHT(MCR_CustomerCode, LEN(MCR_CustomerCode) - LEN(@PrefixWithUnderscore)) AS INT) DESC",
+        //                new
+        //                {
+        //                    PrefixPattern = yearPrefix + "_%",
+        //                    PrefixWithUnderscore = yearPrefix + "_"
+        //                });
+
+        //            int nextNumber = 1;
+        //            if (!string.IsNullOrEmpty(latestCode))
+        //            {
+        //                var parts = latestCode.Split('_');
+        //                if (parts.Length == 2 && int.TryParse(parts[1], out int lastNumber))
+        //                {
+        //                    nextNumber = lastNumber + 1;
+        //                }
+        //            }
+
+        //            string newCustomerCode = $"{yearPrefix}_{nextNumber:D3}";
+        //            string productKey = $"PRD-{Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()}";
+
+        //            // Step 3: Insert into MMCS_CustomerRegistration
+        //            string insertSql = @"
+        //        INSERT INTO MMCS_CustomerRegistration 
+        //        (MCR_ID, MCR_MP_ID, MCR_CustomerName, MCR_CustomerEmail, MCR_CustomerTelephoneNo, 
+        //         MCR_Status, MCR_TStatus, MCR_CustomerCode, MCR_ProductKey, MCR_emails, MCR_Address)
+        //        VALUES 
+        //        (@McrId, @McrMpId, @McrCustomerName, @McrCustomerEmail, @McrCustomerTelephoneNo, 
+        //         'A', 'T', @McrCustomerCode, @McrProductKey, @MCR_emails, @Address)";
+
+        //            var rowsInserted = await connection.ExecuteAsync(insertSql, new
+        //            {
+        //                McrId = maxMcrId,
+        //                McrMpId = 1,
+        //                McrCustomerName = registerModel.McrCustomerName,
+        //                McrCustomerEmail = registerModel.McrCustomerEmail,
+        //                McrCustomerTelephoneNo = registerModel.McrCustomerTelephoneNo,
+        //                McrCustomerCode = newCustomerCode,
+        //                McrProductKey = productKey,
+        //                Address = registerModel.Address,
+        //                MCR_Emails = registerModel.McrCustomerEmail + ","
+        //            });
+
+        //            if (rowsInserted == 0)
+        //            {
+        //                return new ObjectResult(new { statuscode = 500, message = "Failed to insert customer." }) { StatusCode = 500 };
+        //            }
+
+        //            Console.WriteLine("✅ Customer inserted via Dapper.");
+
+        //            // Step 4: Create Customer Database
+        //            await CreateCustomerDatabaseAsync(newCustomerCode);
+        //            await Task.Delay(500);
+
+        //            // Step 5: Clone Database from Template
+        //            await CloneDatabaseAsync("TracepaScriptDB", newCustomerCode);
+
+        //            // Step 6: Add Connection String
+        //            AddOrUpdateConnectionString(
+        //                connectionName: newCustomerCode,
+        //                server: "142.93.217.23",
+        //                database: newCustomerCode,
+        //                userId: "Sa",
+        //                password: "Mmcs@736"
+        //            );
+
+        //            // Step 7: Setup new database connection
+        //            string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
+        //            string newDbConnectionString = string.Format(connectionStringTemplate, newCustomerCode);
+
+        //            // Step 8: Insert Seed Configuration Data
+        //            string seedConfigSql = $@"
+        //        INSERT [dbo].[Sad_Config_Settings] ([SAD_Config_ID], [SAD_Config_Key], [SAD_Config_Value], [SAD_UpdatedBy], [SAD_UpdatedOn], [SAD_Config_Operation], [SAD_Config_IPAddress], [SAD_CompID]) VALUES 
+        //        (1, N'ImgPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (2, N'ExcelPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\Tempfolder\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (3, N'FilesInDB', N'False', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (4, N'HTP', N'http://', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (5, N'AppName', N'TRACe', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (6, N'FtpServer', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\FTPROOT\ROOT\', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (7, N'RDBMS', N'SQL', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (8, N'Currency', N'1', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (9, N'ErrorLog', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\ErrorLog\ErrorLog.txt', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (10, N'DateFormat', N'1', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (11, N'FileSize', N'7', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (12, N'TimeOut', N'40', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (13, N'TimeOutWarning', N'5', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (14, N'FileInDBPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\TRACePA Doc', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (15, N'OutlookEMail', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\Outlook\MSG', 3, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (16, N'TempPath', N'C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\{newCustomerCode}\', 1, GETDATE(), N'U', N'192.168.0.118', 1),
+        //        (17, N'DisplayPath', N'https://tracepacore.multimedia.interactivedns.com/{newCustomerCode}/', 1, GETDATE(), N'U', N'192.168.0.118', 1);";
+
+        //            await using var newDbConnection = new SqlConnection(newDbConnectionString);
+        //            await newDbConnection.OpenAsync();
+        //            await newDbConnection.ExecuteAsync(seedConfigSql);
+
+        //            // Step 9: Insert Customer Modules
+        //            string customerDbConnectionString = _configuration.GetConnectionString("CustomerRegistrationConnection");
+        //            await using var customerConnection = new SqlConnection(customerDbConnectionString);
+        //            await customerConnection.OpenAsync();
+
+        //            int currentMaxMcmId = await customerConnection.ExecuteScalarAsync<int>(
+        //                "SELECT ISNULL(MAX(MCM_ID), 0) FROM MMCS_CustomerModules");
+
+        //            var moduleInsertList = registerModel.ModuleIds?.Select((moduleId, index) => new
+        //            {
+        //                MCM_ID = currentMaxMcmId + index + 1,
+        //                MCM_MCR_ID = maxMcrId,
+        //                MCM_ModuleID = moduleId
+        //            }).ToList();
+
+        //            const string insertQuery = @"
+        //        INSERT INTO MMCS_CustomerModules (MCM_ID, MCM_MCR_ID, MCM_ModuleID)
+        //        VALUES (@MCM_ID, @MCM_MCR_ID, @MCM_ModuleID);";
+
+        //            await customerConnection.ExecuteAsync(insertQuery, moduleInsertList);
+
+        //            // Step 10: Create Admin User in new DB
+        //            var optionsBuilder = new DbContextOptionsBuilder<DynamicDbContext>();
+        //            optionsBuilder.UseSqlServer(newDbConnectionString);
+
+        //            using var newDbContext = new DynamicDbContext(optionsBuilder.Options);
+
+        //            int maxUserId = (await newDbContext.SadUserDetails.MaxAsync(c => (int?)c.UsrId) ?? 0) + 1;
+
+        //            var lastUserCode = await newDbContext.SadUserDetails
+        //                .Where(u => u.UsrCode.StartsWith("EMP"))
+        //                .OrderByDescending(u => u.UsrCode)
+        //                .Select(u => u.UsrCode)
+        //                .FirstOrDefaultAsync();
+
+        //            int nextUserCodeNumber = 1;
+        //            if (!string.IsNullOrEmpty(lastUserCode) && int.TryParse(lastUserCode.Substring(3), out int lastCodeNumber))
+        //            {
+        //                nextUserCodeNumber = lastCodeNumber + 1;
+        //            }
+
+        //            string newUserCode = $"EMP{nextUserCodeNumber:D3}";
+        //            string hashedPassword = EncryptPassword(newCustomerCode + "@" + DateTime.Now.Year);
+
+        //            // Send welcome email
+        //            SendWelcomeEmailAsync(registerModel.McrCustomerEmail, newCustomerCode + "@" + DateTime.Now.Year);
+
+        //            var adminUser = new Models.UserModels.SadUserDetail
+        //            {
+        //                UsrId = maxUserId,
+        //                UsrCode = newUserCode,
+        //                UsrNode = 2,
+        //                UsrFullName = "Admin",
+        //                UsrLoginName = "sa",
+        //                UsrPassWord = hashedPassword,
+        //                UsrEmail = registerModel.McrCustomerEmail,
+        //                UsrMobileNo = registerModel.McrCustomerTelephoneNo,
+        //                UsrDutyStatus = "A",
+        //                UsrDelFlag = "A",
+        //                UsrStatus = "U",
+        //                UsrType = "U",
+        //                UsrRole = 1,
+        //                UsrIsLogin = "Y",
+        //                UsrCompId = 1
+        //            };
+
+        //            await newDbContext.SadUserDetails.AddAsync(adminUser);
+        //            await newDbContext.SaveChangesAsync();
+
+        //            // Step 11: Add Permissions for Admin User
+        //            await using var customerConnection1 = new SqlConnection(newDbConnectionString);
+        //            await customerConnection1.OpenAsync();
+
+        //            var operations = await customerConnection1.QueryAsync(
+        //                @"SELECT * FROM sad_Mod_Operations WHERE OP_Status = 'A' AND OP_CompID = @OP_CompID",
+        //                new { OP_CompID = 1 });
+
+        //            foreach (var op in operations)
+        //            {
+        //                await customerConnection1.ExecuteAsync(
+        //                    @"DECLARE @NewId INT;
+        //              SELECT @NewId = ISNULL(MAX(Perm_PKID), 0) + 1 FROM SAD_UsrOrGrp_Permission;
+        //              INSERT INTO SAD_UsrOrGrp_Permission
+        //              (Perm_PKID, Perm_PType, Perm_UsrORGrpID, Perm_ModuleID, Perm_OpPKID, 
+        //               Perm_Status, Perm_Crby, Perm_Cron, Perm_Operation, Perm_IPAddress, Perm_CompID)
+        //              VALUES
+        //              (@NewId, @Perm_PType, @Perm_UsrORGrpID, @Perm_ModuleID, @Perm_OpPKID, 
+        //               'A', @Perm_Crby, GETDATE(), 'C', '', @Perm_CompID);",
+        //                    new
+        //                    {
+        //                        Perm_PType = 'R',
+        //                        Perm_UsrORGrpID = 1,
+        //                        Perm_ModuleID = op.OP_ModuleID,
+        //                        Perm_OpPKID = op.OP_PKID,
+        //                        Perm_Crby = maxUserId,
+        //                        Perm_CompID = 1
+        //                    });
+        //            }
+        //            string sql = @"
+        //    IF NOT EXISTS (
+        //        SELECT 1 FROM sys.default_constraints 
+        //        WHERE name = 'DF_UserTokens_IsRevoked'
+        //    )
+        //    BEGIN
+        //        ALTER TABLE UserTokens
+        //        ADD CONSTRAINT DF_UserTokens_IsRevoked DEFAULT(0) FOR IsRevoked;
+        //    END
+        //";
+
+        //            await customerConnection1.ExecuteAsync(sql);
+
+        //            return new OkObjectResult(new
+        //            {
+        //                statuscode = 201,
+        //                message = "Customer registered successfully.",
+        //                code = newCustomerCode
+        //            });
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            return new ObjectResult(new
+        //            {
+        //                statuscode = 500,
+        //                message = "Internal server error",
+        //                error = ex.Message
+        //            })
+        //            {
+        //                StatusCode = 500
+        //            };
+        //        }
+        //    }
 
         // Database Cloning Method
         private async Task CloneDatabaseAsync(string sourceDb, string newDb)
