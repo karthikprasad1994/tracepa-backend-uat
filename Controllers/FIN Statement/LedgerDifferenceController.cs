@@ -106,11 +106,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetDescriptionDetails
         [HttpGet("GetDescriptionDetails")]
-        public async Task<IActionResult> GetDescriptionDetails(int compId, int custId, int branchId, int yearId, int typeId, int pkId)
+        public async Task<IActionResult> GetAccountDetails(int compId, int custId, int branchId, int yearId, int typeId, int pkId)
         {
             try
             {
-                var result = await _LedgerDifferenceService.GetDescriptionDetailsAsync(compId, custId, branchId, yearId, typeId, pkId);
+                var result = await _LedgerDifferenceService.GetAccountDetailsAsync(compId, custId, branchId, yearId, typeId, pkId);
 
                 if (result == null || !result.Any())
                 {
