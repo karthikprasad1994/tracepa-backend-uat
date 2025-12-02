@@ -121,6 +121,8 @@ ORDER BY a.usr_id";
 
         public async Task<string> InsertCustomerUsersDetailsAsync(CreateCustomerUsersDto dto)
         {
+            using var connectionMMCS = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+            await connectionMMCS.OpenAsync();
             // Confirm Password check
             if (dto.Password != dto.ConfirmPassword)
             {
@@ -255,7 +257,7 @@ SELECT STUFF(
                 parameters.Add("@Usr_UpdatedBy", dto.CreatedBy);
             }
 
-            parameters.Add("@Usr_DelFlag", "N");
+            parameters.Add("@Usr_DelFlag", "A");
             parameters.Add("@Usr_IPAddress", "127.0.0.1");
             parameters.Add("@Usr_CompId", 1);
             parameters.Add("@Usr_Type", "C");
@@ -271,7 +273,36 @@ SELECT STUFF(
             await connection.ExecuteAsync("spEmployeeMaster", parameters, commandType: CommandType.StoredProcedure);
 
             int resultType = parameters.Get<int>("@iUpdateOrSave");
+            string customerCode = connection.Database;
 
+            string existingEmails = await connectionMMCS.ExecuteScalarAsync<string>(
+                "SELECT MCR_emails FROM [dbo].[MMCS_CustomerRegistration] WHERE MCR_CustomerCode = @CustomerCode",
+                new { CustomerCode = customerCode }
+            );
+
+            // Append email only if not already present
+            if (!string.IsNullOrWhiteSpace(dto.Email))
+            {
+                // Normalize existing emails and trim spaces safely
+                existingEmails = existingEmails?.Trim().Trim(',');
+
+                var emailList = string.IsNullOrWhiteSpace(existingEmails)
+                    ? new List<string>()
+                    : existingEmails.Split(',').Select(e => e.Trim()).ToList();
+
+                // Only add if NOT already in list
+                if (!emailList.Contains(dto.Email.Trim(), StringComparer.OrdinalIgnoreCase))
+                {
+                    emailList.Add(dto.Email.Trim());
+
+                    string updatedEmails = string.Join(",", emailList);
+
+                    await connectionMMCS.ExecuteAsync(
+                        "UPDATE [dbo].[MMCS_CustomerRegistration] SET MCR_emails = @Emails WHERE MCR_CustomerCode = @CustomerCode",
+                        new { Emails = updatedEmails, CustomerCode = customerCode }
+                    );
+                }
+            }
             return resultType == 2
                 ? "Customer updated successfully"
                 : "Customer created successfully";
