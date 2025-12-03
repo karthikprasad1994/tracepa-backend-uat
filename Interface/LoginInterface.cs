@@ -35,5 +35,19 @@ namespace TracePca.Interface
         Task<List<CustomerModuleDetailDto>> GetCustomerModulesAsync(int customerId);
         Task<bool> SendWelcomeEmailAsync(string gmail, string password);
 
+        Task<int> GetTotalClientsAsync();
+
+        Task<int> GetNewSignup30DaysAsync();
+
+        Task<int> GetTrialUsersAsync();
+        Task<int> GetPendingIssueAsync();
+
+        Task<int> GetResolvedIssueAsync();
+
+        Task<int> GetApprovalStatusAsync();
+
+        Task<DashboardCounts> GetDashboardCardDetailsAsync();
+
+
     }
 }

@@ -518,5 +518,185 @@ namespace TracePca.Controllers
                 return StatusCode(500, new { statusCode = 500, message = "An error occurred while checking the access code.", error = ex.Message });
             }
         }
+
+        [HttpGet("GetTotalClients")]
+        public async Task<IActionResult> GetTotalClients()
+        {
+            try
+            {
+                var totalClients = await _LoginInterface.GetTotalClientsAsync();
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Total client count retrieved successfully.",
+                    data = totalClients
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving total clients.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("GetNewSignup30Days")]
+        public async Task<IActionResult> GetNewSignup30Days()
+        {
+            try
+            {
+                var totalClients = await _LoginInterface.GetNewSignup30DaysAsync();
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Total client count retrieved successfully.",
+                    data = totalClients
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving total clients.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("GetTrialUsers")]
+        public async Task<IActionResult> GetTrialUsers()
+        {
+            try
+            {
+                var totalClients = await _LoginInterface.GetTrialUsersAsync();
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Total client count retrieved successfully.",
+                    data = totalClients
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving total clients.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("GetPendingIssue")]
+        public async Task<IActionResult> GetPendingIssue()
+        {
+            try
+            {
+                var totalClients = await _LoginInterface.GetPendingIssueAsync();
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Total client count retrieved successfully.",
+                    data = totalClients
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving total clients.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("GetResolvedIssue")]
+        public async Task<IActionResult> GetResolvedIssue()
+        {
+            try
+            {
+                var totalClients = await _LoginInterface.GetResolvedIssueAsync();
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Total client count retrieved successfully.",
+                    data = totalClients
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving total clients.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("GetApprovalStatus")]
+        public async Task<IActionResult> GetApprovalStatus()
+        {
+            try
+            {
+                var totalClients = await _LoginInterface.GetApprovalStatusAsync();
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Total client count retrieved successfully.",
+                    data = totalClients
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving total clients.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("GetDashboardCardDetails")]
+        public async Task<IActionResult> GetDashboardCardDetails()
+        {
+            try
+            {
+                var totalClients = await _LoginInterface.GetDashboardCardDetailsAsync();
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Total client count retrieved successfully.",
+                    data = totalClients
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving total clients.",
+                    error = ex.Message
+                });
+            }
+        }
+
     }
 }
