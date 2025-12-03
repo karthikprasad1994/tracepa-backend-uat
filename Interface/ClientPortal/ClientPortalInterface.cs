@@ -6,7 +6,7 @@ namespace TracePca.Interface.ClientPortal
     public interface IClientPortalInterface
     {
         Task<UserCustomerResponse> GetUserCustomerDetailsAsync(GetUserCustomerIdRequest request);
-        Task<List<DRLLogDto>> LoadDRLLogAsync(int companyId, int auditNo, int custId, int yearId);
+        Task<List<DRLLogDto>> LoadDRLLogAsync(int companyId, int auditNo, int custId, int yearId, string Email);
         Task<List<AttachmentResponseDto>> LoadAttachmentsAsync(AttachmentRequestDto request);
 
 

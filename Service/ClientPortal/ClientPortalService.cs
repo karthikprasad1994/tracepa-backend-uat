@@ -44,7 +44,7 @@ namespace TracePca.Service.ClientPortal
             }
         }
 
-        public async Task<List<DRLLogDto>> LoadDRLLogAsync(int companyId, int auditNo, int custId, int yearId)
+        public async Task<List<DRLLogDto>> LoadDRLLogAsync(int companyId, int auditNo, int custId, int yearId,string Email)
         {
             using var connection = _db.CreateConnection();
 
@@ -82,7 +82,7 @@ namespace TracePca.Service.ClientPortal
            WHERE ADRL_CompID = @companyId 
              AND ADRL_YearID = @yearId
              AND ADRL_AuditNo = @auditNo
-             AND ADRL_RequestedListID IN ({requestedListIds})
+             AND ADRL_RequestedListID IN ({requestedListIds}) AND (',' + ADRL_EmailID + ',' LIKE '%,' + '{Email}' + ',%')
            ORDER BY ADRL_RequestedOn DESC";
 
             var mainList = (await connection.QueryAsync<dynamic>(sqlMain, new
@@ -114,7 +114,7 @@ namespace TracePca.Service.ClientPortal
                 WHERE ADRL_CompID = {companyId}
                   AND ADRL_YearID = {yearId}
                   AND ADRL_AuditNo = {auditNo}
-                  AND ADRL_RequestedListID NOT IN ({requestedListIds})
+                  AND ADRL_RequestedListID NOT IN ({requestedListIds}) AND (',' + ADRL_EmailID + ',' LIKE '%,' + '{Email}' + ',%')
             )
             SELECT * FROM LatestData WHERE RowNum = 1;
         ";

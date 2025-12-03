@@ -44,6 +44,7 @@
             public int AuditNo { get; set; }
             public int CustId { get; set; }
             public int YearId { get; set; }
+            public string Email { get; set; }
         }
         public class LoadDRLLogResponse
         {
