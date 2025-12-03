@@ -328,7 +328,7 @@ namespace TracePca.Controllers.Audit
                 if (string.IsNullOrEmpty(link))
                     return Ok(new { statusCode = 200, success = false, Message = "No viewable link found for this file." });
 
-                return Ok(new { Status = "Success", Message = "File retrieved successfully.", Data = link });
+                return Ok(new { Status = "Success", Message = "File retrieved successfully.", Data = link, FileUrl = link });
             }
             catch (Exception ex)
             {
