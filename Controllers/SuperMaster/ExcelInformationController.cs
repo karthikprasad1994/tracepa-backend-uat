@@ -294,5 +294,49 @@ namespace TracePca.Controllers.SuperMaster
 
             return File(result.FileBytes, result.ContentType, result.FileName);
         }
+
+        //UploadAuditTypeAndCheckpoints
+        [HttpPost("UploadAuditTypeAndCheckpoints")]
+        public async Task<IActionResult> UploadAuditTypeAndCheckpoints([FromQuery] int compId, int userId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { statusCode = 400, message = "No file uploaded." });
+
+            try
+            {
+                await _ExcelInformationService.UploadAuditTypeAndCheckpointsAsync(compId, userId, file);
+                return Ok(new { statusCode = 200, message = "Audit Type And Checkpoints processed successfully" });
+            }
+            catch (AuditTypeAndCheckpointsUploadException ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { statusCode = 404, message = "Error processing Audit Type And Checkpoints", data = ex.Errors });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { statusCode = 404, message = "Error processing Audit Type And Checkpoints", data = new List<string> { ex.Message } });
+            }
+        }
+
+        //UploadTaskAndSubTasks
+        [HttpPost("UploadTaskAndSubTasks")]
+        public async Task<IActionResult> UploadTaskAndSubTasks([FromQuery] int compId, int userId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { statusCode = 400, message = "No file uploaded." });
+
+            try
+            {
+                await _ExcelInformationService.UploadTaskAndSubTasksAsync(compId, userId, file);
+                return Ok(new { statusCode = 200, message = "Task And Subtasks processed successfully" });
+            }
+            catch (TaskAndSubTasksUploadException ex)
+            {
+                return StatusCode(500, new { statusCode = 500, message = "Error processing Task And Subtasks", data = ex.Errors });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { statusCode = 404, message = "Error processing Task And Subtasks", data = new List<string> { ex.Message } });
+            }
+        }
     }
 }

@@ -398,6 +398,17 @@ namespace TracePca.Dto.SuperMaster
             public string ContentType { get; set; }
         }
 
+        public class AuditTypeAndCheckpointParseResult
+        {
+            public List<AuditTypeChecklistMasterDTO> Rows { get; set; } = new();
+            public List<string> HeaderErrors { get; set; } = new();
+        }
+
+        public class TaskAndSubtasksParseResult
+        {
+            public List<AssignmentTaskChecklistMasterDTO> Rows { get; set; } = new();
+            public List<string> HeaderErrors { get; set; } = new();
+        }
     }
 }
 
