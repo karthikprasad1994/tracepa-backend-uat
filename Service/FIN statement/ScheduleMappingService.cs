@@ -206,7 +206,7 @@ LEFT JOIN (
     WHERE  AJTB_CustId = @custId
         AND AJTB_YearID = @yearId
         AND AJTB_QuarterId = @durationId
-        AND AJTB_BranchId = @branchId
+        AND AJTB_BranchId = @branchId and AJTB_Status<> 'D'
     GROUP BY AJTB_DescName
 ) g ON g.AJTB_DescName = a.ATBU_Description
 WHERE 
