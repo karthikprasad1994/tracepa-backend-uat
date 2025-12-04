@@ -1132,7 +1132,7 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
         }
 
         //GetJETypeDropDownDetails
-        public async Task<IEnumerable<JETypeDropDownDetailsDto>> GetJETypeDropDownDetailsAsync(int compId, int custId, int yearId, int BranchId, int jetype, string description)
+        public async Task<IEnumerable<JETypeDropDownDetailsDto>> GetJETypeDropDownDetailsAsync(int compId, int custId, int yearId, int BranchId, int jetype)
         {
             // Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1145,30 +1145,6 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-
-            // Check if Description Already Exists
-            if (!string.IsNullOrWhiteSpace(description))
-            {
-                string duplicateCheckSql = @"
-              SELECT COUNT(1)
-              FROM Acc_JETransactions_Details aj
-              INNER JOIN Acc_JE_Master je ON je.Acc_JE_ID = aj.Ajtb_Masid
-              WHERE aj.AJTB_DescName = @description
-                 AND je.Acc_JE_CompID = @compId
-                 AND je.Acc_JE_Party = @custId
-                 AND je.Acc_JE_YearId = @yearId
-                 AND je.Acc_JE_BranchId = @branchId";
-
-                int count = await connection.ExecuteScalarAsync<int>(
-                duplicateCheckSql,
-                    new { description, compId, custId, yearId, BranchId }
-                );
-
-                if (count > 0)
-                {
-                    throw new Exception("Description already exists.");
-                }
-            }
 
             // Step 3: SQL base query
             var sql = @"
