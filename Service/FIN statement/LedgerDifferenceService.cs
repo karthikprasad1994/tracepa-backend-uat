@@ -261,20 +261,11 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
                 // ✅ Step 3: Use SqlConnection
                 using var connection = new SqlConnection(connectionString);
                 await connection.OpenAsync();
-                using var tran = connection.BeginTransaction();
                 {
                     string sql = string.Empty;
-                    if (typeId == 1)
+                    if (typeId == 2)
                     {
-                        int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
-                        int headExpenseId = await GetHeadingId(connection, tran, custId, "IV Expenses");
-
-                        var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
-                        var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
-
-                        decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
-                        decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
-
+                      
                         sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
                       abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
                       abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
@@ -302,7 +293,7 @@ isnull (e.ATBU_Closing_TotalCredit_Amount,0) As pyCr,isnull (e.ATBU_Closing_Tota
 ,d.ATBU_Closing_TotalCredit_Amount,d.ATBU_Closing_TotalDebit_Amount,
 e.ATBU_Closing_TotalCredit_Amount,e.ATBU_Closing_TotalDebit_Amount ";
                     }
-                    else if (typeId == 2)
+                    else if (typeId == 3)
                     {
                         sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
                       abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
@@ -329,7 +320,7 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
                         AND ATBUD_Subheading = @iPkId
                   GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS";
                     }
-                    else if (typeId == 3)
+                    else if (typeId == 4)
                     {
                         sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
                       abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
@@ -355,33 +346,6 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
                         AND atbud_yearid = @YearId
                         AND ATBUD_itemid = @iPkId
                   GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS";
-                    }
-                    else if (typeId == 4)
-                    {
-                        sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
-                      abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
-                      abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
-                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
-                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
-                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
-                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
-sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
-sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb,
-                       d.ATBU_STATUS as Status
-                  From Acc_TrailBalance_Upload_Details
-                      Left Join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
-                          And d.ATBU_YEARId=@YearId And d.ATBU_CustId=@CustId 
-                          And ATBUD_YEARId=@YearId And d.ATBU_Branchid=Atbud_Branchnameid  
-                          And d.Atbu_Branchid=@BranchId
-                      Left Join Acc_TrailBalance_Upload e on e.ATBU_Description = ATBUD_Description 
-                          And e.ATBU_YEARId=@PrevYearId And e.ATBU_CustId=@CustId
-                          And ATBUD_YEARId=@YearId And e.ATBU_Branchid=Atbud_Branchnameid  
-                          And e.Atbu_Branchid=@BranchId
-                  WHERE ATBUD_CustId = @CustId
-                        AND Atbud_Branchnameid = @BranchId
-                        AND atbud_yearid = @YearId
-                        AND ATBUD_SubItemId = @iPkId
-                  GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS ";
                     }
                     else if (typeId == 5)
                     {
@@ -410,6 +374,7 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
                         AND ATBUD_SubItemId = @iPkId
                   GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS ";
                     }
+                    
                     var result = await connection.QueryAsync<DescriptionDetailsDto>(sql, new
                     {
                         CustId = custId,
