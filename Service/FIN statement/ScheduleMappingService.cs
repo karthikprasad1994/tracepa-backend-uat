@@ -276,7 +276,7 @@ LEFT JOIN (
         AND AJTB_YearID = @yearId
         AND AJTB_QuarterId = @durationId
         AND AJTB_BranchId = @branchId
-        AND AJTB_Credit = 0
+        AND AJTB_Credit = 0 and AJTB_Status<> 'D'
     GROUP BY AJTB_DescName
 ) g ON g.AJTB_DescName = a.ATBU_Description
 LEFT JOIN (
@@ -286,7 +286,7 @@ LEFT JOIN (
         AND AJTB_YearID = @yearId
         AND AJTB_QuarterId = @durationId
         AND AJTB_BranchId = @branchId
-        AND AJTB_Debit = 0
+        AND AJTB_Debit = 0 and AJTB_Status<> 'D'
     GROUP BY AJTB_DescName
 ) h ON h.AJTB_DescName = a.ATBU_Description
 WHERE a.ATBU_CustId = @custId
