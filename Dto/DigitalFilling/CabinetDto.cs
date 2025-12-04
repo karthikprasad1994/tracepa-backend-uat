@@ -32,8 +32,8 @@ namespace TracePca.Dto.DigitalFilling
         public int CBN_Department { get; set; }
         public string CBN_Status { get; set; }
         public int CBN_CompID { get; set; }
-        public DateTime CBN_DocumentExpiryDate { get; set; }
-		public string CBN_ReminderDay { get; set; }
+		public string CBN_DocumentExpiryDate { get; set; } = null;
+        public string CBN_ReminderDay { get; set; }
 
 	}
 
