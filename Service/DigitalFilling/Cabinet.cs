@@ -136,7 +136,7 @@ namespace TracePca.Service.DigitalFilling
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
-             
+
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
@@ -151,13 +151,14 @@ namespace TracePca.Service.DigitalFilling
 				JOIN sad_UserDetails B ON A.CBN_CreatedBy = B.Usr_ID and CBN_Parent = -1 and CBN_Status='A' and CBN_AuditID = 0) C
 				LEFT JOIN StandardAudit_Schedule D ON D.SA_ID = C.CBN_AuditID
 				WHERE C.CBN_ID NOT IN (SELECT C1.CBN_ID FROM edt_Cabinet C1 JOIN StandardAudit_Schedule S1 ON S1.SA_ID = C1.CBN_AuditID
-				WHERE S1.SA_ForCompleteAudit = 1 AND S1.SA_IsArchived = 1 ) order by cbn_id";
-             
+				WHERE S1.SA_ForCompleteAudit = 1 AND S1.SA_IsArchived = 1 and CBN_CompID=@CBN_CompID ) order by cbn_id";
+
             var result = await connection.QueryAsync<CabinetDto>(query, new
             {
-                CBN_CompID = compID
+                CBN_CompID = compID,
             });
             return result;
+
         }
 
 
