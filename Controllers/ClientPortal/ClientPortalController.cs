@@ -59,7 +59,8 @@ namespace TracePca.Controllers.ClientPortal
                 request.CompanyId,
                 request.AuditNo,
                 request.CustId,
-                request.YearId
+                request.YearId,
+                request.Email
             );
 
             return Ok(new LoadDRLLogResponse

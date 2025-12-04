@@ -2637,6 +2637,192 @@ ORDER BY ut.Id DESC";
                 return (false, $"Exception occurred: {ex.Message}");
             }
         }
+
+
+        public async Task<int> GetTotalClientsAsync()
+        {
+            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+            using (var connection = new SqlConnection(mmcsConnection))
+            {
+                await connection.OpenAsync();
+
+                string query = @"SELECT COUNT(*) 
+                         FROM MMCS_CustomerRegistration 
+                         WHERE MCR_Status = @MCR_Status";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@MCR_Status", "A");
+
+                    var result = await command.ExecuteScalarAsync();
+
+                    return Convert.ToInt32(result);
+                }
+            }
+        }
+
+        public async Task<int> GetNewSignup30DaysAsync()
+        {
+            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+            using (var connection = new SqlConnection(mmcsConnection))
+            {
+                await connection.OpenAsync();
+
+                string query = @"SELECT COUNT(*) 
+                         FROM MMCS_CustomerRegistration 
+                         WHERE MCR_FromDate >= DATEADD(DAY, -30, CAST(GETDATE() AS DATE)) and MCR_Status = @MCR_Status";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@MCR_Status", "A");
+
+                    var result = await command.ExecuteScalarAsync();
+
+                    return Convert.ToInt32(result);
+                }
+            }
+        }
+
+        public async Task<int> GetTrialUsersAsync()
+        {
+            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+            using (var connection = new SqlConnection(mmcsConnection))
+            {
+                await connection.OpenAsync();
+
+                string query = @"SELECT COUNT(*) 
+                         FROM MMCS_CustomerRegistration 
+                         WHERE MCR_TStatus = @MCR_TStatus";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@MCR_TStatus", "T");
+
+                    var result = await command.ExecuteScalarAsync();
+
+                    return Convert.ToInt32(result);
+                }
+            }
+        }
+
+
+        public async Task<int> GetPendingIssueAsync()
+        {
+            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+            using (var connection = new SqlConnection(mmcsConnection))
+            {
+                await connection.OpenAsync();
+
+                string query = @"SELECT COUNT(*) 
+                         FROM MMCS_CustomerRegistration 
+                         WHERE MCR_TStatus = @MCR_TStatus";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@MCR_TStatus", "MM");
+
+                    var result = await command.ExecuteScalarAsync();
+
+                    return Convert.ToInt32(result);
+                }
+            }
+        }
+
+
+        public async Task<int> GetResolvedIssueAsync()
+        {
+            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+            using (var connection = new SqlConnection(mmcsConnection))
+            {
+                await connection.OpenAsync();
+
+                string query = @"SELECT COUNT(*) 
+                         FROM MMCS_CustomerRegistration 
+                         WHERE MCR_TStatus = @MCR_TStatus";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@MCR_TStatus", "MM");
+
+                    var result = await command.ExecuteScalarAsync();
+
+                    return Convert.ToInt32(result);
+                }
+            }
+        }
+
+
+        public async Task<int> GetApprovalStatusAsync()
+        {
+            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+            using (var connection = new SqlConnection(mmcsConnection))
+            {
+                await connection.OpenAsync();
+
+                string query = @"SELECT COUNT(*) 
+                         FROM MMCS_CustomerRegistration 
+                         WHERE MCR_Status = @MCR_Status";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@MCR_Status", "A");
+
+                    var result = await command.ExecuteScalarAsync();
+
+                    return Convert.ToInt32(result);
+                }
+            }
+        }
+
+
+        public async Task<DashboardCounts> GetDashboardCardDetailsAsync()
+        {
+            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+            using (var connection = new SqlConnection(mmcsConnection))
+            {
+                await connection.OpenAsync();
+
+                string query = @"
+            SELECT 
+                (SELECT COUNT(*) FROM MMCS_CustomerRegistration WHERE MCR_Status = 'A') AS TotalClients,
+                (SELECT COUNT(*) FROM MMCS_CustomerRegistration 
+                    WHERE MCR_FromDate >= DATEADD(DAY, -30, CAST(GETDATE() AS DATE)) 
+                    AND MCR_Status = 'A') AS NewSignup30Days,
+                (SELECT COUNT(*) FROM MMCS_CustomerRegistration WHERE MCR_TStatus = 'T') AS TrialUsers,
+                (SELECT COUNT(*) FROM MMCS_CustomerRegistration WHERE MCR_TStatus = 'MM') AS PendingIssues,
+                (SELECT COUNT(*) FROM MMCS_CustomerRegistration WHERE MCR_TStatus = 'MM') AS ResolvedIssues,
+                (SELECT COUNT(*) FROM MMCS_CustomerRegistration WHERE MCR_Status = 'A') AS ApprovalStatus,
+                (SELECT COUNT(*) FROM MMCS_CustomerRegistration WHERE MCR_TStatus = 'MM') AS PendingStatus";
+
+                using (var command = new SqlCommand(query, connection))
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    if (await reader.ReadAsync())
+                    {
+                        return new DashboardCounts
+                        {
+                            TotalClients = reader.GetInt32(0),
+                            NewSignup30Days = reader.GetInt32(1),
+                            TrialUsers = reader.GetInt32(2),
+                            PendingIssues = reader.GetInt32(3),
+                            ResolvedIssues = reader.GetInt32(4),
+                            ApprovalStatus = reader.GetInt32(5),
+                            PendingStatus = reader.GetInt32(6)
+                        };
+                    }
+                }
+            }
+
+            return null;
+        }
+
     }
 }
 

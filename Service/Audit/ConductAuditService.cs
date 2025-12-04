@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Bibliography;
 using DocumentFormat.OpenXml.InkML;
 using DocumentFormat.OpenXml.Spreadsheet;
 using DocumentFormat.OpenXml.Wordprocessing;
+using Google.Apis.Drive.v3;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.AspNetCore.Mvc;
@@ -16,7 +17,9 @@ using QuestPDF.Infrastructure;
 using TracePca.Data;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
+using TracePca.Interface;
 using TracePca.Interface.Audit;
+using TracePca.Interface.Master;
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
 using Colors = QuestPDF.Helpers.Colors;
@@ -35,13 +38,17 @@ namespace TracePca.Service.Audit
         private readonly AuditCompletionInterface _auditCompletionInterface;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly string _connectionString;
+        private readonly EmailInterface _emailInterface;
+        private readonly IGoogleDriveService _driveService;
 
-        public ConductAuditService(IConfiguration configuration, AuditCompletionInterface auditCompletionInterface, IHttpContextAccessor httpContextAccessor)
+        public ConductAuditService(IConfiguration configuration, AuditCompletionInterface auditCompletionInterface, IHttpContextAccessor httpContextAccessor, EmailInterface emailinterface, IGoogleDriveService driveService)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _auditCompletionInterface = auditCompletionInterface ?? throw new ArgumentNullException(nameof(auditCompletionInterface));
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
             _connectionString = GetConnectionStringFromSession();
+            _emailInterface = emailinterface;
+            _driveService = driveService;
         }
 
         private string GetConnectionStringFromSession()
@@ -418,47 +425,36 @@ namespace TracePca.Service.Audit
                 int attachId = dto.ATCH_ID == 0 ? await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID }) : dto.ATCH_ID;
                 int docId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID });
 
-                // Prepare file metadata
                 string originalName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
                 string safeFileName = (originalName.Replace("&", " and")).Substring(0, Math.Min(95, originalName.Length));
                 string fileExt = Path.GetExtension(dto.File.FileName)?.ToLower() ?? ".unk";
                 long fileSize = dto.File.Length;
 
-                // Determine file type
-                string[] imageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv" };
-                string[] documentExtensions = { ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar" };
-                string fileType = imageExtensions.Contains(fileExt) ? "Images" : documentExtensions.Contains(fileExt) ? "Documents" : "Others";
-
-                // Build file path
-                string basePath = GetTRACeConfigValue("ImgPath"); // Or Directory.GetCurrentDirectory()
-                string folderChunk = (docId / 301).ToString();
-                string savePath = Path.Combine(basePath, module, fileType, folderChunk);
-                if (!Directory.Exists(savePath))
-                    Directory.CreateDirectory(savePath);
-
-                // Save the file
-                string uniqueFileName = $"{docId}{fileExt}";
-                string fullPath = Path.Combine(savePath, uniqueFileName);
-                using (var stream = new FileStream(fullPath, FileMode.Create))
+                dynamic uploadedFile = await _driveService.UploadFileToFolderAsync(dto.File, "TracePA/Audit", GetUserEmail(), docId);
+                if (uploadedFile != null)
                 {
-                    await dto.File.CopyToAsync(stream);
+                    if (uploadedFile.Status == "Success")
+                    {
+                        var insertQuery = @"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
+                            ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID) VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
+
+                        await connection.ExecuteAsync(insertQuery, new
+                        {
+                            AtchId = attachId,
+                            DocId = docId,
+                            FileName = safeFileName,
+                            FileExt = fileExt.Trim('.'),
+                            CreatedBy = dto.ATCH_CREATEDBY,
+                            Size = fileSize,
+                            CompId = dto.ATCH_COMPID
+                        });
+
+                    }
+                    else if (uploadedFile.Status == "Error")
+                    {
+                        string errorMessage = uploadedFile.Message ?? "Unknown Google Drive upload error.";
+                    }
                 }
-
-                var insertQuery = @"
-        INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
-        ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID)
-        VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
-
-                await connection.ExecuteAsync(insertQuery, new
-                {
-                    AtchId = attachId,
-                    DocId = docId,
-                    FileName = safeFileName,
-                    FileExt = fileExt,
-                    CreatedBy = dto.ATCH_CREATEDBY,
-                    Size = fileSize,
-                    CompId = dto.ATCH_COMPID
-                });
 
                 const string attachQuery = @"UPDATE StandardAudit_ScheduleConduct_WorkPaper SET SSW_AttachID = @SSW_AttachID WHERE SSW_ID = @SSW_ID And SSW_SA_ID = @SSW_SA_ID And SSW_CompID = @SSW_CompID;";
                 await connection.ExecuteAsync(attachQuery, new
@@ -469,7 +465,7 @@ namespace TracePca.Service.Audit
                     SSW_CompID = dto.ATCH_COMPID
                 });
 
-                return (attachId, fullPath.Replace("\\", "/"));
+                return (attachId, "");
             }
             catch (Exception ex)
             {
@@ -616,6 +612,27 @@ namespace TracePca.Service.Audit
             }
         }
 
+        public string GetUserEmail()
+        {
+            var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrWhiteSpace(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connStr = _configuration.GetConnectionString(dbName);
+            if (string.IsNullOrWhiteSpace(connStr))
+                throw new Exception($"Connection string for '{dbName}' not found in configuration.");
+
+            using var connection = new SqlConnection(connStr);
+            connection.Open();
+
+            string sql = "SELECT TOP 1 UserEmail FROM UserDriveTokens ORDER BY Id DESC";
+
+            using var command = new SqlCommand(sql, connection);
+            var result = command.ExecuteScalar();
+
+            return result.ToString() ?? "";
+        }
+
         public async Task<(int attachmentId, string relativeFilePath)> UploadAndSaveCheckPointAttachmentAsync(FileAttachmentDTO dto, int auditId, int checkPointId, string module)
         {
             try
@@ -629,47 +646,36 @@ namespace TracePca.Service.Audit
                 int attachId = dto.ATCH_ID == 0 ? await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID }) : dto.ATCH_ID;
                 int docId = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = dto.ATCH_COMPID });
 
-                // Prepare file metadata
                 string originalName = Path.GetFileNameWithoutExtension(dto.File.FileName) ?? "unknown";
                 string safeFileName = (originalName.Replace("&", " and")).Substring(0, Math.Min(95, originalName.Length));
                 string fileExt = Path.GetExtension(dto.File.FileName)?.ToLower() ?? ".unk";
                 long fileSize = dto.File.Length;
 
-                // Determine file type
-                string[] imageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".svg", ".psd", ".ai", ".eps", ".ico", ".webp", ".raw", ".heic", ".heif", ".exr", ".dng", ".jp2", ".j2k", ".cr2", ".nef", ".orf", ".arw", ".raf", ".rw2", ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts", ".m2ts", ".vob", ".mts", ".divx", ".ogv" };
-                string[] documentExtensions = { ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".ppsx", ".pptx", ".odt", ".ods", ".odp", ".rtf", ".csv", ".pptm", ".xlsm", ".docm", ".xml", ".json", ".yaml", ".key", ".numbers", ".pages", ".tar", ".zip", ".rar" };
-                string fileType = imageExtensions.Contains(fileExt) ? "Images" : documentExtensions.Contains(fileExt) ? "Documents" : "Others";
-
-                // Build file path
-                string basePath = GetTRACeConfigValue("ImgPath"); // Or Directory.GetCurrentDirectory()
-                string folderChunk = (docId / 301).ToString();
-                string savePath = Path.Combine(basePath, module, fileType, folderChunk);
-                if (!Directory.Exists(savePath))
-                    Directory.CreateDirectory(savePath);
-
-                // Save the file
-                string uniqueFileName = $"{docId}{fileExt}";
-                string fullPath = Path.Combine(savePath, uniqueFileName);
-                using (var stream = new FileStream(fullPath, FileMode.Create))
+                dynamic uploadedFile = await _driveService.UploadFileToFolderAsync(dto.File, "TracePA/Audit", GetUserEmail(), docId);
+                if (uploadedFile != null)
                 {
-                    await dto.File.CopyToAsync(stream);
+                    if (uploadedFile.Status == "Success")
+                    {
+                        var insertQuery = @"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
+                            ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID) VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
+
+                        await connection.ExecuteAsync(insertQuery, new
+                        {
+                            AtchId = attachId,
+                            DocId = docId,
+                            FileName = safeFileName,
+                            FileExt = fileExt.Trim('.'),
+                            CreatedBy = dto.ATCH_CREATEDBY,
+                            Size = fileSize,
+                            CompId = dto.ATCH_COMPID
+                        });
+
+                    }
+                    else if (uploadedFile.Status == "Error")
+                    {
+                        string errorMessage = uploadedFile.Message ?? "Unknown Google Drive upload error.";
+                    }
                 }
-
-                var insertQuery = @"
-                INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
-                ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID)
-                VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
-
-                await connection.ExecuteAsync(insertQuery, new
-                {
-                    AtchId = attachId,
-                    DocId = docId,
-                    FileName = safeFileName,
-                    FileExt = fileExt,
-                    CreatedBy = dto.ATCH_CREATEDBY,
-                    Size = fileSize,
-                    CompId = dto.ATCH_COMPID
-                });
 
                 const string attachQuery = @"UPDATE StandardAudit_ScheduleCheckPointList SET SAC_AttachID = @SAC_AttachID WHERE SAC_SA_ID = @SAC_SA_ID AND SAC_CheckPointID = @SAC_CheckPointID AND SAC_CompID = @SAC_CompID;";
                 await connection.ExecuteAsync(attachQuery, new
@@ -680,7 +686,7 @@ namespace TracePca.Service.Audit
                     SAC_CompID = dto.ATCH_COMPID
                 });
 
-                return (attachId, fullPath.Replace("\\", "/"));
+                return (attachId, "");
             }
             catch (Exception ex)
             {

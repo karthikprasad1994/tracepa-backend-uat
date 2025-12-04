@@ -50,5 +50,17 @@
         public List<int>? ModuleIds { get; set; }
 
     }
+
+
+    public class DashboardCounts
+    {
+        public int TotalClients { get; set; }
+        public int NewSignup30Days { get; set; }
+        public int TrialUsers { get; set; }
+        public int PendingIssues { get; set; }
+        public int ResolvedIssues { get; set; }
+        public int ApprovalStatus { get; set; }
+        public int PendingStatus { get; set; }
+    }
 }
 
