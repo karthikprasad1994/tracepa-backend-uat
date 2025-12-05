@@ -54,7 +54,38 @@ namespace TracePca.Service.DigitalFilling
             _dbcontext = dbcontext;
             _configuration = configuration;
 			_httpContextAccessor = httpContextAccessor;
-		}
+             
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _connectionString = GetConnectionStringFromSession();
+
+            _isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+
+            string localPath = @"D:\Projects\Gitlab\TraceAPI - Backend Code\tracepa-dotnet-core\client_secret_desktop.json";
+            string cloudPath = @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\GoogleDrive\client_secret.json";
+            _credentialsPath = _isDevelopment ? localPath : cloudPath;
+
+            _logFilePath = _isDevelopment
+                ? @"D:\Projects\Gitlab\TraceAPI - Backend Code\tracepa-dotnet-core\Logs\GoogleDriveLog.txt"
+                : @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\Logs\GoogleDriveLog.txt";
+
+            if (!File.Exists(_credentialsPath))
+                throw new FileNotFoundException($"Google API credentials file not found at {_credentialsPath}");
+        }
+
+        private string GetConnectionStringFromSession()
+        {
+            var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrWhiteSpace(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connStr = _configuration.GetConnectionString(dbName);
+            if (string.IsNullOrWhiteSpace(connStr))
+                throw new Exception($"Connection string for '{dbName}' not found in configuration.");
+
+            return connStr;
+        }
+
 
         public async Task  CheckandInsertMemberGroupAsync(int userId, int compID)
         {
@@ -105,7 +136,7 @@ namespace TracePca.Service.DigitalFilling
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
-             
+
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
@@ -120,13 +151,14 @@ namespace TracePca.Service.DigitalFilling
 				JOIN sad_UserDetails B ON A.CBN_CreatedBy = B.Usr_ID and CBN_Parent = -1 and CBN_Status='A' and CBN_AuditID = 0) C
 				LEFT JOIN StandardAudit_Schedule D ON D.SA_ID = C.CBN_AuditID
 				WHERE C.CBN_ID NOT IN (SELECT C1.CBN_ID FROM edt_Cabinet C1 JOIN StandardAudit_Schedule S1 ON S1.SA_ID = C1.CBN_AuditID
-				WHERE S1.SA_ForCompleteAudit = 1 AND S1.SA_IsArchived = 1 ) order by cbn_id";
-             
+				WHERE S1.SA_ForCompleteAudit = 1 AND S1.SA_IsArchived = 1 and CBN_CompID=@CBN_CompID ) order by cbn_id";
+
             var result = await connection.QueryAsync<CabinetDto>(query, new
             {
-                CBN_CompID = compID
+                CBN_CompID = compID,
             });
             return result;
+
         }
 
 

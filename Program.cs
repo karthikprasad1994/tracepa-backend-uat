@@ -232,6 +232,11 @@ builder.Services.AddScoped<CustomerUserMasterInterface, CustomerUserMaster>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
 builder.Services.AddScoped<IDropboxService, DropboxService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+<<<<<<< HEAD
+=======
+builder.Services.AddScoped<ReportTemplateInterface, ReportTemplateService>();
+builder.Services.AddScoped<CompanyDetailsInterface, CompanyDetailsService>();
+>>>>>>> 2ed7780949550b8113b9d4ee2a732733d8fcb143
 // ✅ use 'Services' (not lowercase)
 
 
@@ -253,6 +258,7 @@ builder.Services.AddCors(options =>
 
              "http://localhost:3000", // React app for local development
               "http://localhost:4000",
+              "http://localhost:5173",
               "https://tracelites.multimedia.interactivedns.com",
               "https://tracevideoprocess.multimedia.interactivedns.com"
             )

@@ -206,7 +206,7 @@ LEFT JOIN (
     WHERE  AJTB_CustId = @custId
         AND AJTB_YearID = @yearId
         AND AJTB_QuarterId = @durationId
-        AND AJTB_BranchId = @branchId
+        AND AJTB_BranchId = @branchId and AJTB_Status<> 'D'
     GROUP BY AJTB_DescName
 ) g ON g.AJTB_DescName = a.ATBU_Description
 WHERE 
@@ -276,7 +276,7 @@ LEFT JOIN (
         AND AJTB_YearID = @yearId
         AND AJTB_QuarterId = @durationId
         AND AJTB_BranchId = @branchId
-        AND AJTB_Credit = 0
+        AND AJTB_Credit = 0 and AJTB_Status<> 'D'
     GROUP BY AJTB_DescName
 ) g ON g.AJTB_DescName = a.ATBU_Description
 LEFT JOIN (
@@ -286,7 +286,7 @@ LEFT JOIN (
         AND AJTB_YearID = @yearId
         AND AJTB_QuarterId = @durationId
         AND AJTB_BranchId = @branchId
-        AND AJTB_Debit = 0
+        AND AJTB_Debit = 0 and AJTB_Status<> 'D'
     GROUP BY AJTB_DescName
 ) h ON h.AJTB_DescName = a.ATBU_Description
 WHERE a.ATBU_CustId = @custId
@@ -1012,51 +1012,7 @@ WHERE
                                     goto saveFunction;
                                 }
                             }
-                            //if (!string.IsNullOrWhiteSpace(dto.Excel_Heading))
-                            //{
-                            //    headingId = await GetIdFromNameAsync(connection, transaction, "ACC_ScheduleHeading", "ASH_ID", dto.Excel_Heading, dto.ATBU_CustId);
-                            //    if (headingId == 0)
-                            //    {
-                            //        var subIds = await GetGroupIdFromAliasAsync(connection, transaction, dto.Excel_Heading, dto.ATBU_CompId, dto.ATBU_CustId, 1, OrgId);
-                            //        if (subIds.Rows.Count > 0)
-                            //        {
-                            //            DataRow row = subIds.Rows[0];
-                            //            headingId = Convert.ToInt32(row["ID"]);
-                            //            LevelId = Convert.ToInt32(row["Level"]);
-
-                            //            templateIds = await GetScheduleIDs(connection, transaction, headingId, dto.ATBU_CustId, LevelId);
-                            //            if (templateIds.Rows.Count > 0)
-                            //            {
-                            //                row = templateIds.Rows[0];
-                            //                headingId = Convert.ToInt32(row["ASH_ID"]);
-                            //                subHeadingId = Convert.ToInt32(row["ASSH_ID"]);
-                            //                itemId = Convert.ToInt32(row["ASI_ID"]);
-                            //                subItemId = Convert.ToInt32(row["ASSI_ID"]);
-                            //            }
-                            //            scheduleType = await GetScheduleTypeFromTemplateAsync(connection, transaction, subItemId, itemId, subHeadingId, headingId, dto.ATBU_CustId);
-                            //            goto saveFunction;
-
-
-                            //        }
-                            //    }
-                            //}
-                            //if (subHeadingId == 0 && itemId == 0 && subItemId == 0)
-                            //{
-                            //    headingId = 0; itemId = 0; subItemId = 0;
-                            //}
-                            //if (headingId != 0 || subHeadingId != 0 || itemId != 0 || subItemId != 0)
-                            //{
-                            //    templateIds = await GetScheduleIDs(connection, transaction, subItemId, itemId, subHeadingId, headingId, dto.ATBU_CustId, LevelId);
-                            //    if (templateIds.Rows.Count > 0)
-                            //    {
-                            //        DataRow row = templateIds.Rows[0];
-                            //        headingId = Convert.ToInt32(row["ASH_ID"]);
-                            //        subHeadingId = Convert.ToInt32(row["ASSH_ID"]);
-                            //        itemId = Convert.ToInt32(row["ASI_ID"]);
-                            //        subItemId = Convert.ToInt32(row["ASSI_ID"]);
-                            //    }
-                            //    scheduleType = await GetScheduleTypeFromTemplateAsync(connection, transaction, subItemId, itemId, subHeadingId, headingId, dto.ATBU_CustId);
-                            //}
+                          
 
                             saveFunction:
                             // --- Master Insert ---

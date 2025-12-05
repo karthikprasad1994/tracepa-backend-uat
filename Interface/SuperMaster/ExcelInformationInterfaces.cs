@@ -37,6 +37,14 @@ namespace TracePca.Interface.SuperMaster
         ClientUserResult GetClientUserExcelTemplate();
 
         //DownloadExcelTemplateFiles
+<<<<<<< HEAD
         ExcelTemplateResult GetExcelTemplate(string templateName);
+=======
+        ExcelInformationTemplateResult GetExcelTemplate(string FileName);
+
+        Task<List<string>> UploadAuditTypeAndCheckpointsAsync(int compId, int userId, IFormFile file);
+
+        Task<List<string>> UploadTaskAndSubTasksAsync(int compId, int userId, IFormFile file);
+>>>>>>> 2ed7780949550b8113b9d4ee2a732733d8fcb143
     }
 }

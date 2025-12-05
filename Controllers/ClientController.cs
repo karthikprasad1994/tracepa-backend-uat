@@ -216,11 +216,7 @@ namespace TracePca.Controllers
 
 
         [HttpGet("LoadScheduledAuditNos")]
-        public async Task<IActionResult> GetScheduledAuditNos(
-     
-     [FromQuery] int companyId,
-     [FromQuery] int financialYearId,
-     [FromQuery] int customerId)
+        public async Task<IActionResult> GetScheduledAuditNos([FromQuery] int companyId,[FromQuery] int financialYearId,[FromQuery] int customerId)
         {
             try
             {
@@ -234,6 +230,7 @@ namespace TracePca.Controllers
                 {
                     StatusCode = 200,
                     Message = "Scheduled audits fetched successfully.",
+
                     Data = result
                 });
             }

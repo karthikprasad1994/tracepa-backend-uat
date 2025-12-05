@@ -9,9 +9,9 @@ public class FlexibleDateTimeConverter : JsonConverter<DateTime>
     {
         "yyyy-MM-ddTHH:mm:ss.FFFFFFFK",
         "yyyy-MM-dd",
+        "dd-MM-yyyy",
         "dd/MM/yyyy",
         "MM/dd/yyyy",
-        "dd-MM-yyyy",
         "MM-dd-yyyy"
     };
 
@@ -20,7 +20,7 @@ public class FlexibleDateTimeConverter : JsonConverter<DateTime>
         var value = reader.GetString();
 
         if (string.IsNullOrWhiteSpace(value))
-            return default; // or throw if required
+            return default;
 
         if (DateTime.TryParseExact(value, SupportedFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
             return date;
@@ -33,6 +33,6 @@ public class FlexibleDateTimeConverter : JsonConverter<DateTime>
 
     public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
     {
-        writer.WriteStringValue(value.ToString("yyyy-MM-ddTHH:mm:ss"));
+        writer.WriteStringValue(value.ToString("dd-MM-yyyy")); // << desired output
     }
 }

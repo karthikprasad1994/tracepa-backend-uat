@@ -14,6 +14,9 @@
         public string? Address { get; set; }
         public string? McrProductKey { get; private set; }
 
+        public string? MCR_IPAddress { get; private set; }
+        public string? MCR_Location { get; set; }
+
         public string? McrTstatus { get; set; }
 
         //  public string? McrEmailsJson { get; set; }
@@ -46,6 +49,18 @@
 
         public List<int>? ModuleIds { get; set; }
 
+    }
+
+
+    public class DashboardCounts
+    {
+        public int TotalClients { get; set; }
+        public int NewSignup30Days { get; set; }
+        public int TrialUsers { get; set; }
+        public int PendingIssues { get; set; }
+        public int ResolvedIssues { get; set; }
+        public int ApprovalStatus { get; set; }
+        public int PendingStatus { get; set; }
     }
 }
 
