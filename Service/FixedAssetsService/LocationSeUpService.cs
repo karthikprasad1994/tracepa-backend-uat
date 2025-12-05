@@ -10,13 +10,13 @@ using Dapper;
 
 namespace TracePca.Service.AssetService
 {
-    public class LocationSeUp : LocationSetUpInterface
+    public class LocationSeUpService : LocationSetUpInterface
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly CustomerRegistrationContext _customerRegistrationContext;
         private readonly IConfiguration _configuration;
 
-        public LocationSeUp(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration)
+        public LocationSeUpService(Trdmyus1Context dbContext, CustomerRegistrationContext customerDbContext, IConfiguration configuration)
         {
             _dbcontext = dbContext;
             _customerRegistrationContext = customerDbContext;
@@ -188,9 +188,6 @@ namespace TracePca.Service.AssetService
                 throw;
             }
         }
-
-
-
 
 
         public async Task<int> SaveDivisionAsync(AddDivisionDto divisionDto)

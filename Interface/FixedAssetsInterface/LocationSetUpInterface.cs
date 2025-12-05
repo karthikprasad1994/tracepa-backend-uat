@@ -9,7 +9,7 @@ namespace TracePca.Interface.AssetMaserInterface
         Task<IEnumerable<DropDownDto>> GetDivisionsAsync(int companyId, int customerId, int parentId);
         Task<IEnumerable<DropDownDto>> GetDepartmentsAsync(int companyId, int customerId, int parentId = 0);
         Task<IEnumerable<DropDownDto>> GetHeadersAsync(int companyId, int customerId, int parentId = 0);
-        Task<IEnumerable<DropDownDto>> GetSubHeadersAsync(int companyId, int customerId , int parentId = 0);
+        Task<IEnumerable<DropDownDto>> GetSubHeadersAsync(int companyId, int customerId, int parentId = 0);
         Task<IEnumerable<DropDownDto>> GetLocationsAsync(int companyId, int customerId, int parentId = 0);
         Task<IEnumerable<DropDownDto>> GetBayiAsync(int companyId, int customerId, string parentId = "0");
         Task<IEnumerable<DropDownDto>> GetAssetsAsync(int companyId, int customerId, string parentId = "0");
@@ -25,7 +25,5 @@ namespace TracePca.Interface.AssetMaserInterface
 
         Task<int> SaveAssetAsync(AddAssetClassDto assetDto);
         Task<AssetMasterDetailsDto> GetItemDetailsByAmIdAsync(int amId, int compId, int custId);
-
-
     }
 }

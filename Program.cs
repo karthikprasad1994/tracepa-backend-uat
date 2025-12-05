@@ -158,10 +158,7 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<LoginInterface, Login>();
 builder.Services.AddScoped<OtpService>();
-builder.Services.AddScoped<AssetInterface, Asset>();
 builder.Services.AddScoped<AssetRegisterInterface, AssetRegister>();
-builder.Services.AddScoped<LocationSetUpInterface, LocationSeUp>();
-builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAddition>();
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
 builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
@@ -232,11 +229,8 @@ builder.Services.AddScoped<CustomerUserMasterInterface, CustomerUserMaster>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
 builder.Services.AddScoped<IDropboxService, DropboxService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
-<<<<<<< HEAD
-=======
 builder.Services.AddScoped<ReportTemplateInterface, ReportTemplateService>();
 builder.Services.AddScoped<CompanyDetailsInterface, CompanyDetailsService>();
->>>>>>> 2ed7780949550b8113b9d4ee2a732733d8fcb143
 // ✅ use 'Services' (not lowercase)
 
 
