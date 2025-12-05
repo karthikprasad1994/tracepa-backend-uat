@@ -16,6 +16,7 @@ using TracePca.Interface.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
 using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
 using System.Text.RegularExpressions;
+using Microsoft.Playwright;
 
 
 namespace TracePca.Service.SuperMaster
@@ -1938,9 +1939,9 @@ WHERE UPPER(CUST_NAME) = UPPER(@CustomerName)
             var missingErrors = ValidateAuditChecklist(rows);
 
             var duplicateErrors = rows
-                .GroupBy(r => new { r.ACM_AuditTypeID, r.ACM_Checkpoint })
+                .GroupBy(r => new { r.ACM_AuditTypeID, r.ACM_Heading, r.ACM_Checkpoint })
                 .Where(g => g.Count() > 1)
-                .Select(g => $"Duplicate: Audit Type '{g.Key.ACM_AuditTypeID}' - Checkpoint '{g.Key.ACM_Checkpoint}'")
+                .Select(g => $"Duplicate: Heading '{g.Key.ACM_Heading}' - Checkpoint '{g.Key.ACM_Checkpoint}'")
                 .ToList();
 
             var finalErrors = new Dictionary<string, List<string>>();
@@ -1978,10 +1979,10 @@ WHERE UPPER(CUST_NAME) = UPPER(@CustomerName)
             using var package = new ExcelPackage(stream);
 
             var sheet = package.Workbook.Worksheets[0];
-            int rowCount = sheet.Dimension.Rows;
+            int rowCount = sheet.Dimension.Rows;                            
 
             var result = new AuditTypeAndCheckpointParseResult();
-            string[] expectedHeaders = { "Audit Type", "Heading", "Checkpoint", "Assertion" };
+            string[] expectedHeaders = { "Audit Type", "Heading", "Checkpoint", "Assertions" };
 
             for (int col = 1; col <= expectedHeaders.Length; col++)
                 if (!string.Equals(sheet.Cells[1, col].Text?.Trim(), expectedHeaders[col - 1], StringComparison.OrdinalIgnoreCase))
