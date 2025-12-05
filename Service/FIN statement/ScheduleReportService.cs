@@ -56,8 +56,6 @@ namespace TracePca.Service.FIN_statement
             return await connection.QueryAsync<CompanyDetailsDto>(query, new { CompID = CompId });
         }
 
-
-
         //GetPartners
         public async Task<IEnumerable<PartnersDto>> LoadCustomerPartnersAsync(int CompId, int DetailsId)
         {
@@ -100,7 +98,6 @@ namespace TracePca.Service.FIN_statement
             WHERE usr_partner = 1 
               AND usr_CompanyId = @compId";
             }
-
             return await connection.QueryAsync<PartnersDto>(query, new { CompId, DetailsId });
         }
 
@@ -138,7 +135,6 @@ namespace TracePca.Service.FIN_statement
                 ScheduleId = ScheduleId,
                 HeadingId = HeadingId
             });
-
             return result;
         }
 
@@ -483,7 +479,6 @@ ORDER BY ud.ATBUD_Subheading";
                             GtotalExpense += totalExpense; GtotalPrevExpense += totalPrevExpense;
                             // end sub head
                         }
-
                     }
                 }
                 else

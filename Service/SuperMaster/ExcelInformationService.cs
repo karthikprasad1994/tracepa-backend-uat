@@ -1880,29 +1880,35 @@ WHERE UPPER(CUST_NAME) = UPPER(@CustomerName)
         }
 
         //DownloadExcelTemplateFiles
-        public ExcelInformationTemplateResult GetExcelTemplate(string FileName)
+        public ExcelTemplateResult GetExcelTemplate(string templateName)
         {
-            // Map template names to file paths
             var templates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            { "Employee Master", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\EmployeeMaster Template.xlsx" },
-            { "Client Details", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientDetails Template.xlsx" },
-            { "Client User", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientUser Template.xlsx" }
+            { "Employee Master", @"C:\Users\SSD\Source\Repos\tracepa-corebackend\SampleExcels\EmployeeMaster Template.xlsx" },
+            { "Client Details", @"C:\Users\SSD\Source\Repos\tracepa-corebackend\SampleExcels\ClientDetails Template.xlsx" },
+            { "Client User", @"C:\Users\SSD\Source\Repos\tracepa-corebackend\SampleExcels\ClientUser Template.xlsx" }
         };
 
-            if (!templates.ContainsKey(FileName))
-                return null; // or throw exception if template not found
+            if (!templates.ContainsKey(templateName))
+                return null;
 
-            var filePath = templates[FileName];
+            var filePath = templates[templateName];
 
             if (!File.Exists(filePath))
-                return null; // or return empty result
+                return null;
 
             var bytes = File.ReadAllBytes(filePath);
             var fileName = Path.GetFileName(filePath);
-            var contentType = "application/vnd.ms-excel"; // works for .xls and .xlsx
 
-            return new ExcelInformationTemplateResult
+            // Set content type dynamically based on extension
+            var contentType = Path.GetExtension(filePath).ToLower() switch
+            {
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".xls" => "application/vnd.ms-excel",
+                _ => "application/octet-stream"
+            };
+
+            return new ExcelTemplateResult
             {
                 FileBytes = bytes,
                 FileName = fileName,

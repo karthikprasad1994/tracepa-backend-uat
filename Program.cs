@@ -188,7 +188,7 @@ builder.Services.AddScoped<AgingAnalysisInterface, AgingAnalysisService>();
 
 
 
-
+builder.Services.AddScoped<AuditInterface, Communication>();
 builder.Services.AddControllers();
 builder.Services.Configure<FormOptions>(opt => opt.MultipartBodyLengthLimit = 1024L * 1024L * 1024L);
 builder.Services.AddSingleton<VideoService>();
@@ -232,7 +232,6 @@ builder.Services.AddScoped<CustomerUserMasterInterface, CustomerUserMaster>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
 builder.Services.AddScoped<IDropboxService, DropboxService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
-
 // ✅ use 'Services' (not lowercase)
 
 
