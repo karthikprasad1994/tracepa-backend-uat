@@ -6,10 +6,8 @@ namespace TracePca.Dto.FIN_Statement
     {
         public class AccountingRatioResult
         {
-<<<<<<< HEAD
             public List<RatioDto> Ratios { get; set; } = new();
             public DataTable DataTable { get; set; }
-=======
             public int Sr_No { get; set; }
             public string RatioName { get; set; }
             public string Numerator { get; set; }
@@ -29,7 +27,6 @@ namespace TracePca.Dto.FIN_Statement
         {
             public decimal Dc1;
             public decimal DP1;
->>>>>>> 2ed7780949550b8113b9d4ee2a732733d8fcb143
         }
 
         public class RatioDto

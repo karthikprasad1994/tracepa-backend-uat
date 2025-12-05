@@ -23,7 +23,6 @@ namespace TracePca.Service.FIN_statement
             _httpContextAccessor = httpContextAccessor;
         }
 
-<<<<<<< HEAD
         //
         public async Task<AccountingRatioResult> LoadAccRatioAsync(int yearId, int customerId, int branchId)
         {
@@ -52,7 +51,7 @@ namespace TracePca.Service.FIN_statement
                 dtDetails.Columns.Add("Change");
 
                 string[] ratios = {
-=======
+
 
         public async Task<ScheduleAccountingRatioDto.AccountingRatioResult> LoadAccRatioAsync(int yearId, int customerId, int branchId)
         {
@@ -74,7 +73,6 @@ namespace TracePca.Service.FIN_statement
                 // define the 11 ratios metadata
                 var ratioNames = new[]
                 {
->>>>>>> 2ed7780949550b8113b9d4ee2a732733d8fcb143
                     "Debt Equity Ratio",
                     "Debt Capital",
                     "Debt Service coverage ratio",
@@ -87,8 +85,6 @@ namespace TracePca.Service.FIN_statement
                     "Return on Capital employed",
                     "Return on investment"
                 };
-
-<<<<<<< HEAD
                 string[] numerators = {
 =======
                 var numerators = new[]
@@ -107,9 +103,9 @@ namespace TracePca.Service.FIN_statement
                     "Net Profit"
                 };
 
-<<<<<<< HEAD
+
                 string[] denominators = {
-=======
+
                 var denominators = new[]
                 {
 >>>>>>> 2ed7780949550b8113b9d4ee2a732733d8fcb143
@@ -120,17 +116,13 @@ namespace TracePca.Service.FIN_statement
                     "Average Inventory",
                     "Average trade receivables",
                     "Closing Trade Payables",
-<<<<<<< HEAD
                     "Workimg capital (CA-CL)",
-=======
                     "Working capital (CA-CL)",
->>>>>>> 2ed7780949550b8113b9d4ee2a732733d8fcb143
                     "Sales",
                     "Capital Employed",
                     "Investment"
                 };
 
-<<<<<<< HEAD
                 // Prepare rows
                 for (int i = 0; i < 11; i++)
                 {
