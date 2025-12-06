@@ -397,8 +397,6 @@ namespace TracePca.Dto.SuperMaster
             public string FileName { get; set; }
             public string ContentType { get; set; }
         }
-<<<<<<< HEAD
-=======
 
         public class AuditTypeAndCheckpointParseResult
         {
@@ -411,7 +409,6 @@ namespace TracePca.Dto.SuperMaster
             public List<AssignmentTaskChecklistMasterDTO> Rows { get; set; } = new();
             public List<string> HeaderErrors { get; set; } = new();
         }
->>>>>>> 2ed7780949550b8113b9d4ee2a732733d8fcb143
     }
 }
 

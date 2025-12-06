@@ -9,7 +9,6 @@ using TracePca.Data;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.CashFlowDto;
-using static TracePca.Dto.FIN_Statement.ScheduleAccountingRatioDto;
 
 namespace TracePca.Service.FIN_statement
 {
@@ -582,7 +581,7 @@ namespace TracePca.Service.FIN_statement
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
             string connectionString = _configuration.GetConnectionString(dbName);
-             if (string.IsNullOrEmpty(connectionString))
+            if (string.IsNullOrEmpty(connectionString))
                 throw new Exception($"Connection string for '{dbName}' not found.");
 
             using var connection = new SqlConnection(connectionString);
@@ -646,21 +645,21 @@ namespace TracePca.Service.FIN_statement
 
                 //Finance costs
                 {
-                    int headingIdCY = await GetHeadingId(connection, transaction, customerId, "Finance Costs");
-                    int headingIdPY = await GetHeadingId(connection, transaction, customerId, "Finance Costs");
+                    decimal subheadingIdCY = await GetPandLFinalAmt(connection, transaction, yearId, customerId, branchId);
+                    decimal subheadingIdPY = await GetPandLFinalAmt(connection, transaction, yearId - 1, customerId, branchId);
 
-                    var ca = await GetHeadingAmt1(connection, transaction, yearId, customerId, 3, headingIdCY);
-                    var cl = await GetHeadingAmt1(connection, transaction, yearId, customerId, 3, headingIdPY);
+                    int headingShareId = await GetSubHeadingId(connection, transaction, customerId, "Finance coasts");
+                    var curShare = await GetSubHeadingAmt1(connection, transaction, yearId, customerId, 3, headingShareId);
+                    var prevShare = await GetSubHeadingAmt1(connection, transaction, yearId - 1, customerId, 3, headingShareId);
 
-                    // Defensive conversion to decimals (handle nulls)
-                    decimal caDc1 = ca?.Dc1 ?? 0m;
-                    decimal caDp1 = ca?.DP1 ?? 0m;
-                    decimal clDc1 = cl?.Dc1 ?? 0m;
-                    decimal clDp1 = cl?.DP1 ?? 0m;
+                    // approximate average shareholder funds (current)
+                    decimal caDc1 = curShare?.Dc1 ?? 0m;
+                    decimal caDp1 = curShare?.DP1 ?? 0m;
+                    decimal clDc1 = prevShare?.Dc1 ?? 0m;
+                    decimal clDp1 = prevShare?.DP1 ?? 0m;
 
                     decimal cur = caDc1 - clDc1;
                     decimal prev = caDp1 - clDp1;
-
 
                     // Add a result row (ensure the DTO type matches your project)
                     result.Particular.Add(new CashFlowParticularDto
@@ -687,64 +686,56 @@ namespace TracePca.Service.FIN_statement
             const string sql = @"SELECT ISNULL(ASH_ID,0) FROM ACC_ScheduleHeading WHERE ASH_Name = @HeadName AND ASH_OrgType = @CustId";
             return await conn.ExecuteScalarAsync<int>(sql, new { HeadName = headName, CustId = customerId }, tran);
         }
-        private async Task<HeadingAmount> GetHeadingAmt1(SqlConnection conn, SqlTransaction tran, int yearId, int customerId,
-           int schedType, int headingId)
+        private async Task<HeadingAmount> GetHeadingAmt1(SqlConnection conn, SqlTransaction tran,
+            int yearId, int customerId, int schedType, int headingId)
         {
             if (headingId == 0)
                 return new HeadingAmount { Dc1 = 0m, DP1 = 0m };
 
             const string sql = @"
-        /*
-         Compute current and previous amounts by joining the details table (ud)
-         with the Acc_TrailBalance_Upload rows for current (d) and previous (e)
-         while filtering d/e on YearId, CustId and BranchId.
-        */
-        SELECT 
-            ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount - d.ATBU_Closing_TotalCredit_Amount), 0) AS CurrentSigned,
-            ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount - e.ATBU_Closing_TotalCredit_Amount), 0) AS PreviousSigned
-        FROM Acc_TrailBalance_Upload_Details ud
-        LEFT JOIN Acc_TrailBalance_Upload d
-            ON d.ATBU_Description = ud.ATBUD_Description
-               AND d.ATBU_YearId = @YearId
-               AND d.ATBU_CustId = @CustomerId
-               AND d.ATBU_BranchId = @BranchId
-        LEFT JOIN Acc_TrailBalance_Upload e
-            ON e.ATBU_Description = ud.ATBUD_Description
-               AND e.ATBU_YearId = @PrevYear
-               AND e.ATBU_CustId = @CustomerId
-               AND e.ATBU_BranchId = @BranchId
-        WHERE ud.ATBUD_Schedule_Type = @SchedType
-          AND ud.ATBUD_CustId = @CustomerId
-          AND ud.ATBUD_HeadingId = @HeadingId;
-    ";
+                SELECT 
+                    ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) -  ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
+                    ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) -  ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
+                FROM Acc_TrailBalance_Upload_Details
+                LEFT JOIN Acc_TrailBalance_Upload d 
+                    ON d.ATBU_Description = ATBUD_Description 
+                       AND d.ATBU_YearId = @YearId 
+                       AND d.ATBU_CustId = @CustomerId
+                LEFT JOIN Acc_TrailBalance_Upload e 
+                    ON e.ATBU_Description = ATBUD_Description 
+                       AND e.ATBU_YearId = @PrevYear 
+                       AND e.ATBU_CustId = @CustomerId
+                WHERE ATBUD_Schedule_Type = @SchedType 
+                  AND ATBUD_CustId = @CustomerId 
+                  AND ATBUD_HeadingId = @HeadingId;";
 
-            var row = await conn.QueryFirstOrDefaultAsync(sql, new
+            try
             {
-                YearId = yearId,
-                PrevYear = yearId - 1,
-                CustomerId = customerId,
-                SchedType = schedType,
-                HeadingId = headingId
-            }, tran);
+                var data = await conn.QueryFirstOrDefaultAsync(sql, new
+                {
+                    YearId = yearId,
+                    PrevYear = yearId - 1,
+                    CustomerId = customerId,
+                    SchedType = schedType,
+                    HeadingId = headingId
+                }, tran);
 
-            if (row == null)
-                return new HeadingAmount { Dc1 = 0m, DP1 = 0m };
+                if (data == null)
+                {
+                    return new HeadingAmount { Dc1 = 0m, DP1 = 0m };
+                }
 
-            decimal currentSigned = 0m;
-            decimal previousSigned = 0m;
+                // Convert safely
+                decimal dc1 = 0m, dp1 = 0m;
+                try { dc1 = Convert.ToDecimal(data.Dc1); } catch { dc1 = 0m; }
+                try { dp1 = Convert.ToDecimal(data.DP1); } catch { dp1 = 0m; }
 
-            try { currentSigned = Convert.ToDecimal(row.CurrentSigned); } catch { currentSigned = 0m; }
-            try { previousSigned = Convert.ToDecimal(row.PreviousSigned); } catch { previousSigned = 0m; }
-
-            // If you prefer absolute amounts like earlier version, you can ABS() them here.
-            // As requested, returning (current - previous) in Dc1, previous in DP1.
-            decimal difference = currentSigned - previousSigned;
-
-            return new HeadingAmount
+                return new HeadingAmount { Dc1 = dc1, DP1 = dp1 };
+            }
+            catch (Exception ex)
             {
-                Dc1 = difference,   // current - previous (per your request)
-                DP1 = previousSigned // previous year amount kept for reference
-            };
+                throw;
+            }
         }
         private async Task<int> GetSubHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string subHeadName)
         {
@@ -807,4 +798,3 @@ namespace TracePca.Service.FIN_statement
 
 
 
- 

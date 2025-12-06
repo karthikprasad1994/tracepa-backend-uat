@@ -26,10 +26,6 @@ namespace TracePca.Controllers.FIN_Statement
 
         }
 
-<<<<<<< HEAD
-        //
-=======
->>>>>>> 2ed7780949550b8113b9d4ee2a732733d8fcb143
         [HttpGet("GetAccountingRatios")]
         public async Task<IActionResult> GetAccountingRatios(int yearId, int customerId, int branchId)
         {
@@ -47,11 +43,7 @@ namespace TracePca.Controllers.FIN_Statement
             {
                 var result = await _ScheduleAccountingRatioService.LoadAccRatioAsync(yearId, customerId, branchId);
 
-<<<<<<< HEAD
-                if (result == null || result.Ratios == null || !result.Ratios.Any())
-=======
-                if (result == null || result == null )
->>>>>>> 2ed7780949550b8113b9d4ee2a732733d8fcb143
+                if (result == null || result == null)
                 {
                     return NotFound(new
                     {
@@ -65,11 +57,7 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     statusCode = 200,
                     message = "Accounting ratios fetched successfully.",
-<<<<<<< HEAD
-                    data = result.Ratios  // Send DTO list; DataTable can be added if needed
-=======
                     data = result  // Send DTO list; DataTable can be added if needed
->>>>>>> 2ed7780949550b8113b9d4ee2a732733d8fcb143
                 });
             }
             catch (Exception ex)

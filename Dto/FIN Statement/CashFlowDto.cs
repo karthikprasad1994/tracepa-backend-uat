@@ -68,6 +68,12 @@
             public decimal Dc1 { get; set; }
             public decimal DP1 { get; set; }
         }
+        public class AmountDto
+        {
+            public decimal Dc1 { get; set; }
+            public decimal DP1 { get; set; }
+        }
+
     }
 }
 

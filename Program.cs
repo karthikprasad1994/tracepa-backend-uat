@@ -1,9 +1,6 @@
-﻿using System;
-using System.Data;
-using System.Security.Claims;
-using System.Text;
-using System.Text.Json.Serialization;
-using Dapper;
+﻿using Dapper;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Data.SqlClient;
@@ -13,6 +10,11 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
+using System;
+using System.Data;
+using System.Security.Claims;
+using System.Text;
+using System.Text.Json.Serialization;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Interface;
@@ -23,15 +25,16 @@ using TracePca.Interface.Dashboard;
 using TracePca.Interface.DatabaseConnection;
 using TracePca.Interface.DigitalFiling;
 using TracePca.Interface.DigitalFilling;
-using TracePca.Interface.Permission;
 using TracePca.Interface.EmployeeMaster;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.FixedAssetsInterface;
 using TracePca.Interface.LedgerReview;
 using TracePca.Interface.Master;
 using TracePca.Interface.Middleware;
+using TracePca.Interface.Permission;
 using TracePca.Interface.ProfileSetting;
 using TracePca.Interface.SuperMaster;
+using TracePca.Interface.TaskManagement;
 using TracePca.Service;
 using TracePca.Service.AssetService;
 using TracePca.Service.Audit;
@@ -47,38 +50,21 @@ using TracePca.Service.LedgerReview;
 using TracePca.Service.Master;
 using TracePca.Service.Miidleware;
 using TracePca.Service.ProfileSetting;
-
 using TracePca.Service.SuperMaster;
-using TracePca.Utility;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Google;
-using TracePA_Agent_API.Services;
-using Microsoft.AspNetCore.Http.Features;
-using TracePca.Interface.TaskManagement;
 using TracePca.Service.TaskManagement;
-using TracePA.Interfaces;
-using TracePA.Services;
-using TracePca.Services;
-using OfficeOpenXml;
-using TracePca.Interface.ClientPortal;
-using TracePca.Service.ClientPortal;
+using TracePca.Utility;
 
 
 var builder = WebApplication.CreateBuilder(args);
-var environment = builder.Environment;
+//builder.Services.AddControllers()
+//    .AddJsonOptions(options =>
+//    {
+//        options.JsonSerializerOptions.PropertyNamingPolicy = null; // ? Keep original case
+//    });
+//var environment = builder.Environment;
 //QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 //ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 // Add services to the container.
-
-builder.Services.Configure<FormOptions>(options =>
-{
-    options.MultipartBodyLengthLimit = 1024L * 1024L * 1024L; // 1 GB limit
-});
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.Limits.MaxRequestBodySize = 1073741824; // 1 GB
-});
-
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -123,7 +109,7 @@ builder.Services.AddSession(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; // Requires HTTPS
 });
 
- 
+
 
 builder.Services.AddSwaggerGen(c =>
 {
@@ -153,12 +139,17 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-builder.Services.AddHttpClient(); 
+builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<LoginInterface, Login>();
 builder.Services.AddScoped<OtpService>();
+builder.Services.AddScoped<AssetMasterInterface, AssetMasterService>();
+builder.Services.AddScoped<AssetCreationInterface, AssetCreationService>();
+builder.Services.AddScoped<AssetSetupInterface, AssetSetupService>();
 builder.Services.AddScoped<AssetRegisterInterface, AssetRegister>();
+builder.Services.AddScoped<LocationSetUpInterface, LocationSeUpService>();
+builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAdditionService>();
 builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
 builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
@@ -180,15 +171,9 @@ builder.Services.AddScoped<AbnormalitiesInterface, AbnormalitiesService>();
 builder.Services.AddScoped<SelectedPartiesInterface, SelectedPartiesService>();
 builder.Services.AddScoped<CashFlowInterface, CashFlowService>();
 builder.Services.AddScoped<FlaggedTransactionInterface, FlaggedTransactionService>();
-builder.Services.AddScoped<SamplingInterface, SamplingService>();
 builder.Services.AddScoped<AgingAnalysisInterface, AgingAnalysisService>();
+builder.Services.AddScoped<SamplingInterface, SamplingService>();
 
-
-
-builder.Services.AddScoped<AuditInterface, Communication>();
-builder.Services.AddControllers();
-builder.Services.Configure<FormOptions>(opt => opt.MultipartBodyLengthLimit = 1024L * 1024L * 1024L);
-builder.Services.AddSingleton<VideoService>();
 
 // Register your custom DbConnectionFactory
 builder.Services.AddScoped<IDbConnectionFactory, DbConnectionFactory>();
@@ -211,7 +196,6 @@ builder.Services.AddScoped<ReportanIssueInterface, ReportanIssueService>();
 builder.Services.AddScoped<ConductAuditInterface, TracePca.Service.Audit.ConductAuditService>();
 
 builder.Services.AddScoped<ContentManagementMasterInterface, ContentManagementMasterService>();
-builder.Services.AddScoped<IClientPortalInterface, ClientPortalService>();
 
 builder.Services.AddScoped<AuditSummaryInterface, TracePca.Service.Audit.AuditSummary>();
 builder.Services.AddScoped<CabinetInterface, TracePca.Service.DigitalFilling.Cabinet>();
@@ -227,11 +211,6 @@ builder.Services.AddScoped<EmployeeMasterInterface, EmployeeMaster>();
 builder.Services.AddScoped<CustomerMasterInterface, CustomerMaster>();
 builder.Services.AddScoped<CustomerUserMasterInterface, CustomerUserMaster>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
-builder.Services.AddScoped<IDropboxService, DropboxService>();
-builder.Services.AddScoped<IPaymentService, PaymentService>();
-builder.Services.AddScoped<ReportTemplateInterface, ReportTemplateService>();
-builder.Services.AddScoped<CompanyDetailsInterface, CompanyDetailsService>();
-// ✅ use 'Services' (not lowercase)
 
 
 builder.Services.AddScoped<ApiPerformanceTracker>();
@@ -245,16 +224,14 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddCors(options =>
 {
-	//AllowReactApp
-	options.AddPolicy("AllowReactApp", policy =>
+    //AllowReactApp
+    options.AddPolicy("AllowReactApp", policy =>
     {
         policy.WithOrigins(
 
              "http://localhost:3000", // React app for local development
               "http://localhost:4000",
-              "http://localhost:5173",
-              "https://tracelites.multimedia.interactivedns.com",
-              "https://tracevideoprocess.multimedia.interactivedns.com"
+              "https://tracelites.multimedia.interactivedns.com"
             )
               .AllowAnyMethod()
               .AllowAnyHeader()
@@ -290,7 +267,7 @@ builder.Services.AddDbContext<Trdmyus1Context>(options =>
 builder.Services.AddScoped<IDbConnection>(sp =>
     new SqlConnection(builder.Configuration.GetConnectionString("DefaultConnection")));
 
- 
+
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"]);
 
@@ -357,11 +334,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddHttpClient();
 
-ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
 var app = builder.Build();
-app.MapGet("/", () => "Dropbox API Connected!");
-
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
@@ -401,4 +375,3 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
- 
