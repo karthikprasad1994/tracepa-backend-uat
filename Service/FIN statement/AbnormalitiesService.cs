@@ -101,7 +101,7 @@ AJTB_SeqReferenceNum as status, AJTB_BillType,AJTB_TranscNo,AJTB_CreatedBy,ajtb_
             return result;
         }
 
-        //UpdateJESeqReferenceNum
+        //UpdateAEStatus
         public async Task<int> UpdateJournalEntrySeqRefAsync(List<UpdateJournalEntrySeqRef1Dto> dtoList)
         {
             if (dtoList == null || !dtoList.Any())
@@ -129,7 +129,7 @@ AJTB_SeqReferenceNum as status, AJTB_BillType,AJTB_TranscNo,AJTB_CreatedBy,ajtb_
 
                 var sql = $@"
         UPDATE Acc_JETransactions_Details
-        SET AJTB_Status = CASE AJTB_ID
+        SET AJTB_AEStatus = CASE AJTB_ID
             {string.Join(" ", caseStatements)}
         END
         WHERE AJTB_ID IN ({string.Join(",", dtoList.Select((d, i) => $"@Id{i}"))});";

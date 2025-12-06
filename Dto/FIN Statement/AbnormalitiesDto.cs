@@ -17,7 +17,7 @@
         }
 
 
-        //UpdateJESeqReferenceNum
+        //UpdateAEStatus
         public class UpdateJournalEntrySeqRef1Dto
         {
             public int Id { get; set; }

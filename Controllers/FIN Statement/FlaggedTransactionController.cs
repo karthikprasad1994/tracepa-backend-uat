@@ -61,8 +61,8 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GetAbnormalEntriesSeqReferenceNum
-        [HttpGet("GetAbnormalEntriesSeqReferenceNum")]
+        //GetAbnormalEntriesAEStatus
+        [HttpGet("GetAbnormalEntriesAEStatus")]
         public async Task<IActionResult> GetAbnormalEntriesSeqReferenceNum([FromQuery] int CompId, [FromQuery] int CustId, [FromQuery] int BranchId, [FromQuery] int YearId)
         {
             try
