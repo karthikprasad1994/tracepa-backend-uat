@@ -59,8 +59,8 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //UpdateJESeqReferenceNum
-        [HttpPost("UpdateSeqReference")]
+        //UpdateAEStatus
+        [HttpPost("UpdateAEStatus")]
         public async Task<IActionResult> UpdateSeqReferenceAsync([FromBody] List<UpdateJournalEntrySeqRef1Dto> dtoList)
         {
             if (dtoList == null || !dtoList.Any())
