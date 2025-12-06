@@ -313,7 +313,7 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //DeActivatedJE
-        [HttpPost("Approve")]
+        [HttpPost("DeActivatedJE")]
         public async Task<IActionResult> ApproveJournalEntries([FromBody] ApproveRequestDto dto)
         {
             try
