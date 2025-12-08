@@ -889,7 +889,7 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
 
                 var detailRows = (await connection.QueryAsync<dynamic>(
                     detailFetchSql,
-                    new { dto.DescriptionIds, dto.CompId }
+                    new { Ids = dto.DescriptionIds, dto.CompId }
                 )).ToList();
 
                 foreach (var t in detailRows)
@@ -1079,7 +1079,6 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                     t.AJTB_DescName
                 );
             }
-
             return detailRows.Count;
         }
 
