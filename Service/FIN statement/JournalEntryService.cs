@@ -62,7 +62,7 @@ namespace TracePca.Service.FIN_statement
             Acc_JE_TransactionNo AS TransactionNo,
             acc_JE_BranchId AS BranchID,
             '' AS BillNo,
-            FORMAT(Acc_JE_BillDate, @dateFormat) AS BillDate,
+            Acc_JE_BillDate AS BillDate,
             a.cmm_Desc as BillType,
             Acc_JE_Party AS PartyID,
             Acc_JE_Status AS Status,
