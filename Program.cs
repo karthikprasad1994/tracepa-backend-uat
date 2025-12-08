@@ -231,7 +231,8 @@ builder.Services.AddCors(options =>
 
              "http://localhost:3000", // React app for local development
               "http://localhost:4000",
-              "https://tracelites.multimedia.interactivedns.com"
+              "https://tracelites.multimedia.interactivedns.com",
+              "https://clients.tracelites.multimedia.interactivedns.com"
             )
               .AllowAnyMethod()
               .AllowAnyHeader()
