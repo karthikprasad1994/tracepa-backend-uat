@@ -1,7 +1,15 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using TracePca.Dto;
+using TracePca.Dto.DigitalFilling;
+
+//using TracePca.Dto;
 using TracePca.Interface;
+using TracePca.Interface.FixedAssetsInterface;
 using TracePca.Models.UserModels;
+using TracePca.Service;
+using TracePca.Service.AssetService;
+using TracePca.Service.FixedAssetsService;
+using static TracePca.Dto.FixedAssets.AssetMasterdto;
+//using static TracePca.Service.FixedAssetsService.AssetMasterService;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -11,245 +19,603 @@ namespace TracePca.Controllers
     [ApiController]
     public class AssetMasterController : ControllerBase
     {
-        private AssetInterface _AssetInterface;
-        // GET: api/<AssetController>
+        private AssetMasterInterface _AssetMasterInterface;
+        private AssetMasterInterface _AssetMasterService;
 
-        public AssetMasterController(AssetInterface AssetInterface)
+        public AssetMasterController(AssetMasterInterface AssetMasterInterface)
         {
-            _AssetInterface = AssetInterface;
-
+            _AssetMasterInterface = AssetMasterInterface;
+            _AssetMasterService = AssetMasterInterface;
         }
 
-
-        [HttpGet("customers")]
-        public async Task<IActionResult> GetCustomers([FromQuery] int companyId)
-        {
-            var customers = await _AssetInterface.GetCustomersAsync(companyId);
-            return Ok(customers);
-        }
-
-        [HttpGet("LoadYears")]
-        public async Task<IActionResult> LoadYears([FromQuery] int companyId)
-        {
-            var result = await _AssetInterface.LoadYearsAsync(companyId);
-            return Ok(result);
-        }
-
-
-        [HttpGet("GetFixedAssetTypes")]
-        public async Task<IActionResult> GetFixedAssetTypes([FromQuery] int companyId, [FromQuery] int customerId)
-        {
-            var result = await _AssetInterface.LoadFixedAssetTypesAsync(companyId, customerId);
-
-            return Ok(result); // You said: "whatever passed in response" — this returns it directly
-        }
-
-
-        [HttpGet("GenerateTransactionNo")]
-        public async Task<IActionResult> GenerateTransactionNo([FromQuery] int compId, [FromQuery] int yearId, [FromQuery] int custId)
-        {
-            string transactionNo = await _AssetInterface.GenerateTransactionNoAsync(compId, yearId, custId);
-            return Ok(new { TransactionNo = transactionNo });
-        }
-
-        [HttpGet("units-of-measure")]
-        public async Task<IActionResult> GetUnitsOfMeasure(int companyId)
-        {
-            var result = await _AssetInterface.LoadUnitsOfMeasureAsync(companyId);
-            return Ok(result);
-        }
-
-        [HttpGet("LoadCurrency")]
-        public async Task<IActionResult> LoadCurrency([FromQuery] string sNameSpace, [FromQuery] int iCompID)
+        //LoadCustomer
+        [HttpGet("GetCustomerNames")]
+        public async Task<IActionResult> GetCustomerNames(int CompId)
         {
             try
             {
-                var currencytype = await _AssetInterface.LoadCurrencyAsync(sNameSpace, iCompID);
+                var result = await _AssetMasterService.LoadCustomerAsync(CompId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No customers found.",
+                        data = (object)null
+                    });
+                }
+
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Currency code generated successfully",
-                    data = new
-                    {
-                        currencytype = currencytype
-                    }
+                    message = "Customers loaded successfully.",
+                    data = result
                 });
-            
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching customers.",
+                    error = ex.Message
+                });
             }
         }
 
-
-
-
-        [HttpGet("GenerateEmployeeCode")]
-        public async Task<IActionResult> GenerateEmployeeCode()
-        {
-            var employeeCode = await _AssetInterface.GetNextEmployeeCodeAsync();
-
-            return Ok(new
-            {
-                statusCode = 200,
-                message = "Asset code generated successfully",
-                data = new
-                {
-                    employeeCode = employeeCode
-                }
-            });
-        }
-
-        [HttpGet("GetSuppliers")]
-        public async Task<IActionResult> GetSuppliers(int companyId, int supplierId = 0)
-        {
-            var suppliers = await _AssetInterface.LoadExistingSuppliersAsync(companyId, supplierId);
-            return Ok(new
-            {
-                status = 200,
-                message = "Suppliers fetched successfully",
-                data = suppliers
-            });
-        }
-
-        [HttpPost("InsertAsset")]
-        public async Task<IActionResult> InsertAsset([FromBody] AddAssetDto assetDto)
-        {
-            
-
-            var assetId = await _AssetInterface.InsertAssetAsync(assetDto);
-            return Ok(new { message = "Asset saved successfully", assetId });
-        }
-        
-        [HttpPost("SaveSupplier")]
-        public async Task<IActionResult> SaveSupplier([FromBody] AddSupplierDto dto)
+        //LoadStatus
+        [HttpGet("LoadStatus")]
+        public async Task<IActionResult> LoadStatus(int CompId, string Name)
         {
             try
             {
-                if (dto == null)
-                    return BadRequest("Supplier data is required.");
+                var result = await _AssetMasterService.LoadStatusAsync(CompId, Name);
 
-                int resultId = await _AssetInterface.SaveSupplierAsync(dto);
-
-                string message = dto.SupId.HasValue && dto.SupId.Value > 0
-                    ? "Supplier updated successfully"
-                    : "Supplier inserted successfully";
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No status found.",
+                        data = (object)null
+                    });
+                }
 
                 return Ok(new
                 {
-                    Message = message,
-                    SupplierId = resultId
+                    statusCode = 200,
+                    message = "status loaded successfully.",
+                    data = result
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"An error occurred while saving supplier: {ex.Message}");
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching status.",
+                    error = ex.Message
+                });
             }
         }
 
-
-
-        [HttpPost("GetSheetNames")]
-        public async Task<IActionResult> GetSheetNames(IFormFile file)
+        //FinancialYear
+        [HttpGet("GetYears")]
+        public async Task<IActionResult> GetYears(int compId)
         {
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest("No file uploaded.");
-            }
-
-            var sheetNames = await _AssetInterface.GetSheetNamesAsync(file);
-            return Ok(sheetNames);
-        }
-
-
-        [HttpPost("UploadAndProcessExcel")]
-        public async Task<IActionResult> UploadAndProcessExcel(IFormFile file, [FromForm] string sheetName, int customerId, int financialYearId)
-        {
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest(new { StatusCode = 400, Message = "No file uploaded." });
-            }
-
             try
             {
-                var result = await _AssetInterface.UploadAndProcessExcel(file, sheetName, customerId, financialYearId);
+                var result = await _AssetMasterService.GetYearsAsync(compId);
 
-                // Check if the result indicates success or failure
-                if (result.Contains("successfully"))
+                if (result == null || !result.Any())
                 {
-                    return Ok(new { StatusCode = 200, Message = result });
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No years found.",
+                        data = (object)null
+                    });
                 }
-                else
+
+                return Ok(new
                 {
-                    return BadRequest(new { StatusCode = 400, Message = result });
-                }
+                    statusCode = 200,
+                    message = "Years fetched successfully.",
+                    data = result
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { StatusCode = 500, Message = $"Error processing the file: {ex.Message}" });
-            }
-        }
-
-
-        [HttpPost("ValidateExcelFormat")]
-        public async Task<IActionResult> ValidateExcelFormat(IFormFile file, string sheetName)
-        {
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest("No file uploaded.");
-            }
-
-            if (string.IsNullOrWhiteSpace(sheetName))
-            {
-                return BadRequest("No sheet name selected.");
-            }
-
-            try
-            {
-                // Validate and process the file with the selected sheet name
-                var (validAssets, validationErrors) = await _AssetInterface.ValidateExcelFormatAsync(file, sheetName);
-
-                if (validationErrors.Any())
+                return StatusCode(500, new
                 {
-                    return BadRequest(new { errors = validationErrors });
-                }
-
-                return Ok(new { validAssets, message = "File validated successfully." });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error validating the file: {ex.Message}");
+                    statusCode = 500,
+                    message = "An error occurred while fetching years.",
+                    error = ex.Message
+                });
             }
         }
 
+        //Location
+        //[HttpGet("GetLocation")]
+        //public async Task<IActionResult> GetLocations(int compId, int custId)
+        //{
+        //    try
+        //    {
+        //        var result = await _AssetMasterService.GetLocationAsync(compId, custId);
+
+        //        if (result == null || !result.Any())
+        //        {
+        //            return NotFound(new
+        //            {
+        //                statusCode = 404,
+        //                message = "No locations found.",
+        //                data = (object)null
+        //            });
+        //        }
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Locations fetched successfully.",
+        //            data = result
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = "An error occurred while fetching locations.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+        ////LoadDivision
+        //[HttpGet("LoadDivision")]
+        //public async Task<IActionResult> LoadDivisions(int compId, int parentId, int custId)
+        //{
+        //    try
+        //    {
+        //        var result = await _AssetMasterService.LoadDivisionAsync(compId, parentId, custId);
+
+        //        if (result == null || !result.Any())
+        //        {
+        //            return NotFound(new
+        //            {
+        //                statusCode = 404,
+        //                message = "No divisions found.",
+        //                data = (object)null
+        //            });
+        //        }
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Divisions fetched successfully.",
+        //            data = result
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = "An error occurred while fetching divisions.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+        ////LoadDepartment
+        //[HttpGet("LoadDepartment")]
+        //public async Task<IActionResult> LoadDepartment(int compId, int parentId, int custId)
+        //{
+        //    try
+        //    {
+        //        var result = await _AssetMasterService.LoadDepartmentAsync(compId, parentId, custId);
+
+        //        if (result == null || !result.Any())
+        //        {
+        //            return NotFound(new
+        //            {
+        //                statusCode = 404,
+        //                message = "No Department found.",
+        //                data = (object)null
+        //            });
+        //        }
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Department fetched successfully.",
+        //            data = result
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = "An error occurred while fetching Department.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+        ////LoadBay
+        //[HttpGet("LoadBay")]
+        //public async Task<IActionResult> LoadBay(int compId, int parentId, int custId)
+        //{
+        //    try
+        //    {
+        //        var result = await _AssetMasterService.LoadBayAsync(compId, parentId, custId);
+
+        //        if (result == null || !result.Any())
+        //        {
+        //            return NotFound(new
+        //            {
+        //                statusCode = 404,
+        //                message = "No Bay found.",
+        //                data = (object)null
+        //            });
+        //        }
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Bay fetched successfully.",
+        //            data = result
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = "An error occurred while fetching Bay.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+        //// LoadHeading
+        //[HttpGet("LoadHeading")]
+        //public async Task<IActionResult> LoadHeading(int compId, int custId)
+        //{
+        //    try
+        //    {
+        //        var result = await _AssetMasterService.LoadHeadingAsync(compId, custId);
+
+        //        if (result == null || !result.Any())
+        //        {
+        //            return NotFound(new
+        //            {
+        //                statusCode = 404,
+        //                message = "No Heading found.",
+        //                data = (object)null
+        //            });
+        //        }
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Heading fetched successfully.",
+        //            data = result
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = "An error occurred while fetching Heading.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+        ////LoadSubHeading
+        //[HttpGet("LoadSubHeading")]
+        //public async Task<IActionResult> LoadSubHeading(int compId, int parentId, int custId)
+        //{
+        //    try
+        //    {
+        //        var result = await _AssetMasterService.LoadSubHeadingAsync(compId, parentId, custId);
+
+        //        if (result == null || !result.Any())
+        //        {
+        //            return NotFound(new
+        //            {
+        //                statusCode = 404,
+        //                message = "No SubHeading found.",
+        //                data = (object)null
+        //            });
+        //        }
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "SubHeading fetched successfully.",
+        //            data = result
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = "An error occurred while fetching SubHeading.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+        ////AssetClassUnderSubHeading
+        //[HttpGet("LoadItem")]
+        //public async Task<IActionResult> LoadItem(int compId, int ParentId, int custId)
+        //{
+        //    try
+        //    {
+        //        var result = await _AssetMasterService.LoadItemsAsync(compId, ParentId, custId);
+
+        //        if (result == null || !result.Any())
+        //        {
+        //            return NotFound(new
+        //            {
+        //                statusCode = 404,
+        //                message = "No Item found.",
+        //                data = (object)null
+        //            });
+        //        }
+
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Item fetched successfully.",
+        //            data = result
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = "An error occurred while fetching Item.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+        ////SaveAsset
+        //    [HttpPost("SaveAsset")]
+        //    public async Task<IActionResult> SaveAsset([FromBody] AssetMasterDto dto)
+        //    {
+        //        if (dto == null)
+        //        {
+        //            return BadRequest(new
+        //            {
+        //                Status = 400,
+        //                Message = "Invalid input: DTO is null",
+        //                Data = (object)null
+        //            });
+        //        }
+
+        //        try
+        //        {
+        //            bool isUpdate = dto.AM_ID > 0;
+
+        //            var result = await _AssetMasterService.SaveAssetAsync(dto);
+
+        //            string successMessage = isUpdate
+        //                ? "Asset successfully updated."
+        //                : "Asset successfully created.";
+
+        //            return Ok(new
+        //            {
+        //                Status = 200,
+        //                Message = successMessage,
+        //                Data = new
+        //                {
+        //                    UpdateOrSave = result[0],
+        //                    Oper = result[1],
+        //                    IsUpdate = isUpdate
+        //                }
+        //            });
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            return StatusCode(500, new
+        //            {
+        //                Status = 500,
+        //                Message = "An error occurred while processing your request.",
+        //                Error = ex.Message,
+        //                InnerException = ex.InnerException?.Message
+        //            });
+        //        }
+        //    }
+
+
+        ////[HttpPost("SaveAsset")]
+        ////public async Task<IActionResult> SaveAsset([FromBody] LocationSetupDto model)
+        ////{
+        ////    try
+        ////    {
+        ////        if (model == null)
+        ////        {
+        ////            return BadRequest(new
+        ////            {
+        ////                statusCode = 400,
+        ////                message = "Invalid asset data.",
+        ////                data = (object)null
+        ////            });
+        ////        }
+
+        ////        var result = await _AssetMasterService.SaveAssetAsync(model);
+
+        ////        return Ok(new
+        ////        {
+        ////            statusCode = 200,
+        ////            message = "Asset saved successfully.",
+        ////            data = new
+        ////            {
+        ////                UpdateOrSave = result.UpdateOrSave,
+        ////                Oper = result.Oper
+        ////            }
+        ////        });
+        ////    }
+        ////    catch (Exception ex)
+        ////    {
+        ////        return StatusCode(500, new
+        ////        {
+        ////            statusCode = 500,
+        ////            message = "An error occurred while saving the asset.",
+        ////            error = ex.Message
+        ////        });
+        ////    }
+        ////}
+
+        ////SaveLocationn
+        //[HttpPost("SaveLocationn")]
+        //    public async Task<IActionResult> SaveLocation([FromBody] AddLocationnDto model)
+        //    {
+        //        try
+        //        {
+        //            // Validate input
+        //            if (model == null)
+        //            {
+        //                return BadRequest(new
+        //                {
+        //                    statusCode = 400,
+        //                    message = "Invalid location data.",
+        //                    data = (object)null
+        //                });
+        //            }
+
+        //            // Call service
+        //            int id = await _AssetMasterService.SaveLocationAsync(model);
+
+        //            return Ok(new
+        //            {
+        //                statusCode = 200,
+        //                message = model.Id > 0 ? "Location updated successfully." : "Location created successfully.",
+        //                data = new
+        //                {
+        //                    LocationId = id
+        //                }
+        //            });
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            // Return 500 error
+        //            return StatusCode(500, new
+        //            {
+        //                statusCode = 500,
+        //                message = "An error occurred while saving the location.",
+        //                error = ex.Message
+        //            });
+        //        }
+        //    }
+
+        ////SaveDivision
+
+        //    [HttpPost("SaveDivision")]
+        //    public async Task<IActionResult> SaveDivision([FromBody] AddDivisionnDto divisionDto)
+        //    {
+        //        try
+        //        {
+        //            if (string.IsNullOrWhiteSpace(divisionDto.Name))
+        //            {
+        //                return BadRequest(new
+        //                {
+        //                    StatusCode = 400,
+        //                    Message = "Division Name is required.",
+        //                    Data = (int?)null
+        //                });
+        //            }
+
+        //            var id = await _AssetMasterService.SaveDivisionAsync(divisionDto);
+
+        //            if (id == -1)
+        //            {
+        //                return BadRequest(new
+        //                {
+        //                    StatusCode = 400,
+        //                    Message = "Division already exists.",
+        //                    Data = (int?)null
+        //                });
+        //            }
+
+        //            return Ok(new
+        //            {
+        //                StatusCode = 200,
+        //                Message = divisionDto.Id > 0 ? "Division updated successfully." : "Division saved successfully.",
+        //                Data = id
+        //            });
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            return StatusCode(500, new
+        //            {
+        //                StatusCode = 500,
+        //                Message = "An error occurred while saving division.",
+        //                Error = ex.Message
+        //            });
+        //        }
+        //    }
+
+        ////SaveDepartment
+        //    [HttpPost("SaveDepartment")]
+        //    public async Task<IActionResult> SaveDepartment([FromBody] AddDepartmenttDto departmentDto)
+        //    {
+        //        try
+        //        {
+        //            if (string.IsNullOrWhiteSpace(departmentDto.Name))
+        //            {
+        //                return BadRequest(new
+        //                {
+        //                    StatusCode = 400,
+        //                    Message = "Department Name is required.",
+        //                    Data = (int?)null
+        //                });
+        //            }
+
+        //            var id = await _AssetMasterService.SaveDepartmentAsync(departmentDto);
+
+        //            if (id == -1)
+        //            {
+        //                return BadRequest(new
+        //                {
+        //                    StatusCode = 400,
+        //                    Message = "Department already exists.",
+        //                    Data = (int?)null
+        //                });
+        //            }
+
+        //            return Ok(new
+        //            {
+        //                StatusCode = 200,
+        //                Message = departmentDto.Id > 0 ? "Department updated successfully." : "Department saved successfully.",
+        //                Data = id
+        //            });
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            return StatusCode(500, new
+        //            {
+        //                StatusCode = 500,
+        //                Message = "An error occurred while saving department.",
+        //                Error = ex.Message
+        //            });
+        //        }
+        //    }
+
+        //SaveBay
 
 
 
-
-        // GET api/<AssetController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
-        {
-            return "value";
-        }
-
-        // POST api/<AssetController>
-        [HttpPost]
-        public void Post([FromBody] string value)
-        {
-        }
-
-        // PUT api/<AssetController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
-        {
-        }
-
-        // DELETE api/<AssetController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
-        }
     }
 }
+
+

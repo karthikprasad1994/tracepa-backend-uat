@@ -112,12 +112,14 @@ namespace TracePca.Controllers.FIN_Statement
             {
                 var result = await _LedgerDifferenceService.GetAccountDetailsAsync(compId, custId, branchId, yearId, typeId, pkId);
 
+                // If no data found return empty list rather than NotFound()
                 if (result == null || !result.Any())
                 {
-                    return NotFound(new
+                    return Ok(new
                     {
-                        StatusCode = 404,
-                        Message = "No records found."
+                        StatusCode = 200,
+                        Message = "No records found.",
+                        Data = new List<object>() // empty array
                     });
                 }
 
@@ -138,5 +140,6 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
     }
 }

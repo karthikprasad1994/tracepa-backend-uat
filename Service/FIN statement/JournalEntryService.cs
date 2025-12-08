@@ -829,19 +829,19 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
         //ActivateJE
         public async Task<int> ActivateJournalEntriesAsync(ActivateRequestDto dto)
         {
-            // ✅ Step 1: Get DB name from session
+            // Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
+            // Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
+            // Update Master
             const string sql = @"
         UPDATE Acc_JE_Master
         SET Acc_JE_Status = @Status,
@@ -851,89 +851,237 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
 
             var rowsAffected = await connection.ExecuteAsync(sql, new
             {
-                Status = dto.Status,          // Activate
+                Status = dto.Status,
                 IpAddress = dto.IpAddress,
                 Ids = dto.DescriptionIds,
                 CompId = dto.CompId
             });
 
-            const string sql1 = @"
+            if (dto.Status == "A")
+            {
+                const string sql1 = @"
         UPDATE Acc_JETransactions_Details
         SET AJTB_Status = @Status,
             AJTB_IPAddress = @IpAddress
         WHERE Ajtb_Masid IN @Ids
           AND AJTB_CompID = @CompId";
 
-            var rowsAffected1 = await connection.ExecuteAsync(sql1, new
-            {
-                Status = dto.Status,          // Activate
-                IpAddress = dto.IpAddress,
-                Ids = dto.DescriptionIds,
-                CompId = dto.CompId
-            });
+                await connection.ExecuteAsync(sql1, new
+                {
+                    Status = dto.Status,
+                    IpAddress = dto.IpAddress,
+                    Ids = dto.DescriptionIds,
+                    CompId = dto.CompId
+                });
 
-            return rowsAffected;
+                return rowsAffected;
+            }
+            else if (dto.Status == "D")
+            {
+                const string detailFetchSql = @"
+            SELECT 
+                AJTB_ID, Ajtb_Masid, AJTB_CustId, AJTB_Debit, AJTB_Credit,
+                AJTB_BranchId, AJTB_QuarterId, AJTB_Deschead,
+                AJTB_Desc, AJTB_DescName
+            FROM Acc_JETransactions_Details
+            WHERE Ajtb_Masid IN @Ids
+              AND AJTB_CompID = @CompId";
+
+                var detailRows = (await connection.QueryAsync<dynamic>(
+                    detailFetchSql,
+                    new { Ids = dto.DescriptionIds, dto.CompId }
+                )).ToList();
+
+                foreach (var t in detailRows)
+                {
+                    // update detail status
+                    const string sqlUpdateDetail = @"
+                UPDATE Acc_JETransactions_Details
+                SET AJTB_Status = 'D',
+                    AJTB_IPAddress = @IpAddress
+                WHERE AJTB_ID = @Id
+                  AND AJTB_CompID = @CompId";
+
+                    await connection.ExecuteAsync(sqlUpdateDetail, new
+                    {
+                        Id = (int)t.AJTB_ID,
+                        dto.IpAddress,
+                        dto.CompId
+                    });
+                    int transType = t.AJTB_Debit > 0 ? 0 : 1;
+                    decimal transAmt = t.AJTB_Debit > 0 ? t.AJTB_Debit : t.AJTB_Credit;
+
+                    await DeactivateJeDetAsync(
+                        dto.CompId,
+                        t.AJTB_CustId,
+                        transType,
+                        transAmt,
+                        t.AJTB_BranchId,
+                        t.AJTB_Debit,
+                        t.AJTB_Credit,
+                        t.AJTB_QuarterId,
+                        t.AJTB_Deschead,
+                        t.AJTB_Desc,
+                        t.AJTB_DescName
+                    );
+                }
+                return detailRows.Count;
+            }
+            return 0;
         }
+
 
         //DeActiveteJE
+        //public async Task<int> ApproveJournalEntriesAsync(ApproveRequestDto dto)
+        //{
+        //    // ✅ Step 1: Get DB name from session
+        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //    if (string.IsNullOrEmpty(dbName))
+        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //    // ✅ Step 2: Get the connection string
+        //    var connectionString = _configuration.GetConnectionString(dbName);
+
+        //    // ✅ Step 3: Use SqlConnection
+        //    using var connection = new SqlConnection(connectionString);
+        //    await connection.OpenAsync();
+
+        //    // In VB code, status was "W" (waiting for approval).
+        //    const string sql = @"
+        //UPDATE Acc_JE_Master
+        //SET Acc_JE_Status = @Status,
+        //    Acc_JE_IPAddress = @IpAddress
+        //WHERE Acc_JE_ID IN @Ids
+        //  AND Acc_JE_CompID = @CompId";
+
+        //    var rowsAffected = await connection.ExecuteAsync(sql, new
+        //    {
+        //        Status = "W", // waiting for approval
+        //        IpAddress = dto.IpAddress,
+        //        Ids = dto.DescriptionIds,
+        //        CompId = dto.CompId
+        //    });
+
+        //    const string sql1 = @"
+        //UPDATE Acc_JETransactions_Details
+        //SET AJTB_Status = @Status,
+        //    AJTB_IPAddress = @IpAddress
+        //WHERE Ajtb_id IN @Ids
+        //  AND AJTB_CompID = @CompId";
+
+        //    var rowsAffected1 = await connection.ExecuteAsync(sql1, new
+        //    {
+        //        Status = "W",          // Activate
+        //        IpAddress = dto.IpAddress,
+        //        Ids = dto.DescriptionIds,
+        //        CompId = dto.CompId
+        //    });
+        //    await DeactivateJeDetAsync(dto.CompId, dto.DescriptionIds, t.AJTB_CustId,
+        //                             (t.AJTB_Debit > 0 ? 0 : 1),  // 0=Debit, 1=Credit
+        //                             (t.AJTB_Debit > 0 ? t.AJTB_Debit : t.AJTB_Credit),
+        //                             t.AJTB_BranchId,
+        //                             t.AJTB_Debit,
+        //                             t.AJTB_Credit,
+        //                             t.AJTB_QuarterId,
+        //                             t.AJTB_Deschead,
+        //                             t.AJTB_Desc,
+        //                             t.AJTB_DescName
+        //                         );
+        //    return rowsAffected;
+        //}
         public async Task<int> ApproveJournalEntriesAsync(ApproveRequestDto dto)
         {
-            // ✅ Step 1: Get DB name from session
+            // Step 1: DB
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            // In VB code, status was "W" (waiting for approval).
-            const string sql = @"
-        UPDATE Acc_JE_Master
-        SET Acc_JE_Status = @Status,
-            Acc_JE_IPAddress = @IpAddress
-        WHERE Acc_JE_ID IN @Ids
-          AND Acc_JE_CompID = @CompId";
+            // ----------------------------------------------
+            // 1️⃣ UPDATE MASTER STATUS
+            // ----------------------------------------------
+            const string sqlMaster = @"
+    UPDATE Acc_JE_Master
+    SET Acc_JE_Status = 'D',
+        Acc_JE_IPAddress = @IpAddress
+    WHERE Acc_JE_ID IN @Ids
+      AND Acc_JE_CompID = @CompId";
 
-            var rowsAffected = await connection.ExecuteAsync(sql, new
+            await connection.ExecuteAsync(sqlMaster, new
             {
-                Status = "W", // waiting for approval
-                IpAddress = dto.IpAddress,
-                Ids = dto.DescriptionIds,
-                CompId = dto.CompId
+                dto.IpAddress,
+                dto.DescriptionIds,
+                dto.CompId
             });
 
-            const string sql1 = @"
+          
+            const string detailFetchSql = @"
+    SELECT 
+        AJTB_ID,
+        Ajtb_Masid,
+        AJTB_CustId,
+        AJTB_Debit,
+        AJTB_Credit,
+        AJTB_BranchId,
+        AJTB_QuarterId,
+        AJTB_Deschead,
+        AJTB_Desc,
+        AJTB_DescName
+    FROM Acc_JETransactions_Details
+    WHERE Ajtb_Masid IN @Ids
+      AND AJTB_CompID = @CompId";
+
+            var detailRows = (await connection.QueryAsync<dynamic>(detailFetchSql,
+                new { dto.DescriptionIds, dto.CompId })).ToList();
+
+            // ----------------------------------------------
+            // 3️⃣ LOOP EACH DETAIL ROW — UPDATE STATUS + CALL FUNCTION
+            // ----------------------------------------------
+            foreach (var t in detailRows)
+            {
+                // update detail status
+                const string sqlUpdateDetail = @"
         UPDATE Acc_JETransactions_Details
-        SET AJTB_Status = @Status,
+        SET AJTB_Status = 'D',
             AJTB_IPAddress = @IpAddress
-        WHERE Ajtb_Masid IN @Ids
+        WHERE AJTB_ID = @Id
           AND AJTB_CompID = @CompId";
 
-            var rowsAffected1 = await connection.ExecuteAsync(sql1, new
-            {
-                Status = "W",          // Activate
-                IpAddress = dto.IpAddress,
-                Ids = dto.DescriptionIds,
-                CompId = dto.CompId
-            });
-            //await DeactivateJeDetAsync(dto.CompId, dto.DescriptionIds, t.AJTB_CustId,
-            //                         (t.AJTB_Debit > 0 ? 0 : 1),  // 0=Debit, 1=Credit
-            //                         (t.AJTB_Debit > 0 ? t.AJTB_Debit : t.AJTB_Credit),
-            //                         t.AJTB_BranchId,
-            //                         t.AJTB_Debit,
-            //                         t.AJTB_Credit,
-            //                         t.AJTB_QuarterId,
-            //                         t.AJTB_Deschead,
-            //                         t.AJTB_Desc,
-            //                         t.AJTB_DescName
-            //                     );
-            return rowsAffected;
+                await connection.ExecuteAsync(sqlUpdateDetail, new
+                {
+                    Id = (int)t.AJTB_ID,
+                    dto.IpAddress,
+                    dto.CompId
+                });
+
+                // Determine trans type: 0 = Debit, 1 = Credit
+                int transType = t.AJTB_Debit > 0 ? 0 : 1;
+
+                // Determine trans amount
+                decimal transAmt = t.AJTB_Debit > 0 ? t.AJTB_Debit : t.AJTB_Credit;
+
+                await DeactivateJeDetAsync(
+                    dto.CompId,
+                    t.AJTB_CustId,
+                    transType,
+                    transAmt,
+                    t.AJTB_BranchId,
+                    t.AJTB_Debit,
+                    t.AJTB_Credit,
+                    t.AJTB_QuarterId,
+                    t.AJTB_Deschead,
+                    t.AJTB_Desc,
+                    t.AJTB_DescName
+                );
+            }
+            return detailRows.Count;
         }
+
 
 
         public async Task DeactivateJeDetAsync(int compId,int custId,int transId, decimal transAmt,
@@ -1415,7 +1563,7 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
         }
 
         //GetJETypeDropDownDetails
-        public async Task<IEnumerable<JETypeDropDownDetailsDto>> GetJETypeDropDownDetailsAsync(int compId, int custId, int yearId, int BranchId, int jetype, string description)
+        public async Task<IEnumerable<JETypeDropDownDetailsDto>> GetJETypeDropDownDetailsAsync(int compId, int custId, int yearId, int BranchId, int jetype)
         {
             // Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1428,30 +1576,6 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-
-            // Check if Description Already Exists
-            if (!string.IsNullOrWhiteSpace(description))
-            {
-                string duplicateCheckSql = @"
-              SELECT COUNT(1)
-              FROM Acc_JETransactions_Details aj
-              INNER JOIN Acc_JE_Master je ON je.Acc_JE_ID = aj.Ajtb_Masid
-              WHERE aj.AJTB_DescName = @description
-                 AND je.Acc_JE_CompID = @compId
-                 AND je.Acc_JE_Party = @custId
-                 AND je.Acc_JE_YearId = @yearId
-                 AND je.Acc_JE_BranchId = @branchId";
-
-                int count = await connection.ExecuteScalarAsync<int>(
-                duplicateCheckSql,
-                    new { description, compId, custId, yearId, BranchId }
-                );
-
-                if (count > 0)
-                {
-                    throw new Exception("Description already exists.");
-                }
-            }
 
             // Step 3: SQL base query
             var sql = @"

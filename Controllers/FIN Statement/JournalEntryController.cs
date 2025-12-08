@@ -313,7 +313,7 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //DeActivatedJE
-        [HttpPost("Approve")]
+        [HttpPost("DeActivatedJE")]
         public async Task<IActionResult> ApproveJournalEntries([FromBody] ApproveRequestDto dto)
         {
             try
@@ -418,11 +418,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetJETypeDropDownDetails
         [HttpGet("GetJETypeDropDownDetails")]
-        public async Task<IActionResult> GetJETypeDropDownDetails([FromQuery] int compId, [FromQuery] int custId, [FromQuery] int yearId, [FromQuery] int BranchId, int jetype, [FromQuery] string description)
+        public async Task<IActionResult> GetJETypeDropDownDetails([FromQuery] int compId, [FromQuery] int custId, [FromQuery] int yearId, [FromQuery] int BranchId, int jetype)
         {
             try
             {
-                var result = await _JournalEntryService.GetJETypeDropDownDetailsAsync(compId, custId, yearId, BranchId, jetype, description);
+                var result = await _JournalEntryService.GetJETypeDropDownDetailsAsync(compId, custId, yearId, BranchId, jetype);
 
                 if (result == null || !result.Any())
                 {

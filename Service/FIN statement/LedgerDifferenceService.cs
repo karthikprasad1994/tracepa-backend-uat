@@ -265,7 +265,10 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
                     string sql = string.Empty;
                     if (typeId == 2)
                     {
-                      
+                        //int headingIdCA = await GetHeadingId(conn, tran, custId, "2 Current Assets");
+                        //int headingIdCL = await GetHeadingId(conn, tran, custId, "4 Current Liabilities");
+
+
                         sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
                       abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
                       abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,

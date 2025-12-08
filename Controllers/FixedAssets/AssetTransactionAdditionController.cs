@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TracePca.Interface;
+using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.FixedAssetsInterface;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -10,44 +11,122 @@ namespace TracePca.Controllers.FixedAssets
     [ApiController]
     public class AssetTransactionAdditionController : ControllerBase
     {
-    
 
-            private AssetTransactionAdditionInterface _AssetTransactionInterface;
-            public AssetTransactionAdditionController(AssetTransactionAdditionInterface AssetTransactionInterface)
+        private AssetTransactionAdditionInterface _AssetTransactionAdditionInterface;
+        private AssetTransactionAdditionInterface _AssetTransactionAdditionService;
+
+        public AssetTransactionAdditionController(AssetTransactionAdditionInterface AssetTransactionAdditionInterface)
+        {
+            _AssetTransactionAdditionInterface = AssetTransactionAdditionInterface;
+            _AssetTransactionAdditionService = AssetTransactionAdditionInterface;
+        }
+
+        //LoadCustomer
+        [HttpGet("GetCustomerNames")]
+        public async Task<IActionResult> GetCustomerNames(int CompId)
+        {
+            try
             {
-                _AssetTransactionInterface = AssetTransactionInterface;
+                var result = await _AssetTransactionAdditionService.LoadCustomerAsync(CompId);
 
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No customers found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Customers loaded successfully.",
+                    data = result
+                });
             }
-            // GET: api/<AssetTransactionController>
-            [HttpGet]
-        public IEnumerable<string> Get()
-        {
-            return new string[] { "value1", "value2" };
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching customers.",
+                    error = ex.Message
+                });
+            }
         }
 
-        // GET api/<AssetTransactionController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
+        //LoadStatus
+        [HttpGet("LoadStatus")]
+        public async Task<IActionResult> LoadStatus(int CompId, string Name)
         {
-            return "value";
+            try
+            {
+                var result = await _AssetTransactionAdditionService.LoadStatusAsync(CompId, Name);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No status found.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "status loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching status.",
+                    error = ex.Message
+                });
+            }
         }
 
-        // POST api/<AssetTransactionController>
-        [HttpPost]
-        public void Post([FromBody] string value)
+        //FinancialYear
+        [HttpGet("GetYears")]
+        public async Task<IActionResult> GetYears(int compId)
         {
-        }
+            try
+            {
+                var result = await _AssetTransactionAdditionService.GetYearsAsync(compId);
 
-        // PUT api/<AssetTransactionController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
-        {
-        }
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No years found.",
+                        data = (object)null
+                    });
+                }
 
-        // DELETE api/<AssetTransactionController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Years fetched successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching years.",
+                    error = ex.Message
+                });
+            }
         }
     }
 }

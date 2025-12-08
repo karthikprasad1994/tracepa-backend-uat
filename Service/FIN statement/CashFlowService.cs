@@ -1,7 +1,10 @@
 ﻿using Dapper;
 using DocumentFormat.OpenXml.InkML;
+using DocumentFormat.OpenXml.Office2016.Drawing.Command;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Runtime.ConstrainedExecution;
+using System.Text.RegularExpressions;
 using TracePca.Data;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
@@ -157,751 +160,641 @@ namespace TracePca.Service.FIN_statement
         }
 
         //SaveCashFlow(Category 1)
-        public async Task<List<int>> SaveCashFlowCategory1Async(List<CashFlowCategory1> dtos)
-        {
-            if (dtos == null || dtos.Count == 0)
-                throw new ArgumentException("No cash flow items provided.");
+    //    public async Task<(bool HasCashflow, List<CashflowParticularDto> Partials)> GetMandatoryCashflowInMemoryAsync(
+    //  int yearId = 0, int customerId = 0, int branchId = 0)
+    //    {
+    //        int custId = customerId != 0 ? customerId : TryGetIntFromSession("CustId");
+    //        int yrId = yearId != 0 ? yearId : TryGetIntFromSession("YearId");
+    //        int brId = branchId != 0 ? branchId : TryGetIntFromSession("BranchId");
 
-            // ✅ Step 1: Get DB name from session
+    //        string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+    //        if (string.IsNullOrEmpty(dbName))
+    //            throw new Exception("CustomerCode missing in session. Please re-login.");
+
+    //        string connStr = _configuration.GetConnectionString(dbName);
+    //        using var connection = new SqlConnection(connStr);
+    //        await connection.OpenAsync();
+
+    //        var mandatoryParticulars = new List<string>
+    //{
+    //    "A.Cash flow from operating activities",
+    //    "Net Profit / (Loss) before extraordinary items and tax",
+    //    "Adjustment for:",
+    //    "Depreciation and amortisation",
+    //    "Provision for impairment of fixed assets and intangibles",
+    //    "Bad Debts",
+    //    "Expense on employee stock option scheme",
+    //    "Finance Costs",
+    //    "Interest income",
+    //    "Total Adjustment",
+    //    "Operating profit / (loss) before working capital changes"
+    //};
+
+    //        var dtos = mandatoryParticulars.Select(p => new CashflowParticularDto
+    //        {
+    //            Description = p,
+    //            IsHeading = IsHeading(p),
+    //            Amount = 0m,
+    //            SourceHint = string.Empty,
+    //            Note = string.Empty
+    //        }).ToList();
+
+    //        var hasCashflow = await CustomerHasCashflowAsync(connection, custId, yrId, brId);
+    //        if (!hasCashflow)
+    //            return (false, new List<CashflowParticularDto>());
+
+    //        for (int i = 0; i < dtos.Count; i++)
+    //        {
+    //            var dto = dtos[i];
+    //            if (dto.IsHeading) continue;
+
+    //            string descNorm = Normalize(dto.Description);
+    //            decimal fetched = 0m;
+    //            string source = null;
+
+    //            try
+    //            {
+    //                if (descNorm.Contains("net profit") || descNorm.Contains("before extraordinary") || descNorm.Contains("net income"))
+    //                {
+    //                    fetched = await GetPandLFinalAmt(connection, yrId, custId, brId);
+    //                    source = "P&L: Net Income";
+    //                }
+    //                else if (descNorm.Contains("depreciation") || descNorm.Contains("amortisation") || descNorm.Contains("amortization"))
+    //                {
+    //                    fetched = await GetAmountByDescription(connection, yrId, custId, brId, "Depreciation and amortisation");
+    //                    source = "P&L: Depreciation";
+    //                }
+    //                else if (descNorm.Contains("finance") && descNorm.Contains("cost"))
+    //                {
+    //                    fetched = await GetAmountByDescription(connection, yrId, custId, brId, "Finance Costs");
+    //                    source = "P&L: Finance Costs";
+    //                }
+    //                else if (descNorm.Contains("interest income") || descNorm.Contains("interestincome"))
+    //                {
+    //                    fetched = await GetAmountByDescription(connection, yrId, custId, brId, "Interest income");
+    //                    source = "P&L: Interest Income";
+    //                }
+    //                else if (descNorm.Contains("provision for impairment") || descNorm.Contains("impairment"))
+    //                {
+    //                    fetched = await GetAmountFromNotesOrFixedAssets(connection, yrId, custId, brId, "Provision for impairment of fixed assets and intangibles");
+    //                    source = "Notes/FA: Provision for impairment";
+    //                }
+    //                else if (descNorm.Contains("bad debts") || descNorm.Contains("sundry") || descNorm.Contains("written off"))
+    //                {
+    //                    fetched = await GetAmountFromNotesOrTBDetail(connection, yrId, custId, brId, "Sundry Balance written off");
+    //                    source = "Notes: Bad Debts";
+    //                }
+    //                else if (descNorm.Contains("employee stock option") || descNorm.Contains("esop"))
+    //                {
+    //                    fetched = await GetAmountFromNotesOrTBDetail(connection, yrId, custId, brId, "ESOP");
+    //                    source = "Notes: ESOP";
+    //                }
+    //                else if (descNorm.Contains("total adjustment"))
+    //                {
+    //                    decimal dep = await GetAmountByDescription(connection, yrId, custId, brId, "Depreciation and amortisation");
+    //                    decimal fin = await GetAmountByDescription(connection, yrId, custId, brId, "Finance Costs");
+    //                    decimal bad = await GetAmountFromNotesOrTBDetail(connection, yrId, custId, brId, "Sundry Balance written off");
+    //                    decimal interest = await GetAmountByDescription(connection, yrId, custId, brId, "Interest income");
+    //                    fetched = dep + fin + bad + interest;
+    //                    source = "Computed: Total Adjustment (dep+fin+bad+interest)";
+    //                }
+    //                else if (descNorm.Contains("operating profit") || descNorm.Contains("operating profit / (loss) before"))
+    //                {
+    //                    decimal net = await GetPandLFinalAmt(connection, yrId, custId, brId);
+    //                    decimal dep = await GetAmountByDescription(connection, yrId, custId, brId, "Depreciation and amortisation");
+    //                    decimal fin = await GetAmountByDescription(connection, yrId, custId, brId, "Finance Costs");
+    //                    decimal bad = await GetAmountFromNotesOrTBDetail(connection, yrId, custId, brId, "Sundry Balance written off");
+    //                    decimal interest = await GetAmountByDescription(connection, yrId, custId, brId, "Interest income");
+    //                    decimal totalAdjustment = dep + fin + bad + interest;
+    //                    fetched = net + totalAdjustment;
+    //                    source = "Computed: Operating profit before working capital changes";
+    //                }
+    //                else
+    //                {
+    //                    fetched = await GetAmountByDescription(connection, yrId, custId, brId, dto.Description);
+    //                    source = "TB: Direct description match";
+    //                }
+    //            }
+    //            catch (Exception ex)
+    //            {
+    //                dto.Note = $"Error fetching: {ex.Message}";
+    //                fetched = 0m;
+    //                source = source ?? "Error";
+    //            }
+
+    //            dto.Amount = Math.Round(fetched, 2);
+    //            dto.SourceHint = source ?? string.Empty;
+    //            if (dto.Amount == 0 && string.IsNullOrEmpty(dto.Note))
+    //                dto.Note = "No TB match / zero value";
+    //        }
+
+    //        return (true, dtos);
+    //    }
+
+    //    // -------------------- Helpers --------------------
+    //    private bool IsHeading(string text)
+    //    {
+    //        if (string.IsNullOrWhiteSpace(text)) return false;
+    //        var t = text.Trim().ToLowerInvariant();
+    //        return t.StartsWith("a.") || t.StartsWith("adjustment") || t.StartsWith("total") || t.Contains("cash flow");
+    //    }
+    //    private int TryGetIntFromSession(string key)
+    //    {
+    //        try
+    //        {
+    //            var s = _httpContextAccessor.HttpContext?.Session.GetString(key);
+    //            if (string.IsNullOrWhiteSpace(s)) return 0;
+    //            return int.TryParse(s, out var v) ? v : 0;
+    //        }
+    //        catch { return 0; }
+    //    }
+    //    private string Normalize(string text)
+    //    {
+    //        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+    //        var cleaned = new string(text.Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c)).ToArray());
+    //        return Regex.Replace(cleaned.Trim(), @"\s+", " ").ToLowerInvariant();
+    //    }
+    //    private async Task<bool> CustomerHasCashflowAsync(SqlConnection conn, int custId, int yearId, int branchId)
+    //    {
+    //        if (custId == 0 || yearId == 0) return false;
+
+    //        const string sqlTb = @"
+    //    SELECT TOP 1 1
+    //    FROM Acc_TrailBalance_Upload
+    //    WHERE ATBU_CustId = @CustId
+    //      AND ATBU_YearId = @YearId";
+    //        var tbExists = await conn.ExecuteScalarAsync<int?>(sqlTb, new { CustId = custId, YearId = yearId });
+    //        if (tbExists.HasValue && tbExists.Value == 1) return true;
+
+    //        const string sqlCf = @"
+    //    SELECT TOP 1 1
+    //    FROM Acc_CashFlow
+    //    WHERE ACF_Custid = @CustId
+    //      AND ISNULL(ACF_Yearid,0) = @YearId
+    //      AND ISNULL(ACF_Catagary,0) = 1";
+    //        var cfExists = await conn.ExecuteScalarAsync<int?>(sqlCf, new { CustId = custId, YearId = yearId });
+    //        if (cfExists.HasValue && cfExists.Value == 1) return true;
+
+    //        return false;
+    //    }
+
+    //    private async Task<decimal> GetAmountByDescription(SqlConnection conn, int yearId, int customerId, int branchId, string description)
+    //    {
+    //        if (string.IsNullOrWhiteSpace(description) || customerId == 0 || yearId == 0) return 0m;
+
+    //        // 1) exact match scoped to branch
+    //        const string sqlExact = @"
+    //    SELECT ISNULL(SUM(ISNULL(ATBU_Closing_TotalDebit_Amount,0) - ISNULL(ATBU_Closing_TotalCredit_Amount,0)), 0) AS Amt
+    //    FROM Acc_TrailBalance_Upload
+    //    WHERE ATBU_Description = @Desc
+    //      AND ATBU_YearId = @YearId
+    //      AND ATBU_CustId = @CustomerId
+    //      AND (@BranchId = 0 OR ISNULL(ATBU_BranchId,0) = @BranchId)";
+
+    //        var exactVal = await conn.ExecuteScalarAsync<decimal?>(sqlExact, new
+    //        {
+    //            Desc = description,
+    //            YearId = yearId,
+    //            CustomerId = customerId,
+    //            BranchId = branchId
+    //        });
+
+    //        if (exactVal.HasValue && exactVal.Value != 0m)
+    //            return exactVal.Value;
+
+    //        // 2) tokenized LIKE fallback (use longest token to reduce false positives)
+    //        var normalized = Normalize(description);
+    //        var tokens = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(t => t.Length >= 3).ToArray();
+    //        if (tokens.Length == 0) return 0m;
+    //        var bestToken = tokens.OrderByDescending(t => t.Length).First();
+
+    //        const string sqlLike = @"
+    //    SELECT ISNULL(SUM(ISNULL(ATBU_Closing_TotalDebit_Amount,0) - ISNULL(ATBU_Closing_TotalCredit_Amount,0)), 0) AS Amt
+    //    FROM Acc_TrailBalance_Upload
+    //    WHERE ATBU_Description LIKE '%' + @Part + '%'
+    //      AND ATBU_YearId = @YearId
+    //      AND ATBU_CustId = @CustomerId
+    //      AND (@BranchId = 0 OR ISNULL(ATBU_BranchId,0) = @BranchId)";
+
+    //        var likeVal = await conn.ExecuteScalarAsync<decimal?>(sqlLike, new
+    //        {
+    //            Part = bestToken,
+    //            YearId = yearId,
+    //            CustomerId = customerId,
+    //            BranchId = branchId
+    //        });
+
+    //        if (likeVal.HasValue && likeVal.Value != 0m)
+    //            return likeVal.Value;
+
+    //        // 3) grouped top match (broader fallback, branch optional)
+    //        const string sqlGroupTop = @"
+    //    SELECT TOP 1 ISNULL(SUM(ISNULL(ATBU_Closing_TotalDebit_Amount,0) - ISNULL(ATBU_Closing_TotalCredit_Amount,0)),0) AS Amt
+    //    FROM Acc_TrailBalance_Upload
+    //    WHERE ATBU_Description LIKE '%' + @Part + '%'
+    //      AND ATBU_YearId = @YearId
+    //      AND ATBU_CustId = @CustomerId
+    //      AND (@BranchId = 0 OR ISNULL(ATBU_BranchId,0) = @BranchId)
+    //    GROUP BY ATBU_Description
+    //    ORDER BY ABS(ISNULL(SUM(ISNULL(ATBU_Closing_TotalDebit_Amount,0) - ISNULL(ATBU_Closing_TotalCredit_Amount,0)),0)) DESC";
+
+    //        var groupVal = await conn.ExecuteScalarAsync<decimal?>(sqlGroupTop, new
+    //        {
+    //            Part = bestToken,
+    //            YearId = yearId,
+    //            CustomerId = customerId,
+    //            BranchId = branchId
+    //        });
+
+    //        return groupVal ?? 0m;
+    //    }
+
+    //    private async Task<decimal> GetPandLFinalAmt(SqlConnection conn, int yearId, int customerId, int branchId)
+    //    {
+    //        if (customerId == 0 || yearId == 0) return 0m;
+
+    //        const string sql = @"
+    //    SELECT ISNULL(SUM(ISNULL(ATBU_Closing_TotalDebit_Amount,0) - ISNULL(ATBU_Closing_TotalCredit_Amount,0)),0)
+    //    FROM Acc_TrailBalance_Upload
+    //    WHERE ATBU_Description IN ('Net Income','Net Profit','Profit for the year')
+    //      AND ATBU_YearId = @YearId
+    //      AND ATBU_CustId = @CustomerId
+    //      AND (@BranchId = 0 OR ISNULL(ATBU_BranchId,0) = @BranchId)";
+
+    //        var val = await conn.ExecuteScalarAsync<decimal?>(sql, new
+    //        {
+    //            YearId = yearId,
+    //            CustomerId = customerId,
+    //            BranchId = branchId
+    //        });
+
+    //        return val ?? 0m;
+    //    }
+
+    //    private async Task<decimal> GetAmountFromNotesOrTBDetail(SqlConnection conn, int yearId, int customerId, int branchId, string partialDesc)
+    //    {
+    //        if (string.IsNullOrWhiteSpace(partialDesc) || customerId == 0 || yearId == 0) return 0m;
+
+    //        const string sql = @"
+    //    SELECT TOP 1
+    //        ISNULL(SUM(ISNULL(ATBU_Closing_TotalDebit_Amount,0) - ISNULL(ATBU_Closing_TotalCredit_Amount,0)), 0) AS Amt
+    //    FROM Acc_TrailBalance_Upload
+    //    WHERE ATBU_Description LIKE '%' + @Part + '%'
+    //      AND ATBU_YearId = @YearId
+    //      AND ATBU_CustId = @CustomerId
+    //      AND (@BranchId = 0 OR ISNULL(ATBU_BranchId,0) = @BranchId)
+    //    GROUP BY ATBU_Description
+    //    ORDER BY ABS(ISNULL(SUM(ISNULL(ATBU_Closing_TotalDebit_Amount,0) - ISNULL(ATBU_Closing_TotalCredit_Amount,0)),0)) DESC";
+
+    //        var val = await conn.ExecuteScalarAsync<decimal?>(sql, new
+    //        {
+    //            Part = partialDesc,
+    //            YearId = yearId,
+    //            CustomerId = customerId,
+    //            BranchId = branchId
+    //        });
+
+    //        return val ?? 0m;
+    //    }
+
+    //    private async Task<decimal> GetAmountFromNotesOrFixedAssets(SqlConnection conn, int yearId, int customerId, int branchId, string partialDesc)
+    //    {
+    //        if (string.IsNullOrWhiteSpace(partialDesc) || customerId == 0 || yearId == 0) return 0m;
+
+    //        const string sqlExact = @"
+    //    SELECT ISNULL(SUM(ISNULL(ATBU_Closing_TotalDebit_Amount,0) - ISNULL(ATBU_Closing_TotalCredit_Amount,0)), 0) AS Amt
+    //    FROM Acc_TrailBalance_Upload
+    //    WHERE ATBU_Description = @Desc
+    //      AND ATBU_YearId = @YearId
+    //      AND ATBU_CustId = @CustomerId
+    //      AND (@BranchId = 0 OR ISNULL(ATBU_BranchId,0) = @BranchId)";
+
+    //        var exactVal = await conn.ExecuteScalarAsync<decimal?>(sqlExact, new
+    //        {
+    //            Desc = partialDesc,
+    //            YearId = yearId,
+    //            CustomerId = customerId,
+    //            BranchId = branchId
+    //        });
+
+    //        if (exactVal.HasValue && exactVal.Value != 0m)
+    //            return exactVal.Value;
+
+    //        const string sqlLike = @"
+    //    SELECT TOP 1 
+    //        ISNULL(SUM(ISNULL(ATBU_Closing_TotalDebit_Amount,0) - ISNULL(ATBU_Closing_TotalCredit_Amount,0)), 0) AS Amt
+    //    FROM Acc_TrailBalance_Upload
+    //    WHERE ATBU_Description LIKE '%' + @Part + '%'
+    //      AND ATBU_YearId = @YearId
+    //      AND ATBU_CustId = @CustomerId
+    //      AND (@BranchId = 0 OR ISNULL(ATBU_BranchId,0) = @BranchId)
+    //    GROUP BY ATBU_Description
+    //    ORDER BY ABS(ISNULL(SUM(ISNULL(ATBU_Closing_TotalDebit_Amount,0) - ISNULL(ATBU_Closing_TotalCredit_Amount,0)),0)) DESC";
+
+    //        var likeVal = await conn.ExecuteScalarAsync<decimal?>(sqlLike, new
+    //        {
+    //            Part = partialDesc,
+    //            YearId = yearId,
+    //            CustomerId = customerId,
+    //            BranchId = branchId
+    //        });
+
+    //        return likeVal ?? 0m;
+    //    }
+
+    //    private async Task<int> GetHeadingId(SqlConnection conn, int customerId, string headName)
+    //    {
+    //        if (customerId == 0 || string.IsNullOrWhiteSpace(headName)) return 0;
+    //        const string sql = @"
+    //    SELECT ISNULL(ASH_ID,0) FROM ACC_ScheduleHeading WHERE ASH_Name = @HeadName AND ASH_OrgType = @CustId";
+    //        return await conn.ExecuteScalarAsync<int?>(sql, new { HeadName = headName, CustId = customerId }) ?? 0;
+    //    }
+    //    private async Task<int> GetSubHeadingId(SqlConnection conn, int customerId, string subHeadName)
+    //    {
+    //        if (customerId == 0 || string.IsNullOrWhiteSpace(subHeadName)) return 0;
+    //        const string sql = @"
+    //    SELECT ISNULL(ASSH_ID,0) FROM ACC_SchedulesubHeading WHERE ASSH_Name = @SubHeadName AND ASSH_OrgType = @CustId";
+    //        return await conn.ExecuteScalarAsync<int?>(sql, new { SubHeadName = subHeadName, CustId = customerId }) ?? 0;
+    //    }
+    //    private async Task<HeadingAmountDto> GetHeadingAmt1(SqlConnection conn, int yearId, int customerId, int schedType, int headingId)
+    //    {
+    //        if (headingId == 0) return new HeadingAmountDto();
+
+    //        const string sql = @"
+    //    SELECT 
+    //        ISNULL(SUM(ISNULL(d.ATBU_Closing_TotalDebit_Amount,0) - ISNULL(d.ATBU_Closing_TotalCredit_Amount,0)),0) AS Dc1,
+    //        ISNULL(SUM(ISNULL(e.ATBU_Closing_TotalDebit_Amount,0) - ISNULL(e.ATBU_Closing_TotalCredit_Amount,0)),0) AS DP1
+    //    FROM Acc_TrailBalance_Upload_Details
+    //    LEFT JOIN Acc_TrailBalance_Upload d 
+    //        ON d.ATBU_Description = ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
+    //    LEFT JOIN Acc_TrailBalance_Upload e 
+    //        ON e.ATBU_Description = ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
+    //    WHERE ATBUD_Schedule_Type = @SchedType
+    //      AND ATBUD_CustId = @CustomerId
+    //      AND ATBUD_HeadingId = @HeadingId
+    //    GROUP BY ATBUD_HeadingId";
+    //        var data = await conn.QueryFirstOrDefaultAsync<HeadingAmountDto>(sql, new
+    //        {
+    //            YearId = yearId,
+    //            PrevYear = yearId - 1,
+    //            CustomerId = customerId,
+    //            SchedType = schedType,
+    //            HeadingId = headingId
+    //        });
+    //        return data ?? new HeadingAmountDto();
+    //    }
+
+    //    // Subheading aggregation helper
+    //    private async Task<HeadingAmountDto> GetSubHeadingAmt1(SqlConnection conn, int yearId, int customerId, int schedType, int subHeadingId)
+    //    {
+    //        if (subHeadingId == 0) return new HeadingAmountDto();
+
+    //        const string sql = @"
+    //    SELECT 
+    //        ISNULL(SUM(ISNULL(d.ATBU_Closing_TotalDebit_Amount,0) - ISNULL(d.ATBU_Closing_TotalCredit_Amount,0)),0) AS Dc1,
+    //        ISNULL(SUM(ISNULL(e.ATBU_Closing_TotalDebit_Amount,0) - ISNULL(e.ATBU_Closing_TotalCredit_Amount,0)),0) AS DP1
+    //    FROM Acc_TrailBalance_Upload_Details
+    //    LEFT JOIN Acc_TrailBalance_Upload d 
+    //        ON d.ATBU_Description = ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
+    //    LEFT JOIN Acc_TrailBalance_Upload e 
+    //        ON e.ATBU_Description = ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
+    //    WHERE ATBUD_Schedule_Type = @SchedType
+    //      AND ATBUD_CustId = @CustomerId
+    //      AND ATBUD_SubHeading = @SubHeadingId
+    //    GROUP BY ATBUD_HeadingId";
+    //        var data = await conn.QueryFirstOrDefaultAsync<HeadingAmountDto>(sql, new
+    //        {
+    //            YearId = yearId,
+    //            PrevYear = yearId - 1,
+    //            CustomerId = customerId,
+    //            SchedType = schedType,
+    //            SubHeadingId = subHeadingId
+    //        });
+    //        return data ?? new HeadingAmountDto();
+    //    }
+
+
+        public async Task<CashFlowCategory1Result> LoadCashFlowCategory1Async(int customerId, int yearId, int branchId)
+        {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get connection string
-            var connectionString = _configuration.GetConnectionString(dbName);
+            string connectionString = _configuration.GetConnectionString(dbName);
+            if (string.IsNullOrEmpty(connectionString))
+                throw new Exception($"Connection string for '{dbName}' not found.");
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
 
-            // ✅ Step 3: Define the standard (mandatory) particulars
-            var standardParticulars = new List<string>
-        {
-            "A.Cash flow from operating activities",
-            "Adjustment for:",
-            "Bad Debts",
-            "Depreciation and amortisation",
-            "Expense on employee stock option scheme",
-            "Finance Costs",
-            "Net Profit / (Loss) before extraordinary items and tax",
-            "Provision for impairment of fixed assets and intangibles"
-        };
-
-            var resultIds = new List<int>();
-
-            foreach (var dto in dtos)
+            try
             {
-                bool isStandard = standardParticulars.Contains(dto.ACF_Description ?? string.Empty);
+                var result = new CashFlowCategory1Result();
+                result.Particular = new List<CashFlowParticularDto>();
 
-                // ✅ Step 4: Check if same description already exists
-                var existingId = await connection.ExecuteScalarAsync<int?>(@"
-            SELECT TOP 1 ACF_pkid 
-            FROM Acc_CashFlow 
-            WHERE ACF_Description = @ACF_Description
-              AND ACF_Custid = @ACF_Custid
-              AND ACF_Compid = @ACF_Compid
-              AND ACF_Yearid = @ACF_Yearid
-              AND ACF_Catagary = @ACF_Catagary",
-                    new
+                // labels (your 'Particular' array)
+                string[] Particular =
+                {
+                    "A.Cash flow from operating activities",
+                    "Net Profit / (Loss) before extraordinary items and tax",
+                    "Adjustment for:",
+                    "Depreciation and amortisation",
+                    "Provision for impairment of fixed assets and intangibles",
+                    "Bad Debts",
+                    "Expense on employee stock option scheme",
+                    "Finance Costs",
+                    "Interest income",
+                    "Total Adjustment",
+                    "Operating profit / (loss) before working capital changes"
+                };
+                decimal SafeDiv(decimal num, decimal den) => den == 0 ? 0m : num / den;
+
+                result.Particular.Add(new CashFlowParticularDto
+                {
+                    Sr_No = 1,
+                    ParticularName = Particular[0],
+                });
+
+                //Net Profit / (Loss) before extraordinary items and tax
+                {
+                    int headingIdCY = await GetHeadingId(connection, transaction, customerId, "Income");
+                    int headingIdPY = await GetHeadingId(connection, transaction, customerId, "Expenses");
+
+                    var ca = await GetHeadingAmt1(connection, transaction, yearId, customerId, 3, headingIdCY);
+                    var cl = await GetHeadingAmt1(connection, transaction, yearId, customerId, 3, headingIdPY);
+
+                    // Defensive conversion to decimals (handle nulls)
+                    decimal caDc1 = ca?.Dc1 ?? 0m;
+                    decimal caDp1 = ca?.DP1 ?? 0m;
+                    decimal clDc1 = cl?.Dc1 ?? 0m;
+                    decimal clDp1 = cl?.DP1 ?? 0m;
+
+                    decimal cur = caDc1 - clDc1;
+                    decimal prev = caDp1 - clDp1;
+
+                    // Add a result row (ensure the DTO type matches your project)
+                    result.Particular.Add(new CashFlowParticularDto
                     {
-                        dto.ACF_Description,
-                        dto.ACF_Custid,
-                        dto.ACF_Compid,
-                        dto.ACF_yearid,
-                        dto.ACF_Catagary
+                        Sr_No = 2,
+                        ParticularName = Particular[1],
+                        CurrentYear = Decimal.Round(cur, 3),
+                        PreviousYear = Decimal.Round(prev, 3)
                     });
-
-                // ✅ Prevent duplicate inserts for both standard & user-defined items
-                if (existingId.HasValue && dto.ACF_pkid == 0)
-                {
-                    throw new Exception($"Cash flow record '{dto.ACF_Description}' already exists.");
                 }
 
-
-                // ✅ Step 5: Update existing record
-                if (dto.ACF_pkid != 0)
+                //Finance costs
                 {
-                    if (isStandard)
+                    decimal subheadingIdCY = await GetPandLFinalAmt(connection, transaction, yearId, customerId, branchId);
+                    decimal subheadingIdPY = await GetPandLFinalAmt(connection, transaction, yearId - 1, customerId, branchId);
+
+                    int headingShareId = await GetSubHeadingId(connection, transaction, customerId, "Finance coasts");
+                    var curShare = await GetSubHeadingAmt1(connection, transaction, yearId, customerId, 3, headingShareId);
+                    var prevShare = await GetSubHeadingAmt1(connection, transaction, yearId - 1, customerId, 3, headingShareId);
+
+                    // approximate average shareholder funds (current)
+                    decimal caDc1 = curShare?.Dc1 ?? 0m;
+                    decimal caDp1 = curShare?.DP1 ?? 0m;
+                    decimal clDc1 = prevShare?.Dc1 ?? 0m;
+                    decimal clDp1 = prevShare?.DP1 ?? 0m;
+
+                    decimal cur = caDc1 - clDc1;
+                    decimal prev = caDp1 - clDp1;
+
+                    // Add a result row (ensure the DTO type matches your project)
+                    result.Particular.Add(new CashFlowParticularDto
                     {
-                        // 🟡 Standard Particular — Only Prev Year editable
-                        var updateQuery = @"
-            UPDATE Acc_CashFlow
-            SET 
-                ACF_Prev_Amount   = @ACF_Prev_Amount,
-                ACF_Updatedby     = @ACF_Updatedby,
-                ACF_Ipaddress     = @ACF_Ipaddress
-            WHERE 
-                ACF_pkid = @ACF_pkid
-                AND ACF_Custid = @ACF_Custid
-                AND ACF_Compid = @ACF_Compid
-                AND ACF_Yearid = @ACF_Yearid
-                AND ACF_Catagary = @ACF_Catagary;";
-
-                        await connection.ExecuteAsync(updateQuery, new
-                        {
-                            dto.ACF_pkid,
-                            dto.ACF_Prev_Amount,
-                            dto.ACF_Updatedby,
-                            dto.ACF_Ipaddress,
-                            dto.ACF_Custid,
-                            dto.ACF_Compid,
-                            dto.ACF_yearid,
-                            dto.ACF_Catagary
-                        });
-                    }
-                    else
-                    {
-                        // 🟢 User-added Particular — Allow edit of description and previous year only
-                        var updateQuery = @"
-            UPDATE Acc_CashFlow
-            SET 
-                ACF_Description   = @ACF_Description,
-                ACF_Prev_Amount   = @ACF_Prev_Amount,
-                ACF_Status        = @ACF_Status,
-                ACF_Updatedby     = @ACF_Updatedby,
-                ACF_Ipaddress     = @ACF_Ipaddress
-            WHERE 
-                ACF_pkid = @ACF_pkid
-                AND ACF_Custid = @ACF_Custid
-                AND ACF_Compid = @ACF_Compid
-                AND ACF_Yearid = @ACF_yearid
-                AND ACF_Catagary = @ACF_Catagary;";
-
-                        await connection.ExecuteAsync(updateQuery, new
-                        {
-                            dto.ACF_pkid,
-                            dto.ACF_Description,
-                            dto.ACF_Prev_Amount,
-                            dto.ACF_Status,
-                            dto.ACF_Updatedby,
-                            dto.ACF_Ipaddress,
-                            dto.ACF_Custid,
-                            dto.ACF_Compid,
-                            dto.ACF_yearid,
-                            dto.ACF_Catagary
-                        });
-                    }
-                    resultIds.Add(dto.ACF_pkid);
-                }
-                else
-                {
-                    // ✅ Step 6: Insert new record (only for user-added particulars)
-                    var insertQuery = @"
-        DECLARE @NextId INT;
-        SELECT @NextId = ISNULL(MAX(ACF_pkid), 0) + 1 FROM Acc_CashFlow;
-
-        INSERT INTO Acc_CashFlow
-        (ACF_pkid, ACF_Description, ACF_Custid, ACF_Branchid, ACF_Current_Amount, ACF_Prev_Amount, 
-        ACF_Status, ACF_Crby, ACF_Compid, ACF_Ipaddress, ACF_Catagary, ACF_Yearid )
-        VALUES
-        (@NextId, @ACF_Description, @ACF_Custid, @ACF_Branchid, @ACF_Current_Amount, @ACF_Prev_Amount, @ACF_Status, 
-        @ACF_Crby, @ACF_Compid, @ACF_Ipaddress, @ACF_Catagary, @ACF_Yearid);
-
-        SELECT @NextId;";
-
-                    var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
-                    {
-                        dto.ACF_Description,
-                        dto.ACF_Custid,
-                        dto.ACF_Branchid,
-                        dto.ACF_Current_Amount,
-                        dto.ACF_Prev_Amount,
-                        dto.ACF_Status,
-                        dto.ACF_Crby,
-                        dto.ACF_Compid,
-                        dto.ACF_Ipaddress,
-                        dto.ACF_Catagary,
-                        dto.ACF_yearid
+                        Sr_No = 8,
+                        ParticularName = Particular[7],
+                        CurrentYear = Decimal.Round(cur, 3),
+                        PreviousYear = Decimal.Round(prev, 3)
                     });
-                    resultIds.Add(newId);
                 }
+                transaction.Commit();
+                return result;
+
             }
-            return resultIds;
+            catch (Exception ex)
+            {
+                try { transaction.Rollback(); } catch { }
+
+                throw;
+            }
         }
-
-        //SaveCashFlow(Category3)
-        public async Task<List<int>> SaveCashFlowCategory3Async(List<CashFlowCategory3> dtos)
+        private async Task<int> GetHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string headName)
         {
-            if (dtos == null || dtos.Count == 0)
-                throw new ArgumentException("No cash flow items provided.");
-
-            // ✅ Step 1: Get DB name from session
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-            if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-            // ✅ Step 2: Get connection string
-            var connectionString = _configuration.GetConnectionString(dbName);
-
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-
-            var resultIds = new List<int>();
-
-            foreach (var dto in dtos)
-            {
-                // ✅ Step 3: Update existing record
-                if (dto.ACF_pkid != 0)
-                {
-                    var updateQuery = @"
-UPDATE Acc_CashFlow
-SET 
-    ACF_Description   = @ACF_Description,
-    ACF_Prev_Amount   = @ACF_Prev_Amount,
-    ACF_Status        = @ACF_Status,
-    ACF_Updatedby     = @ACF_Updatedby,
-    ACF_Ipaddress     = @ACF_Ipaddress
-WHERE 
-    ACF_pkid = @ACF_pkid
-    AND ACF_Custid = @ACF_Custid
-    AND ACF_Compid = @ACF_Compid
-    AND ACF_Yearid = @ACF_yearid
-    AND ACF_Catagary = @ACF_Catagary;";
-
-                    await connection.ExecuteAsync(updateQuery, new
-                    {
-                        dto.ACF_pkid,
-                        dto.ACF_Description,
-                        dto.ACF_Prev_Amount,
-                        dto.ACF_Status,
-                        dto.ACF_Updatedby,
-                        dto.ACF_Ipaddress,
-                        dto.ACF_Custid,
-                        dto.ACF_Compid,
-                        dto.ACF_yearid,
-                        dto.ACF_Catagary
-                    });
-
-                    resultIds.Add(dto.ACF_pkid);
-                }
-                else
-                {
-                    // ✅ Step 4: Insert new record
-                    var insertQuery = @"
-DECLARE @NextId INT;
-SELECT @NextId = ISNULL(MAX(ACF_pkid), 0) + 1 FROM Acc_CashFlow;
-
-INSERT INTO Acc_CashFlow
-(ACF_pkid, ACF_Description, ACF_Custid, ACF_Branchid, ACF_Current_Amount, ACF_Prev_Amount, 
- ACF_Status, ACF_Crby, ACF_Compid, ACF_Ipaddress, ACF_Catagary, ACF_Yearid)
-VALUES
-(@NextId, @ACF_Description, @ACF_Custid, @ACF_Branchid, @ACF_Current_Amount, @ACF_Prev_Amount, 
- @ACF_Status, @ACF_Crby, @ACF_Compid, @ACF_Ipaddress, @ACF_Catagary, @ACF_Yearid);
-
-SELECT @NextId;";
-
-                    var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
-                    {
-                        dto.ACF_Description,
-                        dto.ACF_Custid,
-                        dto.ACF_Branchid,
-                        dto.ACF_Current_Amount,
-                        dto.ACF_Prev_Amount,
-                        dto.ACF_Status,
-                        dto.ACF_Crby,
-                        dto.ACF_Compid,
-                        dto.ACF_Ipaddress,
-                        dto.ACF_Catagary,
-                        dto.ACF_yearid
-                    });
-                    resultIds.Add(newId);
-                }
-            }
-            return resultIds;
+            const string sql = @"SELECT ISNULL(ASH_ID,0) FROM ACC_ScheduleHeading WHERE ASH_Name = @HeadName AND ASH_OrgType = @CustId";
+            return await conn.ExecuteScalarAsync<int>(sql, new { HeadName = headName, CustId = customerId }, tran);
         }
-
-        //SaveCashFlow(Category4)
-        public async Task<List<int>> SaveCashFlowCategory4Async(List<CashFlowCategory4> dtos)
+        private async Task<HeadingAmount> GetHeadingAmt1(SqlConnection conn, SqlTransaction tran,
+            int yearId, int customerId, int schedType, int headingId)
         {
-            if (dtos == null || dtos.Count == 0)
-                throw new ArgumentException("No cash flow items provided.");
+            if (headingId == 0)
+                return new HeadingAmount { Dc1 = 0m, DP1 = 0m };
 
-            // ✅ Step 1: Get DB name from session
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-            if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            const string sql = @"
+                SELECT 
+                    ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) -  ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
+                    ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) -  ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
+                FROM Acc_TrailBalance_Upload_Details
+                LEFT JOIN Acc_TrailBalance_Upload d 
+                    ON d.ATBU_Description = ATBUD_Description 
+                       AND d.ATBU_YearId = @YearId 
+                       AND d.ATBU_CustId = @CustomerId
+                LEFT JOIN Acc_TrailBalance_Upload e 
+                    ON e.ATBU_Description = ATBUD_Description 
+                       AND e.ATBU_YearId = @PrevYear 
+                       AND e.ATBU_CustId = @CustomerId
+                WHERE ATBUD_Schedule_Type = @SchedType 
+                  AND ATBUD_CustId = @CustomerId 
+                  AND ATBUD_HeadingId = @HeadingId;";
 
-            // ✅ Step 2: Get connection string
-            var connectionString = _configuration.GetConnectionString(dbName);
-
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-
-            // ✅ Step 3: Define the standard (mandatory) particulars
-            var standardParticulars = new List<string>
+            try
             {
-                "Proceeds from issue of equity shares",
-                "Share application money received / (refunded)",
-                "Increase / (Decrease) in Long Term Borrowings ",
-                "Increase / (Decrease) in Short Term Borrowings ",
-                "Interest Received on deposits/Income tax refund",
-                "Insurance claims received it refund",
-                "NDividend Income",
-                "Finance costs"
-            };
-
-            var resultIds = new List<int>();
-
-            foreach (var dto in dtos)
-            {
-                bool isStandard = standardParticulars.Contains(dto.ACF_Description ?? string.Empty);
-
-                // ✅ Step 4: Check if same description already exists
-                var existingId = await connection.ExecuteScalarAsync<int?>(@"
-            SELECT TOP 1 ACF_pkid 
-            FROM Acc_CashFlow 
-            WHERE ACF_Description = @ACF_Description
-              AND ACF_Custid = @ACF_Custid
-              AND ACF_Compid = @ACF_Compid
-              AND ACF_Yearid = @ACF_Yearid
-              AND ACF_Catagary = @ACF_Catagary",
-                    new
-                    {
-                        dto.ACF_Description,
-                        dto.ACF_Custid,
-                        dto.ACF_Compid,
-                        dto.ACF_yearid,
-                        dto.ACF_Catagary
-                    });
-
-                // ✅ Prevent duplicate inserts for both standard & user-defined items
-                if (existingId.HasValue && dto.ACF_pkid == 0)
+                var data = await conn.QueryFirstOrDefaultAsync(sql, new
                 {
-                    throw new Exception($"Cash flow record '{dto.ACF_Description}' already exists.");
+                    YearId = yearId,
+                    PrevYear = yearId - 1,
+                    CustomerId = customerId,
+                    SchedType = schedType,
+                    HeadingId = headingId
+                }, tran);
+
+                if (data == null)
+                {
+                    return new HeadingAmount { Dc1 = 0m, DP1 = 0m };
                 }
 
-                // ✅ Step 5: Update existing record
-                if (dto.ACF_pkid != 0)
-                {
-                    if (isStandard)
-                    {
-                        // 🟡 Standard Particular — Only Prev Year editable
-                        var updateQuery = @"
-            UPDATE Acc_CashFlow
-            SET 
-                ACF_Prev_Amount   = @ACF_Prev_Amount,
-                ACF_Updatedby     = @ACF_Updatedby,
-                ACF_Ipaddress     = @ACF_Ipaddress
-            WHERE 
-                ACF_pkid = @ACF_pkid
-                AND ACF_Custid = @ACF_Custid
-                AND ACF_Compid = @ACF_Compid
-                AND ACF_Yearid = @ACF_Yearid
-                AND ACF_Catagary = @ACF_Catagary;";
+                // Convert safely
+                decimal dc1 = 0m, dp1 = 0m;
+                try { dc1 = Convert.ToDecimal(data.Dc1); } catch { dc1 = 0m; }
+                try { dp1 = Convert.ToDecimal(data.DP1); } catch { dp1 = 0m; }
 
-                        await connection.ExecuteAsync(updateQuery, new
-                        {
-                            dto.ACF_pkid,
-                            dto.ACF_Prev_Amount,
-                            dto.ACF_Updatedby,
-                            dto.ACF_Ipaddress,
-                            dto.ACF_Custid,
-                            dto.ACF_Compid,
-                            dto.ACF_yearid,
-                            dto.ACF_Catagary
-                        });
-                    }
-                    else
-                    {
-                        // 🟢 User-added Particular — Allow edit of description and previous year only
-                        var updateQuery = @"
-            UPDATE Acc_CashFlow
-            SET 
-                ACF_Description   = @ACF_Description,
-                ACF_Prev_Amount   = @ACF_Prev_Amount,
-                ACF_Status        = @ACF_Status,
-                ACF_Updatedby     = @ACF_Updatedby,
-                ACF_Ipaddress     = @ACF_Ipaddress
-            WHERE 
-                ACF_pkid = @ACF_pkid
-                AND ACF_Custid = @ACF_Custid
-                AND ACF_Compid = @ACF_Compid
-                AND ACF_Yearid = @ACF_yearid
-                AND ACF_Catagary = @ACF_Catagary;";
-
-                        await connection.ExecuteAsync(updateQuery, new
-                        {
-                            dto.ACF_pkid,
-                            dto.ACF_Description,
-                            dto.ACF_Prev_Amount,
-                            dto.ACF_Status,
-                            dto.ACF_Updatedby,
-                            dto.ACF_Ipaddress,
-                            dto.ACF_Custid,
-                            dto.ACF_Compid,
-                            dto.ACF_yearid,
-                            dto.ACF_Catagary
-                        });
-                    }
-                    resultIds.Add(dto.ACF_pkid);
-                }
-                else
-                {
-                    // ✅ Step 6: Insert new record (only for user-added particulars)
-                    var insertQuery = @"
-        DECLARE @NextId INT;
-        SELECT @NextId = ISNULL(MAX(ACF_pkid), 0) + 1 FROM Acc_CashFlow;
-
-        INSERT INTO Acc_CashFlow
-        (ACF_pkid, ACF_Description, ACF_Custid, ACF_Branchid, ACF_Current_Amount, ACF_Prev_Amount, 
-        ACF_Status, ACF_Crby, ACF_Compid, ACF_Ipaddress, ACF_Catagary, ACF_Yearid )
-        VALUES
-        (@NextId, @ACF_Description, @ACF_Custid, @ACF_Branchid, @ACF_Current_Amount, @ACF_Prev_Amount, @ACF_Status, 
-        @ACF_Crby, @ACF_Compid, @ACF_Ipaddress, @ACF_Catagary, @ACF_Yearid);
-
-        SELECT @NextId;";
-
-                    var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
-                    {
-                        dto.ACF_Description,
-                        dto.ACF_Custid,
-                        dto.ACF_Branchid,
-                        dto.ACF_Current_Amount,
-                        dto.ACF_Prev_Amount,
-                        dto.ACF_Status,
-                        dto.ACF_Crby,
-                        dto.ACF_Compid,
-                        dto.ACF_Ipaddress,
-                        dto.ACF_Catagary,
-                        dto.ACF_yearid
-                    });
-                    resultIds.Add(newId);
-                }
+                return new HeadingAmount { Dc1 = dc1, DP1 = dp1 };
             }
-            return resultIds;
+            catch (Exception ex)
+            {
+                throw;
+            }
         }
-
-        //SaveCashFlow(Category2)
-        public async Task<List<int>> SaveCashFlowCategory2Async(List<CashFlowCategory2> dtos)
+        private async Task<int> GetSubHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string subHeadName)
         {
-            if (dtos == null || dtos.Count == 0)
-                throw new ArgumentException("No cash flow items provided.");
+            const string sql = @"
+                SELECT ASSH_ID 
+                FROM ACC_SchedulesubHeading 
+                WHERE ASSH_Name = @SubHeadName AND ASSH_OrgType = @CustId";
 
-            // ✅ Step 1: Get DB name from session
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-            if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-            // ✅ Step 2: Get connection string
-            var connectionString = _configuration.GetConnectionString(dbName);
-
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-
-            // ✅ Step 3: Define the standard (mandatory) particulars
-            var standardParticulars = new List<string>
-            {
-                "Changes in working capital:",
-                "Adjustments for (increase) / decrease in operating assets:",
-                "Inventories",
-                "Trade receivables",
-                "Short-term loans and advances",
-                "Long-term loans and advances",
-                "Other current Assets",
-                "Adjustments for increase / (decrease) in operating liabilities:",
-                "Trade Payables",
-                "Other current liabilities",
-                "Short-term provisions",
-                "Operating profit / (loss) after working capital changes",
-                "Cash flow from extraordinary items/prior period items - Sale of Fixed Asset",
-                "Cash generated from operations"
-            };
-
-            var resultIds = new List<int>();
-
-            foreach (var dto in dtos)
-            {
-                bool isStandard = standardParticulars.Contains(dto.ACF_Description ?? string.Empty);
-
-                // ✅ Step 4: Check if same description already exists
-                var existingId = await connection.ExecuteScalarAsync<int?>(@"
-            SELECT TOP 1 ACF_pkid 
-            FROM Acc_CashFlow 
-            WHERE ACF_Description = @ACF_Description
-              AND ACF_Custid = @ACF_Custid
-              AND ACF_Compid = @ACF_Compid
-              AND ACF_Yearid = @ACF_Yearid
-              AND ACF_Catagary = @ACF_Catagary",
-                    new
-                    {
-                        dto.ACF_Description,
-                        dto.ACF_Custid,
-                        dto.ACF_Compid,
-                        dto.ACF_yearid,
-                        dto.ACF_Catagary
-                    });
-
-                // ✅ Prevent duplicate inserts for both standard & user-defined items
-                if (existingId.HasValue && dto.ACF_pkid == 0)
-                {
-                    throw new Exception($"Cash flow record '{dto.ACF_Description}' already exists.");
-                }
-
-                // ✅ Step 5: Update existing record
-                if (dto.ACF_pkid != 0)
-                {
-                    if (isStandard)
-                    {
-                        // 🟡 Standard Particular — Only Prev Year editable
-                        var updateQuery = @"
-            UPDATE Acc_CashFlow
-            SET 
-                ACF_Prev_Amount   = @ACF_Prev_Amount,
-                ACF_Updatedby     = @ACF_Updatedby,
-                ACF_Ipaddress     = @ACF_Ipaddress
-            WHERE 
-                ACF_pkid = @ACF_pkid
-                AND ACF_Custid = @ACF_Custid
-                AND ACF_Compid = @ACF_Compid
-                AND ACF_Yearid = @ACF_Yearid
-                AND ACF_Catagary = @ACF_Catagary;";
-
-                        await connection.ExecuteAsync(updateQuery, new
-                        {
-                            dto.ACF_pkid,
-                            dto.ACF_Prev_Amount,
-                            dto.ACF_Updatedby,
-                            dto.ACF_Ipaddress,
-                            dto.ACF_Custid,
-                            dto.ACF_Compid,
-                            dto.ACF_yearid,
-                            dto.ACF_Catagary
-                        });
-                    }
-                    else
-                    {
-                        // 🟢 User-added Particular — Allow edit of description and previous year only
-                        var updateQuery = @"
-            UPDATE Acc_CashFlow
-            SET 
-                ACF_Description   = @ACF_Description,
-                ACF_Prev_Amount   = @ACF_Prev_Amount,
-                ACF_Status        = @ACF_Status,
-                ACF_Updatedby     = @ACF_Updatedby,
-                ACF_Ipaddress     = @ACF_Ipaddress
-            WHERE 
-                ACF_pkid = @ACF_pkid
-                AND ACF_Custid = @ACF_Custid
-                AND ACF_Compid = @ACF_Compid
-                AND ACF_Yearid = @ACF_yearid
-                AND ACF_Catagary = @ACF_Catagary;";
-
-                        await connection.ExecuteAsync(updateQuery, new
-                        {
-                            dto.ACF_pkid,
-                            dto.ACF_Description,
-                            dto.ACF_Prev_Amount,
-                            dto.ACF_Status,
-                            dto.ACF_Updatedby,
-                            dto.ACF_Ipaddress,
-                            dto.ACF_Custid,
-                            dto.ACF_Compid,
-                            dto.ACF_yearid,
-                            dto.ACF_Catagary
-                        });
-                    }
-                    resultIds.Add(dto.ACF_pkid);
-                }
-                else
-                {
-                    // ✅ Step 6: Insert new record (only for user-added particulars)
-                    var insertQuery = @"
-        DECLARE @NextId INT;
-        SELECT @NextId = ISNULL(MAX(ACF_pkid), 0) + 1 FROM Acc_CashFlow;
-
-        INSERT INTO Acc_CashFlow
-        (ACF_pkid, ACF_Description, ACF_Custid, ACF_Branchid, ACF_Current_Amount, ACF_Prev_Amount, 
-        ACF_Status, ACF_Crby, ACF_Compid, ACF_Ipaddress, ACF_Catagary, ACF_Yearid )
-        VALUES
-        (@NextId, @ACF_Description, @ACF_Custid, @ACF_Branchid, @ACF_Current_Amount, @ACF_Prev_Amount, @ACF_Status, 
-        @ACF_Crby, @ACF_Compid, @ACF_Ipaddress, @ACF_Catagary, @ACF_Yearid);
-
-        SELECT @NextId;";
-
-                    var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
-                    {
-                        dto.ACF_Description,
-                        dto.ACF_Custid,
-                        dto.ACF_Branchid,
-                        dto.ACF_Current_Amount,
-                        dto.ACF_Prev_Amount,
-                        dto.ACF_Status,
-                        dto.ACF_Crby,
-                        dto.ACF_Compid,
-                        dto.ACF_Ipaddress,
-                        dto.ACF_Catagary,
-                        dto.ACF_yearid
-                    });
-                    resultIds.Add(newId);
-                }
-            }
-            return resultIds;
+            return await conn.ExecuteScalarAsync<int?>(sql,
+                new { SubHeadName = subHeadName, CustId = customerId }, tran) ?? 0;
         }
-
-        //SaveCashFlow(Category5)
-        public async Task<List<int>> SaveCashFlowCategory5Async(List<CashFlowCategory5> dtos)
+        private async Task<AmountDto> GetSubHeadingAmt1(SqlConnection conn, SqlTransaction tran,
+           int yearId, int customerId, int schedType, int subHeadingId)
         {
-            if (dtos == null || dtos.Count == 0)
-                throw new ArgumentException("No cash flow items provided.");
+            if (subHeadingId == 0)
+                return new AmountDto();
 
-            // ✅ Step 1: Get DB name from session
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-            if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            const string sql = @"
+                SELECT 
+                    ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - 
+                        ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
+                    ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - 
+                        ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
+                FROM Acc_TrailBalance_Upload_Details
+                LEFT JOIN Acc_TrailBalance_Upload d 
+                    ON d.ATBU_Description=ATBUD_Description AND d.ATBU_YearId=@YearId 
+                       AND d.ATBU_CustId=@CustomerId
+                LEFT JOIN Acc_TrailBalance_Upload e 
+                    ON e.ATBU_Description=ATBUD_Description AND e.ATBU_YearId=@PrevYear 
+                       AND e.ATBU_CustId=@CustomerId
+                WHERE ATBUD_Schedule_Type=@SchedType 
+                  AND ATBUD_CustId=@CustomerId 
+                  AND ATBUD_SubHeading=@SubHeadingId
+                GROUP BY ATBUD_HeadingId";
 
-            // ✅ Step 2: Get connection string
-            var connectionString = _configuration.GetConnectionString(dbName);
-
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-
-            // ✅ Step 3: Define the standard (mandatory) particulars
-            var standardParticulars = new List<string>
-            {
-                 "Net increase / (decrease) in Cash and cash equivalents (A+B+C)",
-                 "Cash and cash equivalents at begining of the year",
-                 "Cash and cash equivalents at Closing of the year",
-                 "Reconciliation of Cash and cash equivalents with the Balance Sheet:",
-                 "Cash and cash equivalents as per Balance Sheet",
-                 "Less: Bank balances not considered as Cash and cash equivalents as defined in AS 3 Cash Flow Statements (give details)",
-                 "Net Cash and cash equivalents (as defined in AS 3 Cash Flow Statements)",
-                 "Add: Current investments considered as part of Cash and cash equivalents (as defined in AS 3 Cash Flow Statements) (Refer Note < br/> (ii) to Note 16 Current investments)",
-                 "* Comprises:",
-                 "(a) Cash on hand",
-                 "(b) Balances with banks - in current accounts",
-                 "(b) Balances with banks - Fixed Deposits"
-
-            };
-
-            var resultIds = new List<int>();
-
-            foreach (var dto in dtos)
-            {
-                bool isStandard = standardParticulars.Contains(dto.ACF_Description ?? string.Empty);
-
-                // ✅ Step 4: Check if same description already exists
-                var existingId = await connection.ExecuteScalarAsync<int?>(@"
-            SELECT TOP 1 ACF_pkid 
-            FROM Acc_CashFlow 
-            WHERE ACF_Description = @ACF_Description
-              AND ACF_Custid = @ACF_Custid
-              AND ACF_Compid = @ACF_Compid
-              AND ACF_Yearid = @ACF_Yearid
-              AND ACF_Catagary = @ACF_Catagary",
-                    new
-                    {
-                        dto.ACF_Description,
-                        dto.ACF_Custid,
-                        dto.ACF_Compid,
-                        dto.ACF_yearid,
-                        dto.ACF_Catagary
-                    });
-
-                // ✅ Prevent duplicate inserts for both standard & user-defined items
-                if (existingId.HasValue && dto.ACF_pkid == 0)
+            var data = await conn.QueryFirstOrDefaultAsync<AmountDto>(sql,
+                new
                 {
-                    throw new Exception($"Cash flow record '{dto.ACF_Description}' already exists.");
-                }
+                    YearId = yearId,
+                    PrevYear = yearId - 1,
+                    CustomerId = customerId,
+                    SchedType = schedType,
+                    SubHeadingId = subHeadingId
+                }, tran);
 
-                // ✅ Step 5: Update existing record
-                if (dto.ACF_pkid != 0)
-                {
-                    if (isStandard)
-                    {
-                        // 🟡 Standard Particular — Only Prev Year editable
-                        var updateQuery = @"
-            UPDATE Acc_CashFlow
-            SET 
-                ACF_Prev_Amount   = @ACF_Prev_Amount,
-                ACF_Updatedby     = @ACF_Updatedby,
-                ACF_Ipaddress     = @ACF_Ipaddress
-            WHERE 
-                ACF_pkid = @ACF_pkid
-                AND ACF_Custid = @ACF_Custid
-                AND ACF_Compid = @ACF_Compid
-                AND ACF_Yearid = @ACF_Yearid
-                AND ACF_Catagary = @ACF_Catagary;";
-
-                        await connection.ExecuteAsync(updateQuery, new
-                        {
-                            dto.ACF_pkid,
-                            dto.ACF_Prev_Amount,
-                            dto.ACF_Updatedby,
-                            dto.ACF_Ipaddress,
-                            dto.ACF_Custid,
-                            dto.ACF_Compid,
-                            dto.ACF_yearid,
-                            dto.ACF_Catagary
-                        });
-                    }
-                    else
-                    {
-                        // 🟢 User-added Particular — Allow edit of description and previous year only
-                        var updateQuery = @"
-            UPDATE Acc_CashFlow
-            SET 
-                ACF_Description   = @ACF_Description,
-                ACF_Prev_Amount   = @ACF_Prev_Amount,
-                ACF_Status        = @ACF_Status,
-                ACF_Updatedby     = @ACF_Updatedby,
-                ACF_Ipaddress     = @ACF_Ipaddress
-            WHERE 
-                ACF_pkid = @ACF_pkid
-                AND ACF_Custid = @ACF_Custid
-                AND ACF_Compid = @ACF_Compid
-                AND ACF_Yearid = @ACF_yearid
-                AND ACF_Catagary = @ACF_Catagary;";
-
-                        await connection.ExecuteAsync(updateQuery, new
-                        {
-                            dto.ACF_pkid,
-                            dto.ACF_Description,
-                            dto.ACF_Prev_Amount,
-                            dto.ACF_Status,
-                            dto.ACF_Updatedby,
-                            dto.ACF_Ipaddress,
-                            dto.ACF_Custid,
-                            dto.ACF_Compid,
-                            dto.ACF_yearid,
-                            dto.ACF_Catagary
-                        });
-                    }
-                    resultIds.Add(dto.ACF_pkid);
-                }
-                else
-                {
-                    // ✅ Step 6: Insert new record (only for user-added particulars)
-                    var insertQuery = @"
-        DECLARE @NextId INT;
-        SELECT @NextId = ISNULL(MAX(ACF_pkid), 0) + 1 FROM Acc_CashFlow;
-
-        INSERT INTO Acc_CashFlow
-        (ACF_pkid, ACF_Description, ACF_Custid, ACF_Branchid, ACF_Current_Amount, ACF_Prev_Amount, 
-        ACF_Status, ACF_Crby, ACF_Compid, ACF_Ipaddress, ACF_Catagary, ACF_Yearid )
-        VALUES
-        (@NextId, @ACF_Description, @ACF_Custid, @ACF_Branchid, @ACF_Current_Amount, @ACF_Prev_Amount, @ACF_Status, 
-        @ACF_Crby, @ACF_Compid, @ACF_Ipaddress, @ACF_Catagary, @ACF_Yearid);
-
-        SELECT @NextId;";
-
-                    var newId = await connection.ExecuteScalarAsync<int>(insertQuery, new
-                    {
-                        dto.ACF_Description,
-                        dto.ACF_Custid,
-                        dto.ACF_Branchid,
-                        dto.ACF_Current_Amount,
-                        dto.ACF_Prev_Amount,
-                        dto.ACF_Status,
-                        dto.ACF_Crby,
-                        dto.ACF_Compid,
-                        dto.ACF_Ipaddress,
-                        dto.ACF_Catagary,
-                        dto.ACF_yearid
-                    });
-                    resultIds.Add(newId);
-                }
-            }
-            return resultIds;
+            return data ?? new AmountDto();
+        }
+        private async Task<decimal> GetPandLFinalAmt(SqlConnection conn, SqlTransaction tran, int yearId, int customerId, int branchId)
+        {
+            const string sql = @"
+                SELECT ISNULL(SUM(ATBU_Closing_TotalDebit_Amount - ATBU_Closing_TotalCredit_Amount), 0)
+                FROM Acc_TrailBalance_Upload
+                WHERE ATBU_Description = 'Net Income' AND ATBU_YearId = @YearId AND ATBU_CustId = @CustomerId AND ATBU_BranchId = @BranchId
+            ";
+            var value = await conn.ExecuteScalarAsync<decimal?>(sql, new { YearId = yearId, CustomerId = customerId, BranchId = branchId }, tran);
+            return value ?? 0m;
         }
     }
 }
+
+
 

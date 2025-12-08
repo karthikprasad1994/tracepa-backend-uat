@@ -43,7 +43,7 @@ namespace TracePca.Controllers.FIN_Statement
             {
                 var result = await _ScheduleAccountingRatioService.LoadAccRatioAsync(yearId, customerId, branchId);
 
-                if (result == null || result == null )
+                if (result == null || result == null)
                 {
                     return NotFound(new
                     {

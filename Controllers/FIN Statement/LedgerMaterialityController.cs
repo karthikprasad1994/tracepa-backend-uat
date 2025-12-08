@@ -249,6 +249,43 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+        //GetMaterialityBasis
+        [HttpGet("GetMaterialityBasis")]
+        public async Task<IActionResult> GetMaterialityBasis(int compId, int custId, int branchId, int yearId, int typeId)
+        {
+            try
+            {
+                var result = await _LedgerMaterialityService.GetMaterialityBasisAsync(compId, custId, branchId, yearId, typeId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        status = 404,
+                        message = "No content found for the given parameters.",
+                        data = new List<ContentManagementDto>()
+                    });
+                }
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Content retrieved successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving content.",
+                    error = ex.Message
+                });
+            }
+        }
+
     }
 }
 

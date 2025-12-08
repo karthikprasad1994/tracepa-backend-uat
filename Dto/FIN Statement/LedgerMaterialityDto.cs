@@ -71,5 +71,22 @@
             public string cmm_Desc { get; set; }
             public string cms_Remarks { get; set; }
         }
+
+        public class DescriptionDto
+        {
+            public int HeadingId { get; set; }
+            public string HeadingName { get; set; }
+            public string Status { get; set; }
+            public decimal CYamt { get; set; }
+            public decimal PYamt { get; set; }
+            public decimal Difference_Amt { get; set; }
+            public decimal Difference_Avg { get; set; }
+            public string RiskFactor { get; set; }
+            public string Materiality { get; set; }
+            public decimal cyCr { get; set; }
+            public decimal cyDb { get; set; }
+            public decimal pyCr { get; set; }
+            public decimal pyDb { get; set; }
+        }
     }
 }

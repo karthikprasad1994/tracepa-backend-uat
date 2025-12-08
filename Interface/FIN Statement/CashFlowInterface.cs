@@ -1,4 +1,5 @@
-﻿using static TracePca.Dto.FIN_Statement.CashFlowDto;
+﻿using TracePca.Dto.FIN_Statement;
+using static TracePca.Dto.FIN_Statement.CashFlowDto;
 
 namespace TracePca.Interface.FIN_Statement
 {
@@ -14,18 +15,8 @@ namespace TracePca.Interface.FIN_Statement
         Task<IEnumerable<CashFlowForAllCategoryDto>> GetCashFlowForAllCategoryAsync(int compId, int custId, int yearId, int branchId, int category);
 
         //SaveCashFlow(Category 1)
-        Task<List<int>> SaveCashFlowCategory1Async(List<CashFlowCategory1> dtos);
-
-        //SaveCashFlow(Category3)
-        Task<List<int>> SaveCashFlowCategory3Async(List<CashFlowCategory3> dtos);
-
-        //SaveCashFlow(Category4)
-        Task<List<int>> SaveCashFlowCategory4Async(List<CashFlowCategory4> dtos);
-
-        //SaveCashFlow(Category2)
-        Task<List<int>> SaveCashFlowCategory2Async(List<CashFlowCategory2> dtos);
-
-        //SaveCashFlow(Category5)
-        Task<List<int>> SaveCashFlowCategory5Async(List<CashFlowCategory5> dtos);
+        //Task<(bool HasCashflow, List<CashflowParticularDto> Partials)> GetMandatoryCashflowInMemoryAsync(
+        //int yearId = 0, int customerId = 0, int branchId = 0);
+        Task<CashFlowCategory1Result> LoadCashFlowCategory1Async(int customerId, int yearId, int branchId);
     }
 }

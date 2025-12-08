@@ -32,97 +32,48 @@
         }
 
         //SaveCashFlow(Category 1)
-        public class CashFlowCategory1
+        //public class CashflowParticularDto
+        //{
+        //    public string Description { get; set; }         
+        //    public bool IsHeading { get; set; }              
+        //    public decimal Amount { get; set; }            
+        //    public string SourceHint { get; set; }           
+        //    public string Note { get; set; }                 
+        //}
+        //public class CashflowMandatoryResponseDto
+        //{
+        //    public bool HasCashflow { get; set; }                     
+        //    public List<CashflowParticularDto> Particulars { get; set; } = new();
+        //}
+        //public class HeadingAmountDto
+        //{
+        //    public decimal Dc1 { get; set; } = 0m;       
+        //    public decimal DP1 { get; set; } = 0m;       
+        //}
+
+        public class CashFlowCategory1Result
         {
-            public int ACF_pkid { get; set; }
-            public string ACF_Description { get; set; }
-            public int ACF_Custid { get; set; }
-            public int ACF_Branchid { get; set; }
-            public double ACF_Current_Amount { get; set; }
-            public double ACF_Prev_Amount { get; set; }
-            public string ACF_Status { get; set; }
-            public int ACF_Crby { get; set; }
-            public int ACF_Updatedby { get; set; }
-            public int ACF_Compid { get; set; }
-            public string ACF_Ipaddress { get; set; }
-            public int ACF_Catagary { get; set; }
-            public int ACF_yearid { get; set; }
-            public bool IsDeleted { get; internal set; }
+            public List<CashFlowParticularDto> Particular { get; set; } = new List<CashFlowParticularDto>();
+            public Dictionary<string, object> Diagnostics { get; set; } = new Dictionary<string, object>();
+        }
+        public class CashFlowParticularDto
+        {
+            public int Sr_No { get; set; }
+            public string ParticularName { get; set; }
+            public decimal CurrentYear { get; set; }
+            public decimal PreviousYear { get; set; }
+        }
+        public class HeadingAmount
+        {
+            public decimal Dc1 { get; set; }
+            public decimal DP1 { get; set; }
+        }
+        public class AmountDto
+        {
+            public decimal Dc1 { get; set; }
+            public decimal DP1 { get; set; }
         }
 
-        //SaveCashFlow(Category3)
-        public class CashFlowCategory3
-        {
-            public int ACF_pkid { get; set; }
-            public string ACF_Description { get; set; }
-            public int ACF_Custid { get; set; }
-            public int ACF_Branchid { get; set; }
-            public decimal? ACF_Current_Amount { get; set; }
-            public decimal? ACF_Prev_Amount { get; set; }
-            public string ACF_Status { get; set; }
-            public int ACF_Crby { get; set; }
-            public int ACF_Updatedby { get; set; }
-            public string ACF_Ipaddress { get; set; }
-            public int ACF_Compid { get; set; }
-            public int ACF_Catagary { get; set; }
-            public int ACF_yearid { get; set; }
-        }
-
-        //SaveCashFlow(Category4)
-        public class CashFlowCategory4
-        {
-            public int ACF_pkid { get; set; }
-            public string ACF_Description { get; set; }
-            public int ACF_Custid { get; set; }
-            public int ACF_Branchid { get; set; }
-            public double ACF_Current_Amount { get; set; }
-            public double ACF_Prev_Amount { get; set; }
-            public string ACF_Status { get; set; }
-            public int ACF_Crby { get; set; }
-            public int ACF_Updatedby { get; set; }
-            public int ACF_Compid { get; set; }
-            public string ACF_Ipaddress { get; set; }
-            public int ACF_Catagary { get; set; }
-            public int ACF_yearid { get; set; }
-            public bool IsDeleted { get; internal set; }
-        }
-
-        //SaveCashFlow(Category2)
-        public class CashFlowCategory2
-        {
-            public int ACF_pkid { get; set; }
-            public string ACF_Description { get; set; }
-            public int ACF_Custid { get; set; }
-            public int ACF_Branchid { get; set; }
-            public double ACF_Current_Amount { get; set; }
-            public double ACF_Prev_Amount { get; set; }
-            public string ACF_Status { get; set; }
-            public int ACF_Crby { get; set; }
-            public int ACF_Updatedby { get; set; }
-            public int ACF_Compid { get; set; }
-            public string ACF_Ipaddress { get; set; }
-            public int ACF_Catagary { get; set; }
-            public int ACF_yearid { get; set; }
-            public bool IsDeleted { get; internal set; }
-        }
-
-        //SaveCashFlow(Category5)
-        public class CashFlowCategory5
-        {
-            public int ACF_pkid { get; set; }
-            public string ACF_Description { get; set; }
-            public int ACF_Custid { get; set; }
-            public int ACF_Branchid { get; set; }
-            public double ACF_Current_Amount { get; set; }
-            public double ACF_Prev_Amount { get; set; }
-            public string ACF_Status { get; set; }
-            public int ACF_Crby { get; set; }
-            public int ACF_Updatedby { get; set; }
-            public int ACF_Compid { get; set; }
-            public string ACF_Ipaddress { get; set; }
-            public int ACF_Catagary { get; set; }
-            public int ACF_yearid { get; set; }
-            public bool IsDeleted { get; internal set; }
-        }
     }
 }
+

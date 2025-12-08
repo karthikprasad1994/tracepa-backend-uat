@@ -43,7 +43,7 @@ namespace TracePca.Service.FIN_statement
 
             // Step 2: Get all related ATBUD IDs
             var transIds = (await connection.QueryAsync<int>(
-                @"SELECT atbud_id 
+                @"SELECT atbud_masid 
           FROM Acc_TrailBalance_Upload_Details 
           WHERE ATBUD_Subheading = @subHeadingId 
             AND ATBUD_YearId = @Yearid",
@@ -113,7 +113,7 @@ ORDER BY AJTB_Deschead;";
 
             // Step 2: Get all related ATBUD IDs
             var transIds = (await connection.QueryAsync<int>(
-                @"SELECT atbud_id 
+                @"SELECT atbud_masid 
           FROM Acc_TrailBalance_Upload_Details 
           WHERE ATBUD_Subheading = @subHeadingId 
             AND ATBUD_YearId = @Yearid",
