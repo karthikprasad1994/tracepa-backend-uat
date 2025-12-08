@@ -25,6 +25,8 @@
         {
             public int AJTB_ID { get; set; }
             public string AJTB_DescName { get; set; }
+            public string AJTB_TranscNo { get; set; }
+            public string AJTB_CreatedOn { get; set; }
             public decimal AJTB_Debit { get; set; }
             public decimal AJTB_Credit { get; set; }
             public string ATBU_Description { get; set; }

@@ -122,6 +122,8 @@ namespace TracePca.Service.FIN_statement
         SELECT 
             JED.AJTB_ID,
             JED.AJTB_DescName,
+            JED.AJTB_TranscNo,
+            JED.AJTB_CreatedOn,
             JED.AJTB_Debit,
             JED.AJTB_Credit,
             TBU.ATBU_Description,
