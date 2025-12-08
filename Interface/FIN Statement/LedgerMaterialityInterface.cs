@@ -1,5 +1,6 @@
 ﻿using System.Threading.Tasks;
 using TracePca.Service.FIN_statement;
+using static TracePca.Dto.FIN_Statement.LedgerDifferenceDto;
 using static TracePca.Dto.FIN_Statement.LedgerMaterialityDto;
 
 namespace TracePca.Interface.FIN_Statement
@@ -23,5 +24,6 @@ namespace TracePca.Interface.FIN_Statement
 
         //LoadDescription
         Task<IEnumerable<LoadDescriptionDto>> LoadDescriptionAsync(int compId, string category);
+        Task<IEnumerable<DescriptionDetailsDto>> GetMaterialityBasisAsync(int compId, int custId, int branchId, int yearId, int typeId);
     }
 }
