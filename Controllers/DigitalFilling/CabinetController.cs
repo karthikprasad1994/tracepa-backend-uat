@@ -56,49 +56,73 @@ namespace TracePca.Controllers.DigitalFilling
 		[HttpGet("LoadCabinet")]
 		public async Task<IActionResult> LoadCabinet(int compID)
 		{
-			var dropdownData = await _CabinetInterface.LoadCabinetAsync(compID);
+			try
+			{
+                var dropdownData = await _CabinetInterface.LoadCabinetAsync(compID);
 
-			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
-			{
-				return Ok(new
-				{
-					statusCode = 200,
-					message = "Cabinet loaded successfully.",
-					data = dropdownData  // Return the actual data
-				});
-			}
-			else
-			{
-				return NotFound(new
-				{
-					statusCode = 404,
-					message = "No data found for the given criteria."
-				});
-			}
+                if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+                {
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "Cabinet loaded successfully.",
+                        data = dropdownData  // Return the actual data
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No data found for the given criteria."
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An unexpected error occurred while loading cabinet data.",
+                    details = ex.Message   
+                });
+            } 
 		}
 
 		[HttpGet("LoadDescriptor")]
 		public async Task<IActionResult> LoadDescriptor(int iDescId, int compID)
 		{
-			var dropdownData = await _CabinetInterface.LoadDescriptorAsync(iDescId, compID);
+			try
+			{
+                var dropdownData = await _CabinetInterface.LoadDescriptorAsync(iDescId, compID);
 
-			if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
-			{
-				return Ok(new
-				{
-					statusCode = 200,
-					message = "Descriptor loaded successfully.",
-					data = dropdownData  // Return the actual data
-				});
-			}
-			else
-			{
-				return NotFound(new
-				{
-					statusCode = 404,
-					message = "No data found for the given criteria."
-				});
-			}
+                if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+                {
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "Descriptor loaded successfully.",
+                        data = dropdownData  // Return the actual data
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No data found for the given criteria."
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An unexpected error occurred while loading cabinet data.",
+                    details = ex.Message
+                });
+            }
 		}
 
 		[HttpPost("LoadDocumentType")]
