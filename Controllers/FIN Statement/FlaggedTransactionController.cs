@@ -39,7 +39,7 @@ namespace TracePca.Controllers.FIN_Statement
                     {
                         statusCode = 404,
                         message = "No difference amount status found.",
-                        data = (object)null
+                        data = Array.Empty<object>()
                     });
                 }
 
@@ -75,7 +75,7 @@ namespace TracePca.Controllers.FIN_Statement
                     {
                         statusCode = 404,
                         message = "No abnormal entries found.",
-                        data = (object)null
+                        data = Array.Empty<object>()
                     });
                 }
 
@@ -111,7 +111,7 @@ namespace TracePca.Controllers.FIN_Statement
                     {
                         statusCode = 404,
                         message = "No selected parties found.",
-                        data = (object)null
+                        data = Array.Empty<object>()
                     });
                 }
 
@@ -147,7 +147,7 @@ namespace TracePca.Controllers.FIN_Statement
                     {
                         statusCode = 404,
                         message = "No System Sampling found.",
-                        data = (object)null
+                        data = Array.Empty<object>()
                     });
                 }
 
@@ -183,7 +183,7 @@ namespace TracePca.Controllers.FIN_Statement
                     {
                         statusCode = 404,
                         message = "No Statified Samping found.",
-                        data = (object)null
+                        data = Array.Empty<object>()
                     });
                 }
 
