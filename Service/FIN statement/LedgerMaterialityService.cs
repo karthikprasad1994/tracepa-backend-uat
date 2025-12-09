@@ -337,7 +337,7 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
                 using var tran = connection.BeginTransaction();
                 {
                     string sql = string.Empty;
-                    if (typeId == 1)
+                    if (typeId == 1)    // 1. Profit before tax
                     {
                         int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
                         int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
@@ -351,86 +351,45 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
 
                     
                     }
-                    else if (typeId == 2)
+                    else if (typeId == 2)   // 2.Revenue from operation
                     {
-                        sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
-                      abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
-                      abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
-                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
-                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
-                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
-                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
-sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
-sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb,
-                       d.ATBU_STATUS as Status
-                  From Acc_TrailBalance_Upload_Details
-                      Left Join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
-                          And d.ATBU_YEARId=@YearId And d.ATBU_CustId=@CustId 
-                          And ATBUD_YEARId=@YearId And d.ATBU_Branchid=Atbud_Branchnameid  
-                          And d.Atbu_Branchid=@BranchId
-                      Left Join Acc_TrailBalance_Upload e on e.ATBU_Description = ATBUD_Description 
-                          And e.ATBU_YEARId=@PrevYearId And e.ATBU_CustId=@CustId
-                          And ATBUD_YEARId=@YearId And e.ATBU_Branchid=Atbud_Branchnameid  
-                          And e.Atbu_Branchid=@BranchId
-                  WHERE ATBUD_CustId = @CustId
-                        AND Atbud_Branchnameid = @BranchId
-                        AND atbud_yearid = @YearId
-                        AND ATBUD_Subheading = @iPkId
-                  GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS";
+                        int headId = await GetHeadingId(connection, tran, custId, "I Revenue from operations");
+                       
+                        var dtDetails = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+                 
+                        decimal profitCur = dtDetails.Dc1 - dtDetails.Dc1;                     
                     }
-                    else if (typeId == 3)
+                    else if (typeId == 3)  //   3.Total asset
                     {
-                        sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
-                      abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
-                      abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
-                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
-                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
-                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
-                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
-sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
-sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb,
-                       d.ATBU_STATUS as Status
-                  From Acc_TrailBalance_Upload_Details
-                      Left Join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
-                          And d.ATBU_YEARId=@YearId And d.ATBU_CustId=@CustId 
-                          And ATBUD_YEARId=@YearId And d.ATBU_Branchid=Atbud_Branchnameid  
-                          And d.Atbu_Branchid=@BranchId
-                      Left Join Acc_TrailBalance_Upload e on e.ATBU_Description = ATBUD_Description 
-                          And e.ATBU_YEARId=@PrevYearId And e.ATBU_CustId=@CustId
-                          And ATBUD_YEARId=@YearId And e.ATBU_Branchid=Atbud_Branchnameid  
-                          And e.Atbu_Branchid=@BranchId
-                  WHERE ATBUD_CustId = @CustId
-                        AND Atbud_Branchnameid = @BranchId
-                        AND atbud_yearid = @YearId
-                        AND ATBUD_itemid = @iPkId
-                  GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS";
+                        int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+                        int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+                        var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+                        var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
+
+                        decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
+                        decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
                     }
-                    else if (typeId == 4)
+                    else if (typeId == 4)  //4.Total expenses
                     {
-                        sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
-                      abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
-                      abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
-                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
-                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
-                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
-                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
-sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
-sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb,
-                       d.ATBU_STATUS as Status
-                  From Acc_TrailBalance_Upload_Details
-                      Left Join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
-                          And d.ATBU_YEARId=@YearId And d.ATBU_CustId=@CustId 
-                          And ATBUD_YEARId=@YearId And d.ATBU_Branchid=Atbud_Branchnameid  
-                          And d.Atbu_Branchid=@BranchId
-                      Left Join Acc_TrailBalance_Upload e on e.ATBU_Description = ATBUD_Description 
-                          And e.ATBU_YEARId=@PrevYearId And e.ATBU_CustId=@CustId
-                          And ATBUD_YEARId=@YearId And e.ATBU_Branchid=Atbud_Branchnameid  
-                          And e.Atbu_Branchid=@BranchId
-                  WHERE ATBUD_CustId = @CustId
-                        AND Atbud_Branchnameid = @BranchId
-                        AND atbud_yearid = @YearId
-                        AND ATBUD_SubItemId = @iPkId
-                  GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS ";
+                        int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+                        int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+
+                        var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+                        var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
+
+                        decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
+                        decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
+                    }
+                    else if (typeId == 5) //5.Networth(Equity shares)
+                    {
+                        int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+                        int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+
+                        var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+                        var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
+
+                        decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
+                        decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
                     }
                     var result = await connection.QueryAsync<DescriptionDetailsDto>(sql, new
                     {
@@ -441,16 +400,7 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
                     });
                     return result;
 
-                    //result.Ratios.Add(new ScheduleAccountingRatioDto.RatioDto
-                    //{
-                    //    Sr_No = 1,
-                    //    RatioName = ratioNames[0],
-                    //    Numerator = numerators[0],
-                    //    Denominator = denominators[0],
-                    //    CurrentReportingPeriod = Decimal.Round(cur, 4),
-                    //    PreviousReportingPeriod = Decimal.Round(prev, 4),
-                    //    Change = Decimal.Round(cur - prev, 4)
-                    //});
+                  
                 }
             }
         }
