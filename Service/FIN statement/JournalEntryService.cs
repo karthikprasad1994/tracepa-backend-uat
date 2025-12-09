@@ -160,7 +160,6 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
         SELECT Acc_JE_TransactionNo, Acc_JE_ID
         FROM Acc_JE_Master
         WHERE Acc_JE_CompID = @CompId
-          AND Acc_JE_Status <> 'D'
           AND Acc_JE_YearID = @YearId
           AND Acc_JE_Party = @PartyId";
 
