@@ -61,7 +61,7 @@ namespace TracePca.Service.DigitalFilling
 
             _isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
 
-            string localPath = @"D:\Projects\Gitlab\TraceAPI - Backend Code\tracepa-dotnet-core\client_secret_desktop.json";
+            string localPath = @"\\MMCS-SERVER19\EMP_Backup\Googledrivetoken\client_secret_desktop.json";
             string cloudPath = @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\GoogleDrive\client_secret.json";
             _credentialsPath = _isDevelopment ? localPath : cloudPath;
 

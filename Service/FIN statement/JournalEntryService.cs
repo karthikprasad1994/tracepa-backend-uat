@@ -32,21 +32,21 @@ namespace TracePca.Service.FIN_statement
 
         //GetJournalEntryInformation
         public async Task<IEnumerable<JournalEntryInformationDto>> GetJournalEntryInformationAsync(
-             int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId)
+         int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId)
         {
-            // ✅ Step 1: Get DB name from session
+            // Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
+            // Get connection string dynamically
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
+            // Status filter mapping
             var statusFilter = Status switch
             {
                 "0" => "A",
@@ -55,79 +55,48 @@ namespace TracePca.Service.FIN_statement
                 _ => null
             };
 
-            var sql = new StringBuilder();
-            sql.Append(@"
+            // SINGLE optimized SQL query (master + detail + grouping)
+            var sql = @"
         SELECT 
-            Acc_JE_ID AS Id,
-            Acc_JE_TransactionNo AS TransactionNo,
-            acc_JE_BranchId AS BranchID,
+            M.Acc_JE_ID AS Id,
+            M.Acc_JE_TransactionNo AS TransactionNo,
+            M.acc_JE_BranchId AS BranchID,
             '' AS BillNo,
-            FORMAT(Acc_JE_BillDate, @dateFormat) AS BillDate,
-            a.cmm_Desc as BillType,
-            Acc_JE_Party AS PartyID,
-            Acc_JE_Status AS Status,
-Acc_JE_Comnments as comments,acc_JE_QuarterId
-        FROM Acc_JE_Master left join content_management_master a on a.cmm_ID = Acc_JE_BillType WHERE Acc_JE_Party = @custId 
-            AND Acc_JE_CompID = @compId 
-            AND Acc_JE_YearId = @yearId");
-
-            if (!string.IsNullOrEmpty(statusFilter))
-                sql.Append(" AND Acc_JE_Status = @statusFilter");
-
-            if (BranchId != 0)
-                sql.Append(" AND acc_je_BranchID = @branchId");
-
-            if (DurationId != 0)
-                sql.Append(" AND Acc_JE_QuarterId = @durationId");
-
-            sql.Append(" ORDER BY Acc_JE_ID ASC");
+            M.Acc_JE_BillDate AS BillDate,
+            A.cmm_Desc AS BillType,
+            M.Acc_JE_Party AS PartyID,
+            M.Acc_JE_Status AS Status,
+            M.Acc_JE_Comnments AS Comments,
+            M.acc_JE_QuarterId,
+            SUM(D.AJTB_Debit) AS Debit,
+            SUM(D.AJTB_Credit) AS Credit,
+            STRING_AGG(CASE WHEN D.AJTB_Debit > 0 THEN D.AJTB_DescName END, ', ') AS DebDescription,
+            STRING_AGG(CASE WHEN D.AJTB_Credit > 0 THEN D.AJTB_DescName END, ', ') AS CredDescription
+        FROM Acc_JE_Master M
+        LEFT JOIN content_management_master A ON A.cmm_ID = M.Acc_JE_BillType
+        LEFT JOIN Acc_JETransactions_Details D 
+            ON D.Ajtb_Masid = M.Acc_JE_ID 
+            AND D.AJTB_CustId = @CustId
+        WHERE M.Acc_JE_Party = @CustId
+            AND M.Acc_JE_CompID = @CompId
+            AND M.Acc_JE_YearId = @YearId
+            AND (@statusFilter IS NULL OR M.Acc_JE_Status = @statusFilter)
+            AND (@BranchId = 0 OR M.acc_JE_BranchID = @BranchId)
+            AND (@DurationId = 0 OR M.Acc_JE_QuarterId = @DurationId)
+        GROUP BY 
+            M.Acc_JE_ID, M.Acc_JE_TransactionNo, M.acc_JE_BranchId, 
+            M.Acc_JE_BillDate, A.cmm_Desc, M.Acc_JE_Party, M.Acc_JE_Status,
+            M.Acc_JE_Comnments, M.acc_JE_QuarterId
+        ORDER BY M.Acc_JE_ID ASC";
 
             var entries = (await connection.QueryAsync<JournalEntryInformationDto>(
-                sql.ToString(),
-                new { CompId, CustId, YearId, BranchId, DurationId, statusFilter, DateFormat }
+                sql,
+                new { CompId, CustId, YearId, BranchId, DurationId, statusFilter }
             )).ToList();
 
+            // Map status names
             foreach (var entry in entries)
             {
-                // Get Debit/Credit details
-                var detailQuery = @"
-            SELECT 
-                SUM(AJTB_Debit) AS Debit,
-                SUM(AJTB_Credit) AS Credit,
-                AJTB_DescName,
-                AJTB_Debit AS LineDebit
-            FROM Acc_JETransactions_Details 
-            WHERE Ajtb_Masid = @entryId AND AJTB_CustId = @custId
-            GROUP BY AJTB_DescName, AJTB_Debit";
-
-                var details = await connection.QueryAsync(detailQuery, new { entryId = entry.Id, CustId });
-
-                var debDescriptions = new List<string>();
-                var credDescriptions = new List<string>();
-                decimal totalDebit = 0, totalCredit = 0;
-
-                foreach (var row in details)
-                {
-                    if ((decimal)row.LineDebit != 0)
-                    {
-                        totalDebit += row.Debit ?? 0;
-                        debDescriptions.Add(row.AJTB_DescName);
-                    }
-                    else
-                    {
-                        totalCredit += row.Credit ?? 0;
-                        credDescriptions.Add(row.AJTB_DescName);
-                    }
-                }
-
-                entry.Debit = totalDebit;
-                entry.Credit = totalCredit;
-                entry.DebDescription = string.Join(", ", debDescriptions);
-                entry.CredDescription = string.Join(", ", credDescriptions);
-
-          
-
-                // Map Status
                 entry.Status = entry.Status switch
                 {
                     "W" => "Waiting For Approval",
@@ -139,6 +108,7 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
 
             return entries;
         }
+
 
         //GetExistingJournalVouchers
         public async Task<IEnumerable<JournalEntryVoucherDto>> LoadExistingVoucherNosAsync(int compId, int yearId, int partyId, int branchId)
@@ -160,7 +130,6 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
         SELECT Acc_JE_TransactionNo, Acc_JE_ID
         FROM Acc_JE_Master
         WHERE Acc_JE_CompID = @CompId
-          AND Acc_JE_Status <> 'D'
           AND Acc_JE_YearID = @YearId
           AND Acc_JE_Party = @PartyId";
 
