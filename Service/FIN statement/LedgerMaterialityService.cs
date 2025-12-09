@@ -319,94 +319,169 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
             });
         }
 
-        public async Task<IEnumerable<DescriptionDetailsDto>> GetMaterialityBasisAsync(int compId, int custId, int branchId, int yearId, int typeId)
+        //public async Task<IEnumerable<DescriptionDetailsDto>> GetMaterialityBasisAsync(int compId, int custId, int branchId, int yearId, int typeId)
+        //{
+        //    {
+        //        // ✅ Step 1: Get DB name from session
+        //        string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //        if (string.IsNullOrEmpty(dbName))
+        //            throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //        // ✅ Step 2: Get the connection string
+        //        var connectionString = _configuration.GetConnectionString(dbName);
+
+        //        // ✅ Step 3: Use SqlConnection
+        //        using var connection = new SqlConnection(connectionString);
+        //        await connection.OpenAsync();
+        //        using var tran = connection.BeginTransaction();
+        //        {
+        //            string sql = string.Empty;
+        //            if (typeId == 1)    // 1. Profit before tax
+        //            {
+        //                int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+        //                int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+
+        //                var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+        //                var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
+
+        //                decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
+        //                decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
+
+
+
+        //            }
+        //            else if (typeId == 2)   // 2.Revenue from operation
+        //            {
+        //                int headId = await GetHeadingId(connection, tran, custId, "I Revenue from operations");
+
+        //                var dtDetails = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+
+        //                decimal profitCur = dtDetails.Dc1 - dtDetails.Dc1;                     
+        //            }
+        //            else if (typeId == 3)  //   3.Total asset
+        //            {
+        //                int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+        //                int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+        //                var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+        //                var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
+
+        //                decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
+        //                decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
+        //            }
+        //            else if (typeId == 4)  //4.Total expenses
+        //            {
+        //                int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+        //                int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+
+        //                var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+        //                var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
+
+        //                decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
+        //                decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
+        //            }
+        //            else if (typeId == 5) //5.Networth(Equity shares)
+        //            {
+        //                int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+        //                int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+
+        //                var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+        //                var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
+
+        //                decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
+        //                decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
+        //            }
+        //            var result = await connection.QueryAsync<DescriptionDetailsDto>(sql, new
+        //            {
+        //                CustId = custId,
+        //                BranchId = branchId,
+        //                YearId = yearId,
+        //                PrevYearId = yearId - 1                        
+        //            });
+        //            return result;
+
+
+        //        }
+        //    }
+        //}
+
+        public async Task<MaterialityBasisGridDto> GetMaterialityBasisAsync(int compId, int custId, int branchId, int yearId, int typeId)
         {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var tran = connection.BeginTransaction();
+
+            decimal currentAmt = 0;
+            decimal previousAmt = 0;
+            string typeName = "";
+
+            if (typeId == 1)   // Profit before tax
             {
-                // ✅ Step 1: Get DB name from session
-                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+                typeName = "Profit before tax";
 
-                if (string.IsNullOrEmpty(dbName))
-                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+                int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+                int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
 
-                // ✅ Step 2: Get the connection string
-                var connectionString = _configuration.GetConnectionString(dbName);
+                var income = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+                var expense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
 
-                // ✅ Step 3: Use SqlConnection
-                using var connection = new SqlConnection(connectionString);
-                await connection.OpenAsync();
-                using var tran = connection.BeginTransaction();
-                {
-                    string sql = string.Empty;
-                    if (typeId == 1)    // 1. Profit before tax
-                    {
-                        int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
-                        int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
-
-                        var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
-                        var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
-
-                        decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
-                        decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
-
-
-                    
-                    }
-                    else if (typeId == 2)   // 2.Revenue from operation
-                    {
-                        int headId = await GetHeadingId(connection, tran, custId, "I Revenue from operations");
-                       
-                        var dtDetails = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
-                 
-                        decimal profitCur = dtDetails.Dc1 - dtDetails.Dc1;                     
-                    }
-                    else if (typeId == 3)  //   3.Total asset
-                    {
-                        int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
-                        int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
-                        var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
-                        var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
-
-                        decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
-                        decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
-                    }
-                    else if (typeId == 4)  //4.Total expenses
-                    {
-                        int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
-                        int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
-
-                        var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
-                        var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
-
-                        decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
-                        decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
-                    }
-                    else if (typeId == 5) //5.Networth(Equity shares)
-                    {
-                        int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
-                        int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
-
-                        var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
-                        var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
-
-                        decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
-                        decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
-                    }
-                    var result = await connection.QueryAsync<DescriptionDetailsDto>(sql, new
-                    {
-                        CustId = custId,
-                        BranchId = branchId,
-                        YearId = yearId,
-                        PrevYearId = yearId - 1                        
-                    });
-                    return result;
-
-                  
-                }
+                currentAmt = income.Dc1 - expense.Dc1;
+                previousAmt = income.DP1 - expense.DP1;
             }
+            else if (typeId == 2) // Revenue from operation
+            {
+                typeName = "Revenue from operation";
+
+                int headId = await GetHeadingId(connection, tran, custId, "I Revenue from operations");
+                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+
+                currentAmt = dt.Dc1;
+                previousAmt = dt.DP1;
+            }
+            else if (typeId == 3) // Total asset
+            {
+                typeName = "Total asset";
+
+                int headId = await GetHeadingId(connection, tran, custId, "Total Assets");
+                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+
+                currentAmt = dt.Dc1;
+                previousAmt = dt.DP1;
+            }
+            else if (typeId == 4) // Total expenses
+            {
+                typeName = "Total expenses";
+
+                int headId = await GetHeadingId(connection, tran, custId, "Expenses");
+                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+
+                currentAmt = dt.Dc1;
+                previousAmt = dt.DP1;
+            }
+            else if (typeId == 5) // Networth (Equity shares)
+            {
+                typeName = "Networth (Equity shares)";
+
+                int headId = await GetHeadingId(connection, tran, custId, "Equity Share Capital");
+                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+
+                currentAmt = dt.Dc1;
+                previousAmt = dt.DP1;
+            }
+            return new MaterialityBasisGridDto
+            {
+                Description = typeName,
+                CurrentYear = currentAmt,
+                PreviousYear = previousAmt
+            };
         }
-
-        #region DB Helper Methods
-
         private async Task<int> GetHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string headName)
         {
             const string sql = @"SELECT ISNULL(ASH_ID,0) FROM ACC_ScheduleHeading WHERE ASH_Name = @HeadName AND ASH_OrgType = @CustId";
@@ -478,7 +553,5 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
             var value = await conn.ExecuteScalarAsync<decimal?>(sql, new { YearId = yearId, CustomerId = customerId, BranchId = branchId }, tran);
             return value ?? 0m;
         }
-
-        #endregion
     }
 }

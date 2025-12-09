@@ -256,15 +256,16 @@ namespace TracePca.Controllers.FIN_Statement
         {
             try
             {
-                var result = await _LedgerMaterialityService.GetMaterialityBasisAsync(compId, custId, branchId, yearId, typeId);
+                var result = await _LedgerMaterialityService.GetMaterialityBasisAsync(
+                    compId, custId, branchId, yearId, typeId);
 
-                if (result == null || !result.Any())
+                if (result == null)
                 {
                     return NotFound(new
                     {
                         status = 404,
                         message = "No content found for the given parameters.",
-                        data = new List<ContentManagementDto>()
+                        data = (MaterialityBasisGridDto?)null
                     });
                 }
 
@@ -285,7 +286,6 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
-
     }
 }
 
