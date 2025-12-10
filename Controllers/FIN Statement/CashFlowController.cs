@@ -133,129 +133,42 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //SaveCashFlow(Category 1)
-        //[HttpGet("GetMandatoryCashflow")]
-        //public async Task<IActionResult> GetMandatoryCashflow(int yearId = 0, int customerId = 0, int branchId = 0)
-        //{
-        //    try
-        //    {
-        //        var (hasCashflow, particulars) = await _CashFlowService.GetMandatoryCashflowInMemoryAsync(yearId, customerId, branchId);
-
-        //        if (!hasCashflow)
-        //        {
-        //            return Ok(new
-        //            {
-        //                StatusCode = 200,
-        //                Message = "No cashflow data found for the specified customer/year.",
-        //                Data = new
-        //                {
-        //                    HasCashflow = false,
-        //                    Particulars = Array.Empty<object>()
-        //                }
-        //            });
-        //        }
-
-        //        // Map/return DTOs directly
-        //        var responseList = particulars.Select(p => new
-        //        {
-        //            p.Description,
-        //            p.IsHeading,
-        //            Amount = p.Amount,
-        //            p.SourceHint,
-        //            p.Note
-        //        }).ToList();
-
-        //        return Ok(new
-        //        {
-        //            StatusCode = 200,
-        //            Message = "Mandatory cashflow particulars fetched successfully.",
-        //            Data = new
-        //            {
-        //                HasCashflow = true,
-        //                Particulars = responseList
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        // Keep consistent with your existing error response shape
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "An error occurred while fetching mandatory cashflow particulars.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
-        //[HttpGet("GetCashFlowCategory1")]
-        //public async Task<IActionResult> GetCashFlowCategory1(int customerId, int yearId, int branchId)
-        //{
-        //    try
-        //    {
-        //        var result = await _CashFlowService.LoadCashFlowCategory1Async(customerId, yearId, branchId);
-
-        //        if (result == null)
-        //        {
-        //            return NotFound(new
-        //            {
-        //                StatusCode = 404,
-        //                Message = $"No cash flow records found for Customer '{customerId}', Year '{yearId}', Branch '{branchId}'.",
-        //                Data = (object)null
-        //            });
-        //        }
-
-        //        return Ok(new
-        //        {
-        //            StatusCode = 200,
-        //            Message = "Cash flow (Category 1) fetched successfully.",
-        //            Data = result
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "An error occurred while fetching Category 1 cash flow records.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
-        //[HttpGet("GetCashFlowCategory1")]
-        //public async Task<IActionResult> GetCashFlowCategory1(
-        //    [FromQuery] int customerId,
-        //    [FromQuery] int yearId,
-        //    [FromQuery] int branchId,
-        //    [FromBody] List<UserAdjustmentInput>? userAdjustments = null)
-        //{
-        //    try
-        //    {
-        //        var result = await _CashFlowService.LoadCashFlowCategory1Async(customerId, yearId, branchId, userAdjustments);
-
-        //        if (result == null || result.Particular == null || !result.Particular.Any())
-        //        {
-        //            return NotFound(new
-        //            {
-        //                StatusCode = 404,
-        //                Message = $"No cash flow records found for Customer '{customerId}', Year '{yearId}', Branch '{branchId}'.",
-        //                Data = (object)null
-        //            });
-        //        }
-        //        return Ok(new
-        //        {
-        //            StatusCode = 200,
-        //            Message = "Cash flow (Category 1) fetched successfully.",
-        //            Data = result
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "An error occurred while fetching Category 1 cash flow records.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
+        [HttpPost("GetCashFlowCategory1")]
+        public async Task<IActionResult> GetCashFlowCategory1(
+              [FromQuery] int compId,
+              [FromQuery] int custId,
+              [FromQuery] int yearId,
+              [FromQuery] int branchId,
+              [FromBody] List<UserAdjustmentInput>? userAdjustments)
+        {
+            try
+            {
+                var result = await _CashFlowService.LoadCashFlowCategory1Async(custId, yearId, branchId, userAdjustments);
+                if (custId == 0 || yearId == 0)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Invalid request. Please provide valid custId and yearId.",
+                        Data = (object)null
+                    });
+                }
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "Cash flow (Category 1) fetched successfully.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching Category 1 cash flow records.",
+                    Error = ex.Message
+                });
+            }
+        }
     }
 }

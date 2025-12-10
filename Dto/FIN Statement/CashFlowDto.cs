@@ -32,81 +32,22 @@
         }
 
         //SaveCashFlow(Category 1)
-        //public class CashflowParticularDto
-        //{
-        //    public string Description { get; set; }         
-        //    public bool IsHeading { get; set; }              
-        //    public decimal Amount { get; set; }            
-        //    public string SourceHint { get; set; }           
-        //    public string Note { get; set; }                 
-        //}
-        //public class CashflowMandatoryResponseDto
-        //{
-        //    public bool HasCashflow { get; set; }                     
-        //    public List<CashflowParticularDto> Particulars { get; set; } = new();
-        //}
-        //public class HeadingAmountDto
-        //{
-        //    public decimal Dc1 { get; set; } = 0m;       
-        //    public decimal DP1 { get; set; } = 0m;       
-        //}
-
-        //public class CashFlowCategory1Result
-        //{
-        //    public List<CashFlowParticularDto> Particular { get; set; } = new List<CashFlowParticularDto>();
-        //    public Dictionary<string, object> Diagnostics { get; set; } = new Dictionary<string, object>();
-        //}
-        //public class CashFlowParticularDto
-        //{
-        //    public int Sr_No { get; set; }
-        //    public string ParticularName { get; set; }
-        //    public decimal CurrentYear { get; set; }
-        //    public decimal PreviousYear { get; set; }
-        //}
-        //public class HeadingAmount
-        //{
-        //    public decimal Dc1 { get; set; }
-        //    public decimal DP1 { get; set; }
-        //}
-        //public class AmountDto
-        //{
-        //    public decimal Dc1 { get; set; }
-        //    public decimal DP1 { get; set; }
-        //}
-
-        //public class CashFlowCategory1Result
-        //{
-        //    public List<CashFlowParticularDto> Particular { get; set; } = new List<CashFlowParticularDto>();
-        //}
-        //public class CashFlowParticularDto
-        //{
-        //    public int Sr_No { get; set; }
-        //    public string ParticularName { get; set; } = string.Empty;
-        //    public decimal CurrentYear { get; set; }
-        //    public decimal PreviousYear { get; set; }
-        //}
+        public class CashFlowParticularDto
+        {
+            public int Sr_No { get; set; }
+            public string ParticularName { get; set; } = string.Empty;
+            public decimal CurrentYear { get; set; } = 0m;
+            public decimal PreviousYear { get; set; } = 0m;
+        }
+        public class CashFlowCategory1Result
+        {
+            public List<CashFlowParticularDto> Particular { get; set; } = new List<CashFlowParticularDto>();
+        }
         public class UserAdjustmentInput
         {
             public string Description { get; set; } = string.Empty;
-            public decimal CurrentYear { get; set; }
-            public decimal PreviousYear { get; set; }
-        }
-        //public class HeadingAmount
-        //{
-        //    public decimal Dc1 { get; set; }
-        //    public decimal DP1 { get; set; }
-        //}
-        //public class AmountDto
-        //{
-        //    public decimal Dc1 { get; set; }
-        //    public decimal DP1 { get; set; }
-        //}
-        public class CashFlowCategory1Request
-        {
-            public int CustomerId { get; set; }
-            public int YearId { get; set; }
-            public int BranchId { get; set; }
-            public List<UserAdjustmentInput>? UserAdjustments { get; set; }
+            public decimal CurrentYear { get; set; } = 0m;
+            public decimal PreviousYear { get; set; } = 0m;
         }
     }
 }

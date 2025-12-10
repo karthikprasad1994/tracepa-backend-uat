@@ -574,408 +574,270 @@ namespace TracePca.Service.FIN_statement
         //    }
 
 
-        //public async Task<CashFlowCategory1Result> LoadCashFlowCategory1Async(int customerId, int yearId, int branchId)
-        //{
-        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-        //    if (string.IsNullOrEmpty(dbName))
-        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-        //    string connectionString = _configuration.GetConnectionString(dbName);
-        //    if (string.IsNullOrEmpty(connectionString))
-        //        throw new Exception($"Connection string for '{dbName}' not found.");
-
-        //    using var connection = new SqlConnection(connectionString);
-        //    await connection.OpenAsync();
-        //    using var transaction = connection.BeginTransaction();
-
-        //    try
-        //    {
-        //        var result = new CashFlowCategory1Result();
-        //        result.Particular = new List<CashFlowParticularDto>();
-
-        //        // labels (your 'Particular' array)
-        //        string[] Particular =
-        //        {
-        //            "A.Cash flow from operating activities",
-        //            "Net Profit / (Loss) before extraordinary items and tax",
-        //            "Adjustment for:",
-        //            "Depreciation and amortisation",
-        //            "Provision for impairment of fixed assets and intangibles",
-        //            "Bad Debts",
-        //            "Expense on employee stock option scheme",
-        //            "Finance Costs",
-        //            "Interest income",
-        //            "Total Adjustment",
-        //            "Operating profit / (loss) before working capital changes"
-        //        };
-        //        decimal SafeDiv(decimal num, decimal den) => den == 0 ? 0m : num / den;
-
-        //        result.Particular.Add(new CashFlowParticularDto
-        //        {
-        //            Sr_No = 1,
-        //            ParticularName = Particular[0],
-        //        });
-
-        //        //Net Profit / (Loss) before extraordinary items and tax
-        //        {
-        //            int headingIdCY = await GetHeadingId(connection, transaction, customerId, "Income");
-        //            int headingIdPY = await GetHeadingId(connection, transaction, customerId, "Expenses");
-
-        //            var ca = await GetHeadingAmt1(connection, transaction, yearId, customerId, 3, headingIdCY);
-        //            var cl = await GetHeadingAmt1(connection, transaction, yearId, customerId, 3, headingIdPY);
-
-        //            // Defensive conversion to decimals (handle nulls)
-        //            decimal caDc1 = ca?.Dc1 ?? 0m;
-        //            decimal caDp1 = ca?.DP1 ?? 0m;
-        //            decimal clDc1 = cl?.Dc1 ?? 0m;
-        //            decimal clDp1 = cl?.DP1 ?? 0m;
-
-        //            decimal cur = caDc1 - clDc1;
-        //            decimal prev = caDp1 - clDp1;
-
-        //            // Add a result row (ensure the DTO type matches your project)
-        //            result.Particular.Add(new CashFlowParticularDto
-        //            {
-        //                Sr_No = 2,
-        //                ParticularName = Particular[1],
-        //                CurrentYear = Decimal.Round(cur, 3),
-        //                PreviousYear = Decimal.Round(prev, 3)
-        //            });
-        //        }
-
-        //        //Finance costs
-        //        {
-        //            decimal subheadingIdCY = await GetPandLFinalAmt(connection, transaction, yearId, customerId, branchId);
-        //            decimal subheadingIdPY = await GetPandLFinalAmt(connection, transaction, yearId - 1, customerId, branchId);
-
-        //            int headingShareId = await GetSubHeadingId(connection, transaction, customerId, "Finance coasts");
-        //            var curShare = await GetSubHeadingAmt1(connection, transaction, yearId, customerId, 3, headingShareId);
-        //            var prevShare = await GetSubHeadingAmt1(connection, transaction, yearId - 1, customerId, 3, headingShareId);
-
-        //            // approximate average shareholder funds (current)
-        //            decimal caDc1 = curShare?.Dc1 ?? 0m;
-        //            decimal caDp1 = curShare?.DP1 ?? 0m;
-        //            decimal clDc1 = prevShare?.Dc1 ?? 0m;
-        //            decimal clDp1 = prevShare?.DP1 ?? 0m;
-
-        //            decimal cur = caDc1 - clDc1;
-        //            decimal prev = caDp1 - clDp1;
-
-        //            // Add a result row (ensure the DTO type matches your project)
-        //            result.Particular.Add(new CashFlowParticularDto
-        //            {
-        //                Sr_No = 8,
-        //                ParticularName = Particular[7],
-        //                CurrentYear = Decimal.Round(cur, 3),
-        //                PreviousYear = Decimal.Round(prev, 3)
-        //            });
-        //        }
-        //        transaction.Commit();
-        //        return result;
-
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        try { transaction.Rollback(); } catch { }
-
-        //        throw;
-        //    }
-        //}
 
 
 
+        public async Task<CashFlowCategory1Result> LoadCashFlowCategory1Async(
+    int customerId, int yearId, int branchId, List<UserAdjustmentInput>? userAdjustments)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-    //    public async Task<CashFlowCategory1Result> LoadCashFlowCategory1Async(
-    //int customerId, int yearId, int branchId, List<UserAdjustmentInput>? userAdjustments)
-    //    {
-    //        string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-    //        if (string.IsNullOrEmpty(dbName))
-    //            throw new Exception("CustomerCode is missing in session. Please log in again.");
+            string connectionString = _configuration.GetConnectionString(dbName)
+                ?? throw new Exception($"Connection string for '{dbName}' not found.");
 
-    //        string connectionString = _configuration.GetConnectionString(dbName)
-    //            ?? throw new Exception($"Connection string for '{dbName}' not found.");
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var tran = connection.BeginTransaction();
 
-    //        using var connection = new SqlConnection(connectionString);
-    //        await connection.OpenAsync();
-    //        using var tran = connection.BeginTransaction();
+            try
+            {
+                var result = new CashFlowCategory1Result
+                {
+                    Particular = new List<CashFlowParticularDto>()
+                };
 
-    //        try
-    //        {
-    //            var result = new CashFlowCategory1Result
-    //            {
-    //                Particular = new List<CashFlowParticularDto>()
-    //            };
+                // Mandatory rows labels (kept same order)
+                string[] labels =
+                {
+            "A. Cash flow from operating activities",
+            "Net Profit / (Loss) before extraordinary items and tax",
+            "Adjustment for:",
+            "Depreciation and amortisation",
+            "Provision for impairment of fixed assets and intangibles",
+            "Bad Debts",
+            "Expense on employee stock option scheme",
+            "Finance Costs",
+            "Interest income",
+            "Total Adjustment",
+            "Operating profit / (loss) before working capital changes"
+        };
 
-    //            // Mandatory rows
-    //            string[] labels =
-    //            {
-    //                "A. Cash flow from operating activities",
-    //                "Net Profit / (Loss) before extraordinary items and tax",
-    //                "Adjustment for:",
-    //                "Depreciation and amortisation",
-    //                "Provision for impairment of fixed assets and intangibles",
-    //                "Bad Debts",
-    //                "Expense on employee stock option scheme",
-    //                "Finance Costs",
-    //                "Interest income",
-    //                "Total Adjustment",
-    //                "Operating profit / (loss) before working capital changes"
-    //    };
+                // safe conversion for nullable decimals
+                decimal Safe(decimal? v) => v ?? 0m;
 
-    //            decimal Safe(decimal? v) => v ?? 0;
+                // A. heading
+                result.Particular.Add(new CashFlowParticularDto
+                {
+                    Sr_No = 1,
+                    ParticularName = labels[0]
+                });
 
-    //            //A. Cash flow from operating activities
-    //            result.Particular.Add(new CashFlowParticularDto
-    //            {
-    //                Sr_No = 1,
-    //                ParticularName = labels[0]
-    //            });
-    //            // 2. Net Profit = Income – Expenses
-    //            {
-    //                int headIncomeId = await GetHeadingId(connection, tran, customerId, "Income");
-    //                int headExpenseId = await GetHeadingId(connection, tran, customerId, "Expenses");
+                // 2. Net Profit = Income - Expenses (use GetHeadingAmt which returns HeadingAmount)
+                {
+                    int headIncomeId = await GetHeadingId(connection, tran, customerId, "Income");
+                    int headExpenseId = await GetHeadingId(connection, tran, customerId, "Expenses");
 
-    //                var income = await GetHeadingAmt1(connection, tran, yearId, customerId, 3, headIncomeId);
-    //                var expense = await GetHeadingAmt1(connection, tran, yearId, customerId, 3, headExpenseId);
+                    // call helpers that accept transaction (matching the code you pasted previously)
+                    var income = await GetHeadingAmt(connection, tran, yearId, customerId, 3, headIncomeId);
+                    var expense = await GetHeadingAmt(connection, tran, yearId, customerId, 3, headExpenseId);
 
-    //                decimal cy = Safe(income?.Dc1) - Safe(expense?.Dc1);
-    //                decimal py = Safe(income?.DP1) - Safe(expense?.DP1);
+                    // your helper returns ScheduleAccountingRatioDto.HeadingAmount with Dc1/DP1
+                    decimal cy = Safe(income.Dc1) - Safe(expense.Dc1);
+                    decimal py = Safe(income.DP1) - Safe(expense.DP1);
 
-    //                result.Particular.Add(new CashFlowParticularDto
-    //                {
-    //                    Sr_No = 2,
-    //                    ParticularName = labels[1],
-    //                    CurrentYear = cy,
-    //                    PreviousYear = py
-    //                });
-    //            }
-    //            // 3. LABEL: Adjustment for
-    //            result.Particular.Add(new CashFlowParticularDto
-    //            {
-    //                Sr_No = 3,
-    //                ParticularName = labels[2]
-    //            });
+                    result.Particular.Add(new CashFlowParticularDto
+                    {
+                        Sr_No = 2,
+                        ParticularName = labels[1],
+                        CurrentYear = cy,
+                        PreviousYear = py
+                    });
+                }
 
-    //            decimal totalAdjustmentCY = 0;
-    //            decimal totalAdjustmentPY = 0;
+                // 3. Adjustment heading
+                result.Particular.Add(new CashFlowParticularDto
+                {
+                    Sr_No = 3,
+                    ParticularName = labels[2]
+                });
 
-    //            // Helper to add any adjustment row
-    //            async Task AddAdjRow(int sr, string label, Func<Task<(decimal cy, decimal py)>> fetcher)
-    //            {
-    //                var (cy, py) = await fetcher();
-    //                totalAdjustmentCY += cy;
-    //                totalAdjustmentPY += py;
+                decimal totalAdjustmentCY = 0m;
+                decimal totalAdjustmentPY = 0m;
+                int srNo = 4;
 
-    //                result.Particular.Add(new CashFlowParticularDto
-    //                {
-    //                    Sr_No = sr,
-    //                    ParticularName = label,
-    //                    CurrentYear = cy,
-    //                    PreviousYear = py
-    //                });
-    //            }
-    //            // 4. Depreciation
-    //            await AddAdjRow(4, labels[3], async () =>
-    //            {
-    //                int id = await GetHeadingId(connection, tran, customerId, "Depreciation and amortisation");
-    //                var dt = await GetHeadingAmt1(connection, tran, yearId, customerId, 3, id);
-    //                return (Safe(dt?.Dc1), Safe(dt?.DP1));
-    //            });
+                // Helper local function to add adjustment rows and accumulate totals
+                async Task AddAdjRow(int sr, string label, Func<Task<(decimal cy, decimal py)>> fetcher)
+                {
+                    var (cy, py) = await fetcher();
+                    totalAdjustmentCY += cy;
+                    totalAdjustmentPY += py;
 
-    //            // 5. Provision impairment
-    //            await AddAdjRow(5, labels[4], async () =>
-    //            {
-    //                int id = await GetHeadingId(connection, tran, customerId, "Provision for impairment of fixed assets and intangibles");
-    //                var dt = await GetHeadingAmt1(connection, tran, yearId, customerId, 3, id);
-    //                return (Safe(dt?.Dc1), Safe(dt?.DP1));
-    //            });
-    //            // 6. Bad Debts (optional)
-    //            await AddAdjRow(6, labels[5], async () =>
-    //            {
-    //                int id = await GetHeadingId(connection, tran, customerId, "Bad Debts");
-    //                var dt = await GetHeadingAmt1(connection, tran, yearId, customerId, 3, id);
-    //                return (Safe(dt?.Dc1), Safe(dt?.DP1));
-    //            });
-    //            // 7. ESOP expense (optional)
-    //            await AddAdjRow(7, labels[6], async () =>
-    //            {
-    //                int id = await GetHeadingId(connection, tran, customerId, "Expense on employee stock option scheme");
-    //                var dt = await GetHeadingAmt1(connection, tran, yearId, customerId, 3, id);
-    //                return (Safe(dt?.Dc1), Safe(dt?.DP1));
-    //            });
-    //            // 8. Finance Costs
-    //            await AddAdjRow(8, labels[7], async () =>
-    //            {
-    //                int id = await GetSubHeadingId(connection, tran, customerId, "Finance costs");
-    //                var dt = await GetSubHeadingAmt1(connection, tran, yearId, customerId, 3, id);
-    //                return (Safe(dt?.Dc1), Safe(dt?.DP1));
-    //            });
-    //            // 9. Interest income
-    //            await AddAdjRow(9, labels[8], async () =>
-    //            {
-    //                int id = await GetSubHeadingId(connection, tran, customerId, "Interest income");
-    //                var dt = await GetSubHeadingAmt1(connection, tran, yearId, customerId, 3, id);
-    //                return (Safe(dt?.Dc1), Safe(dt?.DP1));
-    //            });
-    //            // 10. USER-ADDED LINES
-    //            int srNo = 10;
+                    result.Particular.Add(new CashFlowParticularDto
+                    {
+                        Sr_No = sr,
+                        ParticularName = label,
+                        CurrentYear = cy,
+                        PreviousYear = py
+                    });
+                }
 
-    //            if (userAdjustments != null)
-    //            {
-    //                foreach (var ua in userAdjustments)
-    //                {
-    //                    totalAdjustmentCY += ua.CurrentYear;
-    //                    totalAdjustmentPY += ua.PreviousYear;
+                // 4. Depreciation
+                await AddAdjRow(4, labels[3], async () =>
+                {
+                    int id = await GetHeadingId(connection, tran, customerId, "Depreciation and amortisation");
+                    var dt = await GetHeadingAmt(connection, tran, yearId, customerId, 3, id);
+                    return (Safe(dt.Dc1), Safe(dt.DP1));
+                });
 
-    //                    result.Particular.Add(new CashFlowParticularDto
-    //                    {
-    //                        Sr_No = srNo++,
-    //                        ParticularName = ua.Description,
-    //                        CurrentYear = ua.CurrentYear,
-    //                        PreviousYear = ua.PreviousYear
-    //                    });
-    //                }
-    //            }
-    //            // Total Adjustment
-    //            result.Particular.Add(new CashFlowParticularDto
-    //            {
-    //                Sr_No = srNo++,
-    //                ParticularName = labels[9],
-    //                CurrentYear = totalAdjustmentCY,
-    //                PreviousYear = totalAdjustmentPY
-    //            });
-    //            // 11. Operating profit before working capital changes
-    //            var netProfit = result.Particular.First(p => p.Sr_No == 2);
+                // 5. Provision for impairment
+                await AddAdjRow(5, labels[4], async () =>
+                {
+                    int id = await GetHeadingId(connection, tran, customerId, "Provision for impairment of fixed assets and intangibles");
+                    var dt = await GetHeadingAmt(connection, tran, yearId, customerId, 3, id);
+                    return (Safe(dt.Dc1), Safe(dt.DP1));
+                });
 
-    //            result.Particular.Add(new CashFlowParticularDto
-    //            {
-    //                Sr_No = srNo,
-    //                ParticularName = labels[10],
-    //                CurrentYear = Safe(netProfit.CurrentYear) + totalAdjustmentCY,
-    //                PreviousYear = Safe(netProfit.PreviousYear) + totalAdjustmentPY
-    //            });
+                // 6. Bad Debts
+                await AddAdjRow(6, labels[5], async () =>
+                {
+                    int id = await GetHeadingId(connection, tran, customerId, "Bad Debts");
+                    var dt = await GetHeadingAmt(connection, tran, yearId, customerId, 3, id);
+                    return (Safe(dt.Dc1), Safe(dt.DP1));
+                });
 
-    //            tran.Commit();
-    //            return result;
-    //        }
-    //        catch
-    //        {
-    //            tran.Rollback();
-    //            throw;
-    //        }
-    //    }
-    //    private async Task<int> GetHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string headName)
-    //    {
-    //        const string sql = @"SELECT ISNULL(ASH_ID,0) FROM ACC_ScheduleHeading WHERE ASH_Name = @HeadName AND ASH_OrgType = @CustId";
-    //        return await conn.ExecuteScalarAsync<int>(sql, new { HeadName = headName, CustId = customerId }, tran);
-    //    }
-    //    private async Task<HeadingAmount> GetHeadingAmt1(SqlConnection conn, SqlTransaction tran,
-    //        int yearId, int customerId, int schedType, int headingId)
-    //    {
-    //        if (headingId == 0)
-    //            return new HeadingAmount { Dc1 = 0m, DP1 = 0m };
+                // 7. ESOP expense
+                await AddAdjRow(7, labels[6], async () =>
+                {
+                    int id = await GetHeadingId(connection, tran, customerId, "Expense on employee stock option scheme");
+                    var dt = await GetHeadingAmt(connection, tran, yearId, customerId, 3, id);
+                    return (Safe(dt.Dc1), Safe(dt.DP1));
+                });
 
-    //        const string sql = @"
-    //            SELECT 
-    //                ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) -  ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
-    //                ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) -  ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
-    //            FROM Acc_TrailBalance_Upload_Details
-    //            LEFT JOIN Acc_TrailBalance_Upload d 
-    //                ON d.ATBU_Description = ATBUD_Description 
-    //                   AND d.ATBU_YearId = @YearId 
-    //                   AND d.ATBU_CustId = @CustomerId
-    //            LEFT JOIN Acc_TrailBalance_Upload e 
-    //                ON e.ATBU_Description = ATBUD_Description 
-    //                   AND e.ATBU_YearId = @PrevYear 
-    //                   AND e.ATBU_CustId = @CustomerId
-    //            WHERE ATBUD_Schedule_Type = @SchedType 
-    //              AND ATBUD_CustId = @CustomerId 
-    //              AND ATBUD_HeadingId = @HeadingId;";
+                // 8. Finance costs (example used subheading)
+                await AddAdjRow(8, labels[7], async () =>
+                {
+                    int id = await GetSubHeadingId(connection, tran, customerId, "Finance costs");
+                    var dt = await GetSubHeadingAmt(connection, tran, yearId, customerId, 3, id);
+                    return (Safe(dt.Dc1), Safe(dt.DP1));
+                });
 
-    //        try
-    //        {
-    //            var data = await conn.QueryFirstOrDefaultAsync(sql, new
-    //            {
-    //                YearId = yearId,
-    //                PrevYear = yearId - 1,
-    //                CustomerId = customerId,
-    //                SchedType = schedType,
-    //                HeadingId = headingId
-    //            }, tran);
+                // 9. Interest income (subheading)
+                await AddAdjRow(9, labels[8], async () =>
+                {
+                    int id = await GetSubHeadingId(connection, tran, customerId, "Interest income");
+                    var dt = await GetSubHeadingAmt(connection, tran, yearId, customerId, 3, id);
+                    return (Safe(dt.Dc1), Safe(dt.DP1));
+                });
 
-    //            if (data == null)
-    //            {
-    //                return new HeadingAmount { Dc1 = 0m, DP1 = 0m };
-    //            }
+                // 10. user added adjustments (if any)
+                if (userAdjustments != null && userAdjustments.Any())
+                {
+                    foreach (var ua in userAdjustments)
+                    {
+                        totalAdjustmentCY += ua.CurrentYear;
+                        totalAdjustmentPY += ua.PreviousYear;
 
-    //            // Convert safely
-    //            decimal dc1 = 0m, dp1 = 0m;
-    //            try { dc1 = Convert.ToDecimal(data.Dc1); } catch { dc1 = 0m; }
-    //            try { dp1 = Convert.ToDecimal(data.DP1); } catch { dp1 = 0m; }
+                        result.Particular.Add(new CashFlowParticularDto
+                        {
+                            Sr_No = srNo++,
+                            ParticularName = ua.Description,
+                            CurrentYear = ua.CurrentYear,
+                            PreviousYear = ua.PreviousYear
+                        });
+                    }
+                }
 
-    //            return new HeadingAmount { Dc1 = dc1, DP1 = dp1 };
-    //        }
-    //        catch (Exception ex)
-    //        {
-    //            throw;
-    //        }
-    //    }
-    //    private async Task<int> GetSubHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string subHeadName)
-    //    {
-    //        const string sql = @"
-    //            SELECT ASSH_ID 
-    //            FROM ACC_SchedulesubHeading 
-    //            WHERE ASSH_Name = @SubHeadName AND ASSH_OrgType = @CustId";
+                // Total Adjustment row
+                result.Particular.Add(new CashFlowParticularDto
+                {
+                    Sr_No = srNo++,
+                    ParticularName = labels[9],
+                    CurrentYear = totalAdjustmentCY,
+                    PreviousYear = totalAdjustmentPY
+                });
 
-    //        return await conn.ExecuteScalarAsync<int?>(sql,
-    //            new { SubHeadName = subHeadName, CustId = customerId }, tran) ?? 0;
-    //    }
-    //    private async Task<AmountDto> GetSubHeadingAmt1(SqlConnection conn, SqlTransaction tran,
-    //       int yearId, int customerId, int schedType, int subHeadingId)
-    //    {
-    //        if (subHeadingId == 0)
-    //            return new AmountDto();
+                // Operating profit / (loss) before working capital changes = NetProfit + TotalAdjustment
+                var netProfit = result.Particular.First(p => p.Sr_No == 2);
 
-    //        const string sql = @"
-    //            SELECT 
-    //                ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - 
-    //                    ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
-    //                ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - 
-    //                    ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
-    //            FROM Acc_TrailBalance_Upload_Details
-    //            LEFT JOIN Acc_TrailBalance_Upload d 
-    //                ON d.ATBU_Description=ATBUD_Description AND d.ATBU_YearId=@YearId 
-    //                   AND d.ATBU_CustId=@CustomerId
-    //            LEFT JOIN Acc_TrailBalance_Upload e 
-    //                ON e.ATBU_Description=ATBUD_Description AND e.ATBU_YearId=@PrevYear 
-    //                   AND e.ATBU_CustId=@CustomerId
-    //            WHERE ATBUD_Schedule_Type=@SchedType 
-    //              AND ATBUD_CustId=@CustomerId 
-    //              AND ATBUD_SubHeading=@SubHeadingId
-    //            GROUP BY ATBUD_HeadingId";
+                result.Particular.Add(new CashFlowParticularDto
+                {
+                    Sr_No = srNo,
+                    ParticularName = labels[10],
+                    CurrentYear = netProfit.CurrentYear + totalAdjustmentCY,
+                    PreviousYear = netProfit.PreviousYear + totalAdjustmentPY
+                });
 
-    //        var data = await conn.QueryFirstOrDefaultAsync<AmountDto>(sql,
-    //            new
-    //            {
-    //                YearId = yearId,
-    //                PrevYear = yearId - 1,
-    //                CustomerId = customerId,
-    //                SchedType = schedType,
-    //                SubHeadingId = subHeadingId
-    //            }, tran);
+                tran.Commit();
+                return result;
+            }
+            catch
+            {
+                try { tran.Rollback(); } catch { }
+                throw;
+            }
+        }
+        private async Task<int> GetHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string headName)
+        {
+            const string sql = @"SELECT ISNULL(ASH_ID,0) FROM ACC_ScheduleHeading WHERE ASH_Name = @HeadName AND ASH_OrgType = @CustId";
+            return await conn.ExecuteScalarAsync<int>(sql, new { HeadName = headName, CustId = customerId }, tran);
+        }
 
-    //        return data ?? new AmountDto();
-    //    }
-    //    private async Task<decimal> GetPandLFinalAmt(SqlConnection conn, SqlTransaction tran, int yearId, int customerId, int branchId)
-    //    {
-    //        const string sql = @"
-    //            SELECT ISNULL(SUM(ATBU_Closing_TotalDebit_Amount - ATBU_Closing_TotalCredit_Amount), 0)
-    //            FROM Acc_TrailBalance_Upload
-    //            WHERE ATBU_Description = 'Net Income' AND ATBU_YearId = @YearId AND ATBU_CustId = @CustomerId AND ATBU_BranchId = @BranchId
-    //        ";
-    //        var value = await conn.ExecuteScalarAsync<decimal?>(sql, new { YearId = yearId, CustomerId = customerId, BranchId = branchId }, tran);
-    //        return value ?? 0m;
-    //    }
+        private async Task<int> GetSubHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string subHeadName)
+        {
+            const string sql = @"SELECT ISNULL(ASSH_ID,0) FROM ACC_SchedulesubHeading WHERE ASSH_Name = @SubHeadName AND ASSH_OrgType = @CustId";
+            return await conn.ExecuteScalarAsync<int>(sql, new { SubHeadName = subHeadName, CustId = customerId }, tran);
+        }
+
+        private async Task<ScheduleAccountingRatioDto.HeadingAmount> GetHeadingAmt(SqlConnection conn, SqlTransaction tran,
+            int yearId, int customerId, int schedType, int headingId)
+        {
+            if (headingId == 0) return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = 0m, DP1 = 0m };
+
+            // Ensure SQL names match your schema — adapted for safety
+            var sql = @"
+                SELECT 
+                  ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
+                  ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
+                FROM Acc_TrailBalance_Upload_Details ud
+                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
+                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_HeadingId = @HeadingId
+            ";
+
+            var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, HeadingId = headingId }, tran);
+
+            if (row == null) return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = 0m, DP1 = 0m };
+
+            decimal dc1 = row.Dc1 == null ? 0m : Convert.ToDecimal(row.Dc1);
+            decimal dp1 = row.DP1 == null ? 0m : Convert.ToDecimal(row.DP1);
+
+            return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1 };
+        }
+
+        private async Task<ScheduleAccountingRatioDto.HeadingAmount> GetSubHeadingAmt(SqlConnection conn, SqlTransaction tran,
+            int yearId, int customerId, int schedType, int subHeadingId)
+        {
+            if (subHeadingId == 0) return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = 0m, DP1 = 0m };
+
+            var sql = @"
+                SELECT 
+                  ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
+                  ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
+                FROM Acc_TrailBalance_Upload_Details ud
+                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
+                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_SubHeading = @SubHeadingId
+            ";
+
+            var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, SubHeadingId = subHeadingId }, tran);
+
+            if (row == null) return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = 0m, DP1 = 0m };
+
+            decimal dc1 = row.Dc1 == null ? 0m : Convert.ToDecimal(row.Dc1);
+            decimal dp1 = row.DP1 == null ? 0m : Convert.ToDecimal(row.DP1);
+
+            return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1 };
+        }
+        private async Task<decimal> GetPandLFinalAmt(SqlConnection conn, SqlTransaction tran, int yearId, int customerId, int branchId)
+        {
+            const string sql = @" SELECT ISNULL(SUM(ATBU_Closing_TotalDebit_Amount - ATBU_Closing_TotalCredit_Amount), 0)
+                FROM Acc_TrailBalance_Upload
+                WHERE ATBU_Description = 'Net Income' AND ATBU_YearId = @YearId AND ATBU_CustId = @CustomerId AND ATBU_BranchId = @BranchId ";
+            var value = await conn.ExecuteScalarAsync<decimal?>(sql, new { YearId = yearId, CustomerId = customerId, BranchId = branchId }, tran);
+            return value ?? 0m;
+        }
     }
 }
 
