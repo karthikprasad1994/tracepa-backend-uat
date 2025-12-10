@@ -401,7 +401,7 @@ namespace TracePca.Controllers.DigitalFilling
                 {
                     //return Ok(result); // Success
 
-					if(result == "Indexed Successfully.")
+					if(result == "File uploaded Successfully.")
 					{
 						return Ok(new
 						{
