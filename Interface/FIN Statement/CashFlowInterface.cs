@@ -17,6 +17,6 @@ namespace TracePca.Interface.FIN_Statement
         //SaveCashFlow(Category 1)
         //Task<(bool HasCashflow, List<CashflowParticularDto> Partials)> GetMandatoryCashflowInMemoryAsync(
         //int yearId = 0, int customerId = 0, int branchId = 0);
-        Task<CashFlowCategory1Result> LoadCashFlowCategory1Async(int customerId, int yearId, int branchId);
+        //Task<CashFlowCategory1Result> LoadCashFlowCategory1Async( int customerId, int yearId, int branchId, List<UserAdjustmentInput>? userAdjustments);
     }
 }

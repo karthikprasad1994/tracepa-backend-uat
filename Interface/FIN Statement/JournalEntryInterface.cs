@@ -42,8 +42,9 @@ namespace TracePca.Interface.FIN_Statement
         Task<IEnumerable<JeTypeDto>> GetJETypeListAsync(int CompId);
 
         //GetJETypeDropDownDetails
-        Task<IEnumerable<JETypeDropDownDetailsDto>> GetJETypeDropDownDetailsAsync(
-int compId, int custId, int yearId, int BranchId, int jetype);
+        Task<IEnumerable<JETypeDropDownDetailsDto>> GetJETypeDropDownDetailsAsync(int compId, int custId, int yearId, int BranchId, int jetype);
 
+        //SaveJEType
+        Task<string> SaveOrUpdateContentForJEAsync(int? id, int compId, string description, string remarks, string Category);
     }
 }

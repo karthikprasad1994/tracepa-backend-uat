@@ -186,39 +186,76 @@ namespace TracePca.Controllers.FIN_Statement
         //        });
         //    }
         //}
-        [HttpGet("GetCashFlowCategory1")]
-        public async Task<IActionResult> GetCashFlowCategory1(int customerId, int yearId, int branchId)
-        {
-            try
-            {
-                var result = await _CashFlowService.LoadCashFlowCategory1Async(customerId, yearId, branchId);
+        //[HttpGet("GetCashFlowCategory1")]
+        //public async Task<IActionResult> GetCashFlowCategory1(int customerId, int yearId, int branchId)
+        //{
+        //    try
+        //    {
+        //        var result = await _CashFlowService.LoadCashFlowCategory1Async(customerId, yearId, branchId);
 
-                if (result == null)
-                {
-                    return NotFound(new
-                    {
-                        StatusCode = 404,
-                        Message = $"No cash flow records found for Customer '{customerId}', Year '{yearId}', Branch '{branchId}'.",
-                        Data = (object)null
-                    });
-                }
+        //        if (result == null)
+        //        {
+        //            return NotFound(new
+        //            {
+        //                StatusCode = 404,
+        //                Message = $"No cash flow records found for Customer '{customerId}', Year '{yearId}', Branch '{branchId}'.",
+        //                Data = (object)null
+        //            });
+        //        }
 
-                return Ok(new
-                {
-                    StatusCode = 200,
-                    Message = "Cash flow (Category 1) fetched successfully.",
-                    Data = result
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    StatusCode = 500,
-                    Message = "An error occurred while fetching Category 1 cash flow records.",
-                    Error = ex.Message
-                });
-            }
-        }
+        //        return Ok(new
+        //        {
+        //            StatusCode = 200,
+        //            Message = "Cash flow (Category 1) fetched successfully.",
+        //            Data = result
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            StatusCode = 500,
+        //            Message = "An error occurred while fetching Category 1 cash flow records.",
+        //            Error = ex.Message
+        //        });
+        //    }
+        //}
+        //[HttpGet("GetCashFlowCategory1")]
+        //public async Task<IActionResult> GetCashFlowCategory1(
+        //    [FromQuery] int customerId,
+        //    [FromQuery] int yearId,
+        //    [FromQuery] int branchId,
+        //    [FromBody] List<UserAdjustmentInput>? userAdjustments = null)
+        //{
+        //    try
+        //    {
+        //        var result = await _CashFlowService.LoadCashFlowCategory1Async(customerId, yearId, branchId, userAdjustments);
+
+        //        if (result == null || result.Particular == null || !result.Particular.Any())
+        //        {
+        //            return NotFound(new
+        //            {
+        //                StatusCode = 404,
+        //                Message = $"No cash flow records found for Customer '{customerId}', Year '{yearId}', Branch '{branchId}'.",
+        //                Data = (object)null
+        //            });
+        //        }
+        //        return Ok(new
+        //        {
+        //            StatusCode = 200,
+        //            Message = "Cash flow (Category 1) fetched successfully.",
+        //            Data = result
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            StatusCode = 500,
+        //            Message = "An error occurred while fetching Category 1 cash flow records.",
+        //            Error = ex.Message
+        //        });
+        //    }
+        //}
     }
 }

@@ -257,5 +257,15 @@
             public string CUST_NAME { get; set; }
 
         }
+
+        //SaveJEType
+        public class CreateJEContentRequestDto
+        {
+            public int? cmm_ID { get; set; }
+            public int CMM_CompID { get; set; }
+            public string? cmm_Desc { get; set; }
+            public string? cms_Remarks { get; set; }
+            public string? cmm_Category { get; set; }
+        }
     }
 }

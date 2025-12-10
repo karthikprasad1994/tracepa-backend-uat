@@ -95,6 +95,5 @@
             public decimal CurrentYear { get; set; }
             public decimal PreviousYear { get; set; }
         }
-
     }
 }

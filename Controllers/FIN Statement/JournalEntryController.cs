@@ -2,6 +2,7 @@
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.JournalEntryDto;
+using static TracePca.Dto.FIN_Statement.LedgerMaterialityDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -453,5 +454,40 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
+        //SaveJEType
+        [HttpPost("SaveOrUpdateContentForJE")]
+        public async Task<IActionResult> SaveOrUpdateJEContent([FromBody] CreateJEContentRequestDto dto)
+        {
+            if (dto == null)
+            {
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "Invalid request payload."
+                });
+            }
+            try
+            {
+                string newCode = await _JournalEntryService.SaveOrUpdateContentForJEAsync(dto.cmm_ID, dto.CMM_CompID, dto.cmm_Desc, dto.cms_Remarks, dto.cmm_Category);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = dto.cmm_ID.HasValue && dto.cmm_ID.Value > 0
+                        ? "JE Content updated successfully."
+                        : "JE Content created successfully.",
+                    newCode = newCode
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while saving or updating MT content.",
+                    error = ex.Message
+                });
+            }
+        }
     }
 }
