@@ -20,6 +20,7 @@ using TracePca.Data.CustomerRegistration;
 using TracePca.Interface;
 using TracePca.Interface.AssetMaserInterface;
 using TracePca.Interface.Audit;
+using TracePca.Interface.ClientPortal;
 using TracePca.Interface.CustomerUserMaster;
 using TracePca.Interface.Dashboard;
 using TracePca.Interface.DatabaseConnection;
@@ -38,6 +39,7 @@ using TracePca.Interface.TaskManagement;
 using TracePca.Service;
 using TracePca.Service.AssetService;
 using TracePca.Service.Audit;
+using TracePca.Service.ClientPortal;
 using TracePca.Service.Communication_with_client;
 using TracePca.Service.CustomerMaster;
 using TracePca.Service.CustomerUserMaster;
@@ -173,6 +175,7 @@ builder.Services.AddScoped<CashFlowInterface, CashFlowService>();
 builder.Services.AddScoped<FlaggedTransactionInterface, FlaggedTransactionService>();
 builder.Services.AddScoped<AgingAnalysisInterface, AgingAnalysisService>();
 builder.Services.AddScoped<SamplingInterface, SamplingService>();
+builder.Services.AddScoped<IClientPortalInterface, ClientPortalService>();
 
 
 // Register your custom DbConnectionFactory
@@ -213,6 +216,7 @@ builder.Services.AddScoped<CustomerUserMasterInterface, CustomerUserMaster>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
 
 
+
 builder.Services.AddScoped<ApiPerformanceTracker>();
 builder.Services.AddScoped<PermissionInterface, TracePca.Service.Permission.Permission>();
 
@@ -231,7 +235,9 @@ builder.Services.AddCors(options =>
 
              "http://localhost:3000", // React app for local development
               "http://localhost:4000",
-              "https://tracelites.multimedia.interactivedns.com"
+              "http://localhost:5173",
+              "https://tracelites.multimedia.interactivedns.com",
+              "https://clients.tracelites.multimedia.interactivedns.com"
             )
               .AllowAnyMethod()
               .AllowAnyHeader()

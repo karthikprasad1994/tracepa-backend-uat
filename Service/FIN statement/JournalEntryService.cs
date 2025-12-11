@@ -21,32 +21,30 @@ namespace TracePca.Service.FIN_statement
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-
         public JournalEntryService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
-
         }
 
         //GetJournalEntryInformation
         public async Task<IEnumerable<JournalEntryInformationDto>> GetJournalEntryInformationAsync(
-             int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId)
+         int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId)
         {
-            // ✅ Step 1: Get DB name from session
+            // Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
+            // Get connection string dynamically
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
+            // Status filter mapping
             var statusFilter = Status switch
             {
                 "0" => "A",
@@ -55,79 +53,48 @@ namespace TracePca.Service.FIN_statement
                 _ => null
             };
 
-            var sql = new StringBuilder();
-            sql.Append(@"
+            // SINGLE optimized SQL query (master + detail + grouping)
+            var sql = @"
         SELECT 
-            Acc_JE_ID AS Id,
-            Acc_JE_TransactionNo AS TransactionNo,
-            acc_JE_BranchId AS BranchID,
+            M.Acc_JE_ID AS Id,
+            M.Acc_JE_TransactionNo AS TransactionNo,
+            M.acc_JE_BranchId AS BranchID,
             '' AS BillNo,
-            FORMAT(Acc_JE_BillDate, @dateFormat) AS BillDate,
-            a.cmm_Desc as BillType,
-            Acc_JE_Party AS PartyID,
-            Acc_JE_Status AS Status,
-Acc_JE_Comnments as comments,acc_JE_QuarterId
-        FROM Acc_JE_Master left join content_management_master a on a.cmm_ID = Acc_JE_BillType WHERE Acc_JE_Party = @custId 
-            AND Acc_JE_CompID = @compId 
-            AND Acc_JE_YearId = @yearId");
-
-            if (!string.IsNullOrEmpty(statusFilter))
-                sql.Append(" AND Acc_JE_Status = @statusFilter");
-
-            if (BranchId != 0)
-                sql.Append(" AND acc_je_BranchID = @branchId");
-
-            if (DurationId != 0)
-                sql.Append(" AND Acc_JE_QuarterId = @durationId");
-
-            sql.Append(" ORDER BY Acc_JE_ID ASC");
+            M.Acc_JE_BillDate AS BillDate,
+            A.cmm_Desc AS BillType,
+            M.Acc_JE_Party AS PartyID,
+            M.Acc_JE_Status AS Status,
+            M.Acc_JE_Comnments AS Comments,
+            M.acc_JE_QuarterId,
+            SUM(D.AJTB_Debit) AS Debit,
+            SUM(D.AJTB_Credit) AS Credit,
+            STRING_AGG(CASE WHEN D.AJTB_Debit > 0 THEN D.AJTB_DescName END, ', ') AS DebDescription,
+            STRING_AGG(CASE WHEN D.AJTB_Credit > 0 THEN D.AJTB_DescName END, ', ') AS CredDescription
+        FROM Acc_JE_Master M
+        LEFT JOIN content_management_master A ON A.cmm_ID = M.Acc_JE_BillType
+        LEFT JOIN Acc_JETransactions_Details D 
+            ON D.Ajtb_Masid = M.Acc_JE_ID 
+            AND D.AJTB_CustId = @CustId
+        WHERE M.Acc_JE_Party = @CustId
+            AND M.Acc_JE_CompID = @CompId
+            AND M.Acc_JE_YearId = @YearId
+            AND (@statusFilter IS NULL OR M.Acc_JE_Status = @statusFilter)
+            AND (@BranchId = 0 OR M.acc_JE_BranchID = @BranchId)
+            AND (@DurationId = 0 OR M.Acc_JE_QuarterId = @DurationId)
+        GROUP BY 
+            M.Acc_JE_ID, M.Acc_JE_TransactionNo, M.acc_JE_BranchId, 
+            M.Acc_JE_BillDate, A.cmm_Desc, M.Acc_JE_Party, M.Acc_JE_Status,
+            M.Acc_JE_Comnments, M.acc_JE_QuarterId
+        ORDER BY M.Acc_JE_ID ASC";
 
             var entries = (await connection.QueryAsync<JournalEntryInformationDto>(
-                sql.ToString(),
-                new { CompId, CustId, YearId, BranchId, DurationId, statusFilter, DateFormat }
+                sql,
+                new { CompId, CustId, YearId, BranchId, DurationId, statusFilter }
             )).ToList();
 
+            // Map status names
             foreach (var entry in entries)
             {
-                // Get Debit/Credit details
-                var detailQuery = @"
-            SELECT 
-                SUM(AJTB_Debit) AS Debit,
-                SUM(AJTB_Credit) AS Credit,
-                AJTB_DescName,
-                AJTB_Debit AS LineDebit
-            FROM Acc_JETransactions_Details 
-            WHERE Ajtb_Masid = @entryId AND AJTB_CustId = @custId
-            GROUP BY AJTB_DescName, AJTB_Debit";
-
-                var details = await connection.QueryAsync(detailQuery, new { entryId = entry.Id, CustId });
-
-                var debDescriptions = new List<string>();
-                var credDescriptions = new List<string>();
-                decimal totalDebit = 0, totalCredit = 0;
-
-                foreach (var row in details)
-                {
-                    if ((decimal)row.LineDebit != 0)
-                    {
-                        totalDebit += row.Debit ?? 0;
-                        debDescriptions.Add(row.AJTB_DescName);
-                    }
-                    else
-                    {
-                        totalCredit += row.Credit ?? 0;
-                        credDescriptions.Add(row.AJTB_DescName);
-                    }
-                }
-
-                entry.Debit = totalDebit;
-                entry.Credit = totalCredit;
-                entry.DebDescription = string.Join(", ", debDescriptions);
-                entry.CredDescription = string.Join(", ", credDescriptions);
-
-          
-
-                // Map Status
                 entry.Status = entry.Status switch
                 {
                     "W" => "Waiting For Approval",
@@ -139,6 +106,7 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
 
             return entries;
         }
+
 
         //GetExistingJournalVouchers
         public async Task<IEnumerable<JournalEntryVoucherDto>> LoadExistingVoucherNosAsync(int compId, int yearId, int partyId, int branchId)
@@ -160,7 +128,6 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
         SELECT Acc_JE_TransactionNo, Acc_JE_ID
         FROM Acc_JE_Master
         WHERE Acc_JE_CompID = @CompId
-          AND Acc_JE_Status <> 'D'
           AND Acc_JE_YearID = @YearId
           AND Acc_JE_Party = @PartyId";
 
@@ -835,21 +802,20 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            // Update Master
-            const string sql = @"
-        UPDATE Acc_JE_Master
-        SET Acc_JE_Status = @Status,
-            Acc_JE_IPAddress = @IpAddress
-        WHERE Acc_JE_ID IN @Ids
-          AND Acc_JE_CompID = @CompId";
 
-            var rowsAffected = await connection.ExecuteAsync(sql, new
+            const string sqlMaster = @"
+UPDATE Acc_JE_Master
+SET Acc_JE_Status = @Status,
+    Acc_JE_IPAddress = @IpAddress
+WHERE Acc_JE_ID IN @Ids
+  AND Acc_JE_CompID = @CompId";
+
+            await connection.ExecuteAsync(sqlMaster, new
             {
                 Status = dto.Status,
                 IpAddress = dto.IpAddress,
@@ -857,60 +823,77 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                 CompId = dto.CompId
             });
 
+
+            const string sqlFetchDetail = @"
+SELECT 
+    AJTB_ID, Ajtb_Masid, AJTB_CustId, AJTB_Debit, AJTB_Credit,
+    AJTB_BranchId, AJTB_QuarterId, AJTB_Deschead,
+    AJTB_Desc, AJTB_DescName
+FROM Acc_JETransactions_Details
+WHERE Ajtb_Masid IN @Ids
+  AND AJTB_CompID = @CompId";
+
+            var detailRows = (await connection.QueryAsync<dynamic>(sqlFetchDetail, new
+            {
+                Ids = dto.DescriptionIds,
+                CompId = dto.CompId
+            })).ToList();
+
+            if (!detailRows.Any()) return 0;
+         
+            string updateStatusSql;
+
             if (dto.Status == "A")
             {
-                const string sql1 = @"
-        UPDATE Acc_JETransactions_Details
-        SET AJTB_Status = @Status,
-            AJTB_IPAddress = @IpAddress
-        WHERE Ajtb_Masid IN @Ids
-          AND AJTB_CompID = @CompId";
-
-                await connection.ExecuteAsync(sql1, new
-                {
-                    Status = dto.Status,
-                    IpAddress = dto.IpAddress,
-                    Ids = dto.DescriptionIds,
-                    CompId = dto.CompId
-                });
-
-                return rowsAffected;
+                // This was missing — now status for A updates correctly
+                updateStatusSql = @"
+UPDATE Acc_JETransactions_Details
+SET AJTB_Status = 'A',
+    AJTB_IPAddress = @IpAddress
+WHERE Ajtb_Masid IN @Ids
+  AND AJTB_CompID = @CompId";
             }
-            else if (dto.Status == "D")
+            else
             {
-                const string detailFetchSql = @"
-            SELECT 
-                AJTB_ID, Ajtb_Masid, AJTB_CustId, AJTB_Debit, AJTB_Credit,
-                AJTB_BranchId, AJTB_QuarterId, AJTB_Deschead,
-                AJTB_Desc, AJTB_DescName
-            FROM Acc_JETransactions_Details
-            WHERE Ajtb_Masid IN @Ids
-              AND AJTB_CompID = @CompId";
+                // Deactivation (already correct in your old version)
+                updateStatusSql = @"
+UPDATE Acc_JETransactions_Details
+SET AJTB_Status = 'D',
+    AJTB_IPAddress = @IpAddress
+WHERE Ajtb_Masid IN @Ids
+  AND AJTB_CompID = @CompId";
+            }
 
-                var detailRows = (await connection.QueryAsync<dynamic>(
-                    detailFetchSql,
-                    new { Ids = dto.DescriptionIds, dto.CompId }
-                )).ToList();
+            await connection.ExecuteAsync(updateStatusSql, new
+            {
+                IpAddress = dto.IpAddress,
+                Ids = dto.DescriptionIds,
+                CompId = dto.CompId
+            });
 
-                foreach (var t in detailRows)
+            foreach (var t in detailRows)
+            {
+                int transType = t.AJTB_Debit > 0 ? 0 : 1;
+                decimal transAmt = t.AJTB_Debit > 0 ? t.AJTB_Debit : t.AJTB_Credit;
+
+                if (dto.Status == "A")
                 {
-                    // update detail status
-                    const string sqlUpdateDetail = @"
-                UPDATE Acc_JETransactions_Details
-                SET AJTB_Status = 'D',
-                    AJTB_IPAddress = @IpAddress
-                WHERE AJTB_ID = @Id
-                  AND AJTB_CompID = @CompId";
-
-                    await connection.ExecuteAsync(sqlUpdateDetail, new
-                    {
-                        Id = (int)t.AJTB_ID,
-                        dto.IpAddress,
-                        dto.CompId
-                    });
-                    int transType = t.AJTB_Debit > 0 ? 0 : 1;
-                    decimal transAmt = t.AJTB_Debit > 0 ? t.AJTB_Debit : t.AJTB_Credit;
-
+                    await ActivateJeDetAsync(
+                        dto.CompId,
+                        t.AJTB_CustId,
+                        transType,
+                        transAmt,
+                        t.AJTB_BranchId,
+                        t.AJTB_Debit,
+                        t.AJTB_Credit,
+                        t.AJTB_QuarterId,
+                        t.AJTB_Deschead,
+                        t.AJTB_Desc,
+                        t.AJTB_DescName
+                    );
+                }
+                else if (dto.Status == "D")
+                {
                     await DeactivateJeDetAsync(
                         dto.CompId,
                         t.AJTB_CustId,
@@ -925,164 +908,193 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                         t.AJTB_DescName
                     );
                 }
-                return detailRows.Count;
             }
-            return 0;
+            return detailRows.Count;
         }
 
-
-        //DeActiveteJE
-        //public async Task<int> ApproveJournalEntriesAsync(ApproveRequestDto dto)
-        //{
-        //    // ✅ Step 1: Get DB name from session
-        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
-        //    if (string.IsNullOrEmpty(dbName))
-        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-        //    // ✅ Step 2: Get the connection string
-        //    var connectionString = _configuration.GetConnectionString(dbName);
-
-        //    // ✅ Step 3: Use SqlConnection
-        //    using var connection = new SqlConnection(connectionString);
-        //    await connection.OpenAsync();
-
-        //    // In VB code, status was "W" (waiting for approval).
-        //    const string sql = @"
-        //UPDATE Acc_JE_Master
-        //SET Acc_JE_Status = @Status,
-        //    Acc_JE_IPAddress = @IpAddress
-        //WHERE Acc_JE_ID IN @Ids
-        //  AND Acc_JE_CompID = @CompId";
-
-        //    var rowsAffected = await connection.ExecuteAsync(sql, new
-        //    {
-        //        Status = "W", // waiting for approval
-        //        IpAddress = dto.IpAddress,
-        //        Ids = dto.DescriptionIds,
-        //        CompId = dto.CompId
-        //    });
-
-        //    const string sql1 = @"
-        //UPDATE Acc_JETransactions_Details
-        //SET AJTB_Status = @Status,
-        //    AJTB_IPAddress = @IpAddress
-        //WHERE Ajtb_id IN @Ids
-        //  AND AJTB_CompID = @CompId";
-
-        //    var rowsAffected1 = await connection.ExecuteAsync(sql1, new
-        //    {
-        //        Status = "W",          // Activate
-        //        IpAddress = dto.IpAddress,
-        //        Ids = dto.DescriptionIds,
-        //        CompId = dto.CompId
-        //    });
-        //    await DeactivateJeDetAsync(dto.CompId, dto.DescriptionIds, t.AJTB_CustId,
-        //                             (t.AJTB_Debit > 0 ? 0 : 1),  // 0=Debit, 1=Credit
-        //                             (t.AJTB_Debit > 0 ? t.AJTB_Debit : t.AJTB_Credit),
-        //                             t.AJTB_BranchId,
-        //                             t.AJTB_Debit,
-        //                             t.AJTB_Credit,
-        //                             t.AJTB_QuarterId,
-        //                             t.AJTB_Deschead,
-        //                             t.AJTB_Desc,
-        //                             t.AJTB_DescName
-        //                         );
-        //    return rowsAffected;
-        //}
-        public async Task<int> ApproveJournalEntriesAsync(ApproveRequestDto dto)
+        public async Task ActivateJeDetAsync(
+     int compId, int custId, int transId, decimal transAmt,
+     int branchId, decimal transDbAmt, decimal transCrAmt,
+     int durtnId, int deschead, int descId, string descName)
         {
-            // Step 1: DB
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
+            await using var conn = new SqlConnection(connectionString);
+            await conn.OpenAsync();
 
-            // ----------------------------------------------
-            // 1️⃣ UPDATE MASTER STATUS
-            // ----------------------------------------------
-            const string sqlMaster = @"
-    UPDATE Acc_JE_Master
-    SET Acc_JE_Status = 'D',
-        Acc_JE_IPAddress = @IpAddress
-    WHERE Acc_JE_ID IN @Ids
-      AND Acc_JE_CompID = @CompId";
+            // 🔹 Fetch TB row
+            string sql = @"
+SELECT TOP 1 *
+FROM Acc_TrailBalance_Upload
+WHERE ATBU_CustId = @CustId
+  AND ATBU_CompID = @CompId
+  AND ATBU_QuarterId = @DurtnId
+  AND ATBU_ID = @Deschead
+  AND ATBU_BranchId = @BranchId";
 
-            await connection.ExecuteAsync(sqlMaster, new
+            var row = await conn.QueryFirstOrDefaultAsync(sql, new
             {
-                dto.IpAddress,
-                dto.DescriptionIds,
-                dto.CompId
+                CustId = custId,
+                CompId = compId,
+                DurtnId = durtnId,
+                BranchId = branchId,
+                Deschead = deschead
             });
 
-          
-            const string detailFetchSql = @"
-    SELECT 
-        AJTB_ID,
-        Ajtb_Masid,
-        AJTB_CustId,
-        AJTB_Debit,
-        AJTB_Credit,
-        AJTB_BranchId,
-        AJTB_QuarterId,
-        AJTB_Deschead,
-        AJTB_Desc,
-        AJTB_DescName
-    FROM Acc_JETransactions_Details
-    WHERE Ajtb_Masid IN @Ids
-      AND AJTB_CompID = @CompId";
+            if (row == null) return;
 
-            var detailRows = (await connection.QueryAsync<dynamic>(detailFetchSql,
-                new { dto.DescriptionIds, dto.CompId })).ToList();
+            decimal debitAmt = (decimal?)row.ATBU_Closing_TotalDebit_Amount ?? 0m;
+            decimal creditAmt = (decimal?)row.ATBU_Closing_TotalCredit_Amount ?? 0m;
 
-            // ----------------------------------------------
-            // 3️⃣ LOOP EACH DETAIL ROW — UPDATE STATUS + CALL FUNCTION
-            // ----------------------------------------------
-            foreach (var t in detailRows)
+            string updateSql = string.Empty;
+
+            // -------------------------------
+            // 🔹 TRANSACTION TYPE = 0 → DEBIT
+            // -------------------------------
+            if (transId == 0)
             {
-                // update detail status
-                const string sqlUpdateDetail = @"
-        UPDATE Acc_JETransactions_Details
-        SET AJTB_Status = 'D',
-            AJTB_IPAddress = @IpAddress
-        WHERE AJTB_ID = @Id
-          AND AJTB_CompID = @CompId";
-
-                await connection.ExecuteAsync(sqlUpdateDetail, new
+                // Add back Debit (reverse of Deactivate)
+                if (debitAmt != 0)
                 {
-                    Id = (int)t.AJTB_ID,
-                    dto.IpAddress,
-                    dto.CompId
-                });
+                    debitAmt += transDbAmt;
 
-                // Determine trans type: 0 = Debit, 1 = Credit
-                int transType = t.AJTB_Debit > 0 ? 0 : 1;
+                    updateSql = @"
+UPDATE Acc_TrailBalance_Upload
+SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+WHERE ATBU_CustId = @CustId
+  AND ATBU_CompID = @CompId
+  AND ATBU_QuarterId = @DurtnId
+  AND ATBU_ID = @Deschead
+  AND ATBU_BranchId = @BranchId";
+                }
+                else if (creditAmt != 0)
+                {
+                    debitAmt = creditAmt - transDbAmt;
 
-                // Determine trans amount
-                decimal transAmt = t.AJTB_Debit > 0 ? t.AJTB_Debit : t.AJTB_Credit;
+                    if (debitAmt >= 0)
+                    {
+                        updateSql = @"
+UPDATE Acc_TrailBalance_Upload
+SET ATBU_Closing_TotalCredit_Amount = @DebitAmt
+WHERE ATBU_CustId = @CustId
+  AND ATBU_CompID = @CompId
+  AND ATBU_QuarterId = @DurtnId
+  AND ATBU_ID = @Deschead
+  AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+UPDATE Acc_TrailBalance_Upload
+SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+WHERE ATBU_CustId = @CustId
+  AND ATBU_CompID = @CompId
+  AND ATBU_QuarterId = @DurtnId
+  AND ATBU_ID = @Deschead
+  AND ATBU_BranchId = @BranchId";
 
-                await DeactivateJeDetAsync(
-                    dto.CompId,
-                    t.AJTB_CustId,
-                    transType,
-                    transAmt,
-                    t.AJTB_BranchId,
-                    t.AJTB_Debit,
-                    t.AJTB_Credit,
-                    t.AJTB_QuarterId,
-                    t.AJTB_Deschead,
-                    t.AJTB_Desc,
-                    t.AJTB_DescName
-                );
+                        debitAmt = Math.Abs(debitAmt);
+                    }
+                }
+                else
+                {
+                    debitAmt += transDbAmt;
+
+                    updateSql = @"
+UPDATE Acc_TrailBalance_Upload
+SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+WHERE ATBU_CustId = @CustId
+  AND ATBU_CompID = @CompId
+  AND ATBU_QuarterId = @DurtnId
+  AND ATBU_ID = @Deschead
+  AND ATBU_BranchId = @BranchId";
+                }
             }
-            return detailRows.Count;
+            // -------------------------------
+            // 🔹 TRANSACTION TYPE = 1 → CREDIT
+            // -------------------------------
+            else if (transId == 1)
+            {
+                if (creditAmt != 0)
+                {
+                    creditAmt += transCrAmt;
+
+                    updateSql = @"
+UPDATE Acc_TrailBalance_Upload
+SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+WHERE ATBU_CustId = @CustId
+  AND ATBU_CompID = @CompId
+  AND ATBU_QuarterId = @DurtnId
+  AND ATBU_ID = @Deschead
+  AND ATBU_BranchId = @BranchId";
+                }
+                else if (debitAmt != 0)
+                {
+                    creditAmt = debitAmt - transCrAmt;
+
+                    if (creditAmt >= 0)
+                    {
+                        updateSql = @"
+UPDATE Acc_TrailBalance_Upload
+SET ATBU_Closing_TotalDebit_Amount = @CreditAmt
+WHERE ATBU_CustId = @CustId
+  AND ATBU_CompID = @CompId
+  AND ATBU_QuarterId = @DurtnId
+  AND ATBU_ID = @Deschead
+  AND ATBU_BranchId = @BranchId";
+                    }
+                    else
+                    {
+                        updateSql = @"
+UPDATE Acc_TrailBalance_Upload
+SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+WHERE ATBU_CustId = @CustId
+  AND ATBU_CompID = @CompId
+  AND ATBU_QuarterId = @DurtnId
+  AND ATBU_ID = @Deschead
+  AND ATBU_BranchId = @BranchId";
+
+                        creditAmt = Math.Abs(creditAmt);
+                    }
+                }
+                else
+                {
+                    creditAmt += transCrAmt;
+
+                    updateSql = @"
+UPDATE Acc_TrailBalance_Upload
+SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+WHERE ATBU_CustId = @CustId
+  AND ATBU_CompID = @CompId
+  AND ATBU_QuarterId = @DurtnId
+  AND ATBU_ID = @Deschead
+  AND ATBU_BranchId = @BranchId";
+                }
+            }
+
+            // ------------------------------------
+            // 🔹 EXECUTE FINAL SQL
+            // ------------------------------------
+            if (!string.IsNullOrEmpty(updateSql))
+            {
+                await conn.ExecuteAsync(updateSql, new
+                {
+                    CustId = custId,
+                    CompId = compId,
+                    DurtnId = durtnId,
+                    BranchId = branchId,
+                    DebitAmt = debitAmt,
+                    CreditAmt = creditAmt,
+                    Deschead = deschead,
+                    DescId = descId,
+                    DescName = descName
+                });
+            }
         }
-
-
 
         public async Task DeactivateJeDetAsync(int compId,int custId,int transId, decimal transAmt,
             int branchId,decimal transDbAmt,decimal transCrAmt,int durtnId,int deschead,int descId, string descName)     
@@ -1612,7 +1624,6 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
             {
                 sql += " AND je.Acc_JE_BillType = @jetype ";
             }
-
             sql += " ORDER BY je.Acc_JE_ID ASC";
 
             // Step 5: Execute
@@ -1620,9 +1631,91 @@ Acc_JE_Comnments as comments,acc_JE_QuarterId
                 sql,
                 new { compId, custId, yearId, BranchId, jetype }
             );
-
             return result.ToList();
+        }
+
+        //SaveJEType
+        public async Task<string> SaveOrUpdateContentForJEAsync(int? id, int compId, string description, string remarks, string Category)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 3: Check if record exists
+            var existing = await connection.ExecuteScalarAsync<int>(
+                @"SELECT COUNT(*) 
+          FROM Content_Management_Master 
+          WHERE cmm_ID = @Id AND Cmm_CompID = @CompID",
+                new { Id = id, CompID = compId }
+            );
+
+            string newCode = string.Empty;
+
+            if (existing > 0)
+            {
+                // ✅ Step 4A: UPDATE existing record
+                var updateQuery = @"
+        UPDATE Content_Management_Master
+        SET cmm_Desc = @Desc,
+            cms_Remarks = @Remarks,
+            cmm_Delflag = @Delflag,
+            CMM_Status = @Status,
+            cmm_Category = @Category
+        WHERE cmm_ID = @Id AND Cmm_CompID = @CompID";
+
+                await connection.ExecuteAsync(updateQuery, new
+                {
+                    Id = id,
+                    Desc = description,
+                    Remarks = remarks,
+                    Delflag = "A",
+                    Status = "A",
+                    CompID = compId,
+                    Category = Category 
+                });
+                newCode = $"JE_{id}";
+            }
+            else
+            {
+                var maxIdQuery = @"
+        SELECT ISNULL(MAX(cmm_ID), 0) + 1 
+        FROM Content_Management_Master 
+        WHERE Cmm_CompID = @CompID";
+
+                int newId = await connection.ExecuteScalarAsync<int>(maxIdQuery, new { CompID = compId });
+
+                newCode = $"JE_{newId}";
+
+                var insertQuery = @"
+        INSERT INTO Content_Management_Master
+            (cmm_ID, cmm_Code, cmm_Desc, Cmm_CompID, cms_Remarks, cmm_Delflag, CMM_Status, cmm_Category)
+        VALUES
+            (@Id, @Code, @Desc, @CompID, @Remarks, @Delflag, @Status, @Category)";
+
+                await connection.ExecuteAsync(insertQuery, new
+                {
+                    Id = newId,
+                    Code = newCode,
+                    Desc = description,
+                    CompID = compId,
+                    Remarks = remarks,
+                    Delflag = "A",
+                    Status = "A",
+                    Category = Category
+                });
+            }
+            return newCode;
         }
     }
 }
+
+
+
 

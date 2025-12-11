@@ -319,144 +319,169 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
             });
         }
 
-        public async Task<IEnumerable<DescriptionDetailsDto>> GetMaterialityBasisAsync(int compId, int custId, int branchId, int yearId, int typeId)
+        //public async Task<IEnumerable<DescriptionDetailsDto>> GetMaterialityBasisAsync(int compId, int custId, int branchId, int yearId, int typeId)
+        //{
+        //    {
+        //        // ✅ Step 1: Get DB name from session
+        //        string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //        if (string.IsNullOrEmpty(dbName))
+        //            throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //        // ✅ Step 2: Get the connection string
+        //        var connectionString = _configuration.GetConnectionString(dbName);
+
+        //        // ✅ Step 3: Use SqlConnection
+        //        using var connection = new SqlConnection(connectionString);
+        //        await connection.OpenAsync();
+        //        using var tran = connection.BeginTransaction();
+        //        {
+        //            string sql = string.Empty;
+        //            if (typeId == 1)    // 1. Profit before tax
+        //            {
+        //                int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+        //                int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+
+        //                var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+        //                var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
+
+        //                decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
+        //                decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
+
+
+
+        //            }
+        //            else if (typeId == 2)   // 2.Revenue from operation
+        //            {
+        //                int headId = await GetHeadingId(connection, tran, custId, "I Revenue from operations");
+
+        //                var dtDetails = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+
+        //                decimal profitCur = dtDetails.Dc1 - dtDetails.Dc1;                     
+        //            }
+        //            else if (typeId == 3)  //   3.Total asset
+        //            {
+        //                int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+        //                int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+        //                var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+        //                var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
+
+        //                decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
+        //                decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
+        //            }
+        //            else if (typeId == 4)  //4.Total expenses
+        //            {
+        //                int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+        //                int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+
+        //                var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+        //                var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
+
+        //                decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
+        //                decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
+        //            }
+        //            else if (typeId == 5) //5.Networth(Equity shares)
+        //            {
+        //                int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+        //                int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+
+        //                var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+        //                var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
+
+        //                decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
+        //                decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
+        //            }
+        //            var result = await connection.QueryAsync<DescriptionDetailsDto>(sql, new
+        //            {
+        //                CustId = custId,
+        //                BranchId = branchId,
+        //                YearId = yearId,
+        //                PrevYearId = yearId - 1                        
+        //            });
+        //            return result;
+
+
+        //        }
+        //    }
+        //}
+
+        public async Task<MaterialityBasisGridDto> GetMaterialityBasisAsync(int compId, int custId, int branchId, int yearId, int typeId)
         {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var tran = connection.BeginTransaction();
+
+            decimal currentAmt = 0;
+            decimal previousAmt = 0;
+            string typeName = "";
+
+            if (typeId == 1)   // Profit before tax
             {
-                // ✅ Step 1: Get DB name from session
-                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+                typeName = "Profit before tax";
 
-                if (string.IsNullOrEmpty(dbName))
-                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+                int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+                int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
 
-                // ✅ Step 2: Get the connection string
-                var connectionString = _configuration.GetConnectionString(dbName);
+                var income = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+                var expense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
 
-                // ✅ Step 3: Use SqlConnection
-                using var connection = new SqlConnection(connectionString);
-                await connection.OpenAsync();
-                using var tran = connection.BeginTransaction();
-                {
-                    string sql = string.Empty;
-                    if (typeId == 1)
-                    {
-                        int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
-                        int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
-
-                        var dtIncome = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
-                        var dtExpense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
-
-                        decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
-                        decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
-
-
-                    
-                    }
-                    else if (typeId == 2)
-                    {
-                        sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
-                      abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
-                      abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
-                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
-                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
-                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
-                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
-sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
-sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb,
-                       d.ATBU_STATUS as Status
-                  From Acc_TrailBalance_Upload_Details
-                      Left Join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
-                          And d.ATBU_YEARId=@YearId And d.ATBU_CustId=@CustId 
-                          And ATBUD_YEARId=@YearId And d.ATBU_Branchid=Atbud_Branchnameid  
-                          And d.Atbu_Branchid=@BranchId
-                      Left Join Acc_TrailBalance_Upload e on e.ATBU_Description = ATBUD_Description 
-                          And e.ATBU_YEARId=@PrevYearId And e.ATBU_CustId=@CustId
-                          And ATBUD_YEARId=@YearId And e.ATBU_Branchid=Atbud_Branchnameid  
-                          And e.Atbu_Branchid=@BranchId
-                  WHERE ATBUD_CustId = @CustId
-                        AND Atbud_Branchnameid = @BranchId
-                        AND atbud_yearid = @YearId
-                        AND ATBUD_Subheading = @iPkId
-                  GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS";
-                    }
-                    else if (typeId == 3)
-                    {
-                        sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
-                      abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
-                      abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
-                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
-                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
-                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
-                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
-sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
-sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb,
-                       d.ATBU_STATUS as Status
-                  From Acc_TrailBalance_Upload_Details
-                      Left Join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
-                          And d.ATBU_YEARId=@YearId And d.ATBU_CustId=@CustId 
-                          And ATBUD_YEARId=@YearId And d.ATBU_Branchid=Atbud_Branchnameid  
-                          And d.Atbu_Branchid=@BranchId
-                      Left Join Acc_TrailBalance_Upload e on e.ATBU_Description = ATBUD_Description 
-                          And e.ATBU_YEARId=@PrevYearId And e.ATBU_CustId=@CustId
-                          And ATBUD_YEARId=@YearId And e.ATBU_Branchid=Atbud_Branchnameid  
-                          And e.Atbu_Branchid=@BranchId
-                  WHERE ATBUD_CustId = @CustId
-                        AND Atbud_Branchnameid = @BranchId
-                        AND atbud_yearid = @YearId
-                        AND ATBUD_itemid = @iPkId
-                  GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS";
-                    }
-                    else if (typeId == 4)
-                    {
-                        sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
-                      abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
-                      abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
-                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
-                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
-                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
-                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
-sum(isnull(d.ATBU_Closing_TotalCredit_Amount,0)) As cyCr,sum(isnull(d.ATBU_Closing_TotalDebit_Amount,0)) As cydb,
-sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closing_TotalDebit_Amount,0)) As pydb,
-                       d.ATBU_STATUS as Status
-                  From Acc_TrailBalance_Upload_Details
-                      Left Join Acc_TrailBalance_Upload d on d.ATBU_Description = ATBUD_Description 
-                          And d.ATBU_YEARId=@YearId And d.ATBU_CustId=@CustId 
-                          And ATBUD_YEARId=@YearId And d.ATBU_Branchid=Atbud_Branchnameid  
-                          And d.Atbu_Branchid=@BranchId
-                      Left Join Acc_TrailBalance_Upload e on e.ATBU_Description = ATBUD_Description 
-                          And e.ATBU_YEARId=@PrevYearId And e.ATBU_CustId=@CustId
-                          And ATBUD_YEARId=@YearId And e.ATBU_Branchid=Atbud_Branchnameid  
-                          And e.Atbu_Branchid=@BranchId
-                  WHERE ATBUD_CustId = @CustId
-                        AND Atbud_Branchnameid = @BranchId
-                        AND atbud_yearid = @YearId
-                        AND ATBUD_SubItemId = @iPkId
-                  GROUP BY ATBUD_Description, ATBUD_Masid, d.ATBU_STATUS ";
-                    }
-                    var result = await connection.QueryAsync<DescriptionDetailsDto>(sql, new
-                    {
-                        CustId = custId,
-                        BranchId = branchId,
-                        YearId = yearId,
-                        PrevYearId = yearId - 1                        
-                    });
-                    return result;
-
-                    //result.Ratios.Add(new ScheduleAccountingRatioDto.RatioDto
-                    //{
-                    //    Sr_No = 1,
-                    //    RatioName = ratioNames[0],
-                    //    Numerator = numerators[0],
-                    //    Denominator = denominators[0],
-                    //    CurrentReportingPeriod = Decimal.Round(cur, 4),
-                    //    PreviousReportingPeriod = Decimal.Round(prev, 4),
-                    //    Change = Decimal.Round(cur - prev, 4)
-                    //});
-                }
+                currentAmt = income.Dc1 - expense.Dc1;
+                previousAmt = income.DP1 - expense.DP1;
             }
+            else if (typeId == 2) // Revenue from operation
+            {
+                typeName = "Revenue from operation";
+
+                int headId = await GetHeadingId(connection, tran, custId, "I Revenue from operations");
+                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+
+                currentAmt = dt.Dc1;
+                previousAmt = dt.DP1;
+            }
+            else if (typeId == 3) // Total asset
+            {
+                typeName = "Total asset";
+
+                int headId = await GetHeadingId(connection, tran, custId, "Total Assets");
+                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+
+                currentAmt = dt.Dc1;
+                previousAmt = dt.DP1;
+            }
+            else if (typeId == 4) // Total expenses
+            {
+                typeName = "Total expenses";
+
+                int headId = await GetHeadingId(connection, tran, custId, "Expenses");
+                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+
+                currentAmt = dt.Dc1;
+                previousAmt = dt.DP1;
+            }
+            else if (typeId == 5) // Networth (Equity shares)
+            {
+                typeName = "Networth (Equity shares)";
+
+                int headId = await GetHeadingId(connection, tran, custId, "Equity Share Capital");
+                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+
+                currentAmt = dt.Dc1;
+                previousAmt = dt.DP1;
+            }
+            return new MaterialityBasisGridDto
+            {
+                Description = typeName,
+                CurrentYear = currentAmt,
+                PreviousYear = previousAmt
+            };
         }
-
-        #region DB Helper Methods
-
         private async Task<int> GetHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string headName)
         {
             const string sql = @"SELECT ISNULL(ASH_ID,0) FROM ACC_ScheduleHeading WHERE ASH_Name = @HeadName AND ASH_OrgType = @CustId";
@@ -519,18 +544,13 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
 
             return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1 };
         }
-
         private async Task<decimal> GetPandLFinalAmt(SqlConnection conn, SqlTransaction tran, int yearId, int customerId, int branchId)
         {
-            const string sql = @"
-                SELECT ISNULL(SUM(ATBU_Closing_TotalDebit_Amount - ATBU_Closing_TotalCredit_Amount), 0)
+            const string sql = @" SELECT ISNULL(SUM(ATBU_Closing_TotalDebit_Amount - ATBU_Closing_TotalCredit_Amount), 0)
                 FROM Acc_TrailBalance_Upload
-                WHERE ATBU_Description = 'Net Income' AND ATBU_YearId = @YearId AND ATBU_CustId = @CustomerId AND ATBU_BranchId = @BranchId
-            ";
+                WHERE ATBU_Description = 'Net Income' AND ATBU_YearId = @YearId AND ATBU_CustId = @CustomerId AND ATBU_BranchId = @BranchId ";
             var value = await conn.ExecuteScalarAsync<decimal?>(sql, new { YearId = yearId, CustomerId = customerId, BranchId = branchId }, tran);
             return value ?? 0m;
         }
-
-        #endregion
     }
 }

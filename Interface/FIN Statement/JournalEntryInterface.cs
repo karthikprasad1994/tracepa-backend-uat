@@ -33,7 +33,7 @@ namespace TracePca.Interface.FIN_Statement
         Task<int> ActivateJournalEntriesAsync(ActivateRequestDto dto);
 
         //DeActivateJE
-        Task<int> ApproveJournalEntriesAsync(ApproveRequestDto dto);
+        //Task<int> ApproveJournalEntriesAsync(ApproveRequestDto dto);
         Task<JERecordDto?> GetJERecordAsync(int jeId, int compId);
         Task<List<TransactionDetailDto>> LoadTransactionDetailsAsync(int companyId, int yearId, int custId, int jeId, int branchId, int durationId);
         Task<(int UpdateOrSave, int Oper, int FinalId, string FinalCode)> SaveOrUpdateAsync(AdminMasterDto dto);
@@ -42,8 +42,9 @@ namespace TracePca.Interface.FIN_Statement
         Task<IEnumerable<JeTypeDto>> GetJETypeListAsync(int CompId);
 
         //GetJETypeDropDownDetails
-        Task<IEnumerable<JETypeDropDownDetailsDto>> GetJETypeDropDownDetailsAsync(
-int compId, int custId, int yearId, int BranchId, int jetype);
+        Task<IEnumerable<JETypeDropDownDetailsDto>> GetJETypeDropDownDetailsAsync(int compId, int custId, int yearId, int BranchId, int jetype);
 
+        //SaveJEType
+        Task<string> SaveOrUpdateContentForJEAsync(int? id, int compId, string description, string remarks, string Category);
     }
 }

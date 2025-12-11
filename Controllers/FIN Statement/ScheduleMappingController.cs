@@ -80,7 +80,6 @@ namespace TracePca.Controllers.FIN_Statement
                         data = new List<object>()
                     });
                 }
-
                 return Ok(new
                 {
                     statusCode = 200,

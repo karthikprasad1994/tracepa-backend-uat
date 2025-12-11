@@ -88,5 +88,12 @@
             public decimal pyCr { get; set; }
             public decimal pyDb { get; set; }
         }
+
+        public class MaterialityBasisGridDto
+        {
+            public string Description { get; set; }
+            public decimal CurrentYear { get; set; }
+            public decimal PreviousYear { get; set; }
+        }
     }
 }
