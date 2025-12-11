@@ -2819,6 +2819,34 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 return (iUpdateOrSave, iOper);
             }
         }
+
+        public async Task<DirectorDto> GetDirectorByIdAsync(int directorId)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            using (var con = new SqlConnection(_configuration.GetConnectionString(dbName)))
+            {
+                var query = @"
+            SELECT 
+                SSD_Id,
+                SSD_DirectorName,
+                SSD_DOB,
+                SSD_DIN,
+                SSD_MobileNo,
+                SSD_Email,
+                SSD_Remarks
+            FROM SAD_Statutory_DirectorDetails
+            WHERE SSD_Id = @Id";
+
+                var result = await con.QueryFirstOrDefaultAsync<DirectorDto>(query, new { Id = directorId });
+
+                return result ?? new DirectorDto();
+            }
+        }
+
     }
 }
 

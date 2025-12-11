@@ -249,5 +249,17 @@ namespace TracePca.Dto.FIN_Statement
             public int SSD_CompID { get; set; }
         }
 
+        public class DirectorDto
+        {
+            public int SSD_Id { get; set; }
+            public string SSD_DirectorName { get; set; }
+            public DateTime? SSD_DOB { get; set; }
+            public string SSD_DIN { get; set; }
+            public string SSD_MobileNo { get; set; }
+            public string SSD_Email { get; set; }
+            public string SSD_Remarks { get; set; }
+        }
+
+
     }
 }
