@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using BCrypt.Net;
 using Dapper;
 using DocumentFormat.OpenXml.Drawing.Diagrams;
+using DocumentFormat.OpenXml.Math;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Google.Apis.Auth;
 using MailKit.Net.Smtp;
@@ -2799,7 +2800,8 @@ ORDER BY ut.Id DESC";
                 (SELECT COUNT(*) FROM MMCS_CustomerRegistration WHERE MCR_TStatus = 'MM') AS PendingIssues,
                 (SELECT COUNT(*) FROM MMCS_CustomerRegistration WHERE MCR_TStatus = 'MM') AS ResolvedIssues,
                 (SELECT COUNT(*) FROM MMCS_CustomerRegistration WHERE MCR_Status = 'A') AS ApprovalStatus,
-                (SELECT COUNT(*) FROM MMCS_CustomerRegistration WHERE MCR_TStatus = 'MM') AS PendingStatus";
+                (SELECT CASE WHEN COUNT(*) = 0 THEN 'NA' ELSE CAST(COUNT(*) AS VARCHAR(10))  end  FROM MMCS_CustomerRegistration WHERE MCR_TStatus = 'MM') AS PendingStatus, 
+                (SELECT CASE WHEN COUNT(*) = 0 THEN 'NA' ELSE CAST(COUNT(*) AS VARCHAR(10))  end FROM MMCS_CustomerRegistration WHERE MCR_TStatus = 'MM') AS RejectedStatus";
 
                 using (var command = new SqlCommand(query, connection))
                 using (var reader = await command.ExecuteReaderAsync())
@@ -2814,7 +2816,8 @@ ORDER BY ut.Id DESC";
                             PendingIssues = reader.GetInt32(3),
                             ResolvedIssues = reader.GetInt32(4),
                             ApprovalStatus = reader.GetInt32(5),
-                            PendingStatus = reader.GetInt32(6)
+                            PendingStatus = reader.GetString(6),
+                            RejectedStatus = reader.GetString(7),
                         };
                     }
                 }
