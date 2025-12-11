@@ -16,6 +16,10 @@ namespace TracePca.Dto.DigitalFilling
 		public string URLPath { get; set; }
 
         public string DocID { get; set; }
+
+        public string UserEmail { get; set; }
+
+        public string FOlderPath { get; set; }
     }
     public class CabinetDto
     {

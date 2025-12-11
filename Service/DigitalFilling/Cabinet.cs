@@ -2646,7 +2646,7 @@ namespace TracePca.Service.DigitalFilling
                 await connection.OpenAsync();
 
                 string query = @"Select A.PGE_BaseName as DocID, A.Pge_Title as Title, A.PGE_Ext as Extension, 
-                                B.Fol_Name as Folder, C.CBN_Name as SubCabinet, D.CBN_Name as Cabinet, FileName as URLPath
+                                B.Fol_Name as Folder, C.CBN_Name as SubCabinet, D.CBN_Name as Cabinet, FileName as URLPath,UserEmail, FOlderPath
                                 from edt_page A join edt_folder B on A.PGE_Folder = B.fol_FolID
                                 Inner Join edt_Cabinet C on C.CBN_ID = A.PGE_SubCabinet
                                 Inner Join edt_Cabinet D on D.CBN_ID = A.PGE_Cabinet
