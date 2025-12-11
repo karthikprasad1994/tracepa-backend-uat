@@ -2628,6 +2628,40 @@ namespace TracePca.Service.DigitalFilling
                 throw new Exception(ex.Message);
             }
         }
+
+
+        public async Task<IEnumerable<SearchDto>> LoadFolderDocumentsDetailsAsync(int FolderID, int compID)
+        {
+            try
+            {
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                if (string.IsNullOrEmpty(dbName))
+                    throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+                var connectionString = _configuration.GetConnectionString(dbName);
+
+                using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                string query = @"Select A.PGE_BaseName as DocID, A.Pge_Title as Title, A.PGE_Ext as Extension, 
+                                B.Fol_Name as Folder, C.CBN_Name as SubCabinet, D.CBN_Name as Cabinet, FileName as URLPath
+                                from edt_page A join edt_folder B on A.PGE_Folder = B.fol_FolID
+                                Inner Join edt_Cabinet C on C.CBN_ID = A.PGE_SubCabinet
+                                Inner Join edt_Cabinet D on D.CBN_ID = A.PGE_Cabinet
+                                left join UserDriveItemsNumeric E on E.docid = A.PGE_BaseName where pge_Folder =@pge_Folder and PGE_CompID=@PGE_CompID";
+                var result = await connection.QueryAsync<SearchDto>(query, new
+                {
+                    pge_Folder = FolderID,
+                    PGE_CompID = compID
+                });
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
+        }
     }
 }
 

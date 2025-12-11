@@ -855,5 +855,42 @@ namespace TracePca.Controllers.DigitalFilling
                 });
             }
         }
+
+
+        [HttpGet("LoadFolderDocumentsDetails")]
+        public async Task<IActionResult> LoadFolderDocumentsDetails(int FolderID, int compID)
+        {
+            try
+            {
+                var dropdownData = await _CabinetInterface.LoadFolderDocumentsDetailsAsync(FolderID,compID);
+
+                if (dropdownData != null && dropdownData.Any())  // Check if the collection exists and has items
+                {
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "Folder Documents loaded successfully.",
+                        data = dropdownData  // Return the actual data
+                    });
+                }
+                else
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No data found for the given criteria."
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An unexpected error occurred while loading cabinet data.",
+                    details = ex.Message
+                });
+            }
+        }
     }
 }

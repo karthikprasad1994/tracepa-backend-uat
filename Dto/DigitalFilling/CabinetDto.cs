@@ -14,7 +14,9 @@ namespace TracePca.Dto.DigitalFilling
         public string Folder { get; set; }
 		public string PGE_BASENAME { get; set; }
 		public string URLPath { get; set; }
-	}
+
+        public string DocID { get; set; }
+    }
     public class CabinetDto
     {
        
