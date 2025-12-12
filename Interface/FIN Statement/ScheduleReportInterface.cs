@@ -39,6 +39,7 @@ namespace TracePca.Interface.FIN_Statement
         Task<(int iUpdateOrSave, int iOper)> SaveCustomerStatutoryPartnerAsync(StatutoryPartnerDto partnerDto);
         Task<(int iUpdateOrSave, int iOper)> SaveCustomerStatutoryDirectorAsync(StatutoryDirectorDto directorDto);
 
+        Task<DirectorDto> GetDirectorByIdAsync(int directorId);
 
     }
 }

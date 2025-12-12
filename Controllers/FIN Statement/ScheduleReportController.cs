@@ -421,5 +421,47 @@ namespace TracePca.Controllers.FIN_Statement
                 iOper = result.iOper
             });
         }
+        [HttpGet("GetById")]
+        public async Task<IActionResult> GetById([FromQuery] int directorId)
+        {
+            if (directorId <= 0)
+            {
+                return BadRequest(new
+                {
+                    status = 400,
+                    message = "Invalid Director ID"
+                });
+            }
+
+            try
+            {
+                var result = await _ScheduleReportService.GetDirectorByIdAsync(directorId);
+
+                if (result == null)
+                {
+                    return NotFound(new
+                    {
+                        status = 404,
+                        message = "Director not found"
+                    });
+                }
+
+                return Ok(new
+                {
+                    status = 200,
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "Internal server error",
+                    details = ex.Message
+                });
+            }
+        }
+
     }
 }

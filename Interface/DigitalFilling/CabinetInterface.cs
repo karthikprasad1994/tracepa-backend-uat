@@ -68,6 +68,8 @@ namespace TracePca.Interface.DigitalFilling
 
 		Task<GoogleDriveFile> GetFileByIdAsync(int DocId, string userEmail);
 
+        Task<IEnumerable<SearchDto>> LoadFolderDocumentsDetailsAsync(int FolderID, int compID);
 
+       
     }
 }
