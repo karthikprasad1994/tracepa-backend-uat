@@ -91,9 +91,21 @@
 
         public class MaterialityBasisGridDto
         {
-            public string Description { get; set; }
-            public decimal CurrentYear { get; set; }
-            public decimal PreviousYear { get; set; }
+            
+            public decimal cyRevenue { get; set; }
+            public decimal pyRevenue { get; set; }
+            public decimal RevenuepercentChange { get; set; }
+            public decimal currentPBT { get; set; }
+            public decimal previousPBT { get; set; }
+            public decimal PBTpercentage { get; set; }
+            public decimal percentageRevenue { get; set; }
+            public decimal currentPPE { get; set; }
+            public decimal previoustPPE { get; set; }
+            public decimal PPEPercantage { get; set; }
+            public decimal currentAsset { get; set; }
+            public decimal previoustAsset { get; set; }
+            public decimal AssetPercantage { get; set; }
+
         }
     }
 }
