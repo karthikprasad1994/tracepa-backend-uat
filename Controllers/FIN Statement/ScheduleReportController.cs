@@ -462,6 +462,17 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+        [HttpGet("get-customer-amount-settings")]
+        public async Task<IActionResult> GetCustomerAmountSettings(int customerId)
+        {
+            var result = await _ScheduleReportService.GetCustomerAmountSettingsAsync(customerId);
+
+            if (result == null)
+                return NotFound("Customer not found");
+
+            return Ok(result);
+        }
+
 
     }
 }

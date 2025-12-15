@@ -260,6 +260,11 @@ namespace TracePca.Dto.FIN_Statement
             public string SSD_Remarks { get; set; }
         }
 
+        public class CustomerAmountSettingsDto
+        {
+            public string CUST_Amount_Type { get; set; }
+            public decimal? CUST_RoundOff { get; set; }
+        }
 
     }
 }
