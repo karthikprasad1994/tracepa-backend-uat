@@ -421,106 +421,143 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
             decimal currentAmt = 0;
             decimal previousAmt = 0;
             string typeName = "";
+            string OrgTypeName;
+            int headIncomeId; int headExpenseId;
+            int cysubIncomeHeadID;
+            decimal CyRevenue;
+            // Profit before tax
+            // Step 1: Get Org Type
 
-              // Profit before tax
             
-                typeName = "Profit before tax";
+                var orgTypeQuery = @"
+SELECT cmm_Desc
+FROM SAD_CUSTOMER_MASTER 
+LEFT JOIN Content_Management_Master 
+    ON Content_Management_Master.cmm_id = SAD_CUSTOMER_MASTER.CUST_ORGTYPEID 
+WHERE SAD_CUSTOMER_MASTER.CUST_ID = @CustomerId";
 
-                int headIncomeId = await GetHeadingId(connection, tran, custId, "I Revenue");
-                int headExpenseId = await GetHeadingId(connection, tran, custId, "II Expenses");
+                await using (var cmd = new SqlCommand(orgTypeQuery, connection))
+                {
+                    cmd.Parameters.AddWithValue("@CustomerId", custId);
+                    var orgTypeResult = await cmd.ExecuteScalarAsync();
+                    OrgTypeName = orgTypeResult?.ToString() ?? "Unknown";
+                }
+
+                if (OrgTypeName == "Private Limited")
+                {
+                headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+                headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
                 var income = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
                 var expense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
 
                 //Revenue
-                int cysubIncomeHeadID = await GetSubHeadingId(connection, tran, custId, "(i) Revenue from operations (net)");
+                cysubIncomeHeadID = await GetSubHeadingId(connection, tran, custId, "I Revenue from operations");
                 var dtIncomeAmt = await GetSubHeadingAmt(connection, tran, yearId, custId, 3, cysubIncomeHeadID);
-                decimal CyRevenue = dtIncomeAmt.Dc1;
+                CyRevenue = dtIncomeAmt.Dc1;
                 decimal pyRevenue = dtIncomeAmt.DP1;
-                decimal RevenuepercentChange = (+(CyRevenue - pyRevenue) / pyRevenue*100);
-            RevenuepercentChange = Math.Round(RevenuepercentChange, 0, MidpointRounding.AwayFromZero);
+                decimal RevenuepercentChange = (+(CyRevenue - pyRevenue) / pyRevenue * 100);
+                RevenuepercentChange = Math.Round(RevenuepercentChange, 0, MidpointRounding.AwayFromZero);
 
+                //PBT
+                decimal currentPBT = income.Dc1 - expense.Dc1;
+                decimal previousPBT = income.DP1 - expense.DP1;
+                decimal PBTpercentage = (+(currentPBT - previousPBT) / previousPBT * 100);
+                PBTpercentage = Math.Round(PBTpercentage, 0, MidpointRounding.AwayFromZero);
+                decimal percentageRevenue = (+currentPBT / CyRevenue * 100);
+                percentageRevenue = Math.Round(percentageRevenue, 0, MidpointRounding.AwayFromZero);
 
-            //PBT
-            decimal currentPBT = income.Dc1 - expense.Dc1;
-               decimal previousPBT = income.DP1 - expense.DP1;            
-                decimal PBTpercentage = (+(currentPBT - previousPBT) / previousPBT*100);
-            PBTpercentage = Math.Round(PBTpercentage, 0, MidpointRounding.AwayFromZero);
-            decimal percentageRevenue = (+currentPBT / CyRevenue*100);
-            percentageRevenue = Math.Round(percentageRevenue, 0, MidpointRounding.AwayFromZero);
-
-            // PPE     (a) (i) Property, Plant and Equipment
-            int cysubHeadID = await GetSubHeadingId(connection, tran, custId, "(a)  Property Plant and Equipment");
+                // PPE     (a) (i) Property, Plant and Equipment
+                int cysubHeadID = await GetSubHeadingId(connection, tran, custId, "(a) (i) Property, Plant and Equipment");
                 var dtAmt = await GetSubHeadingAmt(connection, tran, yearId, custId, 4, cysubHeadID);
-                decimal currentPPE = dtAmt.Dc1 ;
-                decimal previoustPPE =  dtAmt.DP1;
-                decimal PPEPercantage= (+(currentPPE - previoustPPE) / previoustPPE*100);
-            PPEPercantage = Math.Round(PPEPercantage, 0, MidpointRounding.AwayFromZero);
+                decimal currentPPE = dtAmt.Dc1;
+                decimal previoustPPE = dtAmt.DP1;
+                decimal PPEPercantage = (+(currentPPE - previoustPPE) / previoustPPE * 100);
+                PPEPercantage = Math.Round(PPEPercantage, 0, MidpointRounding.AwayFromZero);
 
-            // Total Assets
-            var dtAsstAmt = await GetTotalAssets(connection, tran, yearId, custId, cysubHeadID);
+                // Total Assets
+                var dtAsstAmt = await GetTotalAssets(connection, tran, yearId, custId, cysubHeadID);
                 decimal currentAsset = dtAsstAmt.Dc1;
                 decimal previoustAsset = dtAsstAmt.DP1;
-                decimal AssetPercantage = (+(currentAsset - previoustAsset) / previoustAsset*100);
-            AssetPercantage = Math.Round(AssetPercantage, 0, MidpointRounding.AwayFromZero);
+                decimal AssetPercantage = (+(currentAsset - previoustAsset) / previoustAsset * 100);
+                AssetPercantage = Math.Round(AssetPercantage, 0, MidpointRounding.AwayFromZero);
+                return new MaterialityBasisGridDto
+                {
+                    cyRevenue = CyRevenue,
+                    pyRevenue = pyRevenue,
+                    RevenuepercentChange = RevenuepercentChange,
+                    currentPBT = currentPBT,
+                    previousPBT = previousPBT,
+                    PBTpercentage = PBTpercentage,
+                    percentageRevenue = percentageRevenue,
+                    currentPPE = currentPPE,
+                    previoustPPE = previoustPPE,
+                    PPEPercantage = PPEPercantage,
+                    currentAsset = currentAsset,
+                    previoustAsset = previoustAsset,
+                    AssetPercantage = AssetPercantage
+                };
 
-
-
-            if (typeId == 2) // Revenue from operation
-            {
-                typeName = "Revenue from operation";
-
-                int headId = await GetHeadingId(connection, tran, custId, "I Revenue from operations");
-                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
-
-                currentAmt = dt.Dc1;
-                previousAmt = dt.DP1;
             }
-            else if (typeId == 3) // Total asset
-            {
-                typeName = "Total asset";
+                else
+                {
 
-                int headId = await GetHeadingId(connection, tran, custId, "Total Assets");
-                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+                    headIncomeId = await GetHeadingId(connection, tran, custId, "I Revenue");
+                    headExpenseId = await GetHeadingId(connection, tran, custId, "II Expenses");
+                    var income = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
+                    var expense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
 
-                currentAmt = dt.Dc1;
-                previousAmt = dt.DP1;
-            }
-            else if (typeId == 4) // Total expenses
-            {
-                typeName = "Total expenses";
+                    //Revenue
+                    cysubIncomeHeadID = await GetSubHeadingId(connection, tran, custId, "(i) Revenue from operations (net)");
+                    var dtIncomeAmt = await GetSubHeadingAmt(connection, tran, yearId, custId, 3, cysubIncomeHeadID);
+                     CyRevenue = dtIncomeAmt.Dc1;
+                    decimal pyRevenue = dtIncomeAmt.DP1;
+                    decimal RevenuepercentChange = (+(CyRevenue - pyRevenue) / pyRevenue * 100);
+                    RevenuepercentChange = Math.Round(RevenuepercentChange, 0, MidpointRounding.AwayFromZero);
 
-                int headId = await GetHeadingId(connection, tran, custId, "Expenses");
-                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+                    //PBT
+                    decimal currentPBT = income.Dc1 - expense.Dc1;
+                    decimal previousPBT = income.DP1 - expense.DP1;
+                    decimal PBTpercentage = (+(currentPBT - previousPBT) / previousPBT * 100);
+                    PBTpercentage = Math.Round(PBTpercentage, 0, MidpointRounding.AwayFromZero);
+                    decimal percentageRevenue = (+currentPBT / CyRevenue * 100);
+                    percentageRevenue = Math.Round(percentageRevenue, 0, MidpointRounding.AwayFromZero);
 
-                currentAmt = dt.Dc1;
-                previousAmt = dt.DP1;
-            }
-            else if (typeId == 5) // Networth (Equity shares)
-            {
-                typeName = "Networth (Equity shares)";
+                    // PPE     (a) (i) Property, Plant and Equipment
+                    int cysubHeadID = await GetSubHeadingId(connection, tran, custId, "(a)  Property Plant and Equipment");
+                    var dtAmt = await GetSubHeadingAmt(connection, tran, yearId, custId, 4, cysubHeadID);
+                    decimal currentPPE = dtAmt.Dc1;
+                    decimal previoustPPE = dtAmt.DP1;
+                    decimal PPEPercantage = (+(currentPPE - previoustPPE) / previoustPPE * 100);
+                    PPEPercantage = Math.Round(PPEPercantage, 0, MidpointRounding.AwayFromZero);
 
-                int headId = await GetHeadingId(connection, tran, custId, "Equity Share Capital");
-                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
+                    // Total Assets
+                    var dtAsstAmt = await GetTotalAssets(connection, tran, yearId, custId, cysubHeadID);
+                    decimal currentAsset = dtAsstAmt.Dc1;
+                    decimal previoustAsset = dtAsstAmt.DP1;
+                    decimal AssetPercantage = (+(currentAsset - previoustAsset) / previoustAsset * 100);
+                    AssetPercantage = Math.Round(AssetPercantage, 0, MidpointRounding.AwayFromZero);
 
-                currentAmt = dt.Dc1;
-                previousAmt = dt.DP1;
-            }
-            return new MaterialityBasisGridDto
-            {             
-                cyRevenue = CyRevenue,
-                pyRevenue = pyRevenue,
-                RevenuepercentChange= RevenuepercentChange,
-                currentPBT= currentPBT,
-                previousPBT= previousPBT,
-                PBTpercentage= PBTpercentage,
-                percentageRevenue= percentageRevenue,
-                currentPPE= currentPPE,
-                previoustPPE= previoustPPE,
-                PPEPercantage= PPEPercantage,
-                currentAsset= currentAsset,
-                previoustAsset= previoustAsset,
-                AssetPercantage=AssetPercantage
-            }; 
+                    return new MaterialityBasisGridDto
+                    {
+                        cyRevenue = CyRevenue,
+                        pyRevenue = pyRevenue,
+                        RevenuepercentChange = RevenuepercentChange,
+                        currentPBT = currentPBT,
+                        previousPBT = previousPBT,
+                        PBTpercentage = PBTpercentage,
+                        percentageRevenue = percentageRevenue,
+                        currentPPE = currentPPE,
+                        previoustPPE = previoustPPE,
+                        PPEPercantage = PPEPercantage,
+                        currentAsset = currentAsset,
+                        previoustAsset = previoustAsset,
+                        AssetPercantage = AssetPercantage
+                    };
+
+                }
+
+             
+                     
         }
         private async Task<int> GetHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string headName)
         {
