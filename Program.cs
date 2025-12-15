@@ -55,6 +55,8 @@ using TracePca.Service.ProfileSetting;
 using TracePca.Service.SuperMaster;
 using TracePca.Service.TaskManagement;
 using TracePca.Utility;
+using System.Globalization;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -111,7 +113,14 @@ builder.Services.AddSession(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; // Requires HTTPS
 });
 
+// 🔥 FORCE DASH INSTEAD OF SLASH
+var culture = new CultureInfo("en-GB");
 
+culture.DateTimeFormat.DateSeparator = "-";
+culture.DateTimeFormat.ShortDatePattern = "dd-MM-yyyy";
+
+CultureInfo.DefaultThreadCurrentCulture = culture;
+CultureInfo.DefaultThreadCurrentUICulture = culture;
 
 builder.Services.AddSwaggerGen(c =>
 {
