@@ -9,6 +9,7 @@
             public string? cmm_Desc { get; set; }
             public int lm_LevelOfRisk { get; set; }
             public int lm_Weightage { get; set; }
+            public int lm_Id { get; set; }
         }
 
         //SaveOrUpdateLedgerMaterialityMaster
