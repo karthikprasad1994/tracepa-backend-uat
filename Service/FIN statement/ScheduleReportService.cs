@@ -2544,7 +2544,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
             {
                 label = "Partners";
                 peopleQuery = @"
-            SELECT SSP_Id AS Id, SSP_PartnerName AS Name, SSD_DIN as DIN
+            SELECT SSP_Id AS Id, SSP_PartnerName AS Name, '' as DIN
             FROM SAD_Statutory_PartnerDetails
             WHERE SSP_CustID = @CustomerId AND SSP_CompID = @CompanyId";
             }
