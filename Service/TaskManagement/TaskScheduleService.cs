@@ -334,9 +334,9 @@ namespace TracePca.Service.TaskManagement
             }
 
             const string sqlHistory = @"
-                SELECT h.TMSH_Id, h.TMSH_SchedulePKId, h.TMSH_SubtaskPKId, ISNULL(acm.ACM_Checkpoint, '') AS SubtaskName, h.TMSH_Remarks, h.TMSH_WorkStatusId, ud.USr_FullName As TMSH_CreatedBy, h.TMSH_CreatedOn
+                SELECT h.TMSH_Id, h.TMSH_SchedulePKId, h.TMSH_SubtaskPKId, acm.ACM_ID As SubtaskId, ISNULL(acm.ACM_Checkpoint, '') AS SubtaskName, h.TMSH_Remarks, h.TMSH_WorkStatusId, ud.USr_FullName As TMSH_CreatedBy, h.TMSH_CreatedOn
                 FROM dbo.TaskManagement_SubTask_History h WITH (NOLOCK)
-                LEFT JOIN dbo.AssignmentTask_Checklist_Master acm WITH (NOLOCK) ON acm.ACM_ID = h.TMSH_SubtaskPKId
+                LEFT JOIN dbo.AssignmentTask_Checklist_Master acm WITH (NOLOCK) ON acm.ACM_ID = (Select TMSD_SubtaskId From TaskManagement_SubTask_Details Where TMSD_Id = h.TMSH_SubtaskPKId)
                 LEFT JOIN dbo.sad_userdetails ud WITH (NOLOCK) ON ud.Usr_ID = h.TMSH_CreatedBy
                 WHERE h.TMSH_SchedulePKId = @ScheduleId
                 ORDER BY h.TMSH_CreatedOn DESC;
@@ -348,6 +348,7 @@ namespace TracePca.Service.TaskManagement
                 cmd.Parameters.Add("@ScheduleId", SqlDbType.Int).Value = scheduleId;
                 using (var rdr = await cmd.ExecuteReaderAsync())
                 {
+                    var ordSubtaskId = rdr.GetOrdinal("SubtaskId");                    
                     var ordSubTaskName = rdr.GetOrdinal("SubtaskName");
                     var ordHRemarks = rdr.GetOrdinal("TMSH_Remarks");
                     var ordHStatus = rdr.GetOrdinal("TMSH_WorkStatusId");
@@ -358,6 +359,7 @@ namespace TracePca.Service.TaskManagement
                     {
                         historyList.Add(new SubTaskListDto
                         {
+                            SubtaskId = !rdr.IsDBNull(ordSubtaskId) ? rdr.GetInt32(ordSubtaskId) : 0,
                             SubtaskName = !rdr.IsDBNull(ordSubTaskName) ? rdr.GetString(ordSubTaskName) : null,
                             Comment = !rdr.IsDBNull(ordHRemarks) ? rdr.GetString(ordHRemarks) : null,
                             StatusId = !rdr.IsDBNull(ordHStatus) ? rdr.GetInt32(ordHStatus) : (int?)null,
@@ -374,6 +376,7 @@ namespace TracePca.Service.TaskManagement
                 SubTaskList = subTasks,
                 SubTaskHistory = historyList.Select(h => new SubTaskListDto
                 {
+                    SubtaskId = h.SubtaskId,
                     SubtaskName = h.SubtaskName,
                     Comment = h.Comment,
                     StatusId = h.StatusId,
