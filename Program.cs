@@ -223,7 +223,7 @@ builder.Services.AddScoped<EmployeeMasterInterface, EmployeeMaster>();
 builder.Services.AddScoped<CustomerMasterInterface, CustomerMaster>();
 builder.Services.AddScoped<CustomerUserMasterInterface, CustomerUserMaster>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
-
+builder.Services.AddScoped<ReportTemplateInterface, ReportTemplateService>();
 
 
 builder.Services.AddScoped<ApiPerformanceTracker>();
