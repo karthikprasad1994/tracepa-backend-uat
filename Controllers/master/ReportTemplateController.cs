@@ -2,6 +2,7 @@
 using TracePca.Dto.Audit;
 using TracePca.Dto.Master;
 using TracePca.Interface.Master;
+using TracePca.Service.Master;
 
 namespace TracePca.Controllers.Master
 {
@@ -9,17 +10,17 @@ namespace TracePca.Controllers.Master
     [ApiController]
     public class ReportTemplateController : ControllerBase
     {
-        private readonly ReportTemplateInterface _service;
+        private readonly ReportTemplateInterface _reportTemplateService;
 
-        public ReportTemplateController(ReportTemplateInterface service)
+        public ReportTemplateController(ReportTemplateInterface reportTemplateService)
         {
-            _service = service;
+            _reportTemplateService = reportTemplateService;
         }
 
         [HttpGet("GetReportTypesByFunction")]
         public async Task<IActionResult> GetReportTypesByFunction([FromQuery] int functionId, [FromQuery] int compId)
         {
-            var (success, message, data) = await _service.GetReportTypesByFunctionAsync(functionId, compId);
+            var (success, message, data) = await _reportTemplateService.GetReportTypesByFunctionAsync(functionId, compId);
             if (!success)
                 return StatusCode(500, new { success, message });
 
@@ -29,7 +30,7 @@ namespace TracePca.Controllers.Master
         [HttpGet("GetReportContentByReportType")]
         public async Task<IActionResult> GetReportContentByReportType([FromQuery] int reportTypeId, [FromQuery] int compId)
         {
-            var (success, message, data) = await _service.GetReportContentByReportTypeAsync(reportTypeId, compId);
+            var (success, message, data) = await _reportTemplateService.GetReportContentByReportTypeAsync(reportTypeId, compId);
             if (!success)
                 return StatusCode(500, new { success, message });
 
@@ -41,7 +42,7 @@ namespace TracePca.Controllers.Master
         {
             try
             {
-                var (success, message) = await _service.SaveOrUpdateReportContentAsync(dto);
+                var (success, message) = await _reportTemplateService.SaveOrUpdateReportContentAsync(dto);
                 return Ok(new { statusCode = 200, success, message });
             }
             catch (Exception ex)

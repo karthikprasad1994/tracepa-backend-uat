@@ -2819,6 +2819,79 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 return (iUpdateOrSave, iOper);
             }
         }
+
+        public async Task<DirectorDto> GetDirectorByIdAsync(int directorId)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            using (var con = new SqlConnection(_configuration.GetConnectionString(dbName)))
+            {
+                var query = @"
+            SELECT 
+                SSD_Id,
+                SSD_DirectorName,
+                SSD_DOB,
+                SSD_DIN,
+                SSD_MobileNo,
+                SSD_Email,
+                SSD_Remarks
+            FROM SAD_Statutory_DirectorDetails
+            WHERE SSD_Id = @Id";
+
+                var result = await con.QueryFirstOrDefaultAsync<DirectorDto>(query, new { Id = directorId });
+
+                return result ?? new DirectorDto();
+            }
+        }
+        public async Task<CustomerAmountSettingsDto> GetCustomerAmountSettingsAsync(int customerId)
+        {
+            // 1. Get DB Name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // 2. Build connection string dynamically using the DB name
+            string connectionString = _configuration.GetConnectionString(dbName);
+
+            // 3. Open connection
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                await conn.OpenAsync();
+
+                string query = @"
+            SELECT CUST_Amount_Type, CUST_RoundOff
+            FROM SAD_Customer_Master
+            WHERE CUST_ID = @CUST_ID";
+
+                using (SqlCommand cmd = new SqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@CUST_ID", customerId);
+
+                    using (SqlDataReader reader = await cmd.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            return new CustomerAmountSettingsDto
+                            {
+                                CUST_Amount_Type = reader["CUST_Amount_Type"]?.ToString(),
+                                CUST_RoundOff = reader["CUST_RoundOff"] == DBNull.Value
+                                                ? null
+                                                : Convert.ToDecimal(reader["CUST_RoundOff"])
+                            };
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+
+
     }
 }
 

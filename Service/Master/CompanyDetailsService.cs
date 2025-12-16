@@ -8,9 +8,9 @@ namespace TracePca.Service.Master
 {
     public class CompanyDetailsService : CompanyDetailsInterface
     {
-        private readonly string _connectionString;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly string _connectionString;
 
         public CompanyDetailsService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {

@@ -405,7 +405,8 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
         //    }
         //}
 
-        public async Task<MaterialityBasisGridDto> GetMaterialityBasisAsync(int compId, int custId, int branchId, int yearId, int typeId)
+        public async Task<MaterialityBasisGridDto> GetMaterialityBasisAsync(
+         int compId, int custId, int branchId, int yearId, int typeId)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -416,72 +417,114 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
+
             using var tran = connection.BeginTransaction();
 
-            decimal currentAmt = 0;
-            decimal previousAmt = 0;
-            string typeName = "";
-
-            if (typeId == 1)   // Profit before tax
+            try
             {
-                typeName = "Profit before tax";
+                // 1️⃣ Get Org Type
+                string orgTypeQuery = @"
+            SELECT cmm_Desc
+            FROM SAD_CUSTOMER_MASTER scm
+            LEFT JOIN Content_Management_Master cmm
+                ON cmm.cmm_id = scm.CUST_ORGTYPEID
+            WHERE scm.CUST_ID = @CustomerId";
 
-                int headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
-                int headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+                string orgTypeName;
 
+                using (var cmd = new SqlCommand(orgTypeQuery, connection, tran))
+                {
+                    cmd.Parameters.AddWithValue("@CustomerId", custId);
+                    var result = await cmd.ExecuteScalarAsync();
+                    orgTypeName = result?.ToString() ?? "Unknown";
+                }
+
+                int headIncomeId, headExpenseId, subRevenueId, subPpeId;
+
+                if (orgTypeName == "Private Limited")
+                {
+                    headIncomeId = await GetHeadingId(connection, tran, custId, "Income");
+                    headExpenseId = await GetHeadingId(connection, tran, custId, "Expenses");
+                    subRevenueId = await GetSubHeadingId(connection, tran, custId, "I Revenue from operations");
+                    subPpeId = await GetSubHeadingId(connection, tran, custId, "(a) (i) Property, Plant and Equipment");
+                }
+                else
+                {
+                    headIncomeId = await GetHeadingId(connection, tran, custId, "I Revenue");
+                    headExpenseId = await GetHeadingId(connection, tran, custId, "II Expenses");
+                    subRevenueId = await GetSubHeadingId(connection, tran, custId, "(i) Revenue from operations (net)");
+                    subPpeId = await GetSubHeadingId(connection, tran, custId, "(a)  Property Plant and Equipment");
+                }
+
+                // 2️⃣ Income / Expense
                 var income = await GetHeadingAmt(connection, tran, yearId, custId, 3, headIncomeId);
                 var expense = await GetHeadingAmt(connection, tran, yearId, custId, 3, headExpenseId);
 
-                currentAmt = income.Dc1 - expense.Dc1;
-                previousAmt = income.DP1 - expense.DP1;
+                // 3️⃣ Revenue
+                var revenueAmt = await GetSubHeadingAmt(connection, tran, yearId, custId, 3, subRevenueId);
+
+                decimal cyRevenue = revenueAmt.Dc1;
+                decimal pyRevenue = revenueAmt.DP1;
+
+                decimal revenuePercent =
+                    pyRevenue == 0 ? 0 :
+                    Math.Round(((cyRevenue - pyRevenue) / pyRevenue) * 100, 0, MidpointRounding.AwayFromZero);
+
+                // 4️⃣ PBT
+                decimal currentPBT = income.Dc1 - expense.Dc1;
+                decimal previousPBT = income.DP1 - expense.DP1;
+
+                decimal pbtPercent =
+                    previousPBT == 0 ? 0 :
+                    Math.Round(((currentPBT - previousPBT) / previousPBT) * 100, 0, MidpointRounding.AwayFromZero);
+
+                decimal pbtOnRevenue =
+                    cyRevenue == 0 ? 0 :
+                    Math.Round((currentPBT / cyRevenue) * 100, 0, MidpointRounding.AwayFromZero);
+
+                // 5️⃣ PPE
+                var ppeAmt = await GetSubHeadingAmt(connection, tran, yearId, custId, 4, subPpeId);
+
+                decimal ppePercent =
+                    ppeAmt.DP1 == 0 ? 0 :
+                    Math.Round(((ppeAmt.Dc1 - ppeAmt.DP1) / ppeAmt.DP1) * 100, 0, MidpointRounding.AwayFromZero);
+
+                // 6️⃣ Total Assets
+                var assetAmt = await GetTotalAssets(connection, tran, yearId, custId, subPpeId);
+
+                decimal assetPercent =
+                    assetAmt.DP1 == 0 ? 0 :
+                    Math.Round(((assetAmt.Dc1 - assetAmt.DP1) / assetAmt.DP1) * 100, 0, MidpointRounding.AwayFromZero);
+
+                tran.Commit();
+
+                return new MaterialityBasisGridDto
+                {
+                    cyRevenue = cyRevenue,
+                    pyRevenue = pyRevenue,
+                    RevenuepercentChange = revenuePercent,
+
+                    currentPBT = currentPBT,
+                    previousPBT = previousPBT,
+                    PBTpercentage = pbtPercent,
+                    percentageRevenue = pbtOnRevenue,
+
+                    currentPPE = ppeAmt.Dc1,
+                    previoustPPE = ppeAmt.DP1,
+                    PPEPercantage = ppePercent,
+
+                    currentAsset = assetAmt.Dc1,
+                    previoustAsset = assetAmt.DP1,
+                    AssetPercantage = assetPercent
+                };
             }
-            else if (typeId == 2) // Revenue from operation
+            catch
             {
-                typeName = "Revenue from operation";
-
-                int headId = await GetHeadingId(connection, tran, custId, "I Revenue from operations");
-                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
-
-                currentAmt = dt.Dc1;
-                previousAmt = dt.DP1;
+                tran.Rollback();
+                throw;
             }
-            else if (typeId == 3) // Total asset
-            {
-                typeName = "Total asset";
-
-                int headId = await GetHeadingId(connection, tran, custId, "Total Assets");
-                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
-
-                currentAmt = dt.Dc1;
-                previousAmt = dt.DP1;
-            }
-            else if (typeId == 4) // Total expenses
-            {
-                typeName = "Total expenses";
-
-                int headId = await GetHeadingId(connection, tran, custId, "Expenses");
-                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
-
-                currentAmt = dt.Dc1;
-                previousAmt = dt.DP1;
-            }
-            else if (typeId == 5) // Networth (Equity shares)
-            {
-                typeName = "Networth (Equity shares)";
-
-                int headId = await GetHeadingId(connection, tran, custId, "Equity Share Capital");
-                var dt = await GetHeadingAmt(connection, tran, yearId, custId, 3, headId);
-
-                currentAmt = dt.Dc1;
-                previousAmt = dt.DP1;
-            }
-            return new MaterialityBasisGridDto
-            {
-                Description = typeName,
-                CurrentYear = currentAmt,
-                PreviousYear = previousAmt
-            };
         }
+
         private async Task<int> GetHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string headName)
         {
             const string sql = @"SELECT ISNULL(ASH_ID,0) FROM ACC_ScheduleHeading WHERE ASH_Name = @HeadName AND ASH_OrgType = @CustId";
@@ -505,9 +548,9 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
                   ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
                   ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
                 FROM Acc_TrailBalance_Upload_Details ud
-                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
-                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
-                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_HeadingId = @HeadingId
+                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId and ud.atbud_yearid=@YearId
+                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId and ud.atbud_yearid=@PrevYear
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_HeadingId = @HeadingId 
             ";
 
             var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, HeadingId = headingId }, tran);
@@ -516,8 +559,9 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
 
             decimal dc1 = row.Dc1 == null ? 0m : Convert.ToDecimal(row.Dc1);
             decimal dp1 = row.DP1 == null ? 0m : Convert.ToDecimal(row.DP1);
+            decimal percentChange = +(dc1 - dp1) / dp1;
 
-            return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1 };
+            return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1, PercentChange= percentChange };
         }
 
         private async Task<ScheduleAccountingRatioDto.HeadingAmount> GetSubHeadingAmt(SqlConnection conn, SqlTransaction tran,
@@ -530,9 +574,9 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
                   ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
                   ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
                 FROM Acc_TrailBalance_Upload_Details ud
-                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
-                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
-                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_SubHeading = @SubHeadingId
+                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId and ud.atbud_yearid=@YearId
+                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId and ud.atbud_yearid=@PrevYear
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_SubHeading = @SubHeadingId 
             ";
 
             var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, SubHeadingId = subHeadingId }, tran);
@@ -551,6 +595,26 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
                 WHERE ATBU_Description = 'Net Income' AND ATBU_YearId = @YearId AND ATBU_CustId = @CustomerId AND ATBU_BranchId = @BranchId ";
             var value = await conn.ExecuteScalarAsync<decimal?>(sql, new { YearId = yearId, CustomerId = customerId, BranchId = branchId }, tran);
             return value ?? 0m;
+        }
+        private async Task<ScheduleAccountingRatioDto.HeadingAmount> GetTotalAssets(SqlConnection conn, SqlTransaction tran, int yearId, int customerId, int branchId)
+        {
+            var sql = @"
+                SELECT 
+                  ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
+                  ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
+                FROM Acc_TrailBalance_Upload_Details ud
+                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId and ud.atbud_yearid=@YearId
+                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId and ud.atbud_yearid=@PrevYear
+left join ACC_ScheduleTemplates on AST_Companytype=ud.atbud_custid and AST_Schedule_type=4 and AST_AccHeadId=1  and AST_Companytype=@CustomerId               
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId  ";
+            var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = 4, }, tran);
+
+            if (row == null) return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = 0m, DP1 = 0m };
+
+            decimal dc1 = row.Dc1 == null ? 0m : Convert.ToDecimal(row.Dc1);
+            decimal dp1 = row.DP1 == null ? 0m : Convert.ToDecimal(row.DP1);
+
+            return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1 };
         }
     }
 }
