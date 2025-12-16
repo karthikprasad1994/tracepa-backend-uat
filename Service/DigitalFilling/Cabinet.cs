@@ -1473,40 +1473,29 @@ namespace TracePca.Service.DigitalFilling
 				using var connection = new SqlConnection(connectionString);
 				await connection.OpenAsync();
 
-				//string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
-				//                            SELECT DISTINCT ATCH_FName as FileName, (SELECT TOP 1 SAD_Config_Value FROM [Sad_Config_Settings] 
-				//                                    WHERE sad_Config_key = 'DisplayPath') + 'BITMAPS\' 
-				//                                + CAST(FLOOR(CAST(A.Atch_DocID AS numeric)/301) AS varchar) + '\' + CAST(A.Atch_DocID AS varchar) 
-				//                                + '.' + A.ATCH_Ext AS URLPath FROM edt_Attachments A
-				//                            JOIN (SELECT DISTINCT CAST(value AS INT) AS Atch_ID FROM STRING_SPLIT(@ids, ',')) S
-				//                                ON A.Atch_ID = S.Atch_ID and A.Atch_FName != '' and atch_Ext != '';";
-
-				//string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
-				//				SELECT DISTINCT C.Fol_Name as FolderName, ATCH_FName as FileName, (SELECT TOP 1 SAD_Config_Value FROM [Sad_Config_Settings] 
-				//				WHERE sad_Config_key = 'DisplayPath') + 'BITMAPS\' 
-				//				+ CAST(FLOOR(CAST(A.Atch_DocID AS numeric)/301) AS varchar) + '\' + CAST(A.Atch_DocID AS varchar) 
-				//				+ '.' + A.ATCH_Ext AS URLPath FROM edt_Attachments A
-				//                            JOIN (SELECT DISTINCT CAST(value AS INT) AS Atch_ID FROM STRING_SPLIT(@ids, ',')) S
-				//				ON A.Atch_ID = S.Atch_ID and A.Atch_FName != '' and atch_Ext != ''
-				//				Left join edt_folder C on C.FOL_FolID = A.Atch_FolderId";
-
-				//string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
-				//					select B.Fol_Name as Foldername, ATCH_FName as FileName,Atch_Path AS URLPath from edt_Attachments A  
-				//					JOIN (SELECT DISTINCT CAST(value AS INT) AS Atch_ID FROM STRING_SPLIT(@ids, ',')) S
-				//					ON A.Atch_ID = S.Atch_ID and A.Atch_FName != '' and atch_Ext != ''
-				//					left join edt_folder B on A.Atch_FolderId = B.FOL_FolID";
 
 
-				string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
-								SELECT B.FOL_Name AS FolderName, A.Atch_FName AS FileName,
-								REPLACE(A.Atch_Path,'C:\inetpub\vhosts\multimedia.interactivedns.com\tracelites.multimedia.interactivedns.com\',
-								'https:\\tracelites.multimedia.interactivedns.com\') AS URLPath
-								FROM edt_Attachments A JOIN ( SELECT DISTINCT TRY_CAST(value AS INT) AS Atch_ID
-								FROM STRING_SPLIT(@ids, ',') WHERE TRY_CAST(value AS INT) IS NOT NULL
-								) S ON A.Atch_ID = S.Atch_ID
-								LEFT JOIN edt_Folder B ON A.Atch_FolderId = B.FOL_FolID WHERE A.Atch_FName <> ''  AND A.Atch_Ext <> '';";
+                //string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
+                //				SELECT B.FOL_Name AS FolderName, A.Atch_FName AS FileName,
+                //				REPLACE(A.Atch_Path,'C:\inetpub\vhosts\multimedia.interactivedns.com\tracelites.multimedia.interactivedns.com\',
+                //				'https:\\tracelites.multimedia.interactivedns.com\') AS URLPath
+                //				FROM edt_Attachments A JOIN ( SELECT DISTINCT TRY_CAST(value AS INT) AS Atch_ID
+                //				FROM STRING_SPLIT(@ids, ',') WHERE TRY_CAST(value AS INT) IS NOT NULL
+                //				) S ON A.Atch_ID = S.Atch_ID
+                //				LEFT JOIN edt_Folder B ON A.Atch_FolderId = B.FOL_FolID WHERE A.Atch_FName <> ''  AND A.Atch_Ext <> '';";
 
-				var result = await connection.QueryAsync<ArchivedDocumentFileDto>(query, new { AttachIDs = sAttachID });
+
+                string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
+                				SELECT B.FOL_Name AS FolderName, A.Atch_FName AS FileName, A.atch_ID,
+                                (SELECT TOP 1 UserEmail FROM UserDriveTokens ORDER BY Id DESC) AS UserEmail
+                				FROM edt_Attachments A JOIN ( SELECT DISTINCT TRY_CAST(value AS INT) AS Atch_ID
+                				FROM STRING_SPLIT(@ids, ',') WHERE TRY_CAST(value AS INT) IS NOT NULL
+                				) S ON A.Atch_ID = S.Atch_ID
+                				LEFT JOIN edt_Folder B ON A.Atch_FolderId = B.FOL_FolID
+                                left join UserDriveItemsNumeric E on E.docid = A.Atch_ID 
+                                WHERE A.Atch_FName <> ''  AND A.Atch_Ext <> '';";
+
+                var result = await connection.QueryAsync<ArchivedDocumentFileDto>(query, new { AttachIDs = sAttachID });
 				return result ?? Enumerable.Empty<ArchivedDocumentFileDto>();
 			}
             catch (Exception ex)
@@ -2640,6 +2629,7 @@ namespace TracePca.Service.DigitalFilling
                 if (string.IsNullOrEmpty(dbName))
                     throw new Exception("CustomerCode is missing in session. Please log in again.");
 
+               
                 var connectionString = _configuration.GetConnectionString(dbName);
 
                 using var connection = new SqlConnection(connectionString);

@@ -130,7 +130,11 @@ namespace TracePca.Dto.DigitalFilling
 		public string FileName { get; set; }
 		public string URLPath { get; set; }
 		public string FolderName { get; set; }
-	}
+
+        public string atch_ID { get; set; }
+        public string UserEmail { get; set; }
+
+    }
 
 	public class DepartmentDto
 	{
