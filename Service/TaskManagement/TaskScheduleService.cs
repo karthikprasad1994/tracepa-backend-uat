@@ -259,8 +259,7 @@ namespace TracePca.Service.TaskManagement
                 header.TaskNo = rdr["TMS_TaskNo"]?.ToString() ?? "";
                 header.ClientName = rdr["ClientName"]?.ToString() ?? "";
                 header.TaskName = rdr["TaskName"]?.ToString() ?? "";
-                header.StatusId = rdr.GetInt32(rdr.GetOrdinal("TMS_StatusId"));
-
+                header.StatusId = rdr.IsDBNull(rdr.GetOrdinal("TMS_StatusId")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("TMS_StatusId"));
                 partnerIdsCsv = rdr["TMS_PartnerIds"]?.ToString() ?? "";
                 teamIdsCsv = rdr["TMS_TeamMemberIds"]?.ToString() ?? "";
 

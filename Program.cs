@@ -231,6 +231,9 @@ builder.Services.AddScoped<PermissionInterface, TracePca.Service.Permission.Perm
 
 builder.Services.AddScoped<TaskDashboardInterface, TaskDashboardService>();
 builder.Services.AddScoped<TaskScheduleInterface, TaskScheduleService>();
+builder.Services.AddScoped<CompanyDetailsInterface, CompanyDetailsService>();
+builder.Services.AddScoped<TaskInvoiceAndReportInterface, TaskInvoiceAndReportService>();
+
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
