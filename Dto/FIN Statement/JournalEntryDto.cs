@@ -205,6 +205,7 @@
             public string BillDate { get; set; }
 
             public int? BillType { get; set; }
+            public string? comments { get; set; }
         }
         public class GenerateTransactionNoRequest
         {
