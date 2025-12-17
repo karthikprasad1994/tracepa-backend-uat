@@ -201,6 +201,10 @@
             public decimal Debit { get; set; }
             public decimal Credit { get; set; }
             public decimal Balance { get; set; }
+
+            public string BillDate { get; set; }
+
+            public int? BillType { get; set; }
         }
         public class GenerateTransactionNoRequest
         {
