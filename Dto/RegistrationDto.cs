@@ -60,7 +60,9 @@
         public int PendingIssues { get; set; }
         public int ResolvedIssues { get; set; }
         public int ApprovalStatus { get; set; }
-        public int PendingStatus { get; set; }
+        public string PendingStatus { get; set; }
+        public string RejectedStatus { get; set; }
+        
     }
 }
 

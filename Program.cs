@@ -55,6 +55,8 @@ using TracePca.Service.ProfileSetting;
 using TracePca.Service.SuperMaster;
 using TracePca.Service.TaskManagement;
 using TracePca.Utility;
+using System.Globalization;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -111,7 +113,14 @@ builder.Services.AddSession(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; // Requires HTTPS
 });
 
+// 🔥 FORCE DASH INSTEAD OF SLASH
+var culture = new CultureInfo("en-GB");
 
+culture.DateTimeFormat.DateSeparator = "-";
+culture.DateTimeFormat.ShortDatePattern = "dd-MM-yyyy";
+
+CultureInfo.DefaultThreadCurrentCulture = culture;
+CultureInfo.DefaultThreadCurrentUICulture = culture;
 
 builder.Services.AddSwaggerGen(c =>
 {
@@ -214,7 +223,7 @@ builder.Services.AddScoped<EmployeeMasterInterface, EmployeeMaster>();
 builder.Services.AddScoped<CustomerMasterInterface, CustomerMaster>();
 builder.Services.AddScoped<CustomerUserMasterInterface, CustomerUserMaster>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
-
+builder.Services.AddScoped<ReportTemplateInterface, ReportTemplateService>();
 
 
 builder.Services.AddScoped<ApiPerformanceTracker>();
@@ -222,6 +231,9 @@ builder.Services.AddScoped<PermissionInterface, TracePca.Service.Permission.Perm
 
 builder.Services.AddScoped<TaskDashboardInterface, TaskDashboardService>();
 builder.Services.AddScoped<TaskScheduleInterface, TaskScheduleService>();
+builder.Services.AddScoped<CompanyDetailsInterface, CompanyDetailsService>();
+builder.Services.AddScoped<TaskInvoiceAndReportInterface, TaskInvoiceAndReportService>();
+
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

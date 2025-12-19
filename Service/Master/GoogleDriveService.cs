@@ -43,7 +43,7 @@ namespace TracePca.Service.Master
             _credentialsPath = _isDevelopment ? localPath : cloudPath;
 
             _logFilePath = _isDevelopment
-                ? @"C:\Users\MMCS\Desktop\LatestBackend\tracepa-dotnet-core\Logs\GoogleDriveLog.txt"
+                ? @"D:\Projects\Gitlab\TraceAPI - Backend Code\tracepa-dotnet-core\Logs\GoogleDriveLog.txt"
                 : @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\Logs\GoogleDriveLog.txt";
 
             if (!File.Exists(_credentialsPath))
