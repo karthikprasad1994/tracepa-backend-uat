@@ -15,7 +15,7 @@
             public string AJTB_status { get; set; }
             public int ajtb_id { get; set; }
             public string AJTB_CreatedOn { get; set; }
-            public string AJAJTB_TranscNoTB_CreatedOn { get; set; }
+            public string AJTB_TranscNo{ get; set; }
         }
 
 
