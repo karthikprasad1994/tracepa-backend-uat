@@ -565,7 +565,7 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
                  percentChange = +(dc1 - dp1) / dp1;
             }         
             return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1, PercentChange = percentChange };
-                    }
+            }
 
         private async Task<ScheduleAccountingRatioDto.HeadingAmount> GetSubHeadingAmt(SqlConnection conn, SqlTransaction tran,
             int yearId, int customerId, int schedType, int subHeadingId)
