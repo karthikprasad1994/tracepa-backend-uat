@@ -62,9 +62,8 @@ namespace TracePca.Interface.FIN_Statement
         Task<int[]> SaveMappingTransactionDetailsAsync(SaveMappingTransactionDetailsDto dto);
 
         //GetCustomerTrailBalance
-        Task<IEnumerable<CustomerCOADto>> GetCustomerTBAsync(int compId, int yearId, int custId, int orgType);
+        //Task<IEnumerable<CustomerCOADto>> GetCustomerTBAsync(int compId, int yearId, int custId, int orgType);
 
-        //GetVODTotalGrid
-        Task<CustCOATrialBalanceResult> GetCustCOAMasterDetailsCustomerAsync(int compId, int custId, int yearId, int scheduleTypeId, int unmapped, int branchId);
+      
     }
 }
