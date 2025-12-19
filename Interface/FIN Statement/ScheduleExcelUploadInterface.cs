@@ -1,4 +1,5 @@
-﻿using TracePca.Service.FIN_statement;
+﻿using System.Data;
+using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
 
 
@@ -34,5 +35,15 @@ namespace TracePca.Interface.FIN_Statement
             List<TrailBalanceCompositeModel> models,
             IFormFile excelFile,
             string sheetName);
+
+        //UploadCustomerTrialBalance
+        Task<string> UploadCustomerTrialBalanceExcelAsync(
+            IFormFile excelFile,
+            int customerId,
+            int yearId,
+            int branchId,
+            int quarterId,
+            int companyId,
+            int userId);
     }
 }

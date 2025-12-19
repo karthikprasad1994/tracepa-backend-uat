@@ -5,6 +5,7 @@ using TracePca.Data;
 //using TracePca.Dto;
 using TracePca.Models.UserModels;
 using static TracePca.Dto.FixedAssets.AssetMasterdto;
+//using static TracePca.Dto.FixedAssets.AssetSetupDto;
 
 namespace TracePca.Interface.FixedAssetsInterface
 {
@@ -19,40 +20,27 @@ namespace TracePca.Interface.FixedAssetsInterface
         //FinancialYear
         Task<IEnumerable<YearDto>> GetYearsAsync(int compId);
 
-        //Location
-        //Task<IEnumerable<LocationDto>> GetLocationAsync(int compId, int CustId);
+        // Location
+        Task<IEnumerable<LocationDto>> GetLocationAsync(int compId, int CustId);
 
-        ////LoadDivision
-        //Task<IEnumerable<DivisionDto>> LoadDivisionAsync(int compId, int parentId, int custId);
+        //LoadDivision
+        Task<IEnumerable<DivisionDto>> LoadDivisionAsync(int compId, int parentId, int custId);
 
-        ////LoadDepartment
-        //Task<IEnumerable<DepartmentDto>> LoadDepartmentAsync(int compId, int parentId, int custId);
-        ////LoadBay
-        //Task<IEnumerable<BayDto>> LoadBayAsync(int compId, int parentId, int custId);
+        //LoadDepartment
+        Task<IEnumerable<DepartmentDto>> LoadDepartmentAsync(int compId, int parentId, int custId);
+        //LoadBay
+        Task<IEnumerable<BayDto>> LoadBayAsync(int compId, int parentId, int custId);
 
-        ////LoadHeading
-        //Task<IEnumerable<HeadingDto>> LoadHeadingAsync(int compId, int custId);
+        //LoadHeading
+        Task<IEnumerable<HeadingDto>> LoadHeadingAsync(int compId, int custId);
 
-        ////LoadSubHeading
-        //Task<IEnumerable<SubHeadingDto>> LoadSubHeadingAsync(int compId, int parentId, int custId);
+        //LoadSubHeading
+        Task<IEnumerable<SubHeadingDto>> LoadSubHeadingAsync(int compId, int parentId, int custId);
 
-        ////AssetClassUnderSubHeading
-        //Task<IEnumerable<ItemDto>> LoadItemsAsync(int compId, int parentId, int custId);
+        //AssetClassUnderSubHeading
+        Task<IEnumerable<ItemDto>> LoadItemsAsync(int compId, int parentId, int custId);
 
-        ////SaveAsset
-        //Task<int[]> SaveAssetAsync(AssetMasterDto asset);
-        ////Task<(int UpdateOrSave, int Oper)> SaveAssetAsync(LocationSetupDto model);
 
-        ////SaveLocation
-        //Task<int> SaveLocationAsync(AddLocationnDto locationDto);
-
-        ////SaveDivision
-        //Task<int> SaveDivisionAsync(AddDivisionnDto divisionDto);
-
-        ////SaveDepartment
-        //Task<int> SaveDepartmentAsync(AddDepartmenttDto departmentDto);
-
-        //SaveBay
 
     }
 

@@ -374,6 +374,26 @@ namespace TracePca.Dto.FIN_Statement
             public int AJTB_BranchId { get; set; }
             public int AJTB_QuarterId { get; set; }
         }
+
+        //GetCustomerTrailBalance
+        public class CustomerCOADto
+        {
+            public int CC_CustID { get; set; }
+            public int CC_IndType { get; set; }
+            public int CC_CompID { get; set; }
+            public int CC_YearID { get; set; }
+            public string CC_GL { get; set; }
+        }
+
+        //GetVODTotalGrid
+        public class CustCOATrialBalanceResult
+        {
+            public List<dynamic> MainTrailBalance { get; set; }
+            public List<dynamic> UnmappedCustomerUpload { get; set; }
+            public dynamic CustomerTotals { get; set; }
+            public List<dynamic> SystemTotals { get; set; }
+        }
+
     }
 }
 

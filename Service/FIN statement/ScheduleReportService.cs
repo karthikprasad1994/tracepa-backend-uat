@@ -208,7 +208,7 @@ namespace TracePca.Service.FIN_statement
             foreach (var heading in incomeHeadings)
             {
                 var headingBalanceSql = @"
-SELECT ud.ATBUD_Headingid AS HeadingID,    h.ASH_Name AS Name,
+SELECT ud.ATBUD_Headingid AS HeadingID, h.ASH_Name AS Name,
     ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal,
     ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount), 0) AS DbTotal,
     ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount), 0) AS PrevCrTotal,

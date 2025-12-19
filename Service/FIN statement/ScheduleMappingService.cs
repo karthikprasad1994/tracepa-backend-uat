@@ -2205,5 +2205,185 @@ WHERE ASSI_ItemsID = @ItemId
                 throw; // or handle logging
             }
         }
+
+        //GetCustomerTrailBalance
+        public async Task<IEnumerable<CustomerCOADto>> GetCustomerTBAsync(int compId,int yearId,int custId,int orgType)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            // ✅ Step 3: Open SQL connection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 4: Query (converted from VB.NET)
+            var query = @"
+        SELECT *
+        FROM Customer_COA
+        WHERE CC_CustID = @CustId
+          AND CC_IndType = @OrgType
+          AND CC_CompID = @CompId
+          AND CC_YearID = @YearId
+        ORDER BY CC_GL";
+
+            return await connection.QueryAsync<CustomerCOADto>(query, new
+            {
+                CustId = custId,
+                OrgType = orgType,
+                CompId = compId,
+                YearId = yearId
+            });
+        }
+
+        //GetVODTotalGrid
+        public async Task<CustCOATrialBalanceResult> GetCustCOAMasterDetailsCustomerAsync(int compId,int custId,int yearId,int scheduleTypeId,int unmapped,int branchId)
+        {
+            // 1. Get DB from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode missing in session.");
+
+            // 2. Connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // 3. SQL (preserved logic, parameterized)
+            var sql = @"
+    /* ===================== RESULT SET 1 ===================== */
+    SELECT  
+        ATBU.ATBU_Id,
+        ATBU.ATBU_Description AS DescriptionCode,
+
+        SUM(CASE WHEN ATBU.ATBU_QuarterId = 1 
+            THEN ROUND(CAST(ATBU.ATBU_Opening_Debit_Amount AS DECIMAL(19,2)),0) ELSE 0 END) AS OpeningDebit,
+
+        SUM(CASE WHEN ATBU.ATBU_QuarterId = 1 
+            THEN ROUND(CAST(ATBU.ATBU_Opening_Credit_Amount AS DECIMAL(19,2)),0) ELSE 0 END) AS OpeningCredit,
+
+        ROUND(ISNULL(Tr.AJTB_Debit,0),0) AS TrDebit,
+        ROUND(ISNULL(Tr.AJTB_Credit,0),0) AS TrCredit,
+
+        ROUND(ISNULL(SUM(Cs.ATBCU_Opening_Debit_Amount),0),0) AS CustOpeningDebit,
+        ROUND(ISNULL(SUM(Cs.ATBCU_Opening_Credit_Amount),0),0) AS CustOpeningCredit,
+        ROUND(ISNULL(SUM(Cs.ATBCU_TR_Debit_Amount),0),0) AS CustTrDebit,
+        ROUND(ISNULL(SUM(Cs.ATBCU_TR_Credit_Amount),0),0) AS CustTrCredit,
+        ROUND(ISNULL(SUM(Cs.ATBCU_Closing_TotalDebit_Amount),0),0) AS CustClosingDebit,
+        ROUND(ISNULL(SUM(Cs.ATBCU_Closing_TotalCredit_Amount),0),0) AS CustClosingCredit,
+
+        SUM(CASE 
+            WHEN ATBU.ATBU_QuarterId = 1 THEN ATBU.ATBU_Closing_TotalDebit_Amount
+            WHEN a.ATBUD_SChedule_Type = 3 AND ATBU.ATBU_YearId = @YearId 
+            THEN ATBU.ATBU_Closing_TotalDebit_Amount
+            ELSE 0 END) AS ClosingDebit,
+
+        SUM(CASE 
+            WHEN ATBU.ATBU_QuarterId = 1 THEN ATBU.ATBU_Closing_TotalCredit_Amount
+            WHEN a.ATBUD_SChedule_Type = 3 AND ATBU.ATBU_YearId = @YearId 
+            THEN ATBU.ATBU_Closing_TotalCredit_Amount
+            ELSE 0 END) AS ClosingCredit
+
+    FROM Acc_TrailBalance_Upload ATBU
+
+    LEFT JOIN (
+        SELECT ATBUD_Description, ATBUD_SChedule_Type
+        FROM Acc_TrailBalance_Upload_Details
+        WHERE ATBUD_CustId = @CustId
+          AND ATBUD_CompId = @CompId
+          AND ATBUD_YearId = @YearId
+          AND ATBUD_BranchNameId = @BranchId
+        GROUP BY ATBUD_Description, ATBUD_SChedule_Type
+    ) a ON a.ATBUD_Description = ATBU.ATBU_Description
+
+    LEFT JOIN (
+        SELECT AJTB_DescName,
+               SUM(AJTB_Debit) AS AJTB_Debit,
+               SUM(AJTB_Credit) AS AJTB_Credit
+        FROM Acc_JETransactions_Details
+        WHERE AJTB_CustId = @CustId
+          AND AJTB_BranchId = @BranchId
+          AND AJTB_YearID = @YearId
+        GROUP BY AJTB_DescName
+    ) Tr ON Tr.AJTB_DescName = ATBU.ATBU_Description
+
+    LEFT JOIN (
+        SELECT ATBCU_Description,
+               SUM(ATBCU_TR_Debit_Amount) AS ATBCU_TR_Debit_Amount,
+               SUM(ATBCU_TR_Credit_Amount) AS ATBCU_TR_Credit_Amount,
+               SUM(ATBCU_Opening_Debit_Amount) AS ATBCU_Opening_Debit_Amount,
+               SUM(ATBCU_Opening_Credit_Amount) AS ATBCU_Opening_Credit_Amount,
+               SUM(ATBCU_Closing_TotalDebit_Amount) AS ATBCU_Closing_TotalDebit_Amount,
+               SUM(ATBCU_Closing_TotalCredit_Amount) AS ATBCU_Closing_TotalCredit_Amount
+        FROM Acc_TrailBalance_CustomerUpload
+        WHERE ATBCU_CustId = @CustId
+          AND ATBCU_BranchId = @BranchId
+          AND ATBCU_YearID = @YearId
+        GROUP BY ATBCU_Description
+    ) Cs ON Cs.ATBCU_Description = ATBU.ATBU_Description
+
+    WHERE ATBU.ATBU_CustId = @CustId
+      AND ATBU.ATBU_CompId = @CompId
+      AND ATBU.ATBU_YearId = @YearId
+      AND ATBU.ATBU_BranchId = @BranchId
+
+    GROUP BY ATBU.ATBU_Id, ATBU.ATBU_Description, Tr.AJTB_Debit, Tr.AJTB_Credit
+    ORDER BY ATBU.ATBU_Id;
+
+    /* ===================== RESULT SET 2 ===================== */
+    SELECT *
+    FROM Acc_TrailBalance_CustomerUpload
+    WHERE ATBCU_MasId = 0
+      AND ATBCU_YearId = @YearId
+      AND ATBCU_CustId = @CustId
+      AND (@BranchId = 0 OR ATBCU_BranchId = @BranchId);
+
+    /* ===================== RESULT SET 3 ===================== */
+    SELECT
+        ROUND(SUM(ATBCU_Opening_Debit_Amount),0) AS OpeningDebit,
+        ROUND(SUM(ATBCU_Opening_Credit_Amount),0) AS OpeningCredit,
+        ROUND(SUM(ATBCU_TR_Debit_Amount),0) AS TrDebit,
+        ROUND(SUM(ATBCU_TR_Credit_Amount),0) AS TrCredit,
+        ROUND(SUM(ATBCU_Closing_TotalDebit_Amount),0) AS ClosingDebit,
+        ROUND(SUM(ATBCU_Closing_TotalCredit_Amount),0) AS ClosingCredit
+    FROM Acc_TrailBalance_CustomerUpload
+    WHERE ATBCU_CustId = @CustId
+      AND ATBCU_YearId = @YearId
+      AND ATBCU_BranchId = @BranchId;
+
+    /* ===================== RESULT SET 4 ===================== */
+    SELECT *
+    FROM Acc_TrailBalance_Upload a
+    WHERE a.ATBU_CustId = @CustId
+      AND a.ATBU_CompId = @CompId
+      AND a.ATBU_YearId = @YearId
+      AND a.ATBU_BranchId = @BranchId
+      AND a.ATBU_Description <> 'Net income';
+    ";
+
+            // 4. Execute as multiple result sets
+            using var multi = await connection.QueryMultipleAsync(sql, new
+            {
+                CompId = compId,
+                CustId = custId,
+                YearId = yearId,
+                BranchId = branchId
+            });
+
+            return new CustCOATrialBalanceResult
+            {
+                MainTrailBalance = (await multi.ReadAsync<dynamic>()).ToList(),
+                UnmappedCustomerUpload = (await multi.ReadAsync<dynamic>()).ToList(),
+                CustomerTotals = await multi.ReadFirstOrDefaultAsync<dynamic>(),
+                SystemTotals = (await multi.ReadAsync<dynamic>()).ToList()
+            };
+        }
+
     }
 }

@@ -635,6 +635,65 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+        //GetCustomerTrailBalance
+        [HttpGet("GetCustomerTB")]
+        public async Task<IActionResult> GetCustomerTB([FromQuery] int compId,[FromQuery] int yearId,[FromQuery] int custId,[FromQuery] int orgType)
+        {
+            try
+            {
+                var result = await _ScheduleMappingService.GetCustomerTBAsync(
+                    compId,
+                    yearId,
+                    custId,
+                    orgType
+                );
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Customer trial balance loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 500,
+                    message = ex.Message
+                });
+            }
+        }
+
+        //GetVODTotalGrid
+        [HttpGet("GetVODTotalGrid")]
+        public async Task<IActionResult> GetCustCOAMasterDetailsCustomer(
+      [FromQuery] int compId,[FromQuery] int custId,[FromQuery] int yearId,[FromQuery] int scheduleTypeId,[FromQuery] int unmapped,[FromQuery] int branchId)
+        {
+            try
+            {
+                var result = await _ScheduleMappingService
+                    .GetCustCOAMasterDetailsCustomerAsync(
+                        compId,custId,yearId,scheduleTypeId,unmapped,branchId
+                    );
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Customer COA details loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 500,
+                    message = ex.Message
+                });
+            }
+        }
     }
 }
 

@@ -573,10 +573,6 @@ namespace TracePca.Service.FIN_statement
         //        return data ?? new HeadingAmountDto();
         //    }
 
-
-
-
-
         public async Task<CashFlowCategory1Result> LoadCashFlowCategory1Async(
     int customerId, int yearId, int branchId, List<UserAdjustmentInput>? userAdjustments)
         {
@@ -598,165 +594,188 @@ namespace TracePca.Service.FIN_statement
                     Particular = new List<CashFlowParticularDto>()
                 };
 
-                // Mandatory rows labels (kept same order)
-                string[] labels =
-                {
-            "A. Cash flow from operating activities",
-            "Net Profit / (Loss) before extraordinary items and tax",
-            "Adjustment for:",
-            "Depreciation and amortisation",
-            "Provision for impairment of fixed assets and intangibles",
-            "Bad Debts",
-            "Expense on employee stock option scheme",
-            "Finance Costs",
-            "Interest income",
-            "Total Adjustment",
-            "Operating profit / (loss) before working capital changes"
-        };
-
-                // safe conversion for nullable decimals
                 decimal Safe(decimal? v) => v ?? 0m;
 
-                // A. heading
+                // -------- FIXED LABEL ORDER ---------
+                string[] labels =
+                {
+                    "A. Cash flow from operating activities",
+                    "Net Profit / (Loss) before extraordinary items and tax",
+                    "Adjustment for:",
+                    "Depreciation and amortisation Expenses",
+                    "Provision for impairment of fixed assets and intangibles",
+                    "Bad Debts",
+                    "Expense on employee stock option scheme",
+                    "Finance Costs",
+                    "Interest income",
+                    "Operating profit / (loss) before working capital changes"
+                };
+
+                // Row 1: Heading
                 result.Particular.Add(new CashFlowParticularDto
                 {
                     Sr_No = 1,
                     ParticularName = labels[0]
                 });
 
-                // 2. Net Profit = Income - Expenses (use GetHeadingAmt which returns HeadingAmount)
+                // Row 2: Net Profit = Income - Expenses
+                int headIncomeId = await GetHeadingId(connection, tran, customerId, "Income");
+                int headExpenseId = await GetHeadingId(connection, tran, customerId, "Expenses");
+
+                var income = await GetHeadingAmt(connection, tran, yearId, customerId, 3, headIncomeId);
+                var expense = await GetHeadingAmt(connection, tran, yearId, customerId, 3, headExpenseId);
+
+                decimal netCY = Safe(income.Dc1) - Safe(expense.Dc1);
+                decimal netPY = Safe(income.DP1) - Safe(expense.DP1);
+
+                result.Particular.Add(new CashFlowParticularDto
                 {
-                    int headIncomeId = await GetHeadingId(connection, tran, customerId, "Income");
-                    int headExpenseId = await GetHeadingId(connection, tran, customerId, "Expenses");
+                    Sr_No = 2,
+                    ParticularName = labels[1],
+                    CurrentYear = netCY,
+                    PreviousYear = netPY
+                });
 
-                    // call helpers that accept transaction (matching the code you pasted previously)
-                    var income = await GetHeadingAmt(connection, tran, yearId, customerId, 3, headIncomeId);
-                    var expense = await GetHeadingAmt(connection, tran, yearId, customerId, 3, headExpenseId);
-
-                    // your helper returns ScheduleAccountingRatioDto.HeadingAmount with Dc1/DP1
-                    decimal cy = Safe(income.Dc1) - Safe(expense.Dc1);
-                    decimal py = Safe(income.DP1) - Safe(expense.DP1);
-
-                    result.Particular.Add(new CashFlowParticularDto
-                    {
-                        Sr_No = 2,
-                        ParticularName = labels[1],
-                        CurrentYear = cy,
-                        PreviousYear = py
-                    });
-                }
-
-                // 3. Adjustment heading
+                // Row 3: Adjustment Heading
                 result.Particular.Add(new CashFlowParticularDto
                 {
                     Sr_No = 3,
                     ParticularName = labels[2]
                 });
 
-                decimal totalAdjustmentCY = 0m;
-                decimal totalAdjustmentPY = 0m;
-                int srNo = 4;
+                // totals and starting SR
+                decimal totalAdjCY = 0m;
+                decimal totalAdjPY = 0m;
+                int sr = 4;
 
-                // Helper local function to add adjustment rows and accumulate totals
-                async Task AddAdjRow(int sr, string label, Func<Task<(decimal cy, decimal py)>> fetcher)
+                // Row 4: Depreciation and amortisation Expenses (subheading)
                 {
-                    var (cy, py) = await fetcher();
-                    totalAdjustmentCY += cy;
-                    totalAdjustmentPY += py;
+                    int depSubHeadId = await GetSubHeadingId(connection, tran, customerId, labels[3]);
+                    // breakpoint here to inspect depSubHeadId
+                    var depDt = await GetSubHeadingAmt(connection, tran, yearId, customerId, 3, depSubHeadId);
+                    decimal depCY = Safe(depDt.Dc1);
+                    decimal depPY = Safe(depDt.DP1);
+                    totalAdjCY += depCY;
+                    totalAdjPY += depPY;
 
                     result.Particular.Add(new CashFlowParticularDto
                     {
-                        Sr_No = sr,
-                        ParticularName = label,
-                        CurrentYear = cy,
-                        PreviousYear = py
+                        Sr_No = sr++,
+                        ParticularName = labels[3],
+                        CurrentYear = depCY,
+                        PreviousYear = depPY
                     });
                 }
-
-                // 4. Depreciation
-                await AddAdjRow(4, labels[3], async () =>
+                // Row 5: Provision for impairment of fixed assets and intangibles (heading)
                 {
-                    int id = await GetHeadingId(connection, tran, customerId, "Depreciation and amortisation");
-                    var dt = await GetHeadingAmt(connection, tran, yearId, customerId, 3, id);
-                    return (Safe(dt.Dc1), Safe(dt.DP1));
-                });
+                    int provHeadId = await GetHeadingId(connection, tran, customerId, labels[4]);
+                    // breakpoint here to inspect provHeadId
+                    var provDt = await GetHeadingAmt(connection, tran, yearId, customerId, 3, provHeadId);
+                    decimal provCY = Safe(provDt.Dc1);
+                    decimal provPY = Safe(provDt.DP1);
+                    totalAdjCY += provCY;
+                    totalAdjPY += provPY;
 
-                // 5. Provision for impairment
-                await AddAdjRow(5, labels[4], async () =>
+                    result.Particular.Add(new CashFlowParticularDto
+                    {
+                        Sr_No = sr++,
+                        ParticularName = labels[4],
+                        CurrentYear = provCY,
+                        PreviousYear = provPY
+                    });
+                }
+                // Row 6: Bad Debts (heading)
                 {
-                    int id = await GetHeadingId(connection, tran, customerId, "Provision for impairment of fixed assets and intangibles");
-                    var dt = await GetHeadingAmt(connection, tran, yearId, customerId, 3, id);
-                    return (Safe(dt.Dc1), Safe(dt.DP1));
-                });
+                    int badHeadId = await GetHeadingId(connection, tran, customerId, labels[5]);
+                    var badDt = await GetHeadingAmt(connection, tran, yearId, customerId, 3, badHeadId);
+                    decimal badCY = Safe(badDt.Dc1);
+                    decimal badPY = Safe(badDt.DP1);
+                    totalAdjCY += badCY;
+                    totalAdjPY += badPY;
 
-                // 6. Bad Debts
-                await AddAdjRow(6, labels[5], async () =>
+                    result.Particular.Add(new CashFlowParticularDto
+                    {
+                        Sr_No = sr++,
+                        ParticularName = labels[5],
+                        CurrentYear = badCY,
+                        PreviousYear = badPY
+                    });
+                }
+                // Row 7: Expense on employee stock option scheme (heading)
                 {
-                    int id = await GetHeadingId(connection, tran, customerId, "Bad Debts");
-                    var dt = await GetHeadingAmt(connection, tran, yearId, customerId, 3, id);
-                    return (Safe(dt.Dc1), Safe(dt.DP1));
-                });
+                    int esopHeadId = await GetHeadingId(connection, tran, customerId, labels[6]);
+                    var esopDt = await GetHeadingAmt(connection, tran, yearId, customerId, 3, esopHeadId);
+                    decimal esopCY = Safe(esopDt.Dc1);
+                    decimal esopPY = Safe(esopDt.DP1);
+                    totalAdjCY += esopCY;
+                    totalAdjPY += esopPY;
 
-                // 7. ESOP expense
-                await AddAdjRow(7, labels[6], async () =>
+                    result.Particular.Add(new CashFlowParticularDto
+                    {
+                        Sr_No = sr++,
+                        ParticularName = labels[6],
+                        CurrentYear = esopCY,
+                        PreviousYear = esopPY
+                    });
+                }
+                // Row 8: Finance Costs (subheading)
                 {
-                    int id = await GetHeadingId(connection, tran, customerId, "Expense on employee stock option scheme");
-                    var dt = await GetHeadingAmt(connection, tran, yearId, customerId, 3, id);
-                    return (Safe(dt.Dc1), Safe(dt.DP1));
-                });
+                    int finSubHeadId = await GetSubHeadingId(connection, tran, customerId, labels[7]);
+                    var finDt = await GetSubHeadingAmt(connection, tran, yearId, customerId, 3, finSubHeadId);
+                    decimal finCY = Safe(finDt.Dc1);
+                    decimal finPY = Safe(finDt.DP1);
+                    totalAdjCY += finCY;
+                    totalAdjPY += finPY;
 
-                // 8. Finance costs (example used subheading)
-                await AddAdjRow(8, labels[7], async () =>
+                    result.Particular.Add(new CashFlowParticularDto
+                    {
+                        Sr_No = sr++,
+                        ParticularName = labels[7],
+                        CurrentYear = finCY,
+                        PreviousYear = finPY
+                    });
+                }
+                // Row 9: Interest income (subheading)
                 {
-                    int id = await GetSubHeadingId(connection, tran, customerId, "Finance costs");
-                    var dt = await GetSubHeadingAmt(connection, tran, yearId, customerId, 3, id);
-                    return (Safe(dt.Dc1), Safe(dt.DP1));
-                });
+                    int intSubHeadId = await GetSubHeadingId(connection, tran, customerId, labels[8]);
+                    var intDt = await GetSubHeadingAmt(connection, tran, yearId, customerId, 3, intSubHeadId);
+                    decimal intCY = Safe(intDt.Dc1);
+                    decimal intPY = Safe(intDt.DP1);
+                    totalAdjCY += intCY;
+                    totalAdjPY += intPY;
 
-                // 9. Interest income (subheading)
-                await AddAdjRow(9, labels[8], async () =>
-                {
-                    int id = await GetSubHeadingId(connection, tran, customerId, "Interest income");
-                    var dt = await GetSubHeadingAmt(connection, tran, yearId, customerId, 3, id);
-                    return (Safe(dt.Dc1), Safe(dt.DP1));
-                });
-
-                // 10. user added adjustments (if any)
-                if (userAdjustments != null && userAdjustments.Any())
+                    result.Particular.Add(new CashFlowParticularDto
+                    {
+                        Sr_No = sr++,
+                        ParticularName = labels[8],
+                        CurrentYear = intCY,
+                        PreviousYear = intPY
+                    });
+                }
+                // USER-ADDED ADJUSTMENTS (AFTER SR 9)
+                if (userAdjustments != null)
                 {
                     foreach (var ua in userAdjustments)
                     {
-                        totalAdjustmentCY += ua.CurrentYear;
-                        totalAdjustmentPY += ua.PreviousYear;
+                        totalAdjCY += ua.CurrentYear;
+                        totalAdjPY += ua.PreviousYear;
 
                         result.Particular.Add(new CashFlowParticularDto
                         {
-                            Sr_No = srNo++,
+                            Sr_No = sr++,
                             ParticularName = ua.Description,
                             CurrentYear = ua.CurrentYear,
                             PreviousYear = ua.PreviousYear
                         });
                     }
                 }
-
-                // Total Adjustment row
+                // Row (last): Operating Profit = NetProfit + Total Adjustments
                 result.Particular.Add(new CashFlowParticularDto
                 {
-                    Sr_No = srNo++,
-                    ParticularName = labels[9],
-                    CurrentYear = totalAdjustmentCY,
-                    PreviousYear = totalAdjustmentPY
-                });
-
-                // Operating profit / (loss) before working capital changes = NetProfit + TotalAdjustment
-                var netProfit = result.Particular.First(p => p.Sr_No == 2);
-
-                result.Particular.Add(new CashFlowParticularDto
-                {
-                    Sr_No = srNo,
-                    ParticularName = labels[10],
-                    CurrentYear = netProfit.CurrentYear + totalAdjustmentCY,
-                    PreviousYear = netProfit.PreviousYear + totalAdjustmentPY
+                    Sr_No = sr,
+                    ParticularName = labels[9], 
+                    CurrentYear = netCY + totalAdjCY,
+                    PreviousYear = netPY + totalAdjPY
                 });
 
                 tran.Commit();
@@ -764,7 +783,7 @@ namespace TracePca.Service.FIN_statement
             }
             catch
             {
-                try { tran.Rollback(); } catch { }
+                tran.Rollback();
                 throw;
             }
         }
@@ -791,10 +810,9 @@ namespace TracePca.Service.FIN_statement
                   ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
                   ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
                 FROM Acc_TrailBalance_Upload_Details ud
-                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
-                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
-                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_HeadingId = @HeadingId
-            ";
+                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId and ud.ATBUD_YearId = @YearId
+                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId and ud.ATBUD_YearId = @PrevYear
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_HeadingId = @HeadingId ";
 
             var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, HeadingId = headingId }, tran);
 
@@ -816,10 +834,9 @@ namespace TracePca.Service.FIN_statement
                   ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
                   ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
                 FROM Acc_TrailBalance_Upload_Details ud
-                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
-                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
-                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_SubHeading = @SubHeadingId
-            ";
+                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId and ud.ATBUD_YearId = @YearId
+                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId and ud.ATBUD_YearId = @PrevYear
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_SubHeading = @SubHeadingId";
 
             var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, SubHeadingId = subHeadingId }, tran);
 

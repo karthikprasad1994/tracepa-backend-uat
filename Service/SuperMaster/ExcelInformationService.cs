@@ -14,7 +14,6 @@ using TracePca.Dto.Audit;
 using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
-using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
 using System.Text.RegularExpressions;
 using Microsoft.Playwright;
 
