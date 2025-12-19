@@ -43,5 +43,14 @@
             public decimal PyDb { get; set; }
             public string status { get; set; }
         }
+
+        //GetVODTotalGrid
+        public class CustCOATrialBalanceResult
+        {
+            public List<dynamic> MainTrailBalance { get; set; }
+            public List<dynamic> UnmappedCustomerUpload { get; set; }
+            public dynamic CustomerTotals { get; set; }
+            public List<dynamic> SystemTotals { get; set; }
+        }
     }
 }

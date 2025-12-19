@@ -9,7 +9,6 @@ using System.Globalization;
 using TracePca.Data;
 using TracePca.Interface.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
-using static TracePca.Service.FIN_statement.ScheduleExcelUploadService;
 
 namespace TracePca.Service.FIN_statement
 {
@@ -1219,7 +1218,6 @@ namespace TracePca.Service.FIN_statement
                 AND ATBU_BranchId = @BranchId
                 AND ISNULL(ATBU_QuarterId, 0) = @QuarterId",
                     new
-
                     {
                         CustId = dto.ATBU_CustId,
                         YearId = dto.ATBU_YEARId,
@@ -1230,12 +1228,10 @@ namespace TracePca.Service.FIN_statement
 
                     if (existingRecordForUpdate > 0)
                     {
-                        // 🔹 Record found → perform update
                         dto.ATBU_ID = existingRecordForUpdate;
                     }
                     else
                     {
-                        // 🔹 No existing record → new insert
                         dto.ATBU_ID = 0;
                     }
 
@@ -1727,29 +1723,29 @@ namespace TracePca.Service.FIN_statement
         }
 
         //UploadJournalEntry
-public async Task<List<int>> SaveCompleteTrailBalanceAsync(
-    int CompId,
-    List<TrailBalanceCompositeModel> models,
-    IFormFile excelFile,
-    string sheetName)
-    {
-        // ✅ Step 0: If Excel file is provided, parse into models
-        if (excelFile != null && excelFile.Length > 0)
+        public async Task<List<int>> SaveCompleteTrailBalanceAsync(
+            int CompId,
+            List<TrailBalanceCompositeModel> models,
+            IFormFile excelFile,
+            string sheetName)
         {
-            models = new List<TrailBalanceCompositeModel>();
+            // ✅ Step 0: If Excel file is provided, parse into models
+            if (excelFile != null && excelFile.Length > 0)
+            {
+                models = new List<TrailBalanceCompositeModel>();
 
-            using var stream = new MemoryStream();
-            await excelFile.CopyToAsync(stream);
-            stream.Position = 0;
+                using var stream = new MemoryStream();
+                await excelFile.CopyToAsync(stream);
+                stream.Position = 0;
 
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial; // EPPlus license requirement
-            using var package = new ExcelPackage(stream);
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial; // EPPlus license requirement
+                using var package = new ExcelPackage(stream);
 
-            var worksheet = package.Workbook.Worksheets[sheetName];
-            if (worksheet == null)
-                throw new Exception($"Sheet '{sheetName}' not found in Excel file.");
+                var worksheet = package.Workbook.Worksheets[sheetName];
+                if (worksheet == null)
+                    throw new Exception($"Sheet '{sheetName}' not found in Excel file.");
 
-            int rowCount = worksheet.Dimension.Rows;
+                int rowCount = worksheet.Dimension.Rows;
                 for (int row = 2; row <= rowCount; row++) // Skip header
                 {
                     string GetDecimalCellValue(int col)
@@ -1871,34 +1867,34 @@ public async Task<List<int>> SaveCompleteTrailBalanceAsync(
             }
 
             if (models == null || !models.Any())
-            throw new Exception("No valid Trail Balance data found to save.");
+                throw new Exception("No valid Trail Balance data found to save.");
 
-        var resultIds = new List<int>();
+            var resultIds = new List<int>();
 
-        // ✅ Step 1: Get DB name from session
-        string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-        if (string.IsNullOrEmpty(dbName))
-            throw new Exception("CustomerCode is missing in session. Please log in again.");
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-        // ✅ Step 2: Get the connection string
-        var connectionString = _configuration.GetConnectionString(dbName);
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
 
-        // ✅ Step 3: Save to DB
-        using var connection = new SqlConnection(connectionString);
-        await connection.OpenAsync();
-        using var transaction = connection.BeginTransaction();
+            // ✅ Step 3: Save to DB
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
 
-        try
-        {
-            foreach (var model in models)
+            try
             {
-                int uploadId = 0, jeMasId = 0;
-
-                // === 1. Save Upload ===
-                using (var cmd = new SqlCommand("spAcc_TrailBalance_Upload", connection, transaction))
+                foreach (var model in models)
                 {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    var dto = model.Upload;
+                    int uploadId = 0, jeMasId = 0;
+
+                    // === 1. Save Upload ===
+                    using (var cmd = new SqlCommand("spAcc_TrailBalance_Upload", connection, transaction))
+                    {
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        var dto = model.Upload;
                         cmd.Parameters.AddWithValue("@ATBU_ID", dto.ATBU_ID);
                         cmd.Parameters.AddWithValue("@ATBU_CODE", dto.ATBU_CODE ?? string.Empty);
                         cmd.Parameters.AddWithValue("@ATBU_Description", dto.ATBU_Description ?? string.Empty);
@@ -1920,13 +1916,13 @@ public async Task<List<int>> SaveCompleteTrailBalanceAsync(
                         cmd.Parameters.AddWithValue("@ATBU_QuarterId", "0");
 
                         var out1 = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                    var out2 = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                    cmd.Parameters.Add(out1);
-                    cmd.Parameters.Add(out2);
+                        var out2 = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        cmd.Parameters.Add(out1);
+                        cmd.Parameters.Add(out2);
 
-                    await cmd.ExecuteNonQueryAsync();
-                    uploadId = (int)(out2.Value ?? dto.ATBU_ID);
-                }
+                        await cmd.ExecuteNonQueryAsync();
+                        uploadId = (int)(out2.Value ?? dto.ATBU_ID);
+                    }
 
                     // === 2. Save Upload Details ===
                     using (var cmd = new SqlCommand("spAcc_TrailBalance_Upload_Details", connection, transaction))
@@ -2060,21 +2056,21 @@ public async Task<List<int>> SaveCompleteTrailBalanceAsync(
 
 
                     resultIds.Add(uploadId);
+                }
+
+                transaction.Commit();
+                return resultIds;
             }
-
-            transaction.Commit();
-            return resultIds;
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+                throw new Exception("Error while saving or updating trail balance: " + ex.Message, ex);
+            }
         }
-        catch (Exception ex)
-        {
-            transaction.Rollback();
-            throw new Exception("Error while saving or updating trail balance: " + ex.Message, ex);
-        }
-    }
 
 
-    //UpdateNetIncome
-    public async Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, int branchId, int durationId)
+        //UpdateNetIncome
+        public async Task<bool> UpdateNetIncomeAsync(int compId, int custId, int userId, int yearId, int branchId, int durationId)
         {
             // Step 1: Get DB name from session
             var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -2187,8 +2183,204 @@ public async Task<List<int>> SaveCompleteTrailBalanceAsync(
                 UserId = userId,
                 CompId = compId
             });
-
             return true;
+        }
+
+        //UploadCustomerTrialBalance
+        public async Task<string> UploadCustomerTrialBalanceExcelAsync(
+            IFormFile excelFile,
+            int customerId,
+            int yearId,
+            int branchId,
+            int quarterId,
+            int companyId,
+            int userId)
+        {
+            // ---------------- BASIC VALIDATIONS ----------------
+            if (excelFile == null || excelFile.Length == 0)
+                return "Please upload Excel file";
+
+            if (customerId == 0)
+                return "Select Client";
+
+            if (yearId == 0)
+                return "Select FinancialYear";
+
+            if (branchId == 0)
+                return "Select Branch";
+
+            if (quarterId == 0)
+                return "Select Duration";
+
+            // ---------------- DB FROM SESSION ----------------
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            string connectionString = _configuration.GetConnectionString(dbName);
+
+            if (string.IsNullOrEmpty(connectionString))
+                throw new Exception($"Connection string for '{dbName}' not found.");
+
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var tran = connection.BeginTransaction();
+
+            try
+            {
+                using var stream = excelFile.OpenReadStream();
+                using var package = new ExcelPackage(stream);
+                var sheet = package.Workbook.Worksheets[0];
+
+                if (sheet.Dimension == null)
+                    throw new Exception("Excel sheet is empty");
+
+                int startRow = 4; // DATA STARTS FROM ROW 4
+                int lastRow = sheet.Dimension.End.Row;
+                string ipAddress =
+               _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString()?? "UNKNOWN";
+
+
+                for (int row = startRow; row <= lastRow; row++)
+                {
+                    string description = sheet.Cells[row, 2].Text?.Trim();
+
+                    if (string.IsNullOrWhiteSpace(description))
+                        throw new Exception($"Description missing at row {row}");
+
+                    decimal GetDecimal(int col)
+                    {
+                        var text = sheet.Cells[row, col].Text;
+                        return decimal.TryParse(text, out var val) ? val : 0;
+                    }
+
+                    // -------- CHECK TRAIL BALANCE EXISTS --------
+                    int trailBalCount = await connection.ExecuteScalarAsync<int>(
+                        @"SELECT COUNT(1)
+                      FROM Acc_TrailBalance_Upload
+                      WHERE ATBU_CustId=@CustId
+                        AND ATBU_Branchid=@BranchId
+                        AND ATBU_CompId=@CompId
+                        AND ATBU_YEARId=@YearId
+                        AND ATBU_QuarterId=@QuarterId",
+                        new
+                        {
+                            CustId = customerId,
+                            BranchId = branchId,
+                            CompId = companyId,
+                            YearId = yearId,
+                            QuarterId = quarterId
+                        },
+                        tran);
+
+                    if (trailBalCount != 0)
+                        throw new Exception("Trail Balance Not exist.");
+
+                    // -------- GET MASTER ID --------
+                    int masId = await connection.ExecuteScalarAsync<int>(
+                        @"SELECT ISNULL(ATBU_ID,0)
+                      FROM Acc_TrailBalance_Upload
+                      WHERE ATBU_Description=@Desc
+                        AND ATBU_CustId=@CustId
+                        AND ATBU_Branchid=@BranchId
+                        AND ATBU_CompId=@CompId
+                        AND ATBU_YEARId=@YearId
+                        AND ATBU_QuarterId=@QuarterId",
+                        new
+                        {
+                            Desc = description,
+                            CustId = customerId,
+                            BranchId = branchId,
+                            CompId = companyId,
+                            YearId = yearId,
+                            QuarterId = quarterId
+                        },
+                        tran);
+
+                    // -------- CHECK CUSTOMER UPLOAD --------
+                    int customerUploadId = await connection.ExecuteScalarAsync<int>(
+                        @"SELECT ISNULL(ATBCU_ID,0)
+                      FROM Acc_TrailBalance_CustomerUpload
+                      WHERE ATBCU_Description=@Desc
+                        AND ATBCU_CustId=@CustId
+                        AND ATBCU_Branchid=@BranchId
+                        AND ATBCU_CompId=@CompId
+                        AND ATBCU_YEARId=@YearId
+                        AND ATBCU_QuarterId=@QuarterId",
+                        new
+                        {
+                            Desc = description,
+                            CustId = customerId,
+                            BranchId = branchId,
+                            CompId = companyId,
+                            YearId = yearId,
+                            QuarterId = quarterId
+                        },
+                        tran);
+
+                    // -------- MAX COUNT --------
+                    int maxCount = await connection.ExecuteScalarAsync<int>(
+                        @"SELECT COUNT(*)
+                      FROM Acc_TrailBalance_Upload
+                      WHERE ATBU_CustId=@CustId
+                        AND ATBU_CompId=@CompId
+                        AND ATBU_YEARId=@YearId
+                        AND ATBU_BranchId=@BranchId
+                        AND ATBU_QuarterId=@QuarterId",
+                        new
+                        {
+                            CustId = customerId,
+                            CompId = companyId,
+                            YearId = yearId,
+                            BranchId = branchId,
+                            QuarterId = quarterId
+                        },
+                        tran);
+
+                    // -------- SAVE --------
+                    var param = new DynamicParameters();
+                    param.Add("@ATBCU_ID", customerUploadId);
+                    param.Add("@ATBCU_CODE", $"SCh00{maxCount + 1}");
+                    param.Add("@ATBCU_Description", description);
+                    param.Add("@ATBCU_CustId", customerId);
+                    param.Add("@ATBCU_Opening_Debit_Amount", GetDecimal(3));
+                    param.Add("@ATBCU_Opening_Credit_Amount", GetDecimal(4));
+                    param.Add("@ATBCU_TR_Debit_Amount", GetDecimal(5));
+                    param.Add("@ATBCU_TR_Credit_Amount", GetDecimal(6));
+                    param.Add("@ATBCU_Closing_Debit_Amount", GetDecimal(7));
+                    param.Add("@ATBCU_Closing_Credit_Amount", GetDecimal(8));
+                    param.Add("@ATBCU_DELFLG", "A");
+                    param.Add("@ATBCU_CRBY", userId);
+                    param.Add("@ATBCU_STATUS", "C");
+                    param.Add("@ATBCU_UPDATEDBY", userId);
+                    param.Add("@ATBCU_IPAddress", ipAddress);
+                    param.Add("@ATBCU_CompId", companyId);
+                    param.Add("@ATBCU_YEARId", yearId);
+                    param.Add("@ATBCU_Branchid", branchId);
+                    param.Add("@ATBCU_MasId", masId);
+                    param.Add("@ATBCU_QuarterId", quarterId);
+                    param.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+                    param.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+                    await connection.ExecuteAsync(
+                        "spAcc_TrailBalance_CustomerUpload",
+                        param,
+                        tran,
+                        commandType: CommandType.StoredProcedure);
+                }
+
+                tran.Commit();
+                return "Successfully Upload";
+            }
+            catch
+            {
+                tran.Rollback();
+                throw;
+            }
         }
     }
 }
+

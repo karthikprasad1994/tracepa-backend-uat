@@ -6,6 +6,7 @@ using OfficeOpenXml;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
+using static TracePca.Service.FIN_statement.ScheduleExcelUploadService;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Globalization;
 
@@ -17,16 +18,15 @@ namespace TracePca.Controllers.FIN_Statement
     [ApiController]
     public class ScheduleExcelUploadController : ControllerBase
     {
-        private ScheduleExcelUploadInterface _ScheduleExcelUploadService;
+        private readonly ScheduleExcelUploadInterface _ScheduleExcelUploadService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IConfiguration _configuration;
 
 
-        public ScheduleExcelUploadController(ScheduleExcelUploadInterface ExcelUploadInterface, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public ScheduleExcelUploadController(ScheduleExcelUploadInterface ScheduleExcelUploadInterface, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
-            _ScheduleExcelUploadService = ExcelUploadInterface;
+            _ScheduleExcelUploadService = ScheduleExcelUploadInterface;
             _configuration = configuration;
-
             _httpContextAccessor = httpContextAccessor;
         }
 
@@ -240,7 +240,6 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-
         [HttpPost("uploadJE")]
         public async Task<IActionResult> UploadTrailBalance(
        int compId,
@@ -268,6 +267,64 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
+        //UploadCustomerTrialBalance
+        [HttpPost("UploadCustomerTrialBalanceExcel")]
+        public async Task<IActionResult> UploadCustomerTrialBalanceExcel(
+     IFormFile file,
+     [FromQuery] int customerId,
+     [FromQuery] int yearId,
+     [FromQuery] int branchId,
+     [FromQuery] int quarterId,
+     [FromQuery] int companyId,
+     [FromQuery] int userId)
+        {
+            // -------- FILE VALIDATION --------
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "No file uploaded."
+                });
+            }
+
+            try
+            {
+                var result = await _ScheduleExcelUploadService.UploadCustomerTrialBalanceExcelAsync(
+                    file,
+                    customerId,
+                    yearId,
+                    branchId,
+                    quarterId,
+                    companyId,
+                    userId
+                );
+
+                if (result != "Successfully Upload")
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = result
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Trial Balance Excel uploaded successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 404,
+                    message = "Error processing Trial Balance Excel",
+                    data = new List<string> { ex.Message }
+                });
+            }
+        }
 
         public class JournalEntryUploadRequest
         {
@@ -1191,6 +1248,7 @@ namespace TracePca.Controllers.FIN_Statement
         public int AJTB_ScheduleTypeid { get; set; }
     }
 }
+
 
 
 #endregion
