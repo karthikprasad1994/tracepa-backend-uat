@@ -456,7 +456,8 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveJEType
         [HttpPost("SaveOrUpdateContentForJE")]
-        public async Task<IActionResult> SaveOrUpdateJEContent([FromBody] CreateJEContentRequestDto dto)
+        public async Task<IActionResult> SaveOrUpdateJEContent(
+    [FromBody] CreateJEContentRequestDto dto)
         {
             if (dto == null)
             {
@@ -466,9 +467,27 @@ namespace TracePca.Controllers.FIN_Statement
                     message = "Invalid request payload."
                 });
             }
+
             try
             {
-                string newCode = await _JournalEntryService.SaveOrUpdateContentForJEAsync(dto.cmm_ID, dto.CMM_CompID, dto.cmm_Desc, dto.cms_Remarks, dto.cmm_Category);
+                string result = await _JournalEntryService
+                    .SaveOrUpdateContentForJEAsync(
+                        dto.cmm_ID,
+                        dto.CMM_CompID,
+                        dto.cmm_Desc,
+                        dto.cms_Remarks,
+                        dto.cmm_Category
+                    );
+
+                // ✅ EXISTS HANDLING
+                if (result == "ALREADY_EXISTS")
+                {
+                    return Conflict(new   // HTTP 409
+                    {
+                        statusCode = 409,
+                        message = "JE Content already exists."
+                    });
+                }
 
                 return Ok(new
                 {
@@ -476,7 +495,7 @@ namespace TracePca.Controllers.FIN_Statement
                     message = dto.cmm_ID.HasValue && dto.cmm_ID.Value > 0
                         ? "JE Content updated successfully."
                         : "JE Content created successfully.",
-                    newCode = newCode
+                    newCode = result
                 });
             }
             catch (Exception ex)
@@ -484,10 +503,11 @@ namespace TracePca.Controllers.FIN_Statement
                 return StatusCode(500, new
                 {
                     statusCode = 500,
-                    message = "An error occurred while saving or updating MT content.",
+                    message = "An error occurred while saving or updating JE content.",
                     error = ex.Message
                 });
             }
         }
+
     }
 }
