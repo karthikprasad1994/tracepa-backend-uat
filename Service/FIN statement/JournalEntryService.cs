@@ -1638,84 +1638,95 @@ WHERE ATBU_CustId = @CustId
         }
 
         //SaveJEType
-        public async Task<string> SaveOrUpdateContentForJEAsync(int? id, int compId, string description, string remarks, string Category)
+        public async Task<string> SaveOrUpdateContentForJEAsync(
+      int? id,
+      int compId,
+      string description,
+      string remarks,
+      string Category)
         {
-            // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            // ✅ Step 3: Check if record exists
-            var existing = await connection.ExecuteScalarAsync<int>(
+            // ✅ STEP 1: Duplicate check
+            var duplicateCount = await connection.ExecuteScalarAsync<int>(
                 @"SELECT COUNT(*) 
-          FROM Content_Management_Master 
-          WHERE cmm_ID = @Id AND Cmm_CompID = @CompID",
-                new { Id = id, CompID = compId }
-            );
-
-            string newCode = string.Empty;
-
-            if (existing > 0)
-            {
-                // ✅ Step 4A: UPDATE existing record
-                var updateQuery = @"
-        UPDATE Content_Management_Master
-        SET cmm_Desc = @Desc,
-            cms_Remarks = @Remarks,
-            cmm_Delflag = @Delflag,
-            CMM_Status = @Status,
-            cmm_Category = @Category
-        WHERE cmm_ID = @Id AND Cmm_CompID = @CompID";
-
-                await connection.ExecuteAsync(updateQuery, new
+          FROM Content_Management_Master
+          WHERE cmm_Desc = @Desc
+            AND cmm_Category = @Category
+            AND Cmm_CompID = @CompID
+            AND (@Id IS NULL OR cmm_ID <> @Id)",
+                new
                 {
-                    Id = id,
-                    Desc = description,
-                    Remarks = remarks,
-                    Delflag = "A",
-                    Status = "A",
+                    Desc = description.Trim(),
+                    Category = Category.Trim(),
                     CompID = compId,
-                    Category = Category 
+                    Id = id
                 });
+
+            if (duplicateCount > 0)
+                return "ALREADY_EXISTS";
+
+            string newCode;
+
+            // ✅ STEP 2: Update
+            if (id.HasValue && id > 0)
+            {
+                await connection.ExecuteAsync(
+                    @"UPDATE Content_Management_Master
+              SET cmm_Desc = @Desc,
+                  cms_Remarks = @Remarks,
+                  cmm_Delflag = 'A',
+                  CMM_Status = 'A',
+                  cmm_Category = @Category
+              WHERE cmm_ID = @Id AND Cmm_CompID = @CompID",
+                    new
+                    {
+                        Id = id,
+                        Desc = description,
+                        Remarks = remarks,
+                        CompID = compId,
+                        Category
+                    });
+
                 newCode = $"JE_{id}";
             }
+            // ✅ STEP 3: Insert
             else
             {
-                var maxIdQuery = @"
-        SELECT ISNULL(MAX(cmm_ID), 0) + 1 
-        FROM Content_Management_Master 
-        WHERE Cmm_CompID = @CompID";
-
-                int newId = await connection.ExecuteScalarAsync<int>(maxIdQuery, new { CompID = compId });
+                int newId = await connection.ExecuteScalarAsync<int>(
+                    @"SELECT ISNULL(MAX(cmm_ID), 0) + 1 
+              FROM Content_Management_Master 
+              WHERE Cmm_CompID = @CompID",
+                    new { CompID = compId });
 
                 newCode = $"JE_{newId}";
 
-                var insertQuery = @"
-        INSERT INTO Content_Management_Master
-            (cmm_ID, cmm_Code, cmm_Desc, Cmm_CompID, cms_Remarks, cmm_Delflag, CMM_Status, cmm_Category)
-        VALUES
-            (@Id, @Code, @Desc, @CompID, @Remarks, @Delflag, @Status, @Category)";
-
-                await connection.ExecuteAsync(insertQuery, new
-                {
-                    Id = newId,
-                    Code = newCode,
-                    Desc = description,
-                    CompID = compId,
-                    Remarks = remarks,
-                    Delflag = "A",
-                    Status = "A",
-                    Category = Category
-                });
+                await connection.ExecuteAsync(
+                    @"INSERT INTO Content_Management_Master
+              (cmm_ID, cmm_Code, cmm_Desc, Cmm_CompID, cms_Remarks, cmm_Delflag, CMM_Status, cmm_Category)
+              VALUES
+              (@Id, @Code, @Desc, @CompID, @Remarks, 'A', 'A', @Category)",
+                    new
+                    {
+                        Id = newId,
+                        Code = newCode,
+                        Desc = description,
+                        CompID = compId,
+                        Remarks = remarks,
+                        Category
+                    });
             }
+
             return newCode;
         }
+
     }
 }
 
