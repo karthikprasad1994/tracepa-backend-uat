@@ -444,7 +444,7 @@ namespace TracePca.Controllers
         }
 
 
-        [HttpPut("UpdateCustomerModules")]
+        [HttpPost("UpdateCustomerModules")]
         public async Task<IActionResult> UpdateCustomerModulesAsync(UpdateCustomerModulesDto dto)
         {
             if (dto.CustomerId == 0)
@@ -693,6 +693,33 @@ namespace TracePca.Controllers
                 {
                     status = 500,
                     message = "An error occurred while retrieving total clients.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+
+        [HttpGet("GetClientDetails")]
+        public async Task<IActionResult> GetClientDetails()
+        {
+            try
+            {
+                var clientsDetails = await _LoginInterface.GetClientDetailsAsync();
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Client Details retrieved successfully.",
+                    data = clientsDetails
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving clients details.",
                     error = ex.Message
                 });
             }

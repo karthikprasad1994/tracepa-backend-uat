@@ -1362,7 +1362,7 @@ WHERE ATBU_CustId = @CustId
             {
                 await conn.OpenAsync();
 
-                var sql = @"SELECT Ajtb_id, ajtb_deschead, ATBU_Description, AJTB_Debit, AJTB_Credit
+                var sql = @"SELECT Ajtb_id, ajtb_deschead, ATBU_Description, AJTB_Debit, AJTB_Credit,c.Acc_JE_BillType,c.Acc_JE_BillDate,c.Acc_JE_Comnments
                         FROM Acc_JETransactions_Details
                         LEFT JOIN Acc_TrailBalance_Upload b ON b.ATBU_ID = ajtb_deschead
                         LEFT JOIN Acc_JE_Master c ON c.Acc_JE_ID = Ajtb_Masid
@@ -1403,7 +1403,10 @@ WHERE ATBU_CustId = @CustId
                             SubGL = "",
                             Debit = reader["AJTB_Debit"] != DBNull.Value ? Convert.ToDecimal(reader["AJTB_Debit"]) : 0,
                             Credit = reader["AJTB_Credit"] != DBNull.Value ? Convert.ToDecimal(reader["AJTB_Credit"]) : 0,
-                            Balance = 0 // You can calculate balance if needed
+                            Balance = 0, // You can calculate balance if needed
+                            BillDate = reader["Acc_JE_BillDate"]?.ToString(),
+                            BillType = reader["Acc_JE_BillType"] as int?,
+                            comments = reader["Acc_JE_Comnments"]?.ToString(),
                         });
                     }
                 }
