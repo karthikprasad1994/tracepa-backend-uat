@@ -142,32 +142,63 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GetVODTotalGrid
-        [HttpGet("GetVODTotalGrid")]
-        public async Task<IActionResult> GetCustCOAMasterDetailsCustomer(
-    [FromQuery] int compId,[FromQuery] int custId,[FromQuery] int yearId,[FromQuery] int scheduleTypeId,[FromQuery] int unmapped,[FromQuery] int branchId)
+        //GetCustomerTBGrid
+        //[HttpGet("GetCustomerTBGrid")]
+        //    public async Task<IActionResult> GetCustCOAMasterDetailsCustomer(
+        //[FromQuery] int compId,[FromQuery] int custId,[FromQuery] int yearId,[FromQuery] int scheduleTypeId,[FromQuery] int unmapped,[FromQuery] int branchId)
+        //    {
+        //        try
+        //        {
+        //            var result = await _LedgerDifferenceService
+        //                .GetCustCOAMasterDetailsCustomerAsync(
+        //                    compId, custId, yearId, scheduleTypeId, unmapped, branchId
+        //                );
+
+        //            if (result == null)
+        //            {
+        //                return Ok(new
+        //                {
+        //                    statusCode = 404,
+        //                    message = "Customer Record not found.",
+        //                });
+        //            }
+
+        //            return Ok(new
+        //            {
+        //                statusCode = 200,
+        //                message = "Customer COA details loaded successfully.",
+        //                data = result
+        //            });
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            return StatusCode(StatusCodes.Status500InternalServerError, new
+        //            {
+        //                statusCode = 500,
+        //                message = ex.Message
+        //            });
+        //        }
+        //    }
+        [HttpGet("GetCustomerTrailBalance")]
+        public async Task<IActionResult> GetCustomerTBGrid([FromQuery] int CompId,[FromQuery] int custId,[FromQuery] int yearId,[FromQuery] int branchId)
         {
             try
             {
-                var result = await _LedgerDifferenceService
-                    .GetCustCOAMasterDetailsCustomerAsync(
-                        compId, custId, yearId, scheduleTypeId, unmapped, branchId
-                    );
-
-                if (result == null)
+                var data = await _LedgerDifferenceService.GetCustomerTBGridAsync(CompId, custId, yearId, branchId);
+                if (data == null || !data.Any())
                 {
-                    return Ok(new
+                    return NotFound(new
                     {
                         statusCode = 404,
-                        message = "Customer Record not found.",
+                        message = "Customer record not found.",
+                        data = new List<object>()
                     });
                 }
-
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Customer COA details loaded successfully.",
-                    data = result
+                    message = "Customer Trail Balance loaded successfully",
+                    data
                 });
             }
             catch (Exception ex)
@@ -179,6 +210,7 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
 
         //UpdateCustomerTBDelFlg
         [HttpPost("UpdateCustomerTBDelFlg")]
