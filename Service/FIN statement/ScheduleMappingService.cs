@@ -2205,5 +2205,42 @@ WHERE ASSI_ItemsID = @ItemId
                 throw; // or handle logging
             }
         }
+
+        ////GetCustomerTrailBalance
+        //public async Task<IEnumerable<CustomerCOADto>> GetCustomerTBAsync(int compId,int yearId,int custId,int orgType)
+        //{
+        //    // ✅ Step 1: Get DB name from session
+        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //    if (string.IsNullOrEmpty(dbName))
+        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //    // ✅ Step 2: Get connection string
+        //    var connectionString = _configuration.GetConnectionString(dbName);
+
+        //    // ✅ Step 3: Open SQL connection
+        //    using var connection = new SqlConnection(connectionString);
+        //    await connection.OpenAsync();
+
+        //    // ✅ Step 4: Query (converted from VB.NET)
+        //    var query = @"
+        //SELECT *
+        //FROM Customer_COA
+        //WHERE CC_CustID = @CustId
+        //  AND CC_IndType = @OrgType
+        //  AND CC_CompID = @CompId
+        //  AND CC_YearID = @YearId
+        //ORDER BY CC_GL";
+
+        //    return await connection.QueryAsync<CustomerCOADto>(query, new
+        //    {
+        //        CustId = custId,
+        //        OrgType = orgType,
+        //        CompId = compId,
+        //        YearId = yearId
+        //    });
+        //}
+
+
     }
 }

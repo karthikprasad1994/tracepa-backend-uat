@@ -141,5 +141,33 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
+        //GetVODTotalGrid
+        [HttpGet("GetVODTotalGrid")]
+        public async Task<IActionResult> GetCustCOAMasterDetailsCustomer(
+      [FromQuery] int compId, [FromQuery] int custId, [FromQuery] int yearId, [FromQuery] int scheduleTypeId, [FromQuery] int unmapped, [FromQuery] int branchId)
+        {
+            try
+            {
+                var result = await _LedgerDifferenceService
+                    .GetCustCOAMasterDetailsCustomerAsync(
+                        compId, custId, yearId, scheduleTypeId, unmapped, branchId
+                    );
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Customer COA details loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 500,
+                    message = ex.Message
+                });
+            }
+        }
     }
 }

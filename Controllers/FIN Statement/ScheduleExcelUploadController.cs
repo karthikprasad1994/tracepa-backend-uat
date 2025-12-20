@@ -6,6 +6,7 @@ using OfficeOpenXml;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
+using static TracePca.Service.FIN_statement.ScheduleExcelUploadService;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Globalization;
 
@@ -17,16 +18,15 @@ namespace TracePca.Controllers.FIN_Statement
     [ApiController]
     public class ScheduleExcelUploadController : ControllerBase
     {
-        private ScheduleExcelUploadInterface _ScheduleExcelUploadService;
+        private readonly ScheduleExcelUploadInterface _ScheduleExcelUploadService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IConfiguration _configuration;
 
 
-        public ScheduleExcelUploadController(ScheduleExcelUploadInterface ExcelUploadInterface, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public ScheduleExcelUploadController(ScheduleExcelUploadInterface ScheduleExcelUploadInterface, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
-            _ScheduleExcelUploadService = ExcelUploadInterface;
+            _ScheduleExcelUploadService = ScheduleExcelUploadInterface;
             _configuration = configuration;
-
             _httpContextAccessor = httpContextAccessor;
         }
 
@@ -240,7 +240,6 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-
         [HttpPost("uploadJE")]
         public async Task<IActionResult> UploadTrailBalance(
        int compId,
@@ -268,6 +267,64 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
+        //UploadCustomerTrialBalance
+        [HttpPost("UploadCustomerTrialBalanceExcel")]
+        public async Task<IActionResult> UploadCustomerTrialBalanceExcel(
+     IFormFile file,
+     [FromQuery] int customerId,
+     [FromQuery] int yearId,
+     [FromQuery] int branchId,
+     [FromQuery] int quarterId,
+     [FromQuery] int companyId,
+     [FromQuery] int userId)
+        {
+            // -------- FILE VALIDATION --------
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "No file uploaded."
+                });
+            }
+
+            try
+            {
+                var result = await _ScheduleExcelUploadService.UploadCustomerTrialBalanceExcelAsync(
+                    file,
+                    customerId,
+                    yearId,
+                    branchId,
+                    quarterId,
+                    companyId,
+                    userId
+                );
+
+                if (result != "Successfully Upload")
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = result
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Trial Balance Excel uploaded successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 404,
+                    message = "Error processing Trial Balance Excel",
+                    data = new List<string> { ex.Message }
+                });
+            }
+        }
 
         public class JournalEntryUploadRequest
         {
@@ -535,6 +592,7 @@ namespace TracePca.Controllers.FIN_Statement
                     var voucherId = await CheckVoucherType(connection, transaction, accessCodeId, "JE", voucherType);
                     voucherTypes[voucherType] = voucherId;
                 }
+                
 
                 // Process each row in the batch
                 foreach (var row in batch)
@@ -548,10 +606,9 @@ namespace TracePca.Controllers.FIN_Statement
                     }
 
                     // Generate transaction number if needed
-                   
-                   transactionNo = await GenerateTransactionNo(connection, transaction, accessCodeId, request.FinancialYearId, request.CustomerId, request.DurationId, request.BranchId);
-                    
 
+
+                    transactionNo = await GenerateTransactionNo(connection, transaction, accessCodeId, request.FinancialYearId, request.CustomerId, request.DurationId, request.BranchId);
                     var billType = voucherTypes.ContainsKey(row.JE_Type) ? voucherTypes[row.JE_Type] : 0;
                     var accountId = accountIds[row.Account];
                     int iJEID = 0;
@@ -1007,9 +1064,22 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        private async Task<string> GenerateTransactionNo(SqlConnection connection, SqlTransaction transaction, int compId, int yearId, int party, int durationId, int branchId)
+        private async Task<string> GenerateTransactionNo(
+     SqlConnection connection,
+     SqlTransaction transaction,
+     int compId,
+     int yearId,
+     int party,
+     int durationId,
+     int branchId)
         {
-            var sql = @"SELECT ISNULL(MAX(Acc_JE_ID) + 1, 1) FROM Acc_JE_Master WHERE Acc_JE_YearID = @YearId AND Acc_JE_Party = @Party AND Acc_JE_QuarterId = @QuarterId AND acc_JE_BranchId = @BranchId";
+            var sql = @"
+        SELECT ISNULL(COUNT(*), 0) + 1
+        FROM Acc_JE_Master
+        WHERE Acc_JE_YearID = @YearId
+          AND Acc_JE_Party = @Party
+          AND Acc_JE_QuarterId = @QuarterId
+          AND acc_JE_BranchId = @BranchId";
 
             using var command = new SqlCommand(sql, connection, transaction);
             command.Parameters.AddWithValue("@YearId", yearId);
@@ -1017,9 +1087,12 @@ namespace TracePca.Controllers.FIN_Statement
             command.Parameters.AddWithValue("@QuarterId", durationId);
             command.Parameters.AddWithValue("@BranchId", branchId);
 
-            var maxId = await command.ExecuteScalarAsync();
-            return "TR00-" + maxId;
+            int nextNo = Convert.ToInt32(await command.ExecuteScalarAsync());
+
+            // ✅ Pad with leading zeros → TR001, TR002, TR010
+            return $"TR{nextNo:D3}";
         }
+
 
         #endregion
     }
@@ -1175,6 +1248,7 @@ namespace TracePca.Controllers.FIN_Statement
         public int AJTB_ScheduleTypeid { get; set; }
     }
 }
+
 
 
 #endregion

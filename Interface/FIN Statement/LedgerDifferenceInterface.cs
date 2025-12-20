@@ -1,4 +1,5 @@
 ﻿using static TracePca.Dto.FIN_Statement.LedgerDifferenceDto;
+using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 
 namespace TracePca.Interface.FIN_Statement
 {
@@ -13,5 +14,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetDescriptionDetails
         Task<IEnumerable<DescriptionDetailsDto>> GetAccountDetailsAsync(int compId, int custId, int branchId, int yearId, int typeId, int pkId);
+
+        //GetVODTotalGrid
+        Task<CustCOATrialBalanceResult> GetCustCOAMasterDetailsCustomerAsync(int compId, int custId, int yearId, int scheduleTypeId, int unmapped, int branchId);
     }
 }

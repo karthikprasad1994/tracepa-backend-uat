@@ -444,7 +444,7 @@ namespace TracePca.Controllers
         }
 
 
-        [HttpPut("UpdateCustomerModules")]
+        [HttpPost("UpdateCustomerModules")]
         public async Task<IActionResult> UpdateCustomerModulesAsync(UpdateCustomerModulesDto dto)
         {
             if (dto.CustomerId == 0)

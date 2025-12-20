@@ -288,7 +288,6 @@
             public int ATBU_YEARId { get; set; }
             public int ATBU_Branchid { get; set; }
             public int ATBU_QuarterId { get; set; }
-
             // UploadDetails properties (from TrailBalanceUploadDetailsDto)
             public int ATBUD_ID { get; set; }
             public int ATBUD_Masid { get; set; }
@@ -311,8 +310,6 @@
             public string ATBUD_IPAddress { get; set; }
             public int ATBUD_CompId { get; set; }
             public int ATBUD_YEARId { get; set; }
-
-            // Custom field used for conditional delete/update
             public int FlagUpdate { get; set; }
         }
 
@@ -397,7 +394,7 @@
             public string ATBCU_IPAddress { get; set; }
             public int ATBCU_CompId { get; set; }
             public int ATBCU_YEARId { get; set; }
-            public int ATBCU_Branchid { get; set; }  // Assuming this is the Branch ID
+            public int ATBCU_Branchid { get; set; }  
             public int ATBCU_Masid { get; set; }
             public int ATBCU_QuarterId { get; set; }
         }
@@ -516,6 +513,27 @@
             public int AJTB_QuarterId { get; set; }
         }
 
+        //UploadCustomerTrialBalance
+        public class TrialBalanceExcelUploadRequestDto
+        {
+            public int CustomerId { get; set; }
+            public int YearId { get; set; }
+            public int BranchId { get; set; }
+            public int QuarterId { get; set; }
+            public int CompanyId { get; set; }
+            public int CompId { get; set; }
+            public int UserId { get; set; }
+        }
+        public class TrialBalanceExcelUploadDto
+        {
+            public IFormFile ExcelFile { get; set; }
+            public TrialBalanceExcelUploadRequestDto Data { get; set; }
+        }
+        public class BadDto
+        {
+            public IFormFile ExcelFile { get; set; }
+            public int CustomerId { get; set; }
+        }
     }
 }
 

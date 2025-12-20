@@ -47,7 +47,7 @@ namespace TracePca.Service.FIN_statement
           FROM Acc_JETransactions_Details
           WHERE Ajtb_Custid = @iCustId AND AJTB_BranchId = @iBranchId AND AJTB_YearID = @iYearID
           GROUP BY AJTB_DescName        )
-      SELECT A.AJTB_DescName, A.ajtb_credit AS creditAmt, A.ajtb_debit AS DebitAmt,
+      SELECT A.AJTB_DescName,AJTB_CreatedOn,AJTB_TranscNo, A.ajtb_credit AS creditAmt, A.ajtb_debit AS DebitAmt,
              V.AvgCreditAmt, V.AvgDebitAmt, V.AvgCreditAmtRatio, V.AvgDebitAmtRatio,
 AJTB_AEStatus as status, AJTB_BillType,AJTB_TranscNo,AJTB_CreatedBy,ajtb_id
       FROM Acc_JETransactions_Details A
