@@ -3,6 +3,7 @@ using TracePca.Data;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.LedgerDifferenceDto;
+using static TracePca.Dto.FIN_Statement.SelectedPartiesDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -117,7 +118,7 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     return Ok(new
                     {
-                        StatusCode = 200,
+                        StatusCode = 404,
                         Message = "No records found.",
                         Data = new List<object>() // empty array
                     });
@@ -144,7 +145,7 @@ namespace TracePca.Controllers.FIN_Statement
         //GetVODTotalGrid
         [HttpGet("GetVODTotalGrid")]
         public async Task<IActionResult> GetCustCOAMasterDetailsCustomer(
-      [FromQuery] int compId, [FromQuery] int custId, [FromQuery] int yearId, [FromQuery] int scheduleTypeId, [FromQuery] int unmapped, [FromQuery] int branchId)
+    [FromQuery] int compId,[FromQuery] int custId,[FromQuery] int yearId,[FromQuery] int scheduleTypeId,[FromQuery] int unmapped,[FromQuery] int branchId)
         {
             try
             {
@@ -152,6 +153,15 @@ namespace TracePca.Controllers.FIN_Statement
                     .GetCustCOAMasterDetailsCustomerAsync(
                         compId, custId, yearId, scheduleTypeId, unmapped, branchId
                     );
+
+                if (result == null)
+                {
+                    return Ok(new
+                    {
+                        statusCode = 404,
+                        message = "Customer Record not found.",
+                    });
+                }
 
                 return Ok(new
                 {
@@ -166,6 +176,50 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     statusCode = 500,
                     message = ex.Message
+                });
+            }
+        }
+
+        //UpdateCustomerTBDelFlg
+        [HttpPost("UpdateCustomerTBDelFlg")]
+        public async Task<IActionResult> UpdateCustomerTrailBalanceStatus([FromBody] List<UpdateCustomerTrailBalanceStatusDto> dtoList)
+        {
+            if (dtoList == null || dtoList.Count == 0)
+            {
+                return BadRequest(new
+                {
+                    StatusCode = 400,
+                    Message = "No records provided for update."
+                });
+            }
+
+            try
+            {
+                var updatedCount = await _LedgerDifferenceService.UpdateCustomerTrailBalanceStatusAsync(dtoList);
+
+                if (updatedCount == 0)
+                {
+                    return NotFound(new
+                    {
+                        StatusCode = 404,
+                        Message = "No Customer Trail Balance records found to update."
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = $"{updatedCount} Customer Trail Balance record(s) updated successfully.",
+                    UpdatedCount = updatedCount
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while updating Customer Trail Balance statuses.",
+                    Error = ex.Message
                 });
             }
         }
