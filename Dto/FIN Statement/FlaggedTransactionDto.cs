@@ -55,5 +55,15 @@
             public decimal AJTB_Debit { get; set; }
             public decimal AJTB_Credit { get; set; }
         }
+
+        //GetCustomerTBDelFlg
+        public class GetCustomerTBDelFlgDto
+        {
+            public int ATBCU_ID { get; set; }
+            public string ATBCU_DelFlg { get; set; }
+            public string ATBCU_Description { get; set; }
+            public decimal ATBCU_Closing_TotalDebit_Amount { get; set; }
+            public decimal ATBCU_Closing_TotalCredit_Amount { get; set; }
+        }
     }
 }
