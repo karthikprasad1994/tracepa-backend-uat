@@ -24,7 +24,6 @@ namespace TracePca.Controllers.FIN_Statement
             _env = env;
         }
 
-
         //GetDiferenceAmountStatus
         [HttpGet("GetDiferenceAmountStatus")]
         public async Task<IActionResult> GetDiferenceAmountStatus([FromQuery] int CompId, [FromQuery] int CustId, [FromQuery] int BranchId, [FromQuery] int YearId)
@@ -200,6 +199,42 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     statusCode = 500,
                     message = "An error occurred while fetching Statified Samping.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        //GetCustomerTBDelFlg
+        [HttpGet("GetCustomerTBDelFlg")]
+        public async Task<IActionResult> GetCustomerTBDelFlg([FromQuery] int CompId, [FromQuery] int CustId, [FromQuery] int BranchId, [FromQuery] int YearId)
+        {
+            try
+            {
+                var result = await _FlaggedTransactionService.GetCustomerTBDelFlgAsync(CompId, CustId, BranchId, YearId);
+
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No Customer Trail Balance found.",
+                        data = Array.Empty<object>()
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Customer Trail Balance Loaded successfully.",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while fetching Customer Trail Balance.",
                     error = ex.Message
                 });
             }

@@ -5,6 +5,7 @@ using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.LedgerDifferenceDto;
 using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
+using static TracePca.Dto.FIN_Statement.SelectedPartiesDto;
 namespace TracePca.Service.FIN_statement
 {
     public class LedgerDifferenceService : LedgerDifferenceInterface
@@ -612,6 +613,59 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
                 CustomerTotals = await multi.ReadFirstOrDefaultAsync<dynamic>(),
                 SystemTotals = (await multi.ReadAsync<dynamic>()).ToList()
             };
+        }
+
+        //UpdateCustomerTBDelFlg
+        public async Task<int> UpdateCustomerTrailBalanceStatusAsync(List<UpdateCustomerTrailBalanceStatusDto> dtoList)
+        {
+            if (dtoList == null || !dtoList.Any())
+                return 0; // Nothing to update
+
+            // Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                // Build parameterized CASE statement
+                var caseStatements = dtoList
+                    .Select((d, i) => $"WHEN @Id{i} THEN @Status{i}")
+                    .ToList();
+
+                var sql = $@"
+          UPDATE Acc_TrailBalance_CustomerUpload
+          SET ATBCU_DELFLG = CASE ATBCU_ID
+              {string.Join(" ", caseStatements)}
+          END
+          WHERE ATBCU_ID IN ({string.Join(",", dtoList.Select((d, i) => $"@Id{i}"))});";
+
+                // Prepare parameters
+                var parameters = new DynamicParameters();
+                for (int i = 0; i < dtoList.Count; i++)
+                {
+                    parameters.Add($"Id{i}", dtoList[i].Id);
+                    parameters.Add($"Status{i}", dtoList[i].Status);
+                }
+
+                var updatedCount = await connection.ExecuteAsync(sql, parameters, transaction);
+
+                transaction.Commit();
+                return updatedCount;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
         }
     }
 }

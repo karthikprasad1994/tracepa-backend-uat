@@ -52,5 +52,12 @@
             public dynamic CustomerTotals { get; set; }
             public List<dynamic> SystemTotals { get; set; }
         }
+
+        //UpdateCustomerTBDelFlg
+        public class UpdateCustomerTrailBalanceStatusDto
+        {
+            public int Id { get; set; }
+            public string Status { get; set; } = string.Empty;
+        }
     }
 }
