@@ -2276,7 +2276,7 @@ namespace TracePca.Service.FIN_statement
                         },
                         tran);
 
-                    if (trailBalCount != 0)
+                    if (trailBalCount == 0)
                         throw new Exception("Trail Balance Not exist.");
 
                     // -------- GET MASTER ID --------
