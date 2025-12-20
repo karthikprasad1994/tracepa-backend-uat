@@ -25,6 +25,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.ReportingServices.ReportProcessing.ReportObjectModel;
 using MimeKit;
 using Newtonsoft.Json.Linq;
+using Org.BouncyCastle.Asn1.Cmp;
 using Org.BouncyCastle.Asn1.Crmf;
 using Org.BouncyCastle.Utilities.Net;
 using StackExchange.Redis;
@@ -33,6 +34,7 @@ using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Dto.Authentication;
+using TracePca.Dto.DigitalFilling;
 using TracePca.Dto.Middleware;
 using TracePca.Interface;
 using TracePca.Interface.Middleware;
@@ -2825,6 +2827,43 @@ ORDER BY ut.Id DESC";
 
             return null;
         }
+
+
+        public async Task<IEnumerable<ClientDetails>> GetClientDetailsAsync()
+        {
+            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+            using (var connection = new SqlConnection(mmcsConnection))
+            {
+                await connection.OpenAsync();
+
+                string query = @"
+            SELECT 
+                A.MCR_CustomerName AS FirmName,
+                A.MCR_CustomerEmail AS Email,
+                CONVERT(varchar(10), A.MCR_FromDate, 103) + ' - ' +
+                CONVERT(varchar(10), A.MCR_ToDate, 103) AS [Date],
+                STRING_AGG(B.MP_ModuleName, ', ') AS ModuleNames,
+                ISNULL(A.MCR_NumberOfUsers, '0') AS NumberOfUsers,
+                '0' AS IssueIDentified
+            FROM MMCS_CustomerRegistration A
+            JOIN MMCS_Modules B ON A.MCR_MP_ID = B.MM_MP_ID
+            WHERE A.MCR_Status = @MCR_Status
+            GROUP BY 
+                A.MCR_CustomerName,
+                A.MCR_CustomerEmail,
+                A.MCR_FromDate,
+                A.MCR_ToDate,
+                A.MCR_NumberOfUsers
+            ORDER BY A.MCR_FromDate DESC";
+
+                return await connection.QueryAsync<ClientDetails>(query, new
+                {
+                    MCR_Status = "A"
+                });
+            }
+        }
+
 
     }
 }
