@@ -2838,24 +2838,34 @@ ORDER BY ut.Id DESC";
                 await connection.OpenAsync();
 
                 string query = @"
-            SELECT 
-                A.MCR_CustomerName AS FirmName,
-                A.MCR_CustomerEmail AS Email,
-                CONVERT(varchar(10), A.MCR_FromDate, 103) + ' - ' +
-                CONVERT(varchar(10), A.MCR_ToDate, 103) AS [Date],
-                STRING_AGG(B.MP_ModuleName, ', ') AS ModuleNames,
-                ISNULL(A.MCR_NumberOfUsers, '0') AS NumberOfUsers,
-                '0' AS IssueIDentified
-            FROM MMCS_CustomerRegistration A
-            JOIN MMCS_Modules B ON A.MCR_MP_ID = B.MM_MP_ID
-            WHERE A.MCR_Status = @MCR_Status
-            GROUP BY 
-                A.MCR_CustomerName,
-                A.MCR_CustomerEmail,
-                A.MCR_FromDate,
-                A.MCR_ToDate,
-                A.MCR_NumberOfUsers
-            ORDER BY A.MCR_FromDate DESC";
+                        SELECT 
+                        A.MCR_CustomerName as FirmName,
+                         A.MCR_CustomerEmail as Email,
+                        CONVERT(varchar(10), A.MCR_FromDate, 103) + ' - ' +
+                        CONVERT(varchar(10), A.MCR_ToDate, 103) AS [Date],
+ 
+                        STRING_AGG(
+                                CASE 
+                                    WHEN B.MP_ModuleName = 'Masters' THEN 'Settings'
+			                        WHEN B.MP_ModuleName = 'Digital Office' THEN 'Documents'
+			                        WHEN B.MP_ModuleName = 'Digital Audit Office - Fixed Asset' THEN 'Account Verification'
+			                        WHEN B.MP_ModuleName = 'Digital Audit Office - Assignments' THEN 'Task Management'
+			                        WHEN B.MP_ModuleName = 'Digital Audit Office - Financial Audit' THEN ''
+                                    ELSE B.MP_ModuleName
+                                END, ', '
+                            ) AS ModuleNames,
+
+                        case when MCR_NumberOfUsers IS NULL then '0' else MCR_NumberOfUsers end as NumberOfUsers
+                        , '0' as IssueIDentified
+                        FROM MMCS_CustomerRegistration A
+                        JOIN MMCS_Modules B 
+                        ON A.MCR_MP_ID = B.MM_MP_ID
+                        WHERE A.MCR_Status = @MCR_Status
+                        GROUP BY A.MCR_CustomerName,
+                        A.MCR_CustomerEmail,
+                        A.MCR_FromDate,
+                        A.MCR_ToDate, MCR_NumberOfUsers
+                        Order by MCR_FromDate desc";
 
                 return await connection.QueryAsync<ClientDetails>(query, new
                 {
