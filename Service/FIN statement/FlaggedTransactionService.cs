@@ -46,7 +46,7 @@ namespace TracePca.Service.FIN_statement
             return await connection.QueryAsync<GetDiferenceAmountStatusDto>(query, new { CompId = CompId, CustId = CustId, BranchId = BranchId, YearId = YearId, PrevYearId = YearId - 1 });
         }
 
-        //GetAbnormalEntriesSeqReferenceNum
+        //GetAbnormalEntriesAEStatus
         public async Task<IEnumerable<GetGetAbnormalEntriesSeqReferenceNumDto>> GetAbnormalEntriesSeqReferenceNumAsync(int CompId, int CustId, int BranchId, int YearId)
         {
             //Step 1: Get DB name from session
@@ -64,7 +64,7 @@ namespace TracePca.Service.FIN_statement
             var query = @"
         SELECT 
             AJTB_ID,
-            AJTB_Status,
+            AJTB_AEStatus,
             AJTB_DescName,
             AJTB_Debit,
             AJTB_Credit
@@ -73,7 +73,7 @@ namespace TracePca.Service.FIN_statement
               AND AJTB_CustId = @CustId
               AND AJTB_BranchId = @BranchId
               AND AJTB_YearID = @YearId
-              AND AJTB_Status = 'E'";
+              AND AJTB_AEStatus = 'E'";
 
             return await connection.QueryAsync<GetGetAbnormalEntriesSeqReferenceNumDto>(query, new { CompId = CompId, CustId = CustId, BranchId = BranchId, YearId = YearId });
         }

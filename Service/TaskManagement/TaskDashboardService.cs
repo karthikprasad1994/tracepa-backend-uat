@@ -47,7 +47,9 @@ namespace TracePca.Service.TaskManagement
                     @"SELECT YMS_YEARID AS ID, YMS_ID AS Name FROM YEAR_MASTER WHERE YMS_Default = 1 AND YMS_CompId = @CompId", parameters);
 
                 var yearList = connection.QueryAsync<DropDownListData>(
-                    @"SELECT YMS_YEARID AS ID, YMS_ID AS Name FROM YEAR_MASTER WHERE YMS_CompId = 1 And YMS_YEARID > (SELECT YMS_YEARID FROM YEAR_MASTER WHERE YMS_Default = 1 AND YMS_CompId = @CompId) ORDER BY YMS_YEARID Asc", parameters);
+                    @"SELECT YMS_YEARID AS ID, YMS_ID AS Name FROM YEAR_MASTER WHERE YMS_CompId = @CompId
+                     AND YMS_YEARID BETWEEN (SELECT YMS_YEARID - 5 FROM YEAR_MASTER WHERE YMS_Default = 1 AND YMS_CompId = @CompId)
+                     AND (SELECT YMS_YEARID + 5 FROM YEAR_MASTER WHERE YMS_Default = 1 AND YMS_CompId = @CompId) ORDER BY YMS_YEARID ASC", parameters);
 
                 var customerListTask = connection.QueryAsync<DropDownListData>(
                     @"SELECT CUST_ID AS ID, CUST_NAME AS Name FROM SAD_CUSTOMER_MASTER WHERE CUST_DELFLG = 'A' AND CUST_CompID = @CompId ORDER BY CUST_NAME ASC", parameters);

@@ -16,11 +16,11 @@
 
         }
 
-        //GetAbnormalEntriesSeqReferenceNum 
+        //GetAbnormalEntriesAEStatus 
         public class GetGetAbnormalEntriesSeqReferenceNumDto
         {
             public int AJTB_ID { get; set; }
-            public string AJTB_Status { get; set; }
+            public string AJTB_AEStatus { get; set; }
             public string AJTB_DescName { get; set; }
             public decimal AJTB_Debit { get; set; }
             public decimal AJTB_Credit { get; set; }

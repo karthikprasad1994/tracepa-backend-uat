@@ -47,7 +47,9 @@ namespace TracePca.Service.TaskManagement
                     @"SELECT YMS_YEARID AS ID, YMS_ID AS Name FROM YEAR_MASTER WHERE YMS_Default = 1 AND YMS_CompId = @CompId", parameters);
 
                 var yearList = connection.QueryAsync<DropDownListData>(
-                    @"SELECT YMS_YEARID AS ID, YMS_ID AS Name FROM YEAR_MASTER WHERE YMS_CompId = 1 And YMS_YEARID <= (SELECT YMS_YEARID FROM YEAR_MASTER WHERE YMS_Default = 1 AND YMS_CompId = @CompId) ORDER BY YMS_YEARID Asc", parameters);
+                    @"SELECT YMS_YEARID AS ID, YMS_ID AS Name FROM YEAR_MASTER WHERE YMS_CompId = @CompId
+                     AND YMS_YEARID BETWEEN (SELECT YMS_YEARID - 5 FROM YEAR_MASTER WHERE YMS_Default = 1 AND YMS_CompId = @CompId)
+                     AND (SELECT YMS_YEARID + 5 FROM YEAR_MASTER WHERE YMS_Default = 1 AND YMS_CompId = @CompId) ORDER BY YMS_YEARID ASC", parameters);
 
                 var customerListTask = connection.QueryAsync<DropDownListData>(
                     @"SELECT CUST_ID AS ID, CUST_NAME AS Name FROM SAD_CUSTOMER_MASTER WHERE CUST_DELFLG = 'A' AND CUST_CompID = @CompId ORDER BY CUST_NAME ASC", parameters);
@@ -103,14 +105,14 @@ namespace TracePca.Service.TaskManagement
                     Company_Name = src?.Company_Name == null ? string.Empty : Convert.ToString(src.Company_Name),
                     Company_Address = src?.Company_Address == null ? string.Empty : Convert.ToString(src.Company_Address),
                     Company_City_PinCode = $"{(src?.Company_City == null ? string.Empty : Convert.ToString(src.Company_City))} {(src?.Company_PinCode == null ? string.Empty : Convert.ToString(src.Company_PinCode))}".Trim(),
-                    Company_State = $"State: {(src?.Company_State == null ? string.Empty : Convert.ToString(src.Company_State))}",
-                    Company_PlaceOfSupply = $"Place of Supply: {(src?.Company_State == null ? string.Empty : Convert.ToString(src.Company_State))}",
-                    Company_EmailID = $"Email: {(src?.Company_EmailID == null ? string.Empty : Convert.ToString(src.Company_EmailID))}",
-                    Company_TelephoneNo = $"Phone no.: {(src?.Company_TelephoneNo == null ? string.Empty : Convert.ToString(src.Company_TelephoneNo))}",
-                    Company_HolderName = $"Account Holder Name : {(string.IsNullOrWhiteSpace(Convert.ToString(src?.Company_HolderName)) ? "-" : Convert.ToString(src?.Company_HolderName))}",
-                    Company_BankName = $"Bank Name : {(string.IsNullOrWhiteSpace(Convert.ToString(src?.Company_Bankname)) ? "-" : Convert.ToString(src?.Company_Bankname))}",
-                    Company_Branch = $"Branch : {(string.IsNullOrWhiteSpace(Convert.ToString(src?.Company_Branch)) ? "-" : Convert.ToString(src?.Company_Branch))}",
-                    Company_BankAccountNo = $"Bank Account No. : {(string.IsNullOrWhiteSpace(Convert.ToString(src?.Company_AccountNo)) ? "-" : Convert.ToString(src?.Company_AccountNo))}",
+                    Company_State = $"{(src?.Company_State == null ? string.Empty : Convert.ToString(src.Company_State))}",
+                    Company_PlaceOfSupply = $"{(src?.Company_State == null ? string.Empty : Convert.ToString(src.Company_State))}",
+                    Company_EmailID = $"{(src?.Company_EmailID == null ? string.Empty : Convert.ToString(src.Company_EmailID))}",
+                    Company_TelephoneNo = $"{(src?.Company_TelephoneNo == null ? string.Empty : Convert.ToString(src.Company_TelephoneNo))}",
+                    Company_HolderName = $"{(string.IsNullOrWhiteSpace(Convert.ToString(src?.Company_HolderName)) ? "-" : Convert.ToString(src?.Company_HolderName))}",
+                    Company_BankName = $"{(string.IsNullOrWhiteSpace(Convert.ToString(src?.Company_Bankname)) ? "-" : Convert.ToString(src?.Company_Bankname))}",
+                    Company_Branch = $"{(string.IsNullOrWhiteSpace(Convert.ToString(src?.Company_Branch)) ? "-" : Convert.ToString(src?.Company_Branch))}",
+                    Company_BankAccountNo = $"{(string.IsNullOrWhiteSpace(Convert.ToString(src?.Company_AccountNo)) ? "-" : Convert.ToString(src?.Company_AccountNo))}",
                     Company_Conditions = src?.Company_Conditions == null ? string.Empty : Convert.ToString(src.Company_Conditions),
                     Company_Paymentterms = $"{(src?.Company_Paymentterms == null ? string.Empty : Convert.ToString(src.Company_Paymentterms))} {(src?.Company_Conditions == null ? string.Empty : Convert.ToString(src.Company_Conditions))}".Trim(),
                     Company_PaymenttermsAndConditions = $"{(src?.Company_Paymentterms == null ? string.Empty : Convert.ToString(src.Company_Paymentterms))} {(src?.Company_Conditions == null ? string.Empty : Convert.ToString(src.Company_Conditions))}".Trim()

@@ -1,9 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Data;
-using System.IO;
-using System.Net;
-using System.Text.Json;
-using Dapper;
+﻿using Dapper;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Mvc;
@@ -12,15 +7,16 @@ using Newtonsoft.Json;
 using OfficeOpenXml;
 using OfficeOpenXml.Packaging.Ionic.Zip;
 using OpenAI;
+using System.Data;
 using TracePca.Data;
+using TracePca.Dto;
 using TracePca.Dto.Audit;
-using Newtonsoft.Json;
 using TracePca.Dto.SuperMaster;
 using TracePca.Interface.SuperMaster;
 using static TracePca.Dto.SuperMaster.ExcelInformationDto;
 using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
 using System.Text.RegularExpressions;
-
+using Microsoft.Playwright;
 
 
 namespace TracePca.Service.SuperMaster
@@ -1880,34 +1876,479 @@ WHERE UPPER(CUST_NAME) = UPPER(@CustomerName)
         }
 
         //DownloadExcelTemplateFiles
-        public ExcelInformationTemplateResult GetExcelTemplate(string FileName)
+        public ExcelTemplateResult GetExcelTemplate(string templateName)
         {
-            // Map template names to file paths
             var templates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            { "Employee Master", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\EmployeeMaster Template.xlsx" },
-            { "Client Details", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientDetails Template.xlsx" },
-            { "Client User", @"C:\Users\SSD\Desktop\TracePa\tracepa-dotnet-core - Copy\SampleExcels\ClientUser Template.xlsx" }
+            { "Employee Master", @"C:\Users\SSD\Source\Repos\tracepa-corebackend\SampleExcels\EmployeeMaster Template.xlsx" },
+            { "Client Details", @"C:\Users\SSD\Source\Repos\tracepa-corebackend\SampleExcels\ClientDetails Template.xlsx" },
+            { "Client User", @"C:\Users\SSD\Source\Repos\tracepa-corebackend\SampleExcels\ClientUser Template.xlsx" }
         };
 
-            if (!templates.ContainsKey(FileName))
-                return null; // or throw exception if template not found
+            if (!templates.ContainsKey(templateName))
+                return null;
 
-            var filePath = templates[FileName];
+            var filePath = templates[templateName];
 
             if (!File.Exists(filePath))
-                return null; // or return empty result
+                return null;
 
             var bytes = File.ReadAllBytes(filePath);
             var fileName = Path.GetFileName(filePath);
-            var contentType = "application/vnd.ms-excel"; // works for .xls and .xlsx
 
-            return new ExcelInformationTemplateResult
+            // Set content type dynamically based on extension
+            var contentType = Path.GetExtension(filePath).ToLower() switch
+            {
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".xls" => "application/vnd.ms-excel",
+                _ => "application/octet-stream"
+            };
+
+            return new ExcelTemplateResult
             {
                 FileBytes = bytes,
                 FileName = fileName,
                 ContentType = contentType
             };
+        }
+
+        public class AuditTypeAndCheckpointsUploadException : Exception
+        {
+            public Dictionary<string, List<string>> Errors { get; }
+            public AuditTypeAndCheckpointsUploadException(Dictionary<string, List<string>> errors)
+            {
+                Errors = errors;
+            }
+        }
+
+        public async Task<List<string>> UploadAuditTypeAndCheckpointsAsync(int compId, int userId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                throw new Exception("No file uploaded.");
+
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            AuditTypeAndCheckpointParseResult parseResult;
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+                using var stream = file.OpenReadStream();
+                parseResult = await ParseAuditTypeAndCheckpointExcelAndResolveAuditTypeAsync(stream, compId, userId, connection);
+            }
+
+            var rows = parseResult.Rows;
+            var headerErrors = parseResult.HeaderErrors;
+            var missingErrors = ValidateAuditChecklist(rows);
+
+            var duplicateErrors = rows
+                .GroupBy(r => new { r.ACM_AuditTypeID, r.ACM_Heading, r.ACM_Checkpoint })
+                .Where(g => g.Count() > 1)
+                .Select(g => $"Duplicate: Heading '{g.Key.ACM_Heading}' - Checkpoint '{g.Key.ACM_Checkpoint}'")
+                .ToList();
+
+            var finalErrors = new Dictionary<string, List<string>>();
+            if (headerErrors.Any()) finalErrors["Missing column"] = headerErrors;
+            if (missingErrors.Any()) finalErrors["Missing values"] = missingErrors;
+            if (duplicateErrors.Any()) finalErrors["Duplication"] = duplicateErrors;
+
+            if (finalErrors.Any())
+                throw new AuditTypeAndCheckpointsUploadException(finalErrors);
+
+            var failed = new List<string>();
+
+            foreach (var dto in rows)
+            {
+                dto.ACM_CompId = compId;
+                dto.ACM_CRBY = userId;
+                dto.ACM_IPAddress = "127.0.0.1";
+
+                if (!await SaveOrUpdateAuditTypeAndCheckpointAsync(dto))
+                    failed.Add(dto.ACM_Checkpoint);
+            }
+
+            if (failed.Any())
+            {
+                return new List<string> { "Failed to save the following Audit Type And Checkpoints:" }
+                    .Concat(failed).ToList();
+            }
+
+            return new List<string> { "Successfully saved Audit Type And Checkpoints details" };
+        }
+
+        private async Task<AuditTypeAndCheckpointParseResult> ParseAuditTypeAndCheckpointExcelAndResolveAuditTypeAsync(Stream stream, int compId, int userId, SqlConnection connection)
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using var package = new ExcelPackage(stream);
+
+            var sheet = package.Workbook.Worksheets[0];
+            int rowCount = sheet.Dimension.Rows;                            
+
+            var result = new AuditTypeAndCheckpointParseResult();
+            string[] expectedHeaders = { "Audit Type", "Heading", "Checkpoint", "Assertions" };
+
+            for (int col = 1; col <= expectedHeaders.Length; col++)
+                if (!string.Equals(sheet.Cells[1, col].Text?.Trim(), expectedHeaders[col - 1], StringComparison.OrdinalIgnoreCase))
+                    result.HeaderErrors.Add($"Expected header '{expectedHeaders[col - 1]}' at column {col}, but found '{sheet.Cells[1, col].Text}'");
+
+            int? lastAuditTypeId = null;
+
+            for (int row = 2; row <= rowCount; row++)
+            {
+                string typeName = sheet.Cells[row, 1].Text?.Trim();
+                int? typeId = null;
+
+                if (!string.IsNullOrWhiteSpace(typeName))
+                {
+                    typeId = await connection.ExecuteScalarAsync<int?>(
+                        "SELECT cmm_ID FROM content_management_master WHERE UPPER(cmm_desc)=UPPER(@type) AND cmm_compID=@cid AND cmm_category='AT'",
+                        new { type = typeName, cid = compId });
+
+                    if (!typeId.HasValue)
+                        typeId = await InsertNewAuditTypeAsync(typeName, compId, userId, connection, null);
+
+                    lastAuditTypeId = typeId;
+                }
+                else
+                {
+                    if (lastAuditTypeId == null)
+                        result.HeaderErrors.Add($"Audit Type missing at row {row}.");
+
+                    typeId = lastAuditTypeId;
+                }
+
+                result.Rows.Add(new AuditTypeChecklistMasterDTO
+                {
+                    ACM_AuditTypeID = typeId ?? 0,
+                    ACM_Heading = sheet.Cells[row, 2].Text,
+                    ACM_Checkpoint = sheet.Cells[row, 3].Text,
+                    ACM_Assertions = sheet.Cells[row, 4].Text
+                });
+            }
+            return result;
+        }
+
+        private async Task<int> InsertNewAuditTypeAsync(string taskName, int compId, int userId, SqlConnection connection, SqlTransaction tx)
+        {
+            int maxId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(cmm_ID), 0) + 1 FROM Content_Management_Master WHERE CMM_CompID = @CompId", new { CompId = compId }, tx);
+
+            string code = $"AT_{maxId}";
+
+            int newId = await connection.ExecuteScalarAsync<int>(
+                @"DECLARE @NewId INT = (SELECT ISNULL(MAX(CMM_ID),0) + 1 FROM Content_Management_Master);
+                 INSERT INTO Content_Management_Master (CMM_ID, CMM_Code, CMM_Desc, CMM_Category, CMM_Delflag, CMM_Status, CMM_CrBy, CMM_CrOn, CMM_CompID) 
+                 VALUES (@NewId, @CMM_Code, @CMM_Desc, 'AT', 'A', 'A', @CMM_CrBy, GETDATE(), @CMM_CompID);
+                 SELECT @NewId;",
+                new
+                {
+                    CMM_Code = code,
+                    CMM_Desc = taskName,
+                    CMM_CompID = compId,
+                    CMM_CrBy = userId
+                }, tx);
+
+            return newId;
+        }
+
+        private List<string> ValidateAuditChecklist(List<AuditTypeChecklistMasterDTO> rows)
+        {
+            var errors = new List<string>();
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var r = rows[i];
+                int excelRow = i + 2;
+
+                if (r.ACM_AuditTypeID == 0)
+                    errors.Add($"Row {excelRow}: Audit Type missing for checkpoint '{r.ACM_Checkpoint}'");
+
+                if (string.IsNullOrWhiteSpace(r.ACM_Heading))
+                    errors.Add($"Row {excelRow}: Heading missing for checkpoint '{r.ACM_Checkpoint}'");
+
+                if (string.IsNullOrWhiteSpace(r.ACM_Checkpoint))
+                    errors.Add($"Row {excelRow}: Checkpoint missing for heading '{r.ACM_Heading}'");
+            }
+            return errors;
+        }
+
+        public async Task<bool> SaveOrUpdateAuditTypeAndCheckpointAsync(AuditTypeChecklistMasterDTO dto)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var tx = connection.BeginTransaction();
+
+            try
+            {
+                int exists = await connection.ExecuteScalarAsync<int>(
+                    @"SELECT COUNT(1) FROM AuditType_Checklist_Master WHERE ACM_AuditTypeID = @ACM_AuditTypeID AND ACM_Checkpoint = @ACM_Checkpoint AND ACM_CompId = @ACM_CompId",
+                    new
+                    {
+                        dto.ACM_AuditTypeID,
+                        dto.ACM_Checkpoint,
+                        dto.ACM_CompId
+                    }, tx);
+
+                if (exists > 0)
+                {
+                    await tx.CommitAsync();
+                    return true;
+                }
+
+                int maxId = await connection.ExecuteScalarAsync<int>(
+                    "SELECT ISNULL(MAX(ACM_ID),0)+1 FROM AuditType_Checklist_Master WHERE ACM_CompId=@CompId",
+                    new { CompId = dto.ACM_CompId }, tx);
+
+                dto.ACM_Code = $"ACM_{maxId}";
+
+                dto.ACM_ID = await connection.ExecuteScalarAsync<int>(
+                    @"DECLARE @NewId INT = (SELECT ISNULL(MAX(ACM_ID),0)+1 FROM AuditType_Checklist_Master);
+                      INSERT INTO AuditType_Checklist_Master (ACM_ID, ACM_Code, ACM_AuditTypeID, ACM_Heading, ACM_Checkpoint, ACM_Assertions, ACM_DELFLG, ACM_STATUS, ACM_CRBY, ACM_CRON, ACM_IPAddress, ACM_CompId)
+                      VALUES (@NewId, @ACM_Code, @ACM_AuditTypeID, @ACM_Heading, @ACM_Checkpoint, @ACM_Assertions, 'A', 'A', @ACM_CRBY, GETDATE(), @ACM_IPAddress, @ACM_CompId);
+                      SELECT @NewId;",
+                    dto, tx);
+
+                await tx.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                return false;
+            }
+        }
+
+        public class TaskAndSubTasksUploadException : Exception
+        {
+            public Dictionary<string, List<string>> Errors { get; }
+            public TaskAndSubTasksUploadException(Dictionary<string, List<string>> errors)
+            {
+                Errors = errors;
+            }
+        }
+
+        public async Task<List<string>> UploadTaskAndSubTasksAsync(int compId, int userId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                throw new Exception("No file uploaded.");
+
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+            TaskAndSubtasksParseResult parseResult;
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+                using var stream = file.OpenReadStream();
+                parseResult = await ParseTaskAndSubtasksExcelAndResolveTaskAsync(stream, compId, userId, connection);
+            }
+
+            var rows = parseResult.Rows;
+            var headerErrors = parseResult.HeaderErrors;
+            var missingErrors = ValidateTaskAndSubtasklist(rows);
+
+            var duplicateErrors = rows
+                .GroupBy(r => new { r.ACM_AssignmentTaskID, r.ACM_Checkpoint })
+                .Where(g => g.Count() > 1)
+                .Select(g => $"Duplicate: Task '{g.Key.ACM_AssignmentTaskID}' - Subtask '{g.Key.ACM_Checkpoint}'")
+                .ToList();
+
+            var finalErrors = new Dictionary<string, List<string>>();
+            if (headerErrors.Any()) finalErrors["Missing column"] = headerErrors;
+            if (missingErrors.Any()) finalErrors["Missing values"] = missingErrors;
+            if (duplicateErrors.Any()) finalErrors["Duplication"] = duplicateErrors;
+
+            if (finalErrors.Any())
+                throw new TaskAndSubTasksUploadException(finalErrors);
+
+            var results = new List<string>();
+            var failedCheckpoints = new List<string>();
+
+            foreach (var dto in rows)
+            {
+                dto.ACM_CompId = compId;
+                dto.ACM_CRBY = userId;
+                dto.ACM_IPAddress = "127.0.0.1";
+
+                if (!await SaveOrUpdateTaskAndSubTasklistAsync(dto))
+                    failedCheckpoints.Add(dto.ACM_Checkpoint);
+            }
+
+            if (failedCheckpoints.Any())
+            {
+                results.Add("Failed to save the following Task And Subtask:");
+                results.AddRange(failedCheckpoints);
+                return results;
+            }
+
+            results.Add("Successfully saved Task And Subtask details");
+            return results;
+        }
+
+        private async Task<TaskAndSubtasksParseResult> ParseTaskAndSubtasksExcelAndResolveTaskAsync(Stream stream, int compId, int userId, SqlConnection connection)
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using var package = new ExcelPackage(stream);
+
+            var sheet = package.Workbook.Worksheets[0];
+            int rowCount = sheet.Dimension.Rows;
+
+            var result = new TaskAndSubtasksParseResult();
+
+            string[] expectedHeaders = { "Task", "Subtask", "Billing Type" };
+
+            for (int col = 1; col <= expectedHeaders.Length; col++)
+                if (!string.Equals(sheet.Cells[1, col].Text?.Trim(), expectedHeaders[col - 1], StringComparison.OrdinalIgnoreCase))
+                    result.HeaderErrors.Add($"Expected header '{expectedHeaders[col - 1]}' at column {col}, found '{sheet.Cells[1, col].Text}'");
+
+            int? lastTaskId = null;
+            for (int row = 2; row <= rowCount; row++)
+            {
+                string taskName = sheet.Cells[row, 1].Text?.Trim();
+                int? taskId = null;
+
+                if (!string.IsNullOrWhiteSpace(taskName))
+                {
+                    taskId = await connection.ExecuteScalarAsync<int?>(
+                        "SELECT cmm_ID FROM content_management_master WHERE UPPER(cmm_desc)=UPPER(@task) AND cmm_compID=@cid AND cmm_category='ASGT'",
+                        new { task = taskName, cid = compId });
+
+                    if (!taskId.HasValue)
+                        taskId = await InsertNewTaskAsync(taskName, compId, userId, connection, null);
+
+                    lastTaskId = taskId;
+                }
+                else
+                {
+                    if (lastTaskId == null)
+                        result.HeaderErrors.Add($"Task missing at row {row}, and no previous task found.");
+
+                    taskId = lastTaskId;
+                }
+
+                string billingText = sheet.Cells[row, 3].Text?.Trim().ToLower();
+                int billingType = billingText switch
+                {
+                    "billable" => 1,
+                    "non billable" => 0,
+                    "" => 0,
+                    null => 0,
+                    _ => 0
+                };
+
+                result.Rows.Add(new AssignmentTaskChecklistMasterDTO
+                {
+                    ACM_AssignmentTaskID = taskId ?? 0,
+                    ACM_Heading = "",
+                    ACM_Checkpoint = sheet.Cells[row, 2].Text,
+                    ACM_BillingType = billingType
+                });
+            }
+            return result;
+        }
+
+        private async Task<int> InsertNewTaskAsync(string taskName, int compId,int userId, SqlConnection connection, SqlTransaction tx)
+        {
+            int maxId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(cmm_ID), 0) + 1 FROM Content_Management_Master WHERE CMM_CompID = @CompId", new { CompId = compId }, tx);
+
+            string code = $"ASGT_{maxId}";
+
+            int newId = await connection.ExecuteScalarAsync<int>(
+                @"DECLARE @NewId INT = (SELECT ISNULL(MAX(CMM_ID),0) + 1 FROM Content_Management_Master);
+                 INSERT INTO Content_Management_Master (CMM_ID, CMM_Code, CMM_Desc, CMM_Category, CMM_Delflag, CMM_Status, CMM_CrBy, CMM_CrOn, CMM_CompID) 
+                 VALUES (@NewId, @CMM_Code, @CMM_Desc, 'ASGT', 'A', 'A', @CMM_CrBy, GETDATE(), @CMM_CompID);
+                 SELECT @NewId;",
+                new
+                {
+                    CMM_Code = code,
+                    CMM_Desc = taskName,
+                    CMM_CompID = compId,
+                    CMM_CrBy = userId
+                }, tx);
+
+            return newId;
+        }
+
+
+        private List<string> ValidateTaskAndSubtasklist(List<AssignmentTaskChecklistMasterDTO> rows)
+        {
+            var errors = new List<string>();
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var r = rows[i];
+                int excelRow = i + 2;
+
+                if (r.ACM_AssignmentTaskID == 0)
+                    errors.Add($"Row {excelRow}: Task missing for Subtask '{r.ACM_Checkpoint}'");
+
+                if (string.IsNullOrWhiteSpace(r.ACM_Checkpoint))
+                    errors.Add($"Row {excelRow}: Subtask missing for the Task");
+            }
+            return errors;
+        }
+
+
+        public async Task<bool> SaveOrUpdateTaskAndSubTasklistAsync(AssignmentTaskChecklistMasterDTO dto)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var tx = connection.BeginTransaction();
+
+            try
+            {
+                int exists = await connection.ExecuteScalarAsync<int>(
+                    @"SELECT COUNT(1) FROM AssignmentTask_Checklist_Master WHERE ACM_AssignmentTaskID = @ACM_AssignmentTaskID AND ACM_Checkpoint = @ACM_Checkpoint AND ACM_CompId = @ACM_CompId",
+                    new
+                    {
+                        dto.ACM_AssignmentTaskID,
+                        dto.ACM_Checkpoint,
+                        dto.ACM_CompId
+                    }, tx);
+
+                if (exists > 0)
+                {
+                    await tx.CommitAsync();
+                    return true;
+                }
+
+                int maxId = await connection.ExecuteScalarAsync<int>(
+                    "SELECT ISNULL(MAX(ACM_ID),0) + 1 FROM AssignmentTask_Checklist_Master WHERE ACM_CompId=@CompId",
+                    new { CompId = dto.ACM_CompId }, tx);
+
+                dto.ACM_Code = $"ATCM_{maxId}";
+
+                dto.ACM_ID = await connection.ExecuteScalarAsync<int>(
+                    @"DECLARE @NewId INT = (SELECT ISNULL(MAX(ACM_ID),0) + 1 FROM AssignmentTask_Checklist_Master);
+                    INSERT INTO AssignmentTask_Checklist_Master (ACM_ID, ACM_Code, ACM_AssignmentTaskID, ACM_Heading, ACM_Checkpoint, ACM_BillingType,
+                    ACM_DELFLG, ACM_STATUS, ACM_CRBY, ACM_CRON, ACM_IPAddress, ACM_CompId) VALUES(@NewId, @ACM_Code, @ACM_AssignmentTaskID, @ACM_Heading, @ACM_Checkpoint, @ACM_BillingType, 'A', 'A', @ACM_CRBY, GETDATE(), @ACM_IPAddress, @ACM_CompId);
+                    SELECT @NewId;",
+                    dto, tx);
+
+                await tx.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                return false;
+            }
         }
     }
 }

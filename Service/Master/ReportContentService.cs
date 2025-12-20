@@ -9,9 +9,9 @@ namespace TracePca.Service.Master
 {
     public class ReportTemplateService : ReportTemplateInterface
     {
-        private readonly string _connectionString;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly string _connectionString;
 
         public ReportTemplateService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {

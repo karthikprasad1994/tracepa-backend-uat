@@ -8,7 +8,7 @@ namespace TracePca.Interface.FIN_Statement
         //GetAbnormalTransactions
         Task<IEnumerable<AbnormalTransactionsDto>> GetAbnormalTransactionsAsync(int iCustId, int iBranchId, int iYearID, int iAbnormalType, string sAmount);
 
-        //UpdateJESeqReferenceNum
+        //UpdateAEStatus
         Task<int> UpdateJournalEntrySeqRefAsync(List<UpdateJournalEntrySeqRef1Dto> dtoList);
     }
 }

@@ -25,6 +25,7 @@ namespace TracePca.Dto.FIN_Statement
         {
             public decimal Dc1;
             public decimal DP1;
+            public decimal PercentChange;
         }
 
     }

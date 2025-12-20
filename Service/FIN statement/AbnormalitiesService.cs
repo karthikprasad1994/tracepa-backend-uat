@@ -48,8 +48,8 @@ namespace TracePca.Service.FIN_statement
           WHERE Ajtb_Custid = @iCustId AND AJTB_BranchId = @iBranchId AND AJTB_YearID = @iYearID
           GROUP BY AJTB_DescName        )
       SELECT A.AJTB_DescName, A.ajtb_credit AS creditAmt, A.ajtb_debit AS DebitAmt,
-             V.AvgCreditAmt, V.AvgDebitAmt, V.AvgCreditAmtRatio, V.AvgDebitAmtRatio,a.AJTB_status,
-AJTB_SeqReferenceNum as status, AJTB_BillType,AJTB_TranscNo,AJTB_CreatedBy,ajtb_id
+             V.AvgCreditAmt, V.AvgDebitAmt, V.AvgCreditAmtRatio, V.AvgDebitAmtRatio,
+AJTB_AEStatus as status, AJTB_BillType,AJTB_TranscNo,AJTB_CreatedBy,ajtb_id
       FROM Acc_JETransactions_Details A
       JOIN AvgValues V ON A.AJTB_DescName = V.AJTB_DescName
       WHERE A.Ajtb_Custid = @iCustId AND A.AJTB_BranchId = @iBranchId AND A.AJTB_YearID = @iYearID
@@ -101,7 +101,7 @@ AJTB_SeqReferenceNum as status, AJTB_BillType,AJTB_TranscNo,AJTB_CreatedBy,ajtb_
             return result;
         }
 
-        //UpdateJESeqReferenceNum
+        //UpdateAEStatus
         public async Task<int> UpdateJournalEntrySeqRefAsync(List<UpdateJournalEntrySeqRef1Dto> dtoList)
         {
             if (dtoList == null || !dtoList.Any())
@@ -129,7 +129,7 @@ AJTB_SeqReferenceNum as status, AJTB_BillType,AJTB_TranscNo,AJTB_CreatedBy,ajtb_
 
                 var sql = $@"
         UPDATE Acc_JETransactions_Details
-        SET AJTB_Status = CASE AJTB_ID
+        SET AJTB_AEStatus = CASE AJTB_ID
             {string.Join(" ", caseStatements)}
         END
         WHERE AJTB_ID IN ({string.Join(",", dtoList.Select((d, i) => $"@Id{i}"))});";

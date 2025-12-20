@@ -8,7 +8,7 @@ namespace TracePca.Interface.FIN_Statement
         //GetDiferenceAmountStatus
         Task<IEnumerable<GetDiferenceAmountStatusDto>> GetDiferenceAmountStatusAsync(int CompId, int CustId, int BranchId, int YearId);
 
-        //GetAbnormalEntriesSeqReferenceNum
+        //GetAbnormalEntriesAEStatus
         Task<IEnumerable<GetGetAbnormalEntriesSeqReferenceNumDto>> GetAbnormalEntriesSeqReferenceNumAsync(int CompId, int CustId, int BranchId, int YearId);
 
         //GetSelectedPartiesSeqReferenceNum

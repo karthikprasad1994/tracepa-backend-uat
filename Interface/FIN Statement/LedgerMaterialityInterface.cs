@@ -23,5 +23,7 @@ namespace TracePca.Interface.FIN_Statement
 
         //LoadDescription
         Task<IEnumerable<LoadDescriptionDto>> LoadDescriptionAsync(int compId, string category);
+        //Task<IEnumerable<DescriptionDetailsDto>> GetMaterialityBasisAsync(int compId, int custId, int branchId, int yearId, int typeId);
+        Task<MaterialityBasisGridDto> GetMaterialityBasisAsync(int compId, int custId, int branchId, int yearId, int typeId);
     }
 }

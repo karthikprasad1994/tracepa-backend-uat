@@ -9,6 +9,7 @@
             public string? cmm_Desc { get; set; }
             public int lm_LevelOfRisk { get; set; }
             public int lm_Weightage { get; set; }
+            public int lm_Id { get; set; }
         }
 
         //SaveOrUpdateLedgerMaterialityMaster
@@ -70,6 +71,42 @@
             public string cmm_Code { get; set; }
             public string cmm_Desc { get; set; }
             public string cms_Remarks { get; set; }
+        }
+
+        public class DescriptionDto
+        {
+            public int HeadingId { get; set; }
+            public string HeadingName { get; set; }
+            public string Status { get; set; }
+            public decimal CYamt { get; set; }
+            public decimal PYamt { get; set; }
+            public decimal Difference_Amt { get; set; }
+            public decimal Difference_Avg { get; set; }
+            public string RiskFactor { get; set; }
+            public string Materiality { get; set; }
+            public decimal cyCr { get; set; }
+            public decimal cyDb { get; set; }
+            public decimal pyCr { get; set; }
+            public decimal pyDb { get; set; }
+        }
+
+        public class MaterialityBasisGridDto
+        {
+            
+            public decimal cyRevenue { get; set; }
+            public decimal pyRevenue { get; set; }
+            public decimal RevenuepercentChange { get; set; }
+            public decimal currentPBT { get; set; }
+            public decimal previousPBT { get; set; }
+            public decimal PBTpercentage { get; set; }
+            public decimal percentageRevenue { get; set; }
+            public decimal currentPPE { get; set; }
+            public decimal previoustPPE { get; set; }
+            public decimal PPEPercantage { get; set; }
+            public decimal currentAsset { get; set; }
+            public decimal previoustAsset { get; set; }
+            public decimal AssetPercantage { get; set; }
+
         }
     }
 }

@@ -32,97 +32,23 @@
         }
 
         //SaveCashFlow(Category 1)
-        public class CashFlowCategory1
+        public class CashFlowParticularDto
         {
-            public int ACF_pkid { get; set; }
-            public string ACF_Description { get; set; }
-            public int ACF_Custid { get; set; }
-            public int ACF_Branchid { get; set; }
-            public double ACF_Current_Amount { get; set; }
-            public double ACF_Prev_Amount { get; set; }
-            public string ACF_Status { get; set; }
-            public int ACF_Crby { get; set; }
-            public int ACF_Updatedby { get; set; }
-            public int ACF_Compid { get; set; }
-            public string ACF_Ipaddress { get; set; }
-            public int ACF_Catagary { get; set; }
-            public int ACF_yearid { get; set; }
-            public bool IsDeleted { get; internal set; }
+            public int Sr_No { get; set; }
+            public string ParticularName { get; set; } = string.Empty;
+            public decimal CurrentYear { get; set; } = 0m;
+            public decimal PreviousYear { get; set; } = 0m;
         }
-
-        //SaveCashFlow(Category3)
-        public class CashFlowCategory3
+        public class CashFlowCategory1Result
         {
-            public int ACF_pkid { get; set; }
-            public string ACF_Description { get; set; }
-            public int ACF_Custid { get; set; }
-            public int ACF_Branchid { get; set; }
-            public decimal? ACF_Current_Amount { get; set; }
-            public decimal? ACF_Prev_Amount { get; set; }
-            public string ACF_Status { get; set; }
-            public int ACF_Crby { get; set; }
-            public int ACF_Updatedby { get; set; }
-            public string ACF_Ipaddress { get; set; }
-            public int ACF_Compid { get; set; }
-            public int ACF_Catagary { get; set; }
-            public int ACF_yearid { get; set; }
+            public List<CashFlowParticularDto> Particular { get; set; } = new List<CashFlowParticularDto>();
         }
-
-        //SaveCashFlow(Category4)
-        public class CashFlowCategory4
+        public class UserAdjustmentInput
         {
-            public int ACF_pkid { get; set; }
-            public string ACF_Description { get; set; }
-            public int ACF_Custid { get; set; }
-            public int ACF_Branchid { get; set; }
-            public double ACF_Current_Amount { get; set; }
-            public double ACF_Prev_Amount { get; set; }
-            public string ACF_Status { get; set; }
-            public int ACF_Crby { get; set; }
-            public int ACF_Updatedby { get; set; }
-            public int ACF_Compid { get; set; }
-            public string ACF_Ipaddress { get; set; }
-            public int ACF_Catagary { get; set; }
-            public int ACF_yearid { get; set; }
-            public bool IsDeleted { get; internal set; }
-        }
-
-        //SaveCashFlow(Category2)
-        public class CashFlowCategory2
-        {
-            public int ACF_pkid { get; set; }
-            public string ACF_Description { get; set; }
-            public int ACF_Custid { get; set; }
-            public int ACF_Branchid { get; set; }
-            public double ACF_Current_Amount { get; set; }
-            public double ACF_Prev_Amount { get; set; }
-            public string ACF_Status { get; set; }
-            public int ACF_Crby { get; set; }
-            public int ACF_Updatedby { get; set; }
-            public int ACF_Compid { get; set; }
-            public string ACF_Ipaddress { get; set; }
-            public int ACF_Catagary { get; set; }
-            public int ACF_yearid { get; set; }
-            public bool IsDeleted { get; internal set; }
-        }
-
-        //SaveCashFlow(Category5)
-        public class CashFlowCategory5
-        {
-            public int ACF_pkid { get; set; }
-            public string ACF_Description { get; set; }
-            public int ACF_Custid { get; set; }
-            public int ACF_Branchid { get; set; }
-            public double ACF_Current_Amount { get; set; }
-            public double ACF_Prev_Amount { get; set; }
-            public string ACF_Status { get; set; }
-            public int ACF_Crby { get; set; }
-            public int ACF_Updatedby { get; set; }
-            public int ACF_Compid { get; set; }
-            public string ACF_Ipaddress { get; set; }
-            public int ACF_Catagary { get; set; }
-            public int ACF_yearid { get; set; }
-            public bool IsDeleted { get; internal set; }
+            public string Description { get; set; } = string.Empty;
+            public decimal CurrentYear { get; set; } = 0m;
+            public decimal PreviousYear { get; set; } = 0m;
         }
     }
 }
+

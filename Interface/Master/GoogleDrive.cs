@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using System.IO;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using TracePca.Dto.DigitalFilling;
 
 namespace TracePca.Interface.Master
 {
@@ -27,6 +28,8 @@ namespace TracePca.Interface.Master
         Task<GoogleDriveFile> GetFolderByIdAsync(string folderId, string userEmail);
 
         Task<object> GetStorageIndicatorAsync(string userEmail);
+
+       
 
     }
 }

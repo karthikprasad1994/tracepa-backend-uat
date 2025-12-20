@@ -1121,3 +1121,54 @@ The statement has been terminated.
 2025-10-18 12:52:49 [INFO] Loaded valid Google Drive token from DB for darshan@mmcspl.com
 2025-10-18 12:52:49 [INFO] DriveService successfully created for darshan@mmcspl.com
 2025-10-18 12:52:49 [INFO] Retrieved file by ID: 1bZlWCUyH3_kkIab-UCmsyeKyXbJsriTN for user darshan@mmcspl.com
+2025-12-11 16:00:23 [INFO] Token expired for darshan@mmcspl.com, refreshing...
+2025-12-11 16:00:23 [ERROR] Error creating DriveService for darshan@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
+2025-12-11 16:02:29 [INFO] Loaded valid Google Drive token from DB for darshan@mmcspl.com
+2025-12-11 16:02:29 [INFO] DriveService successfully created for darshan@mmcspl.com
+2025-12-11 16:02:30 [INFO] Retrieved file by ID: 1EH0LIxdXtNcQGshUMhyR4rZJciDuyCwJ for user darshan@mmcspl.com
+2025-12-11 16:44:59 [INFO] Loaded valid Google Drive token from DB for darshan@mmcspl.com
+2025-12-11 16:44:59 [INFO] DriveService successfully created for darshan@mmcspl.com
+2025-12-11 16:45:00 [INFO] Retrieved file by ID: 11IqaDpeOLPqUelzsQCSEddPk5JCrUEkf for user darshan@mmcspl.com
+2025-12-11 16:53:22 [INFO] Loaded valid Google Drive token from DB for darshan@mmcspl.com
+2025-12-11 16:53:22 [INFO] DriveService successfully created for darshan@mmcspl.com
+2025-12-11 16:53:23 [INFO] Retrieved file by ID: 11IqaDpeOLPqUelzsQCSEddPk5JCrUEkf for user darshan@mmcspl.com
+2025-12-11 17:37:51 [INFO] Token expired for darshan@mmcspl.com, refreshing...
+2025-12-11 17:37:52 [ERROR] Error creating DriveService for darshan@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
+2025-12-16 14:53:36 [INFO] Loaded valid Google Drive token from DB for darshan@mmcspl.com
+2025-12-16 14:53:36 [INFO] DriveService successfully created for darshan@mmcspl.com
+2025-12-16 14:53:37 [INFO] Retrieved file by ID: 1twlK6w-8l2Ph8dVjIvRQasKGoqn6hRar for user darshan@mmcspl.com
+2025-12-16 15:44:15 [INFO] Token expired for trace@mmcspl.com, refreshing...
+2025-12-16 15:44:16 [ERROR] Error creating DriveService for trace@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
+2025-12-16 15:46:47 [INFO] Token expired for darshan@mmcspl.com, refreshing...
+2025-12-16 15:46:47 [ERROR] Error creating DriveService for darshan@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
+2025-12-16 15:48:51 [INFO] Loaded valid Google Drive token from DB for darshan@mmcspl.com
+2025-12-16 15:48:51 [INFO] DriveService successfully created for darshan@mmcspl.com
+2025-12-16 15:48:52 [INFO] Retrieved file by ID: 1TJ4Y7RKH18LrFwtGXADflyFA8vojpS05 for user darshan@mmcspl.com
+2025-12-16 15:54:36 [INFO] Loaded valid Google Drive token from DB for darshan@mmcspl.com
+2025-12-16 15:54:36 [INFO] DriveService successfully created for darshan@mmcspl.com
+2025-12-16 15:54:37 [INFO] Retrieved file by ID: 1TJ4Y7RKH18LrFwtGXADflyFA8vojpS05 for user darshan@mmcspl.com
+2025-12-16 16:41:58 [INFO] Loaded valid Google Drive token from DB for sujatha@mmcspl.com
+2025-12-16 16:41:58 [INFO] DriveService successfully created for sujatha@mmcspl.com
+2025-12-16 16:41:58 [INFO] Retrieved file by ID: 1LrNf1Ge1AxXwgITiQ4VkE1LfxjuhoAdN for user sujatha@mmcspl.com
+2025-12-16 16:42:33 [INFO] Loaded valid Google Drive token from DB for sujatha@mmcspl.com
+2025-12-16 16:42:33 [INFO] DriveService successfully created for sujatha@mmcspl.com
+2025-12-16 16:42:33 [INFO] Retrieved file by ID: 1LrNf1Ge1AxXwgITiQ4VkE1LfxjuhoAdN for user sujatha@mmcspl.com
+2025-12-16 16:43:30 [INFO] Loaded valid Google Drive token from DB for sujatha@mmcspl.com
+2025-12-16 16:43:30 [INFO] DriveService successfully created for sujatha@mmcspl.com
+2025-12-16 16:43:31 [INFO] Retrieved file by ID: 1LrNf1Ge1AxXwgITiQ4VkE1LfxjuhoAdN for user sujatha@mmcspl.com
+2025-12-16 17:05:04 [INFO] Token expired for sujatha@mmcspl.com, refreshing...
+2025-12-16 17:05:04 [ERROR] Error creating DriveService for sujatha@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
+2025-12-16 17:05:07 [INFO] Token expired for sujatha@mmcspl.com, refreshing...
+2025-12-16 17:05:07 [ERROR] Error creating DriveService for sujatha@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
+2025-12-16 17:05:16 [INFO] Token expired for sujatha@mmcspl.com, refreshing...
+2025-12-16 17:05:16 [ERROR] Error creating DriveService for sujatha@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
+2025-12-16 17:07:56 [INFO] Token expired for sujatha@mmcspl.com, refreshing...
+2025-12-16 17:07:56 [ERROR] Error creating DriveService for sujatha@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
+2025-12-16 17:09:43 [INFO] Token expired for sujatha@mmcspl.com, refreshing...
+2025-12-16 17:09:43 [ERROR] Error creating DriveService for sujatha@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
+2025-12-16 17:09:47 [INFO] Token expired for sujatha@mmcspl.com, refreshing...
+2025-12-16 17:09:47 [ERROR] Error creating DriveService for sujatha@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
+2025-12-16 17:12:00 [INFO] Token expired for sujatha@mmcspl.com, refreshing...
+2025-12-16 17:12:00 [ERROR] Error creating DriveService for sujatha@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
+2025-12-16 17:15:34 [INFO] Token expired for sujatha@mmcspl.com, refreshing...
+2025-12-16 17:15:34 [ERROR] Error creating DriveService for sujatha@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
