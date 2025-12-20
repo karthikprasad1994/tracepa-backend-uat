@@ -44,14 +44,47 @@
             public string status { get; set; }
         }
 
-        //GetVODTotalGrid
-        public class CustCOATrialBalanceResult
+        //GetCustomerTBGrid
+        //public class CustCOATrialBalanceResult
+        //{
+        //    public List<dynamic> MainTrailBalance { get; set; }
+        //    public List<dynamic> UnmappedCustomerUpload { get; set; }
+        //    public dynamic CustomerTotals { get; set; }
+        //    public List<dynamic> SystemTotals { get; set; }
+        //}
+        public class GetCustomerTBGridDto
         {
-            public List<dynamic> MainTrailBalance { get; set; }
-            public List<dynamic> UnmappedCustomerUpload { get; set; }
-            public dynamic CustomerTotals { get; set; }
-            public List<dynamic> SystemTotals { get; set; }
+            public int SrNo { get; set; }
+            public int DescID { get; set; }
+            public int DescDetailsID { get; set; }
+            public string DelFlg { get; set; }
+            public int ATBCU_CustId { get; set; }
+            public string DescriptionCode { get; set; }
+            public decimal CustOpeningDebit { get; set; }
+            public decimal CustOpeningCredit { get; set; }
+            public decimal CustTrDebit { get; set; }
+            public decimal CustTrCredit { get; set; }
+            public decimal CustClosingDebit { get; set; }
+            public decimal CustClosingCredit { get; set; }
+            public int SubItemID { get; set; }
+            public string ASSI_Name { get; set; }
+            public int ItemID { get; set; }
+            public string ASI_Name { get; set; }
+            public int SubHeadingID { get; set; }
+            public string ASSH_Name { get; set; }
+            public int HeadingID { get; set; }
+            public string ASH_Name { get; set; }
+            public string Status { get; set; }
+            public string CompanyType { get; set; }
+            public int ScheduleType { get; set; }
+            public decimal OpeningDebit { get; set; }
+            public decimal OpeningCredit { get; set; }
+            public decimal TrDebit { get; set; }
+            public decimal TrCredit { get; set; }
+            public decimal ClosingDebit { get; set; }
+            public decimal ClosingCredit { get; set; }
         }
+
 
         //UpdateCustomerTBDelFlg
         public class UpdateCustomerTrailBalanceStatusDto
