@@ -2256,10 +2256,10 @@ SELECT ud.ATBUD_Description as Name,ISNULL(SUM(b.ATBU_Closing_TotalCredit_Amount
     ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal1,
     ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount), 0) AS DbTotal1,    ldg.ASHL_Description AS Notes
 FROM Acc_TrailBalance_Upload_Details ud
-LEFT JOIN Acc_TrailBalance_Upload b ON b.ATBU_Description = ud.ATBUD_Description 
-    AND b.ATBU_YEARId = @YearId AND b.ATBU_CustId = @CustomerId AND b.ATBU_Branchid = ud.Atbud_Branchnameid
-LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description 
-    AND e.ATBU_YEARId = @PrevYearId AND e.ATBU_CustId = @CustomerId AND e.ATBU_Branchid = ud.Atbud_Branchnameid
+LEFT JOIN Acc_TrailBalance_Upload b ON b.ATBU_Description = ud.ATBUD_Description and b.ATBU_Branchid=@BranchId 
+    AND b.ATBU_YEARId = @YearId AND b.ATBU_CustId = @CustomerId AND b.ATBU_Branchid = ud.Atbud_Branchnameid and ud.atbud_yearid=@YearId
+LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description and e.ATBU_Branchid=@BranchId 
+    AND e.ATBU_YEARId = @PrevYearId AND e.ATBU_CustId = @CustomerId AND e.ATBU_Branchid = ud.Atbud_Branchnameid and ud.atbud_yearid=@PrevYearId
 LEFT JOIN ACC_SubHeadingLedgerDesc ldg ON ldg.ASHL_SubHeadingId = ud.Atbud_ID 
     AND ldg.ASHL_CustomerId = @CustomerId AND ldg.ASHL_YearID = @YearId
 WHERE   ud.ATBUD_Subheading=@subHeadingId and ud.ATBUD_itemid=@ItemId and ud.ATBUD_SubItemId=0  and
@@ -2284,12 +2284,12 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                         if (itemDescription.DbTotal > itemDescription.CrTotal)
                                         {
                                             itemNet = (itemDescription.DbTotal ?? 0) - (itemDescription.CrTotal ?? 0);
-                                            itemPrevNet = (itemDescription.DbTotalPrev ?? 0) - (itemDescription.CrTotalPrev ?? 0);
+                                            itemPrevNet = (itemDescription.DbTotal1 ?? 0) - (itemDescription.CrTotal1 ?? 0);
                                         }
                                         else
                                         {
                                             itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
-                                            itemPrevNet = (itemDescription.CrTotalPrev ?? 0) - (itemDescription.DbTotalPrev ?? 0);
+                                            itemPrevNet = (itemDescription.CrTotal1 ?? 0) - (itemDescription.DbTotal1 ?? 0);
                                         }
 
 

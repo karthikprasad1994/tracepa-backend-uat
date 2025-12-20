@@ -17,5 +17,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetVODTotalGrid
         Task<CustCOATrialBalanceResult> GetCustCOAMasterDetailsCustomerAsync(int compId, int custId, int yearId, int scheduleTypeId, int unmapped, int branchId);
+
+        //UpdateCustomerTBDelFlg
+        Task<int> UpdateCustomerTrailBalanceStatusAsync(List<UpdateCustomerTrailBalanceStatusDto> dtoList);
     }
 }
