@@ -592,6 +592,7 @@ namespace TracePca.Controllers.FIN_Statement
                     var voucherId = await CheckVoucherType(connection, transaction, accessCodeId, "JE", voucherType);
                     voucherTypes[voucherType] = voucherId;
                 }
+                
 
                 // Process each row in the batch
                 foreach (var row in batch)
@@ -605,10 +606,9 @@ namespace TracePca.Controllers.FIN_Statement
                     }
 
                     // Generate transaction number if needed
-                   
-                   transactionNo = await GenerateTransactionNo(connection, transaction, accessCodeId, request.FinancialYearId, request.CustomerId, request.DurationId, request.BranchId);
-                    
 
+
+                    transactionNo = await GenerateTransactionNo(connection, transaction, accessCodeId, request.FinancialYearId, request.CustomerId, request.DurationId, request.BranchId);
                     var billType = voucherTypes.ContainsKey(row.JE_Type) ? voucherTypes[row.JE_Type] : 0;
                     var accountId = accountIds[row.Account];
                     int iJEID = 0;
@@ -1064,9 +1064,22 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        private async Task<string> GenerateTransactionNo(SqlConnection connection, SqlTransaction transaction, int compId, int yearId, int party, int durationId, int branchId)
+        private async Task<string> GenerateTransactionNo(
+     SqlConnection connection,
+     SqlTransaction transaction,
+     int compId,
+     int yearId,
+     int party,
+     int durationId,
+     int branchId)
         {
-            var sql = @"SELECT ISNULL(MAX(Acc_JE_ID) + 1, 1) FROM Acc_JE_Master WHERE Acc_JE_YearID = @YearId AND Acc_JE_Party = @Party AND Acc_JE_QuarterId = @QuarterId AND acc_JE_BranchId = @BranchId";
+            var sql = @"
+        SELECT ISNULL(COUNT(*), 0) + 1
+        FROM Acc_JE_Master
+        WHERE Acc_JE_YearID = @YearId
+          AND Acc_JE_Party = @Party
+          AND Acc_JE_QuarterId = @QuarterId
+          AND acc_JE_BranchId = @BranchId";
 
             using var command = new SqlCommand(sql, connection, transaction);
             command.Parameters.AddWithValue("@YearId", yearId);
@@ -1074,9 +1087,12 @@ namespace TracePca.Controllers.FIN_Statement
             command.Parameters.AddWithValue("@QuarterId", durationId);
             command.Parameters.AddWithValue("@BranchId", branchId);
 
-            var maxId = await command.ExecuteScalarAsync();
-            return "TR00-" + maxId;
+            int nextNo = Convert.ToInt32(await command.ExecuteScalarAsync());
+
+            // ✅ Pad with leading zeros → TR001, TR002, TR010
+            return $"TR{nextNo:D3}";
         }
+
 
         #endregion
     }
