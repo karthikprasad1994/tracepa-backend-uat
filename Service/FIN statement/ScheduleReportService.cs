@@ -2281,16 +2281,16 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                         decimal itemNet;
                                         decimal itemPrevNet;
 
-                                        if (itemDescription.DbTotal > itemDescription.CrTotal)
-                                        {
+                                        //if (itemDescription.DbTotal > itemDescription.CrTotal)
+                                        //{
                                             itemNet = (itemDescription.DbTotal ?? 0) - (itemDescription.CrTotal ?? 0);
                                             itemPrevNet = (itemDescription.DbTotal1 ?? 0) - (itemDescription.CrTotal1 ?? 0);
-                                        }
-                                        else
-                                        {
-                                            itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
-                                            itemPrevNet = (itemDescription.CrTotal1 ?? 0) - (itemDescription.DbTotal1 ?? 0);
-                                        }
+                                        //}
+                                        //else
+                                        //{
+                                        //    itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
+                                        //    itemPrevNet = (itemDescription.CrTotal1 ?? 0) - (itemDescription.DbTotal1 ?? 0);
+                                        //}
 
 
                                         totalIncome += itemNet;
