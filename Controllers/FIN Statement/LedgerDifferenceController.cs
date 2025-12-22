@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using System.Data;
 using TracePca.Data;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
@@ -13,12 +14,12 @@ namespace TracePca.Controllers.FIN_Statement
     [ApiController]
     public class LedgerDifferenceController : ControllerBase
     {
-        private LedgerDifferenceInterface _LedgerDifferenceService;
+        private ILedgerDifferenceInterface _LedgerDifferenceService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
 
-        public LedgerDifferenceController(LedgerDifferenceInterface LedgerDifferenceInterface, Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public LedgerDifferenceController(ILedgerDifferenceInterface LedgerDifferenceInterface, Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _LedgerDifferenceService = LedgerDifferenceInterface;
             _httpContextAccessor = httpContextAccessor;
@@ -179,37 +180,74 @@ namespace TracePca.Controllers.FIN_Statement
         //            });
         //        }
         //    }
-        [HttpGet("GetCustomerTrailBalance")]
-        public async Task<IActionResult> GetCustomerTBGrid([FromQuery] int CompId,[FromQuery] int custId,[FromQuery] int yearId,[FromQuery] int branchId)
+        //[HttpGet("GetCustomerTrailBalance")]
+        //public async Task<IActionResult> GetCustomerTBGrid([FromQuery] int CompId,[FromQuery] int custId,[FromQuery] int yearId,[FromQuery] int branchId)
+        //{
+        //    try
+        //    {
+        //        var data = await _LedgerDifferenceService.GetCustomerTBGridAsync(CompId, custId, yearId, branchId);
+        //        if (data == null || !data.Any())
+        //        {
+        //            return NotFound(new
+        //            {
+        //                statusCode = 404,
+        //                message = "Customer record not found.",
+        //                data = new List<object>()
+        //            });
+        //        }
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Customer Trail Balance loaded successfully",
+        //            data
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError, new
+        //        {
+        //            statusCode = 500,
+        //            message = ex.Message
+        //        });
+        //    }
+        //}
+        [HttpPost("get-cust-coa")]
+        public async Task<IActionResult> GetCustCoa([FromBody] CustCoaRequestDto request)
         {
+            if (request == null)
+                return BadRequest(new { success = false, message = "Invalid request" });
+
             try
             {
-                var data = await _LedgerDifferenceService.GetCustomerTBGridAsync(CompId, custId, yearId, branchId);
-                if (data == null || !data.Any())
-                {
-                    return NotFound(new
-                    {
-                        statusCode = 404,
-                        message = "Customer record not found.",
-                        data = new List<object>()
-                    });
-                }
+                var ds = await _LedgerDifferenceService
+                    .GetCustCOAMasterDetailsCustomerAsync(request);
+
+                if (ds == null || ds.Tables.Count == 0)
+                    return NotFound(new { success = false, message = "No data found" });
+
+                // ✅ Convert DataSet → serializable object
+                var result = ds.Tables.Cast<DataTable>()
+                    .Select(t => t.AsEnumerable()
+                        .Select(r => t.Columns.Cast<DataColumn>()
+                            .ToDictionary(c => c.ColumnName, c => r[c])))
+                    .ToList();
+
                 return Ok(new
                 {
-                    statusCode = 200,
-                    message = "Customer Trail Balance loaded successfully",
-                    data
+                    success = true,
+                    data = result
                 });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, new
+                return StatusCode(500, new
                 {
-                    statusCode = 500,
-                    message = ex.Message
+                    success = false,
+                    message = "Internal server error"
                 });
             }
         }
+
 
 
         //UpdateCustomerTBDelFlg
@@ -255,5 +293,7 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+        
+
     }
 }

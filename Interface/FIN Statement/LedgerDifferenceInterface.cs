@@ -1,9 +1,9 @@
-﻿using static TracePca.Dto.FIN_Statement.LedgerDifferenceDto;
-using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
+﻿using System.Data;
+using static TracePca.Dto.FIN_Statement.LedgerDifferenceDto;
 
 namespace TracePca.Interface.FIN_Statement
 {
-    public interface LedgerDifferenceInterface
+    public interface ILedgerDifferenceInterface
     {
 
         //GetDescriptionWiseDetails
@@ -17,9 +17,12 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetCustomerTBGrid
         //Task<CustCOATrialBalanceResult> GetCustCOAMasterDetailsCustomerAsync(int compId, int custId, int yearId, int scheduleTypeId, int unmapped, int branchId);
-        Task<List<GetCustomerTBGridDto>> GetCustomerTBGridAsync(int CompId, int custId, int yearId, int branchId);
+        //Task<List<GetCustomerTBGridDto>> GetCustomerTBGridAsync(int CompId, int custId, int yearId, int branchId);
+        Task<DataSet> GetCustCOAMasterDetailsCustomerAsync(CustCoaRequestDto request);
 
         //UpdateCustomerTBDelFlg
         Task<int> UpdateCustomerTrailBalanceStatusAsync(List<UpdateCustomerTrailBalanceStatusDto> dtoList);
+       
+
     }
 }

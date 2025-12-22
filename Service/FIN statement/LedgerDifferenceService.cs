@@ -1,5 +1,6 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
+using System.Data;
 using TracePca.Data;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
@@ -8,7 +9,7 @@ using static TracePca.Dto.FIN_Statement.ScheduleMappingDto;
 using static TracePca.Dto.FIN_Statement.SelectedPartiesDto;
 namespace TracePca.Service.FIN_statement
 {
-    public class LedgerDifferenceService : LedgerDifferenceInterface
+    public class LedgerDifferenceService : ILedgerDifferenceInterface
     {
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
@@ -614,108 +615,296 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
         //            SystemTotals = (await multi.ReadAsync<dynamic>()).ToList()
         //        };
         //    }
-        public async Task<List<GetCustomerTBGridDto>> GetCustomerTBGridAsync(int CompId, int custId,int yearId,int branchId)
+        public async Task<DataSet> GetCustCOAMasterDetailsCustomerAsync(CustCoaRequestDto r)
         {
-            //1.Get DB from session
-                    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-            if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode missing in session.");
+            var ds = new DataSet();
 
-            // 2. Connection string
+            // ✅ 1. Get DB from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
+            using SqlConnection con = new SqlConnection(connectionString);
+            using SqlCommand cmd = new SqlCommand();
+            cmd.Connection = con;
 
-            string sql = @"
-    SELECT 
-        ROW_NUMBER() OVER (ORDER BY ATBCU_ID ASC) AS SrNo,
-        b.ATBUD_ID AS DescID,
-        ATBCU_ID AS DescDetailsID,
-        ATBCU_CustId,
-        ATBCU_DelFlg As DelFlg,
-        ATBCU_Description AS DescriptionCode,
+            string sql = string.Empty;
 
-        CAST(ATBCU_Opening_Debit_Amount AS DECIMAL(19,2)) AS CustOpeningDebit,
-        CAST(ATBCU_Opening_Credit_Amount AS DECIMAL(19,2)) AS CustOpeningCredit,
-        CAST(SUM(ATBCU_TR_Debit_Amount) AS DECIMAL(19,2)) AS CustTrDebit,
-        CAST(SUM(ATBCU_TR_Credit_Amount) AS DECIMAL(19,2)) AS CustTrCredit,
-        ROUND(CAST(ATBCU_Closing_TotalDebit_Amount AS DECIMAL(19,2)),0) AS CustClosingDebit,
-        ROUND(CAST(ATBCU_Closing_TotalCredit_Amount AS DECIMAL(19,2)),0) AS CustClosingCredit,
+            /* ===========================
+               QUERY 1 – SYSTEM DATA
+            ============================*/
+            sql += @"
+SELECT  
+    ATBU.ATBU_Id,
+    ATBU.ATBU_Description AS DescriptionCode,
 
-        ISNULL(b.ATBUD_SubItemId,0) AS SubItemID,
-        ASSI_Name,
+    SUM(CASE WHEN ATBU.ATBU_QuarterId = 1 
+        THEN ATBU.ATBU_Opening_Debit_Amount ELSE 0 END) AS OpeningDebit,
 
-        ISNULL(b.atbud_itemid,0) AS ItemID,
-        ASI_Name,
+    SUM(CASE WHEN ATBU.ATBU_QuarterId = 1 
+        THEN ATBU.ATBU_Opening_Credit_Amount ELSE 0 END) AS OpeningCredit,
 
-        ISNULL(b.atbud_subheading,0) AS SubHeadingID,
-        ASSH_Name,
+    ROUND(ISNULL(Tr.AJTB_Debit,0),0) AS TrDebit,
+    ROUND(ISNULL(Tr.AJTB_Credit,0),0) AS TrCredit,
 
-        ISNULL(b.atbud_headingid,0) AS HeadingID,
-        ASH_Name,
+    SUM(ATBU.ATBU_Closing_TotalDebit_Amount) AS ClosingDebit,
+    SUM(ATBU.ATBU_Closing_TotalCredit_Amount) AS ClosingCredit
 
-        b.atbud_progress AS Status,
-        b.Atbud_Company_type AS CompanyType,
-        b.ATBUD_SChedule_Type AS ScheduleType,
+FROM Acc_TrailBalance_Upload ATBU
+LEFT JOIN (
+    SELECT AJTB_DescName,
+           SUM(AJTB_Debit) AS AJTB_Debit,
+           SUM(AJTB_Credit) AS AJTB_Credit
+    FROM Acc_JETransactions_Details
+    WHERE AJTB_CustId = @CustId
+      AND AJTB_YearID = @YearId
+      AND AJTB_BranchId = @BranchId
+    GROUP BY AJTB_DescName
+) Tr ON Tr.AJTB_DescName = ATBU.ATBU_Description
 
-        CAST(i.ATBU_Opening_Debit_Amount AS DECIMAL(19,2)) AS OpeningDebit,
-        CAST(i.ATBU_Opening_Credit_Amount AS DECIMAL(19,2)) AS OpeningCredit,
-        CAST(i.ATBU_TR_Debit_Amount AS DECIMAL(19,2)) AS TrDebit,
-        CAST(i.ATBU_TR_Credit_Amount AS DECIMAL(19,2)) AS TrCredit,
-        CAST(i.ATBU_Closing_Debit_Amount AS DECIMAL(19,2)) AS ClosingDebit,
-        CAST(i.ATBU_Closing_Credit_Amount AS DECIMAL(19,2)) AS ClosingCredit
+WHERE ATBU.ATBU_CustId = @CustId
+  AND ATBU.ATBU_YearId = @YearId
+  AND ATBU.ATBU_BranchId = @BranchId
 
-    FROM Acc_TrailBalance_CustomerUpload cu
-    LEFT JOIN Acc_TrailBalance_Upload_Details b
-        ON b.ATBUD_Description = cu.ATBCU_Description
-        AND b.ATBUD_CustId = @CustId
-        AND b.ATBUD_YEARId = @YearId
+GROUP BY ATBU.ATBU_Id, ATBU.ATBU_Description, Tr.AJTB_Debit, Tr.AJTB_Credit
+ORDER BY ATBU.ATBU_Id;
+";
 
-    LEFT JOIN Acc_TrailBalance_Upload i
-        ON cu.ATBCU_MasId = i.ATBU_ID
-        AND i.ATBU_Branchid = @BranchId
-        AND i.ATBU_ID = 0
+            /* ===========================
+               QUERY 2 – CUSTOMER UPLOAD
+            ============================*/
+            sql += @"
+SELECT  
+    ATBCU_Description AS DescriptionCode,
+    ROUND(ATBCU_Opening_Debit_Amount,0) AS CustOpeningDebit,
+    ROUND(ATBCU_Opening_Credit_Amount,0) AS CustOpeningCredit,
+    ROUND(SUM(ATBCU_TR_Debit_Amount),0) AS CustTrDebit,
+    ROUND(SUM(ATBCU_TR_Credit_Amount),0) AS CustTrCredit,
+    ROUND(ATBCU_Closing_TotalDebit_Amount,0) AS CustClosingDebit,
+    ROUND(ATBCU_Closing_TotalCredit_Amount,0) AS CustClosingCredit
+FROM Acc_TrailBalance_CustomerUpload
+WHERE ATBCU_CustId = @CustId
+  AND ATBCU_YearId = @YearId
+  AND ATBCU_BranchId = @BranchId
+GROUP BY ATBCU_Description,
+         ATBCU_Opening_Debit_Amount,
+         ATBCU_Opening_Credit_Amount,
+         ATBCU_Closing_TotalDebit_Amount,
+         ATBCU_Closing_TotalCredit_Amount;
+";
 
-    LEFT JOIN ACC_ScheduleHeading c ON c.ASH_ID = b.ATBUD_Headingid
-    LEFT JOIN ACC_ScheduleSubHeading d ON d.ASSH_ID = b.ATBUD_Subheading
-    LEFT JOIN ACC_ScheduleItems e ON e.ASI_ID = b.ATBUD_itemid
-    LEFT JOIN ACC_ScheduleSubItems f ON f.ASSI_ID = b.ATBUD_SubItemId
+            cmd.CommandText = sql;
+            cmd.Parameters.AddWithValue("@CustId", r.CustomerId);
+            cmd.Parameters.AddWithValue("@YearId", r.FinancialYearId);
+            cmd.Parameters.AddWithValue("@BranchId", r.BranchId);
 
-    WHERE cu.ATBCU_MasId = 0
-      AND cu.ATBCU_YEARId = @YearId
-      AND cu.ATBCU_CustId = @CustId
-      AND (@BranchId = 0 OR cu.ATBCU_Branchid = @BranchId)
+            using SqlDataAdapter da = new SqlDataAdapter(cmd);
+            await Task.Run(() => da.Fill(ds));
 
-    GROUP BY 
-        ATBCU_ID, ATBCU_CODE, ATBCU_CustId, ATBCU_DelFlg, ATBCU_Description,
-        ATBCU_Opening_Debit_Amount, ATBCU_Opening_Credit_Amount,
-        ATBCU_TR_Debit_Amount, ATBCU_TR_Credit_Amount,
-        ATBCU_Closing_Debit_Amount, ATBCU_Closing_Credit_Amount,
-        ATBCU_Closing_TotalDebit_Amount, ATBCU_Closing_TotalCredit_Amount,
-        b.ATBUD_ID, b.ATBUD_SubItemId, b.atbud_itemid,
-        b.atbud_subheading, b.atbud_headingid,
-        ASSI_Name, ASI_Name, ASSH_Name, ASH_Name,
-        b.atbud_progress, b.Atbud_Company_type,
-        b.ATBUD_SChedule_Type,
-        i.ATBU_Opening_Debit_Amount, i.ATBU_Opening_Credit_Amount,
-        i.ATBU_TR_Debit_Amount, i.ATBU_TR_Credit_Amount,
-        i.ATBU_Closing_Debit_Amount, i.ATBU_Closing_Credit_Amount
+            /* ===========================
+               ENHANCED MATCH LOGIC WITH CUSTOMER DETAILS IN OUTPUT
+            ============================*/
+            if (ds.Tables.Count >= 2)
+            {
+                DataTable systemDt = ds.Tables[0];
+                DataTable custDt = ds.Tables[1];
 
-    ORDER BY ATBCU_ID ASC;
-    ";
-            var result = await connection.QueryAsync<GetCustomerTBGridDto>(
-                sql,
-                new
+                // Create a new combined result table
+                DataTable resultTable = new DataTable("ComparisonResult");
+
+                // Add columns from system table
+                resultTable.Columns.Add("ATBU_Id", typeof(int));
+                resultTable.Columns.Add("DescriptionCode", typeof(string));
+                resultTable.Columns.Add("OpeningDebit", typeof(decimal));
+                resultTable.Columns.Add("OpeningCredit", typeof(decimal));
+                resultTable.Columns.Add("TrDebit", typeof(decimal));
+                resultTable.Columns.Add("TrCredit", typeof(decimal));
+                resultTable.Columns.Add("ClosingDebit", typeof(decimal));
+                resultTable.Columns.Add("ClosingCredit", typeof(decimal));
+
+                // Add columns for customer data
+                resultTable.Columns.Add("CustOpeningDebit", typeof(decimal));
+                resultTable.Columns.Add("CustOpeningCredit", typeof(decimal));
+                resultTable.Columns.Add("CustTrDebit", typeof(decimal));
+                resultTable.Columns.Add("CustTrCredit", typeof(decimal));
+                resultTable.Columns.Add("CustClosingDebit", typeof(decimal));
+                resultTable.Columns.Add("CustClosingCredit", typeof(decimal));
+
+                // Add status columns
+                resultTable.Columns.Add("OpeningMatchStatus", typeof(string));
+                resultTable.Columns.Add("TransactionMatchStatus", typeof(string));
+                resultTable.Columns.Add("ClosingMatchStatus", typeof(string));
+                resultTable.Columns.Add("OverallMatchStatus", typeof(string));
+
+                // Add variance columns (optional)
+                resultTable.Columns.Add("OpeningDebitVariance", typeof(decimal));
+                resultTable.Columns.Add("OpeningCreditVariance", typeof(decimal));
+                resultTable.Columns.Add("TrDebitVariance", typeof(decimal));
+                resultTable.Columns.Add("TrCreditVariance", typeof(decimal));
+                resultTable.Columns.Add("ClosingDebitVariance", typeof(decimal));
+                resultTable.Columns.Add("ClosingCreditVariance", typeof(decimal));
+
+                foreach (DataRow sysRow in systemDt.Rows)
                 {
-                    CustId = custId,
-                    YearId = yearId,
-                    BranchId = branchId
-                });
+                    string desc = sysRow["DescriptionCode"]?.ToString();
+                    DataRow newRow = resultTable.NewRow();
 
-            return result.ToList();
+                    // Copy system data
+                    newRow["ATBU_Id"] = sysRow["ATBU_Id"];
+                    newRow["DescriptionCode"] = desc;
+                    newRow["OpeningDebit"] = sysRow["OpeningDebit"];
+                    newRow["OpeningCredit"] = sysRow["OpeningCredit"];
+                    newRow["TrDebit"] = sysRow["TrDebit"];
+                    newRow["TrCredit"] = sysRow["TrCredit"];
+                    newRow["ClosingDebit"] = sysRow["ClosingDebit"];
+                    newRow["ClosingCredit"] = sysRow["ClosingCredit"];
+
+                    // Find matching customer row
+                    DataRow custRow = custDt.AsEnumerable()
+                        .FirstOrDefault(rw => rw.Field<string>("DescriptionCode") == desc);
+
+                    decimal sysOpeningDebit = Convert.ToDecimal(sysRow["OpeningDebit"]);
+                    decimal sysOpeningCredit = Convert.ToDecimal(sysRow["OpeningCredit"]);
+                    decimal sysTrDebit = Convert.ToDecimal(sysRow["TrDebit"]);
+                    decimal sysTrCredit = Convert.ToDecimal(sysRow["TrCredit"]);
+                    decimal sysClosingDebit = Convert.ToDecimal(sysRow["ClosingDebit"]);
+                    decimal sysClosingCredit = Convert.ToDecimal(sysRow["ClosingCredit"]);
+
+                    if (custRow == null)
+                    {
+                        // No customer data found
+                        newRow["CustOpeningDebit"] = 0;
+                        newRow["CustOpeningCredit"] = 0;
+                        newRow["CustTrDebit"] = 0;
+                        newRow["CustTrCredit"] = 0;
+                        newRow["CustClosingDebit"] = 0;
+                        newRow["CustClosingCredit"] = 0;
+
+                        newRow["OpeningMatchStatus"] = "Not Found";
+                        newRow["TransactionMatchStatus"] = "Not Found";
+                        newRow["ClosingMatchStatus"] = "Not Found";
+                        newRow["OverallMatchStatus"] = "Not Found";
+
+                        // Calculate variances
+                        newRow["OpeningDebitVariance"] = sysOpeningDebit;
+                        newRow["OpeningCreditVariance"] = sysOpeningCredit;
+                        newRow["TrDebitVariance"] = sysTrDebit;
+                        newRow["TrCreditVariance"] = sysTrCredit;
+                        newRow["ClosingDebitVariance"] = sysClosingDebit;
+                        newRow["ClosingCreditVariance"] = sysClosingCredit;
+                    }
+                    else
+                    {
+                        // Copy customer data
+                        decimal custOpeningDebit = Convert.ToDecimal(custRow["CustOpeningDebit"]);
+                        decimal custOpeningCredit = Convert.ToDecimal(custRow["CustOpeningCredit"]);
+                        decimal custTrDebit = Convert.ToDecimal(custRow["CustTrDebit"]);
+                        decimal custTrCredit = Convert.ToDecimal(custRow["CustTrCredit"]);
+                        decimal custClosingDebit = Convert.ToDecimal(custRow["CustClosingDebit"]);
+                        decimal custClosingCredit = Convert.ToDecimal(custRow["CustClosingCredit"]);
+
+                        newRow["CustOpeningDebit"] = custOpeningDebit;
+                        newRow["CustOpeningCredit"] = custOpeningCredit;
+                        newRow["CustTrDebit"] = custTrDebit;
+                        newRow["CustTrCredit"] = custTrCredit;
+                        newRow["CustClosingDebit"] = custClosingDebit;
+                        newRow["CustClosingCredit"] = custClosingCredit;
+
+                        // 1. Compare Opening Balances
+                        bool openingMatched = sysOpeningDebit == custOpeningDebit &&
+                                              sysOpeningCredit == custOpeningCredit;
+                        newRow["OpeningMatchStatus"] = openingMatched ? "Matched" : "Not Matched";
+
+                        // 2. Compare Transaction Amounts
+                        bool transactionMatched = sysTrDebit == custTrDebit &&
+                                                  sysTrCredit == custTrCredit;
+                        newRow["TransactionMatchStatus"] = transactionMatched ? "Matched" : "Not Matched";
+
+                        // 3. Compare Closing Balances
+                        bool closingMatched = sysClosingDebit == custClosingDebit &&
+                                              sysClosingCredit == custClosingCredit;
+                        newRow["ClosingMatchStatus"] = closingMatched ? "Matched" : "Not Matched";
+
+                        // 4. Overall Status
+                        bool overallMatched = openingMatched && transactionMatched && closingMatched;
+                        newRow["OverallMatchStatus"] = overallMatched ? "Fully Matched" : "Partially Matched";
+
+                        // Calculate variances
+                        newRow["OpeningDebitVariance"] = sysOpeningDebit - custOpeningDebit;
+                        newRow["OpeningCreditVariance"] = sysOpeningCredit - custOpeningCredit;
+                        newRow["TrDebitVariance"] = sysTrDebit - custTrDebit;
+                        newRow["TrCreditVariance"] = sysTrCredit - custTrCredit;
+                        newRow["ClosingDebitVariance"] = sysClosingDebit - custClosingDebit;
+                        newRow["ClosingCreditVariance"] = sysClosingCredit - custClosingCredit;
+                    }
+
+                    resultTable.Rows.Add(newRow);
+                }
+
+                // Add unmatched customer rows (optional - if you want to see customer entries not in system)
+                AddUnmatchedCustomerRows(resultTable, custDt, systemDt);
+
+                // Replace the dataset with our combined result
+                ds.Tables.Clear();
+                ds.Tables.Add(resultTable);
+            }
+
+            return ds;
         }
 
+        // Helper method to add customer rows that don't exist in system
+        private void AddUnmatchedCustomerRows(DataTable resultTable, DataTable custDt, DataTable systemDt)
+        {
+            var systemDescriptions = systemDt.AsEnumerable()
+                .Select(row => row.Field<string>("DescriptionCode"))
+                .ToList();
+
+            foreach (DataRow custRow in custDt.Rows)
+            {
+                string desc = custRow["DescriptionCode"]?.ToString();
+
+                if (!systemDescriptions.Contains(desc))
+                {
+                    DataRow newRow = resultTable.NewRow();
+
+                    // System data is empty
+                    newRow["ATBU_Id"] = DBNull.Value;
+                    newRow["DescriptionCode"] = desc;
+                    newRow["OpeningDebit"] = 0;
+                    newRow["OpeningCredit"] = 0;
+                    newRow["TrDebit"] = 0;
+                    newRow["TrCredit"] = 0;
+                    newRow["ClosingDebit"] = 0;
+                    newRow["ClosingCredit"] = 0;
+
+                    // Customer data
+                    newRow["CustOpeningDebit"] = custRow["CustOpeningDebit"];
+                    newRow["CustOpeningCredit"] = custRow["CustOpeningCredit"];
+                    newRow["CustTrDebit"] = custRow["CustTrDebit"];
+                    newRow["CustTrCredit"] = custRow["CustTrCredit"];
+                    newRow["CustClosingDebit"] = custRow["CustClosingDebit"];
+                    newRow["CustClosingCredit"] = custRow["CustClosingCredit"];
+
+                    // Status
+                    newRow["OpeningMatchStatus"] = "System Missing";
+                    newRow["TransactionMatchStatus"] = "System Missing";
+                    newRow["ClosingMatchStatus"] = "System Missing";
+                    newRow["OverallMatchStatus"] = "System Missing";
+
+                    // Variances (customer values since system is 0)
+                    newRow["OpeningDebitVariance"] = Convert.ToDecimal(custRow["CustOpeningDebit"]);
+                    newRow["OpeningCreditVariance"] = Convert.ToDecimal(custRow["CustOpeningCredit"]);
+                    newRow["TrDebitVariance"] = Convert.ToDecimal(custRow["CustTrDebit"]);
+                    newRow["TrCreditVariance"] = Convert.ToDecimal(custRow["CustTrCredit"]);
+                    newRow["ClosingDebitVariance"] = Convert.ToDecimal(custRow["CustClosingDebit"]);
+                    newRow["ClosingCreditVariance"] = Convert.ToDecimal(custRow["CustClosingCredit"]);
+
+                    resultTable.Rows.Add(newRow);
+                }
+            }
+        }
 
 
         //UpdateCustomerTBDelFlg
@@ -770,6 +959,11 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
                 throw;
             }
         }
+
+        //public Task<List<GetCustomerTBGridDto>> GetCustomerTBGridAsync(int CompId, int custId, int yearId, int branchId)
+        //{
+        //    throw new NotImplementedException();
+        //}
     }
 }
 
