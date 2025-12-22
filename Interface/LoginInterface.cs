@@ -48,6 +48,8 @@ namespace TracePca.Interface
 
         Task<DashboardCounts> GetDashboardCardDetailsAsync();
 
+        Task<IEnumerable<ClientDetails>> GetClientDetailsAsync();
+
 
     }
 }

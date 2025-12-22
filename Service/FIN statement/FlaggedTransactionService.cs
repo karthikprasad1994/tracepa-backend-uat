@@ -173,5 +173,37 @@ namespace TracePca.Service.FIN_statement
 
             return await connection.QueryAsync<GetStatifiedSampingStatusDto>(query, new { CompId = CompId, CustId = CustId, BranchId = BranchId, YearId = YearId });
         }
+
+        //GetCustomerTBDelFlg
+        public async Task<IEnumerable<GetCustomerTBDelFlgDto>> GetCustomerTBDelFlgAsync(int CompId, int CustId, int BranchId, int YearId)
+        {
+            //Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            //Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            //Step 3: Use SqlConnection
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+ SELECT 
+     ATBCU_ID,
+     ATBCU_DelFlg,
+     ATBCU_Description,
+     ATBCU_Closing_TotalDebit_Amount,
+     ATBCU_Closing_TotalCredit_Amount
+ FROM Acc_TrailBalance_CustomerUpload
+ WHERE ATBCU_CompId = @CompId
+       AND ATBCU_CustId = @CustId
+       AND ATBCU_Branchid = @BranchId
+       AND ATBCU_YEARId = @YearId
+       AND ATBCU_DelFlg = 'F'";
+
+            return await connection.QueryAsync<GetCustomerTBDelFlgDto>(query, new { CompId = CompId, CustId = CustId, BranchId = BranchId, YearId = YearId });
+        }
     }
 }

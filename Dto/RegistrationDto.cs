@@ -62,7 +62,19 @@
         public int ApprovalStatus { get; set; }
         public string PendingStatus { get; set; }
         public string RejectedStatus { get; set; }
-        
+    }
+
+
+    public class ClientDetails
+    {
+        public string FirmName { get; set; }
+        public string Email { get; set; }
+        public string Date { get; set; }
+        public string ModuleNames { get; set; }
+        public string NumberOfUsers { get; set; }
+        public string IssueIDentified { get; set; }
+      
+
     }
 }
 

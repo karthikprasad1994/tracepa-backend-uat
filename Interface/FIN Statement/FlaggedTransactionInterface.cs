@@ -19,5 +19,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetSystemSamplingStatus
         Task<IEnumerable<GetStatifiedSampingStatusDto>> GetStatifiedSampingStatusAsync(int CompId, int CustId, int BranchId, int YearId);
+
+        //GetCustomerTBDelFlg
+        Task<IEnumerable<GetCustomerTBDelFlgDto>> GetCustomerTBDelFlgAsync(int CompId, int CustId, int BranchId, int YearId);
     }
 }

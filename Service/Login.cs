@@ -25,6 +25,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.ReportingServices.ReportProcessing.ReportObjectModel;
 using MimeKit;
 using Newtonsoft.Json.Linq;
+using Org.BouncyCastle.Asn1.Cmp;
 using Org.BouncyCastle.Asn1.Crmf;
 using Org.BouncyCastle.Utilities.Net;
 using StackExchange.Redis;
@@ -33,6 +34,7 @@ using TracePca.Data.CustomerRegistration;
 using TracePca.Dto;
 using TracePca.Dto.Audit;
 using TracePca.Dto.Authentication;
+using TracePca.Dto.DigitalFilling;
 using TracePca.Dto.Middleware;
 using TracePca.Interface;
 using TracePca.Interface.Middleware;
@@ -2825,6 +2827,53 @@ ORDER BY ut.Id DESC";
 
             return null;
         }
+
+
+        public async Task<IEnumerable<ClientDetails>> GetClientDetailsAsync()
+        {
+            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+            using (var connection = new SqlConnection(mmcsConnection))
+            {
+                await connection.OpenAsync();
+
+                string query = @"
+                        SELECT 
+                        A.MCR_CustomerName as FirmName,
+                         A.MCR_CustomerEmail as Email,
+                        CONVERT(varchar(10), A.MCR_FromDate, 103) + ' - ' +
+                        CONVERT(varchar(10), A.MCR_ToDate, 103) AS [Date],
+ 
+                        STRING_AGG(
+                                CASE 
+                                    WHEN B.MP_ModuleName = 'Masters' THEN 'Settings'
+			                        WHEN B.MP_ModuleName = 'Digital Office' THEN 'Documents'
+			                        WHEN B.MP_ModuleName = 'Digital Audit Office - Fixed Asset' THEN 'Account Verification'
+			                        WHEN B.MP_ModuleName = 'Digital Audit Office - Assignments' THEN 'Task Management'
+			                        WHEN B.MP_ModuleName = 'Digital Audit Office - Financial Audit' THEN ''
+                                    ELSE B.MP_ModuleName
+                                END, ', '
+                            ) AS ModuleNames,
+
+                        case when MCR_NumberOfUsers IS NULL then '0' else MCR_NumberOfUsers end as NumberOfUsers
+                        , '0' as IssueIDentified
+                        FROM MMCS_CustomerRegistration A
+                        JOIN MMCS_Modules B 
+                        ON A.MCR_MP_ID = B.MM_MP_ID
+                        WHERE A.MCR_Status = @MCR_Status
+                        GROUP BY A.MCR_CustomerName,
+                        A.MCR_CustomerEmail,
+                        A.MCR_FromDate,
+                        A.MCR_ToDate, MCR_NumberOfUsers
+                        Order by MCR_FromDate desc";
+
+                return await connection.QueryAsync<ClientDetails>(query, new
+                {
+                    MCR_Status = "A"
+                });
+            }
+        }
+
 
     }
 }

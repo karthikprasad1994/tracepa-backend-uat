@@ -698,5 +698,32 @@ namespace TracePca.Controllers
             }
         }
 
+
+
+        [HttpGet("GetClientDetails")]
+        public async Task<IActionResult> GetClientDetails()
+        {
+            try
+            {
+                var clientsDetails = await _LoginInterface.GetClientDetailsAsync();
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Client Details retrieved successfully.",
+                    data = clientsDetails
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving clients details.",
+                    error = ex.Message
+                });
+            }
+        }
+
     }
 }
