@@ -56,6 +56,7 @@ using TracePca.Service.SuperMaster;
 using TracePca.Service.TaskManagement;
 using TracePca.Utility;
 using System.Globalization;
+using QuestPDF.Infrastructure;
 
 
 
@@ -69,6 +70,7 @@ var builder = WebApplication.CreateBuilder(args);
 //QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 //ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 // Add services to the container.
+QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

@@ -673,7 +673,8 @@ namespace TracePca.Controllers.FIN_Statement
                             AJTB_IPAddress = ipAddress,
                             AJTB_BillType = billType,
                             AJTB_BranchId = request.BranchId,
-                            AJTB_QuarterId = request.DurationId
+                            AJTB_QuarterId = request.DurationId,
+                            AJTB_CreatedOn = transactionDate
                         });
 
                         await UpdateJeDet(connection, transaction, accessCodeId, request.FinancialYearId, accountId, request.CustomerId, 0, (double)row.Debit.Value, request.BranchId, (double)row.Debit.Value, 0, request.DurationId);
@@ -701,7 +702,9 @@ namespace TracePca.Controllers.FIN_Statement
                             AJTB_IPAddress = ipAddress,
                             AJTB_BillType = billType,
                             AJTB_BranchId = request.BranchId,
-                            AJTB_QuarterId = request.DurationId
+                            AJTB_QuarterId = request.DurationId,
+                             AJTB_CreatedOn = transactionDate
+
                         });
 
                         await UpdateJeDet(connection, transaction, accessCodeId, request.FinancialYearId, accountId, request.CustomerId, 1, (double)row.Credit.Value, request.BranchId, 0, (double)row.Credit.Value, request.DurationId);
@@ -932,6 +935,7 @@ namespace TracePca.Controllers.FIN_Statement
             command.Parameters.AddWithValue("@AJTB_Debit", journalEntry.AJTB_Debit);
             command.Parameters.AddWithValue("@AJTB_Credit", journalEntry.AJTB_Credit);
             command.Parameters.AddWithValue("@AJTB_CreatedBy", journalEntry.AJTB_CreatedBy);
+            command.Parameters.AddWithValue("@AJTB_CreatedOn", journalEntry.AJTB_CreatedOn);
             command.Parameters.AddWithValue("@AJTB_UpdatedBy", journalEntry.AJTB_UpdatedBy);
             command.Parameters.AddWithValue("@AJTB_Status", journalEntry.AJTB_Status);
             command.Parameters.AddWithValue("@AJTB_IPAddress", journalEntry.AJTB_IPAddress);
@@ -1246,6 +1250,7 @@ namespace TracePca.Controllers.FIN_Statement
         public int AJTB_BranchId { get; set; }
         public int AJTB_QuarterId { get; set; }
         public int AJTB_ScheduleTypeid { get; set; }
+        public DateTime AJTB_CreatedOn { get; set; }
     }
 }
 

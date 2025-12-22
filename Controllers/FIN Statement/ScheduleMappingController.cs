@@ -444,7 +444,7 @@ namespace TracePca.Controllers.FIN_Statement
                     {
                         statusCode = 404,
                         message = "No subheadings found.",
-                        data = (object)null
+                        data = new List<object>()
                     });
                 }
 
@@ -480,7 +480,7 @@ namespace TracePca.Controllers.FIN_Statement
                     {
                         statusCode = 404,
                         message = "No items found.",
-                        data = (object)null
+                        data = new List<object>()
                     });
                 }
 
@@ -504,11 +504,23 @@ namespace TracePca.Controllers.FIN_Statement
 
         //LoadSubItemByItemDto
         [HttpGet("subitems")]
-        public async Task<IActionResult> GetSubItemsByItemIdAsync([FromQuery] int itemId, [FromQuery] int orgType)
+        public async Task<IActionResult> GetSubItemsByItemIdAsync(
+    [FromQuery] int itemId,
+    [FromQuery] int orgType)
         {
+            if (itemId <= 0)
+            {
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "Invalid itemId."
+                });
+            }
+
             try
             {
-                var result = await _ScheduleMappingService.GetSubItemsByItemIdAsync(itemId, orgType);
+                var result = await _ScheduleMappingService
+                    .GetSubItemsByItemIdAsync(itemId, orgType);
 
                 if (result == null || !result.Any())
                 {
@@ -516,7 +528,7 @@ namespace TracePca.Controllers.FIN_Statement
                     {
                         statusCode = 404,
                         message = "No subitems found.",
-                        data = (object)null
+                        data = Array.Empty<object>()
                     });
                 }
 
@@ -529,7 +541,8 @@ namespace TracePca.Controllers.FIN_Statement
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new
+                // 🔴 Ideally log ex here using ILogger
+                return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
                     statusCode = 500,
                     message = "An error occurred while retrieving subitems.",
