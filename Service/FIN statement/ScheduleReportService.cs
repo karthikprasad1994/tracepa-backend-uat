@@ -1807,8 +1807,8 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
                                     }
                                     else
                                     { }
-                                    decimal subNet = (desc.CrTotal1 ?? 0) - (desc.DbTotal1 ?? 0);
-                                    decimal subPrevNet = (desc.CrTotal ?? 0) - (desc.DbTotalPrev ?? 0);
+                                    decimal subNet = (desc.CrTotal ?? 0) - (desc.DbTotal ?? 0);
+                                    decimal subPrevNet = (desc.CrTotalPrev ?? 0) - (desc.DbTotalPrev ?? 0);
                                     totalIncome += subNet;
                                     totalPrevIncome += subPrevNet;
                                     results.Add(new DetailedReportBalanceSheetRow
@@ -2281,19 +2281,19 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                         decimal itemNet;
                                         decimal itemPrevNet;
 
-                                        //if (itemDescription.DbTotal > itemDescription.CrTotal)
-                                        //{
+                                        if (itemDescription.DbTotal > itemDescription.CrTotal)
+                                        {
                                             itemNet = (itemDescription.DbTotal ?? 0) - (itemDescription.CrTotal ?? 0);
                                             itemPrevNet = (itemDescription.DbTotal1 ?? 0) - (itemDescription.CrTotal1 ?? 0);
-                                        //}
-                                        //else
-                                        //{
-                                        //    itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
-                                        //    itemPrevNet = (itemDescription.CrTotal1 ?? 0) - (itemDescription.DbTotal1 ?? 0);
-                                        //}
+                                    }
+                                        else
+                                    {
+                                        itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
+                                        itemPrevNet = (itemDescription.CrTotal1 ?? 0) - (itemDescription.DbTotal1 ?? 0);
+                                    }
 
 
-                                        totalIncome += itemNet;
+                                    totalIncome += itemNet;
                                         totalPrevIncome += itemPrevNet;
                                         results.Add(new DetailedReportBalanceSheetRow
                                         {
