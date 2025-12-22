@@ -200,7 +200,8 @@ namespace TracePca.Service.FIN_statement
  WHERE ATBCU_CompId = @CompId
        AND ATBCU_CustId = @CustId
        AND ATBCU_Branchid = @BranchId
-       AND ATBCU_YEARId = @YearId";
+       AND ATBCU_YEARId = @YearId
+       AND ATBCU_DelFlg = 'F'";
 
             return await connection.QueryAsync<GetCustomerTBDelFlgDto>(query, new { CompId = CompId, CustId = CustId, BranchId = BranchId, YearId = YearId });
         }
