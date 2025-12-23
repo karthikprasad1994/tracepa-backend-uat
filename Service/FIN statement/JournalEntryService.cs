@@ -332,6 +332,11 @@ namespace TracePca.Service.FIN_statement
                                 cmdDetail.Parameters.AddWithValue("@AJTB_Debit", t.AJTB_Debit);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_Credit", t.AJTB_Credit);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_CreatedBy", t.AJTB_CreatedBy);
+                                cmdDetail.Parameters.AddWithValue(
+                "@AJTB_CreatedOn",
+                dto.Acc_JE_BillDate ?? DateTime.Now
+            );
+
                                 cmdDetail.Parameters.AddWithValue("@AJTB_UpdatedBy", t.AJTB_UpdatedBy);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_Status", t.AJTB_Status ?? string.Empty);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_IPAddress", t.AJTB_IPAddress ?? string.Empty);

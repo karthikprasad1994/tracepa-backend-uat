@@ -611,165 +611,191 @@ namespace TracePca.Controllers.Audit
         //    return stream.ToArray();
         //}
 
-        private byte[] GeneratePdf(DataTable dt, DataTable dt1, DataTable dt2, string Engpartner, string Reviewer, string partner, string Assist, AuditReportRequestDto request)
+        private byte[] GeneratePdf(
+     DataTable dt,
+     DataTable dt1,
+     DataTable dt2,
+     string Engpartner,
+     string Reviewer,
+     string partner,
+     string Assist,
+     AuditReportRequestDto request)
         {
-            string Clean(string input) =>
-                string.IsNullOrWhiteSpace(input) ? "N/A" : input.Replace("\r", " ").Replace("\n", " ").Trim();
-
-            var doc = Document.Create(container =>
+            try
             {
-                container.Page(page =>
+                if (request == null)
+                    throw new ArgumentNullException(nameof(request), "Request data is null.");
+
+                if (dt1 == null || dt2 == null)
+                    throw new ArgumentException("Required DataTables are null.");
+
+                string Clean(string input) =>
+                    string.IsNullOrWhiteSpace(input)
+                        ? "N/A"
+                        : input.Replace("\r", " ").Replace("\n", " ").Trim();
+
+                var doc = Document.Create(container =>
                 {
-                    page.Margin(30);
-                    page.DefaultTextStyle(x => x.FontSize(11));
-
-                    // Page Content
-                    page.Content().PaddingVertical(10).Column(col =>
+                    container.Page(page =>
                     {
-                        // Main Heading
-                        col.Item().PaddingBottom(2).AlignCenter().Text("Audit Schedule Report").Bold().FontSize(20);
-                        col.Item().AlignCenter().LineHorizontal(1).LineColor(Colors.Black);
+                        page.Margin(30);
+                        page.DefaultTextStyle(x => x.FontSize(11));
 
-                        // Section: General Information
-
-                        col.Item().PaddingBottom(3).Text(text =>
+                        page.Content().PaddingVertical(10).Column(col =>
                         {
-                            text.Span("Scope Of Audit: ").SemiBold(); text.Span(Clean(request.ScopeOfAudit));
-                        });
+                            col.Item().AlignCenter()
+                                .Text("Audit Schedule Report")
+                                .Bold().FontSize(20);
 
-                        col.Item().PaddingBottom(3).Text(text =>
-                        {
-                            text.Span("Customer Name: ").SemiBold(); text.Span(Clean(request.CustomerName));
-                        });
-                        col.Item().PaddingBottom(5).Text("Audit Team:").Bold().FontSize(14);
+                            col.Item().AlignCenter()
+                                .LineHorizontal(1)
+                                .LineColor(Colors.Black);
 
-                        col.Item().PaddingBottom(3).Text(text =>
-                        {
-                            text.Span("Partner: ").SemiBold(); text.Span(Clean(partner));
-                        });
-
-                        col.Item().PaddingBottom(3).Text(text =>
-                        {
-                            text.Span("Reviewer: ").SemiBold(); text.Span(Clean(Reviewer));
-                        });
-
-                        col.Item().PaddingBottom(3).Text(text =>
-                        {
-                            text.Span("Audit Assistants: ").SemiBold(); text.Span(Clean(Assist));
-                        });
-
-                        //col.Item().Text(text =>
-                        //{
-                        //    text.Span("Audit Opinion Date: ").SemiBold(); text.Span(Clean(request.AuditOpinionDate?.ToString()));
-                        //});
-
-                        col.Item().PaddingVertical(10).LineHorizontal(0.5f).LineColor(Colors.Grey.Medium);
-
-                        // Section: Schedule Intervals
-                        //col.Item().Table(table =>
-                        //{
-                        //    table.ColumnsDefinition(columns =>
-                        //    {
-                        //        columns.RelativeColumn(); // From Date
-                        //        columns.RelativeColumn(); // To Date
-                        //        columns.RelativeColumn(); // Description
-                        //    });
-
-                        //    table.Header(header =>
-                        //    {
-                        //        header.Cell().Element(HeaderCellStyle).AlignCenter().Text("From Date").Bold();
-                        //        header.Cell().Element(HeaderCellStyle).AlignCenter().Text("To Date").Bold();
-                        //        header.Cell().Element(HeaderCellStyle).AlignCenter().Text("Description").Bold();
-                        //    });
-
-                        //    foreach (DataRow row in dt.Rows)
-                        //    {
-                        //        table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["FromDate"]?.ToString()));
-                        //        table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["ToDate"]?.ToString()));
-                        //        table.Cell().Element(CellStyle).Text(Clean(row["Description"]?.ToString()));
-                        //    }
-                        //});
-
-                        col.Item().PaddingVertical(10).LineHorizontal(0.5f).LineColor(Colors.Grey.Medium);
-
-                        // Section: Team Assignments
-                        col.Item().PaddingBottom(5).Text("Heading").Bold().FontSize(14).Underline();
-
-                        col.Item().Table(table =>
-                        {
-                            table.ColumnsDefinition(columns =>
+                            col.Item().Text(t =>
                             {
-                                columns.RelativeColumn(); // Heading
-                                columns.ConstantColumn(80); // Checkpoints
-                                columns.ConstantColumn(60); // Hours
-                                columns.ConstantColumn(100); // Deadline
+                                t.Span("Scope Of Audit: ").SemiBold();
+                                t.Span(Clean(request.ScopeOfAudit));
                             });
 
-                            table.Header(header =>
+                            col.Item().Text(t =>
                             {
-                                header.Cell().Element(HeaderCellStyle).AlignCenter().Text("Heading").Bold();
-                                header.Cell().Element(HeaderCellStyle).AlignCenter().Text("Checkpoints").Bold();
-                                header.Cell().Element(HeaderCellStyle).AlignCenter().Text("Hours").Bold();
-                                header.Cell().Element(HeaderCellStyle).AlignCenter().Text("Deadline").Bold();
+                                t.Span("Customer Name: ").SemiBold();
+                                t.Span(Clean(request.CustomerName));
                             });
 
-                            foreach (DataRow row in dt1.Rows)
+                            col.Item().PaddingTop(5)
+                                .Text("Audit Team").Bold().FontSize(14);
+
+                            col.Item().Text(t =>
                             {
-                                table.Cell().Element(CellStyle).Text(Clean(row["SACD_Heading"]?.ToString()));
-                                table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["NoCheckpoints"]?.ToString()));
-                                table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["Working_Hours"]?.ToString()));
-                                table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["Timeline"]?.ToString()));
-                            }
+                                t.Span("Partner: ").SemiBold();
+                                t.Span(Clean(partner));
+                            });
+
+                            col.Item().Text(t =>
+                            {
+                                t.Span("Reviewer: ").SemiBold();
+                                t.Span(Clean(Reviewer));
+                            });
+
+                            col.Item().Text(t =>
+                            {
+                                t.Span("Audit Assistants: ").SemiBold();
+                                t.Span(Clean(Assist));
+                            });
+
+                            col.Item().PaddingVertical(10)
+                                .LineHorizontal(0.5f)
+                                .LineColor(Colors.Grey.Medium);
+
+                            col.Item().Text("Heading")
+                                .Bold().FontSize(14).Underline();
+
+                            col.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(c =>
+                                {
+                                    c.RelativeColumn();
+                                    c.ConstantColumn(80);
+                                    c.ConstantColumn(60);
+                                    c.ConstantColumn(100);
+                                });
+
+                                table.Header(h =>
+                                {
+                                    h.Cell().Element(HeaderCellStyle).Text("Heading");
+                                    h.Cell().Element(HeaderCellStyle).AlignCenter().Text("Checkpoints");
+                                    h.Cell().Element(HeaderCellStyle).AlignCenter().Text("Hours");
+                                    h.Cell().Element(HeaderCellStyle).AlignCenter().Text("Deadline");
+                                });
+
+                                foreach (DataRow row in dt1.Rows)
+                                {
+                                    table.Cell().Element(CellStyle)
+                                        .Text(Clean(row["SACD_Heading"]?.ToString()));
+
+                                    table.Cell().Element(CellStyle)
+                                        .AlignCenter()
+                                        .Text(Clean(row["NoCheckpoints"]?.ToString()));
+
+                                    table.Cell().Element(CellStyle)
+                                        .AlignCenter()
+                                        .Text(Clean(row["Working_Hours"]?.ToString()));
+
+                                    table.Cell().Element(CellStyle)
+                                        .AlignCenter()
+                                        .Text(Clean(row["Timeline"]?.ToString()));
+                                }
+                            });
+
+                            col.Item().PaddingVertical(10)
+                                .LineHorizontal(0.5f)
+                                .LineColor(Colors.Grey.Medium);
+
+                            col.Item().Text("Checkpoints")
+                                .Bold().FontSize(14).Underline();
+
+                            col.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(c =>
+                                {
+                                    c.RelativeColumn();
+                                    c.RelativeColumn();
+                                    c.ConstantColumn(80);
+                                });
+
+                                table.Header(h =>
+                                {
+                                    h.Cell().Element(HeaderCellStyle).Text("Heading");
+                                    h.Cell().Element(HeaderCellStyle).Text("Checkpoint");
+                                    h.Cell().Element(HeaderCellStyle).AlignCenter().Text("Mandatory");
+                                });
+
+                                foreach (DataRow row in dt2.Rows)
+                                {
+                                    table.Cell().Element(CellStyle)
+                                        .Text(Clean(row["ACM_Heading"]?.ToString()));
+
+                                    table.Cell().Element(CellStyle)
+                                        .Text(Clean(row["ACM_Checkpoint"]?.ToString()));
+
+                                    table.Cell().Element(CellStyle)
+                                        .AlignCenter()
+                                        .Text(Clean(row["SAC_Mandatory"]?.ToString()));
+                                }
+                            });
                         });
 
-                        col.Item().PaddingVertical(10).LineHorizontal(0.5f).LineColor(Colors.Grey.Medium);
-
-                        // Section: Final Checklist
-                        col.Item().PaddingBottom(5).Text("Checkpoints").Bold().FontSize(14).Underline();
-
-                        col.Item().Table(table =>
+                        page.Footer().AlignCenter().Text(t =>
                         {
-                            table.ColumnsDefinition(columns =>
-                            {
-                                columns.RelativeColumn(); // Heading
-                                columns.RelativeColumn(); // Checkpoint
-                                columns.ConstantColumn(80); // Mandatory
-                            });
-
-                            table.Header(header =>
-                            {
-                                header.Cell().Element(HeaderCellStyle).AlignCenter().Text("Heading").Bold();
-                                header.Cell().Element(HeaderCellStyle).AlignCenter().Text("Checkpoint").Bold();
-                                header.Cell().Element(HeaderCellStyle).AlignCenter().Text("Mandatory").Bold();
-                            });
-
-                            foreach (DataRow row in dt2.Rows)
-                            {
-                                table.Cell().Element(CellStyle).Text(Clean(row["ACM_Heading"]?.ToString()));
-                                table.Cell().Element(CellStyle).Text(Clean(row["ACM_Checkpoint"]?.ToString()));
-                                table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["SAC_Mandatory"]?.ToString()));
-                            }
+                            t.Span("Generated on ").FontSize(10);
+                            t.Span(DateTime.Now.ToString("dd MMM yyyy HH:mm")).SemiBold();
                         });
-                    });
-
-                    // Footer
-                    page.Footer().AlignCenter().Text(text =>
-                    {
-                        text.Span("Generated on ").FontSize(10);
-                        text.Span(DateTime.Now.ToString("dd MMM yyyy HH:mm")).SemiBold();
                     });
                 });
-            });
 
-            return doc.GeneratePdf();
-
-            // Style helpers
-            static IContainer CellStyle(IContainer container) =>
-                container.PaddingVertical(4).PaddingHorizontal(6).BorderBottom(0.5f).BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2);
-
-            static IContainer HeaderCellStyle(IContainer container) =>
-                container.PaddingVertical(6).PaddingHorizontal(6).Background(Colors.Grey.Lighten3).BorderBottom(1).BorderColor(Colors.Black);
+                return doc.GeneratePdf();
+            }
+            catch (Exception ex)
+            {
+                // Log exception here (ILogger recommended)
+                throw new ApplicationException("Error occurred while generating Audit Schedule PDF.", ex);
+            }
         }
+
+        private static IContainer CellStyle(IContainer container) =>
+            container.PaddingVertical(4)
+                     .PaddingHorizontal(6)
+                     .BorderBottom(0.5f)
+                     .BorderColor(Colors.Grey.Lighten2);
+
+        private static IContainer HeaderCellStyle(IContainer container) =>
+            container.PaddingVertical(6)
+                     .PaddingHorizontal(6)
+                     .Background(Colors.Grey.Lighten3)
+                     .BorderBottom(1)
+                     .BorderColor(Colors.Black);
+
         [HttpGet("customers")]
         public async Task<IActionResult> GetCustomers([FromQuery] int companyId)
         {

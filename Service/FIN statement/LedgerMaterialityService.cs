@@ -439,7 +439,7 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
                     orgTypeName = result?.ToString() ?? "Unknown";
                 }
 
-                int headIncomeId, headExpenseId, subRevenueId, subPpeId;
+                int headIncomeId, headExpenseId, subRevenueId, subPpeId,AssetIId,Asset2Id;
 
                 if (orgTypeName == "Private Limited")
                 {
@@ -490,11 +490,18 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
                     Math.Round(((ppeAmt.Dc1 - ppeAmt.DP1) / ppeAmt.DP1) * 100, 0, MidpointRounding.AwayFromZero);
 
                 // 6️⃣ Total Assets
-                var assetAmt = await GetTotalAssets(connection, tran, yearId, custId, subPpeId);
+                AssetIId = await GetHeadingId(connection, tran, custId, "1 Non-Current Assets");
+                Asset2Id = await GetHeadingId(connection, tran, custId, "2 Current Assets");
 
+                var asset1Amt= await GetHeadingAmt(connection, tran, yearId, custId, 4, AssetIId);
+                var asset2Amt = await GetHeadingAmt(connection, tran, yearId, custId, 4, Asset2Id);
+                decimal currentasset = asset1Amt.Dc1 + asset2Amt.Dc1;
+                decimal previousasset = asset1Amt.DP1 + asset2Amt.DP1;
+                //var assetAmt = await GetTotalAssets(connection, tran, yearId, custId, subPpeId);
+                var assetAmt = 0;
                 decimal assetPercent =
-                    assetAmt.DP1 == 0 ? 0 :
-                    Math.Round(((assetAmt.Dc1 - assetAmt.DP1) / assetAmt.DP1) * 100, 0, MidpointRounding.AwayFromZero);
+                    assetAmt == 0 ? 0 :
+                    Math.Round(((currentasset - previousasset) / previousasset) * 100, 0, MidpointRounding.AwayFromZero);
 
                 tran.Commit();
 
@@ -513,8 +520,8 @@ LEFT JOIN Ledger_Materiality_Master lm  ON lm.lm_MaterialityId = cmm.cmm_ID AND 
                     previoustPPE = ppeAmt.DP1,
                     PPEPercantage = ppePercent,
 
-                    currentAsset = assetAmt.Dc1,
-                    previoustAsset = assetAmt.DP1,
+                    currentAsset = currentasset,
+                    previoustAsset = previousasset,
                     AssetPercantage = assetPercent
                 };
             }

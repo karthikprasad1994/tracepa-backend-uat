@@ -1807,8 +1807,8 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
                                     }
                                     else
                                     { }
-                                    decimal subNet = (desc.CrTotal1 ?? 0) - (desc.DbTotal1 ?? 0);
-                                    decimal subPrevNet = (desc.CrTotal ?? 0) - (desc.DbTotalPrev ?? 0);
+                                    decimal subNet = (desc.CrTotal ?? 0) - (desc.DbTotal ?? 0);
+                                    decimal subPrevNet = (desc.CrTotalPrev ?? 0) - (desc.DbTotalPrev ?? 0);
                                     totalIncome += subNet;
                                     totalPrevIncome += subPrevNet;
                                     results.Add(new DetailedReportBalanceSheetRow
@@ -2177,7 +2177,7 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid
  left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0  And g.ATBU_YEARId = @PrevYearId
  and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid  And g.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
- where ATBUD_Subheading= @subHeadingId  And ATBUD_Subheading<>0 And ATBUD_itemid=0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
+ where ATBUD_Subheading= @subHeadingId  And ATBUD_Subheading<>0 And ATBUD_itemid=0 and ATBUD_SubItemId=0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description,ATBUD_Description order by ATBUD_Subheading";
                         var descs = await connection.QueryAsync<DetailedReportBalanceSheetRow>(descriptionSql, new
                         {
@@ -2285,15 +2285,15 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                         {
                                             itemNet = (itemDescription.DbTotal ?? 0) - (itemDescription.CrTotal ?? 0);
                                             itemPrevNet = (itemDescription.DbTotal1 ?? 0) - (itemDescription.CrTotal1 ?? 0);
-                                        }
+                                    }
                                         else
-                                        {
-                                            itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
-                                            itemPrevNet = (itemDescription.CrTotal1 ?? 0) - (itemDescription.DbTotal1 ?? 0);
-                                        }
+                                    {
+                                        itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
+                                        itemPrevNet = (itemDescription.CrTotal1 ?? 0) - (itemDescription.DbTotal1 ?? 0);
+                                    }
 
 
-                                        totalIncome += itemNet;
+                                    totalIncome += itemNet;
                                         totalPrevIncome += itemPrevNet;
                                         results.Add(new DetailedReportBalanceSheetRow
                                         {
@@ -2344,7 +2344,7 @@ WHERE ud.ATBUD_Headingid=@HeadingId And ud.ATBUD_Subheading=@subHeadingId  And u
                                             PrevYearTotal = ""
                                         });
                                         var subDescSql =
-                                                                                        $@"  select distinct(ATBUD_ID),ATBUD_Description,a.ASSI_ID, a.ASSI_Name as headingname, ATBUD_Description as Name,
+$@"  select distinct(ATBUD_ID),ATBUD_Description,a.ASSI_ID, a.ASSI_Name as headingname, ATBUD_Description as Name,
 ISNULL(Sum(d.ATBU_Closing_TotalCredit_Amount + d.ATBU_Closing_TotalDebit_Amount), 0) as Total,
 ISNULL(Sum(d.ATBU_Closing_TotalCredit_Amount + 0), 0) as CrTotal,
 ISNULL(Sum(d.ATBU_Closing_TotalDebit_Amount + 0), 0) as DbTotal, 
