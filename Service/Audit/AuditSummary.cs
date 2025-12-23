@@ -269,7 +269,7 @@ namespace TracePca.Service.Audit
 
 
 			string query = @"SELECT distinct ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(E.RTM_ReportTypeName,'N/A')
-			ReportTypeText,ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId  
+			ReportTypeText,ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ISNULL(ADRL_AttachId, 0) AS ADRL_AttachId,ISNULL(ADRL_AttchDocId, 0) AS ADRL_AttchDocId 
 			FROM Audit_DRLLog
 			LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
 			LEFT JOIN SAD_ReportTypeMaster C ON RTM_Id = ADRL_ReportType
@@ -311,7 +311,7 @@ namespace TracePca.Service.Audit
 			//         WHERE ADRL_AuditNo = @AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and ADRL_RequestedListID = @RequestId ORDER BY  ADRL_UpdatedOn DESC";
 
 			string query = @"SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(RTM_ReportTypeName,'N/A')
-			ReportTypeText,ADRL_Comments, ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId  
+			ReportTypeText,ADRL_Comments, ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ISNULL(ADRL_AttachId, 0) AS ADRL_AttachId,ISNULL(ADRL_AttchDocId, 0) AS ADRL_AttchDocId 
 			FROM Audit_DRLLog
 			LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
 			LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType
@@ -358,7 +358,7 @@ namespace TracePca.Service.Audit
 			//				WHERE ADRL_AuditNo = @AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId ORDER BY ADRL_UpdatedOn";
 
 			string query = @"SELECT ADRL_Id,ADRL_ReportType ,ADRL_AuditNo,IsNull(cmm_Desc,'N/A') as reportTypeText,
-			ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId  
+			ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ISNULL(ADRL_AttachId, 0) AS ADRL_AttachId,ISNULL(ADRL_AttchDocId, 0) AS ADRL_AttchDocId 
 			FROM Audit_DRLLog
 			LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
 			LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType

@@ -178,7 +178,7 @@ builder.Services.AddScoped<ScheduleExcelUploadInterface, ScheduleExcelUploadServ
 builder.Services.AddScoped<ScheduleMastersInterface, ScheduleMastersService>();
 builder.Services.AddScoped<ScheduleAccountingRatioInterface, ScheduleAccountingRatioService>();
 builder.Services.AddScoped<LedgerMaterialityInterface, LedgerMaterialityService>();
-builder.Services.AddScoped<LedgerDifferenceInterface, LedgerDifferenceService>();
+builder.Services.AddScoped<ILedgerDifferenceInterface, LedgerDifferenceService>();
 builder.Services.AddScoped<SchedulePartnerFundsInterface, SchedulePartnerFundsService>();
 builder.Services.AddScoped<AbnormalitiesInterface, AbnormalitiesService>();
 builder.Services.AddScoped<SelectedPartiesInterface, SelectedPartiesService>();
@@ -251,7 +251,8 @@ builder.Services.AddCors(options =>
               "http://localhost:4000",
               "http://localhost:5173",
               "https://tracelites.multimedia.interactivedns.com",
-              "https://clients.tracelites.multimedia.interactivedns.com"
+              "https://clients.tracelites.multimedia.interactivedns.com",
+              "https://edictin.multimedia.interactivedns.com"
             )
               .AllowAnyMethod()
               .AllowAnyHeader()
