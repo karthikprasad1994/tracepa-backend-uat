@@ -1172,3 +1172,9 @@ The statement has been terminated.
 2025-12-16 17:12:00 [ERROR] Error creating DriveService for sujatha@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
 2025-12-16 17:15:34 [INFO] Token expired for sujatha@mmcspl.com, refreshing...
 2025-12-16 17:15:34 [ERROR] Error creating DriveService for sujatha@mmcspl.com: Error:"unauthorized_client", Description:"Unauthorized", Uri:""
+2025-12-22 16:19:57 [INFO] Loaded valid Google Drive token from DB for darshan@mmcspl.com
+2025-12-22 16:19:57 [INFO] DriveService successfully created for darshan@mmcspl.com
+2025-12-22 16:19:59 [INFO] Retrieved file by ID: 11IqaDpeOLPqUelzsQCSEddPk5JCrUEkf for user darshan@mmcspl.com
+2025-12-22 17:11:41 [INFO] Loaded valid Google Drive token from DB for darshan@mmcspl.com
+2025-12-22 17:11:41 [INFO] DriveService successfully created for darshan@mmcspl.com
+2025-12-22 17:11:42 [INFO] Retrieved file by ID: 11IqaDpeOLPqUelzsQCSEddPk5JCrUEkf for user darshan@mmcspl.com
