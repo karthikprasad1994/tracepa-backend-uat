@@ -39,6 +39,7 @@ namespace TracePca.Dto.Audit
         public string usr_FullName { get; set; }
         public string ADRL_ReceivedOn { get; set; }
         public string ADRL_ReceivedComments { get; set; }
+        public int ADRL_AttachId { get; set; }
         public int ADRL_AttchDocId { get; set; }
        
     }
