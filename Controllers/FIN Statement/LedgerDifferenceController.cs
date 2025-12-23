@@ -293,7 +293,71 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
-        
+
+        [HttpPost("getFlaggedCustTrailBal")]
+        public async Task<IActionResult> GetCustCoa([FromBody] CustCoaRequestFlaggedDto request)
+        {
+            if (request == null)
+                return BadRequest("Invalid request");
+
+            var ds = await _LedgerDifferenceService.GetCustCoaAsync(request);
+
+            var systemData = ToDictionaryList(ds.Tables["SystemData"]);
+            var customerData = ToDictionaryList(ds.Tables["CustomerUpload"]);
+
+            var mergedData = MergeByDescription(systemData, customerData);
+
+            return Ok(new
+            {
+                success = true,
+                data = mergedData
+            });
+        }
+        private static List<Dictionary<string, object>> ToDictionaryList(DataTable table)
+        {
+            return table.AsEnumerable()
+                .Select(row =>
+                    table.Columns.Cast<DataColumn>()
+                        .ToDictionary(col => col.ColumnName, col => row[col])
+                ).ToList();
+        }
+
+        private static List<Dictionary<string, object>> MergeByDescription(
+     List<Dictionary<string, object>> systemData,
+     List<Dictionary<string, object>> customerData)
+        {
+            var result = new List<Dictionary<string, object>>();
+
+            // 🔹 System lookup (secondary)
+            var systemLookup = systemData.ToDictionary(
+                x => x["DescriptionCode"]?.ToString() ?? string.Empty,
+                x => x
+            );
+
+            // 🔹 Customer is PRIMARY
+            foreach (var cust in customerData)
+            {
+                var desc = cust["DescriptionCode"]?.ToString() ?? string.Empty;
+
+                // start with customer row
+                var merged = new Dictionary<string, object>(cust);
+
+                // merge system values if exists
+                if (systemLookup.TryGetValue(desc, out var sys))
+                {
+                    foreach (var kv in sys)
+                    {
+                        if (!merged.ContainsKey(kv.Key))
+                            merged[kv.Key] = kv.Value;
+                    }
+                }
+
+                result.Add(merged);
+            }
+
+            return result;
+        }
+
 
     }
 }

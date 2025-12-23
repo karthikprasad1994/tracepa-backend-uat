@@ -101,5 +101,13 @@
             public int Id { get; set; }
             public string Status { get; set; } = string.Empty;
         }
+
+        public class CustCoaRequestFlaggedDto
+        {
+            public int CustId { get; set; }
+            public int YearId { get; set; }
+            public int BranchId { get; set; }
+        }
+
     }
 }

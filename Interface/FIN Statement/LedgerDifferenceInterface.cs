@@ -22,7 +22,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //UpdateCustomerTBDelFlg
         Task<int> UpdateCustomerTrailBalanceStatusAsync(List<UpdateCustomerTrailBalanceStatusDto> dtoList);
-       
+
+        Task<DataSet> GetCustCoaAsync(CustCoaRequestFlaggedDto request);
 
     }
 }
