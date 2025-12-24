@@ -52,11 +52,9 @@ namespace TracePca.Interface
         Task<DashboardCounts> GetDashboardCardDetailsAsync();
 
         Task<IEnumerable<ClientDetails>> GetClientDetailsAsync();
-
-<<<<<<< HEAD
         Task<(bool Success, string Message, string? OtpToken)> ForgPassSendOtpJwtAsync(string email);
         Task<(bool Success, string Message)> UpdatePasswordAsync(UpdatePasswordDto dto);
-=======
+
         Task<int> GetTodayLoginAsync(int CompID);
 
         Task<int> GetTodayLogoutAsync(int CompID);
@@ -65,11 +63,6 @@ namespace TracePca.Interface
 
         Task<IEnumerable<ClientViewDetails>> GetClientFullDetailsAsync(int FirmID);
         #endregion
-
-
-
-
->>>>>>> 8dc799345a2c8656731a28338f4f9faa6e06f8a8
 
     }
 }

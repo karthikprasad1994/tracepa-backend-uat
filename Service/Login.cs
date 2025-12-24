@@ -240,7 +240,7 @@ ORDER BY MM_ID
 
                 using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
                 await connection.OpenAsync();
-              
+
 
                 var existingCustomerCode = await connection.QueryFirstOrDefaultAsync<string>(
                     @"SELECT TOP 1 MCR_CustomerCode
@@ -2932,8 +2932,6 @@ ORDER BY ut.Id DESC";
             return (true, "Password updated successfully.");
         }
 
-
-<<<<<<< HEAD
         public static class PasswordHasher
         {
             public static string Hash(string password)
@@ -2993,7 +2991,7 @@ ORDER BY ut.Id DESC";
                 return false;
             }
         }
-=======
+
         public async Task<int> GetTodayLoginAsync(int CompID)
         {
 
@@ -3123,11 +3121,7 @@ ORDER BY ut.Id DESC";
 
         #endregion
 
-
-
-
->>>>>>> 8dc799345a2c8656731a28338f4f9faa6e06f8a8
-    }
+    } 
 }
 
 

@@ -768,7 +768,6 @@ namespace TracePca.Controllers
            
             var result = await _LoginInterface.UpdatePasswordAsync(dto);
 
-<<<<<<< HEAD
             if (!result.Success)
                 return BadRequest(new { message = result.Message });
 
@@ -813,7 +812,6 @@ namespace TracePca.Controllers
                 message
             });
         }
-=======
 
         [HttpGet("GetTodayLogin")]
         public async Task<IActionResult> GetTodayLogin(int CompID)
@@ -919,10 +917,6 @@ namespace TracePca.Controllers
         }
 
         #endregion
-
-
-
-
->>>>>>> 8dc799345a2c8656731a28338f4f9faa6e06f8a8
     }
 }
+
