@@ -44,6 +44,7 @@ namespace TracePca.Controllers.FIN_Statement
             return File(result.FileBytes, result.ContentType, result.FileName);
         }
 
+
         //SaveScheduleTemplate(P and L)
         [HttpPost("SaveScheduleTemplate(P and L)")]
         public async Task<IActionResult> SaveSchedulePandL([FromQuery] int CompId, [FromBody] List<ScheduleTemplatePandLDto> dtos)
@@ -355,31 +356,34 @@ namespace TracePca.Controllers.FIN_Statement
             public string Error { get; set; }
         }
         [HttpPost("upload-je-transactions")]
-        public async Task<ActionResult<ApiResponse<string>>> UploadJournalEntries([FromBody] JournalEntryUploadRequest request)
+        public async Task<ActionResult<ApiResponse<string>>> UploadJournalEntries(
+      [FromBody] JournalEntryUploadRequest request)
         {
-            // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
-                return BadRequest(new ApiResponse<string> { Success = false, Message = "CustomerCode is missing in session. Please log in again." });
+                return BadRequest(new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "CustomerCode is missing in session. Please log in again."
+                });
 
-            // ✅ Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-            using var transaction = connection.BeginTransaction();
+            SqlConnection connection = null;
+            SqlTransaction transaction = null;
 
             try
             {
-                // Extract headers
-                var accessCode = Request.Headers["AccessCode"].FirstOrDefault();
+                connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                // Headers
                 var accessCodeId = int.Parse(Request.Headers["AccessCodeID"].FirstOrDefault() ?? "1");
                 var userId = int.Parse(Request.Headers["UserID"].FirstOrDefault() ?? "0");
                 var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
 
-                // Validation checks
+                // Validation
                 if (request.CustomerId <= 0)
                     return BadRequest(new ApiResponse<string> { Success = false, Message = "Select Client" });
 
@@ -395,20 +399,29 @@ namespace TracePca.Controllers.FIN_Statement
                 if (request.Rows == null || request.Rows.Count == 0)
                     return BadRequest(new ApiResponse<string> { Success = false, Message = "Please select the Load Button" });
 
-                // ✅ OPTIMIZATION 1: Pre-validate all rows in memory first
-                var validationResult = await PreValidateRows(connection, transaction, request, accessCodeId, userId, ipAddress);
+                // ✅ PRE-VALIDATION (NO TRANSACTION)
+                var validationResult = await PreValidateRows(
+                    connection, null, request, accessCodeId, userId, ipAddress);
+
                 if (!validationResult.Success)
                     return BadRequest(validationResult);
 
-                // ✅ OPTIMIZATION 2: Bulk create accounts for missing ones
-                await BulkCreateMissingAccounts(connection, transaction, request, accessCodeId, userId, ipAddress);
+                // ✅ START TRANSACTION ONLY FOR DB WRITE
+                transaction = connection.BeginTransaction();
 
-                // ✅ OPTIMIZATION 3: Process transactions in batches
-                var processResult = await ProcessTransactionsInBatches(connection, transaction, request, accessCodeId, userId, ipAddress);
+                await BulkCreateMissingAccounts(
+                    connection, transaction, request, accessCodeId, userId, ipAddress);
+
+                var processResult = await ProcessTransactionsInBatches(
+                    connection, transaction, request, accessCodeId, userId, ipAddress);
+
                 if (!processResult.Success)
+                {
+                    transaction.Rollback();
                     return BadRequest(processResult);
+                }
 
-                transaction.Commit();
+                transaction.Commit(); // ✅ RELEASE LOCKS IMMEDIATELY
 
                 return Ok(new ApiResponse<string>
                 {
@@ -418,7 +431,9 @@ namespace TracePca.Controllers.FIN_Statement
             }
             catch (Exception ex)
             {
-                transaction.Rollback();
+                if (transaction != null)
+                    transaction.Rollback();
+
                 return StatusCode(500, new ApiResponse<string>
                 {
                     Success = false,
@@ -426,7 +441,20 @@ namespace TracePca.Controllers.FIN_Statement
                     Error = ex.Message
                 });
             }
+            finally
+            {
+                // ✅ FORCE KILL CONNECTION
+                if (transaction != null)
+                    transaction.Dispose();
+
+                if (connection != null)
+                {
+                    await connection.CloseAsync();
+                    await connection.DisposeAsync();
+                }
+            }
         }
+
 
         #region Optimized Helper Methods
 
