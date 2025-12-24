@@ -554,6 +554,9 @@ namespace TracePca.Controllers
             }
         }
 
+
+
+        #region API for Dashboard Details
         [HttpGet("GetTotalClients")]
         public async Task<IActionResult> GetTotalClients()
         {
@@ -734,7 +737,6 @@ namespace TracePca.Controllers
         }
 
 
-
         [HttpGet("GetClientDetails")]
         public async Task<IActionResult> GetClientDetails()
         {
@@ -766,6 +768,7 @@ namespace TracePca.Controllers
            
             var result = await _LoginInterface.UpdatePasswordAsync(dto);
 
+<<<<<<< HEAD
             if (!result.Success)
                 return BadRequest(new { message = result.Message });
 
@@ -810,5 +813,116 @@ namespace TracePca.Controllers
                 message
             });
         }
+=======
+
+        [HttpGet("GetTodayLogin")]
+        public async Task<IActionResult> GetTodayLogin(int CompID)
+        {
+            try
+            {
+                var totalClients = await _LoginInterface.GetTodayLoginAsync(CompID);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Today login count retrieved successfully.",
+                    data = totalClients
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving Today login.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("GetTodayLogout")]
+        public async Task<IActionResult> GetTodayLogout(int CompID)
+        {
+            try
+            {
+                var totalClients = await _LoginInterface.GetTodayLogoutAsync(CompID);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Today logout count retrieved successfully.",
+                    data = totalClients
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving Today logout.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("GetTotalTimeSpent")]
+        public async Task<IActionResult> GetTotalTimeSpent(int CompID)
+        {
+            try
+            {
+                var totalClients = await _LoginInterface.GetTotalTimeSpentAsync(CompID);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Total time spent count retrieved successfully.",
+                    data = totalClients
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving Total time spent.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("GetClientFullDetails")]
+        public async Task<IActionResult> GetClientFullDetails(int FirmID)
+        {
+            try
+            {
+                var clientsDetails = await _LoginInterface.GetClientFullDetailsAsync(FirmID);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Client Details retrieved successfully.",
+                    data = clientsDetails
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving clients details.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        #endregion
+
+
+
+
+>>>>>>> 8dc799345a2c8656731a28338f4f9faa6e06f8a8
     }
 }

@@ -61,13 +61,13 @@ namespace TracePca.Service.DigitalFilling
 
             _isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
 
-            //string localPath = @"\\MMCS-SERVER19\EMP_Backup\Googledrivetoken\client_secret_desktop.json";
-            string localPath = @"D:\Projects\Gitlab\TraceAPI - Backend Code\tracepa-dotnet-core\client_secret_desktop.json";
+            string localPath = @"C:\Users\Crcuial\Desktop\TracePA-Backend-Latest\tracepa-corebackend\client_secret_desktop.json";
+
             string cloudPath = @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\GoogleDrive\client_secret.json";
             _credentialsPath = _isDevelopment ? localPath : cloudPath;
 
             _logFilePath = _isDevelopment
-                ? @"D:\Projects\Gitlab\TraceAPI - Backend Code\tracepa-dotnet-core\Logs\GoogleDriveLog.txt"
+                ? @"C:\Users\Crcuial\Desktop\TracePA-Backend-Latest\tracepa-corebackend\Logs\GoogleDriveLog.txt"
                 : @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\Logs\GoogleDriveLog.txt";
 
             if (!File.Exists(_credentialsPath))
