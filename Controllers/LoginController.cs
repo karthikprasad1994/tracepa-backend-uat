@@ -20,11 +20,13 @@ namespace TracePca.Controllers
     {
         private LoginInterface _LoginInterface;
         private readonly EmailInterface _emailService;
+        private OtpService _OTPServices;
         //private  IHttpContextAccessor _httpContextAccessor;
-        public LoginController(LoginInterface LoginInterface, EmailInterface emailService)
+        public LoginController(LoginInterface LoginInterface, EmailInterface emailService, OtpService OTPServices)
         {
             _LoginInterface = LoginInterface;
             _emailService = emailService;
+            _OTPServices = OTPServices;
         }
         // GET: api/<LoginController>
         [HttpGet("get-users")]
@@ -69,6 +71,39 @@ namespace TracePca.Controllers
             });
         }
 
+        //[HttpPost("ForgetPassSendOtpt")]
+        //public async Task<IActionResult> ForgetPassSendOtp([FromBody] OtpReqDto request)
+        //{
+        //    if (string.IsNullOrEmpty(request.Email))
+        //    {
+        //        return BadRequest(new OtpResponseDto
+        //        {
+        //            StatusCode = 400,
+        //            Message = "Email cannot be empty."
+        //        });
+        //    }
+
+        //    var (success, message, otpToken) = await _LoginInterface.ForgPassSendOtpJwtAsync(request.Email);
+
+        //    if (!success)
+        //    {
+        //        return Conflict(new OtpResponseDto
+        //        {
+        //            StatusCode = 409,
+        //            Message = message,
+        //            Token = null,
+        //            Otp = null
+        //        });
+        //    }
+
+        //    return Ok(new OtpResponseDto
+        //    {
+        //        StatusCode = 200,
+        //        Message = message,
+        //        Token = otpToken,
+        //        // Otp = null // You can include OTP here only if needed
+        //    });
+        //}
 
 
 
@@ -724,6 +759,56 @@ namespace TracePca.Controllers
                 });
             }
         }
+        [HttpPost("Forget-password")]
+        public async Task<IActionResult> UpdatePassword([FromBody] UpdatePasswordDto dto)
+        {
+       
+           
+            var result = await _LoginInterface.UpdatePasswordAsync(dto);
 
+            if (!result.Success)
+                return BadRequest(new { message = result.Message });
+
+            return Ok(new { message = result.Message });
+        }
+
+
+        [HttpPost("ForgetPassSendOtp")]
+        public async Task<IActionResult> ForgetPassSendOtp([FromBody] ForgotPasswordDto dto)
+        {
+            var (success, message, statusCode) =
+                await _OTPServices.SendForgotPasswordOtpAsync(dto.Email);
+
+            return StatusCode(statusCode, new
+            {
+                statusCode,
+                message
+            });
+        }
+
+        // ============================
+        // VERIFY OTP
+        // ============================
+        [HttpPost("ForgotVerifyOtp")]
+        public IActionResult VerifyOtp([FromBody] VerifyOtpDto dto)
+        {
+            var (success, message) =
+                _OTPServices.VerifyForgotPasswordOtp(dto.Email, dto.Otp);
+
+            if (!success)
+            {
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message
+                });
+            }
+
+            return Ok(new
+            {
+                statusCode = 200,
+                message
+            });
+        }
     }
 }

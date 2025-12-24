@@ -50,6 +50,8 @@ namespace TracePca.Interface
 
         Task<IEnumerable<ClientDetails>> GetClientDetailsAsync();
 
+        Task<(bool Success, string Message, string? OtpToken)> ForgPassSendOtpJwtAsync(string email);
+        Task<(bool Success, string Message)> UpdatePasswordAsync(UpdatePasswordDto dto);
 
     }
 }

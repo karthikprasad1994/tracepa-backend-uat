@@ -17,7 +17,9 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using Google.Apis.Auth;
 using MailKit.Net.Smtp;
 using MailKit.Security;
+using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -42,6 +44,8 @@ using TracePca.Models;
 using TracePca.Models.CustomerRegistration;
 using TracePca.Models.UserModels;
 using Xceed.Document.NET;
+
+
 
 namespace TracePca.Service
 {
@@ -236,6 +240,7 @@ ORDER BY MM_ID
 
                 using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
                 await connection.OpenAsync();
+              
 
                 var existingCustomerCode = await connection.QueryFirstOrDefaultAsync<string>(
                     @"SELECT TOP 1 MCR_CustomerCode
@@ -1413,7 +1418,12 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
             return (success, message, otpToken);
         }
 
+        public async Task<(bool Success, string Message, string? OtpToken)> ForgPassSendOtpJwtAsync(string email)
+        {
+            var (success, message, otpToken, _) = await _otpService.ForgetPassSendOtpJwtAsync(email);
 
+            return (success, message, otpToken);
+        }
         //public async Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email)
         //{
         //    return await _otpService.GenerateAndSendOtpJwtAsync(email);
@@ -2873,8 +2883,120 @@ ORDER BY ut.Id DESC";
                 });
             }
         }
+        public async Task<(bool Success, string Message)> UpdatePasswordAsync(UpdatePasswordDto dto)
+        {
+            // 1️⃣ Validate password strength
+            if (!PasswordValidator.IsStrong(dto.Password))
+                return (false, "Password must contain Upper, Lower, Number & Special character.");
+
+            // 2️⃣ Get customer code from Registration DB
+            using var regCon = new SqlConnection(
+                _configuration.GetConnectionString("CustomerRegistrationConnection"));
+
+            await regCon.OpenAsync();
+
+            var customerCode = await regCon.QueryFirstOrDefaultAsync<string>(
+                @"SELECT TOP 1 MCR_CustomerCode
+          FROM MMCS_CustomerRegistration
+          CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
+          WHERE LOWER(LTRIM(RTRIM(Emails.value))) = LOWER(@Email)",
+                new { Email = dto.Email });
+
+            if (string.IsNullOrEmpty(customerCode))
+                return (false, "Customer not found.");
+
+            // 3️⃣ Get CUSTOMER DB connection
+            var customerDbConnStr = _configuration.GetConnectionString(customerCode);
+            if (string.IsNullOrEmpty(customerDbConnStr))
+                return (false, "Customer database not configured.");
+
+            using var custCon = new SqlConnection(customerDbConnStr);
+            await custCon.OpenAsync();
+
+            // 4️⃣ Check user exists in CUSTOMER DB
+            int exists = await custCon.ExecuteScalarAsync<int>(
+                @"SELECT COUNT(1)
+          FROM Sad_Userdetails
+          WHERE LOWER(usr_Email) = LOWER(@Email)",
+                new { Email = dto.Email });
+
+            if (exists == 0)
+                return (false, "User not found.");
+
+            // 5️⃣ Hash password
+            string hashedPassword = EncryptPassword(dto.Password);
+
+            // 6️⃣ Update password
+            await custCon.ExecuteAsync(
+                @"UPDATE Sad_Userdetails
+          SET usr_PassWord = @Password,
+              Usr_UpdatedOn = GETDATE()
+          WHERE LOWER(usr_Email) = LOWER(@Email)",
+                new { Password = hashedPassword, Email = dto.Email });
+
+            return (true, "Password updated successfully.");
+        }
 
 
+        public static class PasswordHasher
+        {
+            public static string Hash(string password)
+            {
+                byte[] salt = RandomNumberGenerator.GetBytes(16);
+
+                byte[] hash = KeyDerivation.Pbkdf2(
+                    password: password,
+                    salt: salt,
+                    prf: KeyDerivationPrf.HMACSHA256,
+                    iterationCount: 10000,
+                    numBytesRequested: 32);
+
+                return Convert.ToBase64String(salt) + "|" + Convert.ToBase64String(hash);
+            }
+        }
+        public static class PasswordValidator
+        {
+            public static bool IsStrong(string password)
+            {
+                if (string.IsNullOrWhiteSpace(password))
+                    return false;
+
+                bool hasUpper = password.Any(char.IsUpper);
+                bool hasLower = password.Any(char.IsLower);
+                bool hasDigit = password.Any(char.IsDigit);
+                bool hasSpecial = password.Any(ch => !char.IsLetterOrDigit(ch));
+
+                return hasUpper && hasLower && hasDigit && hasSpecial;
+            }
+        }
+        private bool ValidateOtpJwt(string token, string email)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_configuration["JwtSettings:Secret"]);
+
+            try
+            {
+                tokenHandler.ValidateToken(token, new TokenValidationParameters
+                {
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ValidateLifetime = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuerSigningKey = true,
+                    ClockSkew = TimeSpan.Zero
+                }, out SecurityToken validatedToken);
+
+                var jwt = (JwtSecurityToken)validatedToken;
+
+                var tokenEmail = jwt.Claims.First(x => x.Type == "email").Value;
+
+                return tokenEmail.Equals(email, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 }
 
