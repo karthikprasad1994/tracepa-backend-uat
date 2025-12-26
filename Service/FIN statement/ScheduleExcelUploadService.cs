@@ -101,7 +101,7 @@ namespace TracePca.Service.FIN_statement
 
                     // === 1. Check if Heading exists ===
 
-                    if (dto.ASH_Name != "")
+                    if (dto.ASH_Name != "" && dto.ASH_Name != null)
                     {
                         HeadingName = dto.ASH_Name.Trim();
                         subHeadingName = "";
@@ -158,7 +158,7 @@ namespace TracePca.Service.FIN_statement
 
                     // === 2. Check SubHeading ===
 
-                    if (dto.ASSH_Name != "")
+                    if (dto.ASSH_Name != "" && dto.ASSH_Name != null)
                     {
                         subHeadingName = dto.ASSH_Name.Trim();
                         itemName = "";
@@ -216,7 +216,7 @@ namespace TracePca.Service.FIN_statement
 
                     // === 3. Check Item ===
 
-                    if (dto.ASI_Name != "")
+                    if (dto.ASI_Name != "" &&  dto.ASI_Name != null)
                     {
                         itemName = dto.ASI_Name.Trim();
                         subItemName = "";
@@ -272,7 +272,7 @@ namespace TracePca.Service.FIN_statement
 
                     // === 4. Check SubItem ===
 
-                    if (dto.ASSI_Name != "")
+                    if (dto.ASSI_Name != "" && dto.ASSI_Name != null)
                     {
                         subItemName = dto.ASSI_Name.Trim();
                     }
