@@ -1,4 +1,6 @@
-﻿namespace TracePca.Dto.FIN_Statement
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace TracePca.Dto.FIN_Statement
 {
     public class JournalEntryDto
     {
@@ -271,6 +273,55 @@
             public string? cmm_Desc { get; set; }
             public string? cms_Remarks { get; set; }
             public string? cmm_Category { get; set; }
+        }
+        public class JournalEntryUploadDto
+        {
+            [Required]
+            public int CustomerId { get; set; }
+
+            [Required]
+            public int FinancialYearId { get; set; }
+
+            [Required]
+            public int BranchId { get; set; }
+
+            [Required]
+            public int DurationId { get; set; }
+
+            [Required]
+            public IFormFile File { get; set; }
+
+            public int AccessCodeId { get; set; } = 1;
+            public int UserId { get; set; }
+        }
+
+        public class JournalEntryRowDto
+        {
+            public string? VchType { get; set; }
+            public string? Particulars { get; set; }
+            public string? Date { get; set; }
+            public string? VchNo { get; set; }
+            public decimal Debit { get; set; }
+            public decimal Credit { get; set; }
+        }
+
+        public class JournalEntryProcessResponse
+        {
+            public bool Success { get; set; }
+            public string Message { get; set; } = string.Empty;
+            public int TotalRecords { get; set; }
+            public int ProcessedRecords { get; set; }
+            public int FailedRecords { get; set; }
+            public List<string> Errors { get; set; } = new List<string>();
+            public TimeSpan ProcessingTime { get; set; }
+        }
+
+        public class BatchProcessResult
+        {
+            public bool Success { get; set; }
+            public int ProcessedCount { get; set; }
+            public int FailedCount { get; set; }
+            public List<string> Errors { get; set; } = new List<string>();
         }
     }
 }

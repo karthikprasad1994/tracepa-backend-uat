@@ -235,7 +235,8 @@ builder.Services.AddScoped<TaskDashboardInterface, TaskDashboardService>();
 builder.Services.AddScoped<TaskScheduleInterface, TaskScheduleService>();
 builder.Services.AddScoped<CompanyDetailsInterface, CompanyDetailsService>();
 builder.Services.AddScoped<TaskInvoiceAndReportInterface, TaskInvoiceAndReportService>();
-
+builder.Services.AddScoped<BulkOperationsService, BulkOperationsService>();
+builder.Services.AddScoped<JournalEntryInterface, JournalEntryService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -287,14 +288,6 @@ builder.Services.AddDbContext<Trdmyus1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection2")));
 builder.Services.AddScoped<IDbConnection>(sp =>
     new SqlConnection(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddDbContext<DynamicDbContext>(options =>
-{
-    // Placeholder connection (never actually used for queries)
-    options.UseSqlServer(
-        "Server=142.93.217.23,1433;Database=master;TrustServerCertificate=True;",
-        sql => sql.CommandTimeout(180)
-    );
-});
 builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddSession(options =>
