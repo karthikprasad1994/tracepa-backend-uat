@@ -17,9 +17,19 @@ public class OtpService
 {
     private readonly IConfiguration _configuration;
     private readonly EmailInterface _emailInterface;
-    
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    
+    public OtpService(
+        IConfiguration configuration,
+        IHttpContextAccessor httpContextAccessor,
+        EmailInterface emailInterface)
+    {
+        _configuration = configuration;
+        _httpContextAccessor = httpContextAccessor;
+        _emailInterface = emailInterface;
+    }
+
+
 
     // private readonly ConcurrentDictionary<string, (string Otp, DateTime Expiry)> _emailOtpStorage = new();
 
@@ -43,6 +53,14 @@ public class OtpService
     }
 
 
+    public interface IOtpService
+    {
+        Task<(bool Success, string Message, int StatusCode)>
+            SendForgotPasswordOtpAsync(string email);
+
+        (bool Success, string Message)
+            VerifyForgotPasswordOtp(string email, string otp);
+    }
 
 
     public async Task<(bool Success, string Message, string? OtpToken, int StatusCode)> GenerateAndSendOtpJwtAsync(string email)
@@ -83,7 +101,131 @@ public class OtpService
     }
 
 
+    public async Task<(bool Success, string Message, string? OtpToken, int StatusCode)> ForgetPassSendOtpJwtAsync(string email)
+    {
+        using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
+        await connection.OpenAsync();
 
+        var existingUser = await connection.QueryFirstOrDefaultAsync<string>(
+            @"SELECT MCR_CustomerEmail
+          FROM MMCS_CustomerRegistration 
+          WHERE LOWER(MCR_CustomerEmail) = LOWER(@Email)",
+            new { Email = email });
+
+        if (existingUser != null)
+        {
+            string otpCode;
+            string otpJwt = GenerateOtpJwt(email, out otpCode);
+
+            // Prepare email DTO
+            var emailDto = new CommonEmailDto
+            {
+                ToEmails = new List<string> { email },
+                EmailType = "OTP",
+                Parameters = new Dictionary<string, string>
+        {
+            { "OTP", otpCode }
+        }
+            };
+
+            // Send the OTP email using the new common method
+            await _emailInterface.SendCommonEmailAsync(emailDto);
+
+            return (true, "OTP sent successfully. Your OTP will expire in 10 minutes.", otpJwt, 200); // 200 OK
+        }
+        else
+        {
+            return (false, "User not exists with this email.", null, 409); // 409 Conflict
+
+        }
+
+        // Generate OTP and JWT
+
+    }
+    public async Task<(bool Success, string Message, int StatusCode)>
+       SendForgotPasswordOtpAsync(string email)
+    {
+        using var connection = new SqlConnection(
+            _configuration.GetConnectionString("CustomerRegistrationConnection"));
+
+        await connection.OpenAsync();
+
+        var existingUser = await connection.QueryFirstOrDefaultAsync<string>(
+            @"SELECT MCR_CustomerEmail
+              FROM MMCS_CustomerRegistration
+              WHERE LOWER(MCR_CustomerEmail) = LOWER(@Email)",
+            new { Email = email });
+
+        if (existingUser == null)
+            return (false, "User not exists with this email.", 409);
+
+        // 🔹 Generate OTP
+        string otp = new Random().Next(100000, 999999).ToString();
+        DateTime expiry = DateTime.UtcNow.AddMinutes(10);
+
+        // 🔹 Store in SESSION
+        var session = _httpContextAccessor.HttpContext!.Session;
+        session.SetString("FORGOT_OTP", otp);
+        session.SetString("FORGOT_OTP_EMAIL", email);
+        session.SetString("FORGOT_OTP_EXPIRY", expiry.ToString("O"));
+
+        // 🔹 Send Email
+        var emailDto = new CommonEmailDto
+        {
+            ToEmails = new List<string> { email },
+            EmailType = "OTP",
+            Parameters = new Dictionary<string, string>
+            {
+                { "OTP", otp }
+            }
+        };
+
+        await _emailInterface.SendCommonEmailAsync(emailDto);
+
+        return (
+            true,
+            "OTP sent successfully. Your OTP will expire in 10 minutes.",
+            200
+        );
+    }
+
+    // ============================
+    // VERIFY OTP (SESSION BASED)
+    // ============================
+    public (bool Success, string Message)
+        VerifyForgotPasswordOtp(string email, string otp)
+    {
+        var session = _httpContextAccessor.HttpContext!.Session;
+
+        var storedOtp = session.GetString("FORGOT_OTP");
+        var storedEmail = session.GetString("FORGOT_OTP_EMAIL");
+        var expiryStr = session.GetString("FORGOT_OTP_EXPIRY");
+
+        if (string.IsNullOrEmpty(storedOtp) ||
+            string.IsNullOrEmpty(storedEmail) ||
+            string.IsNullOrEmpty(expiryStr))
+        {
+            return (false, "OTP session expired.");
+        }
+
+        if (!storedEmail.Equals(email, StringComparison.OrdinalIgnoreCase))
+            return (false, "Invalid email.");
+
+        var expiry = DateTime.Parse(expiryStr);
+
+        if (expiry < DateTime.UtcNow)
+            return (false, "OTP expired.");
+
+        if (storedOtp != otp)
+            return (false, "Invalid OTP.");
+
+        // 🔹 Clear OTP after success
+        session.Remove("FORGOT_OTP");
+        session.Remove("FORGOT_OTP_EMAIL");
+        session.Remove("FORGOT_OTP_EXPIRY");
+
+        return (true, "OTP validated successfully.");
+    }
 
     //public async Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email)
     //{

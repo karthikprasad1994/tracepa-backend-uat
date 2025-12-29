@@ -3407,88 +3407,98 @@ ORDER BY
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
-
             using (var connection = new SqlConnection(_configuration.GetConnectionString(dbName)))
             {
                 await connection.OpenAsync();
                 using (var transaction = await connection.BeginTransactionAsync())
-
                 {
                     try
                     {
-                        string filePath = null;
+                        List<int> attachIds = new();
                         int attachId = dto.AtchId;
 
-                        // STEP 1: Handle file upload if provided
-                        if (dto.File != null && dto.File.Length > 0)
+                        // ✅ LOOP THROUGH MULTIPLE FILES
+                        if (dto.Files != null && dto.Files.Count > 0)
                         {
-                
-
-                            // Check if attachment already exists for this DRL
-                            if (attachId <= 0)
+                            foreach (var file in dto.Files)
                             {
-                                // Try to reuse existing ATCH_ID for this DRLID
-                                var existingAttachId = await GetExistingAttachmentIdByDrlIdAsync(dto.DrlId, dto.AuditId);
-                                if (existingAttachId.HasValue)
+                                if (file == null || file.Length == 0)
+                                    continue;
+
+                                // 🔁 SAME ATTACH ID LOGIC
+                                if (attachId <= 0)
                                 {
-                                    attachId = existingAttachId.Value;
+                                    var existingAttachId =
+                                        await GetExistingAttachmentIdByDrlIdAsync(dto.DrlId, dto.AuditId);
+
+                                    attachId = existingAttachId ?? await GenerateNextAttachmentIdAsync(dto.AuditId);
+                                    dto.AtchId = attachId;
                                 }
-                                else
+
+                                string extension = Path.GetExtension(file.FileName);
+                                string nameOnly = Path.GetFileNameWithoutExtension(file.FileName);
+
+                                // 📁 SAVE FILE
+                                string filePath = await SaveAuditDocumentAsync(
+                                    dto,
+                                    attachId,
+                                    file,
+                                    dto.DrlId,
+                                    dto.ReportType,
+                                    nameOnly,
+                                    extension
+                                );
+
+                                // 🔄 UPDATE DRL
+                                int pkId = await GetDrlPkIdAsync(dto.CustomerId, dto.AuditId, attachId);
+                                int docId = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
+
+                                await UpdateDrlAttachIdAndDocIdAsync(
+                                    dto.CustomerId,
+                                    dto.AuditId,
+                                    attachId,
+                                    docId,
+                                    pkId
+                                );
+
+                                // ☁ GOOGLE DRIVE UPLOAD
+                                dynamic uploadedFile = await _driveService.UploadFileToFolderAsync(
+                                    file,
+                                    "TracePA/Audit",
+                                    GetUserEmail(),
+                                    GetCurrentDocID("ATCH_DOCID", dto.CompId)
+                                );
+
+                                if (uploadedFile != null && uploadedFile.Status == "Error")
                                 {
-                                    // Generate new attachId only if none exists
-                                    attachId = await GenerateNextAttachmentIdAsync(dto.AuditId);
-                                }
-                                dto.AtchId = attachId;
-                            }
-
-
-                            string extension = Path.GetExtension(dto.File.FileName);
-                            string nameOnly = Path.GetFileNameWithoutExtension(dto.File.FileName);
-
-                            // Save file and insert into Edt_Attachments
-                            filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, dto.DrlId, dto.ReportType, nameOnly, extension);
-
-                            // Update references in DRL tables
-                            int pkId = await GetDrlPkIdAsync(dto.CustomerId, dto.AuditId, attachId);
-                            int docId = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
-
-                            await UpdateDrlAttachIdAndDocIdAsync(dto.CustomerId, dto.AuditId, attachId, docId, pkId);
-
-                            dynamic uploadedFile = await _driveService.UploadFileToFolderAsync(dto.File, "TracePA/Audit", GetUserEmail(), GetCurrentDocID("ATCH_DOCID", dto.CompId));
-
-                            if (uploadedFile != null)
-                            {
-                                // Check status
-                                if (uploadedFile.Status == "Success")
-                                {
-                                    string fullFileName = uploadedFile.File.Name;
-
-                                }
-                                else if (uploadedFile.Status == "Error")
-                                {
-                                    string errorMessage = uploadedFile.Message ?? "Unknown Google Drive upload error.";
                                     await transaction.RollbackAsync();
-                                    return $"Google Drive Upload Failed: {errorMessage}";
+                                    return $"Google Drive Upload Failed: {uploadedFile.Message}";
                                 }
+
+                                attachIds.Add(attachId);
                             }
-                            // You can trigger email sending here if needed
-                            // await SendDuringAuditEmailAsync(dto);
                         }
 
-                        // STEP 2: Always log to DRL and Remarks tables
+                        // 📝 DRL LOG (UNCHANGED)
                         int requestedId = dto.DrlId;
                         int adrlId = await InsertIntoAuditDrlLogAsync(dto, requestedId);
                         dto.AdrlId = adrlId;
 
                         int docIdForRemarks = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
                         int remarkId = await GenerateNextRemarkIdAsync(dto.CustomerId, dto.AuditId);
-                        await InsertIntoAuditDocRemarksLogAsync(dto, requestedId, remarkId, attachId, docIdForRemarks, adrlId);
+
+                        await InsertIntoAuditDocRemarksLogAsync(
+                            dto,
+                            requestedId,
+                            remarkId,
+                            attachId,
+                            docIdForRemarks,
+                            adrlId
+                        );
 
                         await transaction.CommitAsync();
 
-                        // ✅ Return attachId along with the message
-                        return $"File uploaded Successfully. AttachId: {attachId}";
+                        return $"Files uploaded successfully. AttachIds: {string.Join(",", attachIds.Distinct())}";
                     }
                     catch (Exception ex)
                     {
@@ -3498,6 +3508,7 @@ ORDER BY
                 }
             }
         }
+
 
 
 
@@ -5095,44 +5106,44 @@ int companyId, int auditId, int empId, bool isPartner, int headingId, string hea
 
 
 
-        public async Task<string> UploadAndSaveAttachmentsAsync(AddFileDto dto)
-        {
-            try
-            {
-                // 1. Generate Next Attachment ID
-                int attachId = await GenerateNextAttachmentIdAsync(dto.AuditId);
+        //public async Task<string> UploadAndSaveAttachmentsAsync(AddFileDto dto)
+        //{
+        //    try
+        //    {
+        //        // 1. Generate Next Attachment ID
+        //        int attachId = await GenerateNextAttachmentIdAsync(dto.AuditId);
 
-                // 2. Get Requested ID (based on document name)
-                int requestedId = await GetRequestedIdByDocumentNameAsync(dto.DocumentName);
+        //        // 2. Get Requested ID (based on document name)
+        //        int requestedId = await GetRequestedIdByDocumentNameAsync(dto.DocumentName);
 
-                // 3. Insert into Audit_DRLLog FIRST and get the primary key
-                int drlLogId = await InsertIntoAuditDrlLogAsync(dto, requestedId);
+        //        // 3. Insert into Audit_DRLLog FIRST and get the primary key
+        //        int drlLogId = await InsertIntoAuditDrlLogAsync(dto, requestedId);
 
-                // 4. Save the attachment and get the path (insert into Edt_Attachments)
-                var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.File, drlLogId, dto.ReportType,"","");
+        //        // 4. Save the attachment and get the path (insert into Edt_Attachments)
+        //        var filePath = await SaveAuditDocumentAsync(dto, attachId, dto.Files, drlLogId, dto.ReportType,"","");
 
-                // 5. Get latest DocId for this customer and audit
-                int docId = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
+        //        // 5. Get latest DocId for this customer and audit
+        //        int docId = await GetLatestDocIdAsync(dto.CustomerId, dto.AuditId);
 
-                // 6. Generate next Remark ID
-                int remarkId = await GenerateNextRemarkIdAsync(dto.CustomerId, dto.AuditId);
+        //        // 6. Generate next Remark ID
+        //        int remarkId = await GenerateNextRemarkIdAsync(dto.CustomerId, dto.AuditId);
 
-                // 7. Insert into Audit_DocRemarksLog
-                await InsertIntoAuditDocRemarksLogAsync(dto, requestedId, remarkId, attachId, docId, dto.AdrlId);
+        //        // 7. Insert into Audit_DocRemarksLog
+        //        await InsertIntoAuditDocRemarksLogAsync(dto, requestedId, remarkId, attachId, docId, dto.AdrlId);
 
-                // 8. Update DRL_AttachID and DRL_DocID in Audit_DRLLog
-                await UpdateDrlAttachIdAndDocIdAsync(dto.CustomerId, dto.AuditId, attachId, docId, drlLogId);
+        //        // 8. Update DRL_AttachID and DRL_DocID in Audit_DRLLog
+        //        await UpdateDrlAttachIdAndDocIdAsync(dto.CustomerId, dto.AuditId, attachId, docId, drlLogId);
 
-                // Optional: Send email
-                // await SendEmailWithAttachmentAsync("varunhallur417@gmail.com", filePath);
+        //        // Optional: Send email
+        //        // await SendEmailWithAttachmentAsync("varunhallur417@gmail.com", filePath);
 
-                return "Attachment uploaded and details saved successfully.";
-            }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
-        }
+        //        return "Attachment uploaded and details saved successfully.";
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return $"Error: {ex.Message}";
+        //    }
+        //}
 
 
         //        private async Task<int> InsertAuditDrlLogAsync(InsertFileInfoDto dto, int requestedId)

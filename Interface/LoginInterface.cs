@@ -35,6 +35,9 @@ namespace TracePca.Interface
         Task<List<CustomerModuleDetailDto>> GetCustomerModulesAsync(int customerId);
         Task<bool> SendWelcomeEmailAsync(string gmail, string password);
 
+
+        #region API For DashboardsDetails
+
         Task<int> GetTotalClientsAsync();
 
         Task<int> GetNewSignup30DaysAsync();
@@ -49,7 +52,17 @@ namespace TracePca.Interface
         Task<DashboardCounts> GetDashboardCardDetailsAsync();
 
         Task<IEnumerable<ClientDetails>> GetClientDetailsAsync();
+        Task<(bool Success, string Message, string? OtpToken)> ForgPassSendOtpJwtAsync(string email);
+        Task<(bool Success, string Message)> UpdatePasswordAsync(UpdatePasswordDto dto);
 
+        Task<int> GetTodayLoginAsync(int CompID);
+
+        Task<int> GetTodayLogoutAsync(int CompID);
+
+        Task<int> GetTotalTimeSpentAsync(int CompID);
+
+        Task<IEnumerable<ClientViewDetails>> GetClientFullDetailsAsync(int FirmID);
+        #endregion
 
     }
 }

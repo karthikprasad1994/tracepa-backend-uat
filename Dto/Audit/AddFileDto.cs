@@ -8,12 +8,12 @@ namespace TracePca.Dto.Audit
         public int AuditId { get; set; }
         public int AtchId { get; set; }
 
-       // public int DocId { get; set; }
+        // public int DocId { get; set; }
 
-      //   public int ReportId { get; set; } 
+        //   public int ReportId { get; set; } 
         // public string FilePath { get; set; }
         // public string FileName { get; set; }
-        public IFormFile? File { get; set; }
+        public List<IFormFile> Files { get; set; }  // ⬅ multiple files
         public int UserId { get; set; }
         //public string EmailId { get; set; }
 

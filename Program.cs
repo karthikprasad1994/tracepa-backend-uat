@@ -70,7 +70,6 @@ var builder = WebApplication.CreateBuilder(args);
 //QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 //ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 // Add services to the container.
-QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -235,7 +234,8 @@ builder.Services.AddScoped<TaskDashboardInterface, TaskDashboardService>();
 builder.Services.AddScoped<TaskScheduleInterface, TaskScheduleService>();
 builder.Services.AddScoped<CompanyDetailsInterface, CompanyDetailsService>();
 builder.Services.AddScoped<TaskInvoiceAndReportInterface, TaskInvoiceAndReportService>();
-
+builder.Services.AddScoped<BulkOperationsService, BulkOperationsService>();
+builder.Services.AddScoped<JournalEntryInterface, JournalEntryService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -252,7 +252,8 @@ builder.Services.AddCors(options =>
               "http://localhost:5173",
               "https://tracelites.multimedia.interactivedns.com",
               "https://clients.tracelites.multimedia.interactivedns.com",
-              "https://edictin.multimedia.interactivedns.com"
+              "https://edictin.multimedia.interactivedns.com",
+              "http://app.tracepa.mmcspl.com"
             )
               .AllowAnyMethod()
               .AllowAnyHeader()
@@ -287,7 +288,16 @@ builder.Services.AddDbContext<Trdmyus1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection2")));
 builder.Services.AddScoped<IDbConnection>(sp =>
     new SqlConnection(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDistributedMemoryCache();
 
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(15);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+builder.Services.AddHttpContextAccessor();
 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"]);
@@ -352,6 +362,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             }
         };
     });
+QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.AddHttpClient();
 

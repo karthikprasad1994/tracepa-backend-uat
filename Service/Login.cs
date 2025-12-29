@@ -17,7 +17,9 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using Google.Apis.Auth;
 using MailKit.Net.Smtp;
 using MailKit.Security;
+using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -42,6 +44,8 @@ using TracePca.Models;
 using TracePca.Models.CustomerRegistration;
 using TracePca.Models.UserModels;
 using Xceed.Document.NET;
+
+
 
 namespace TracePca.Service
 {
@@ -236,6 +240,7 @@ ORDER BY MM_ID
 
                 using var connection = new SqlConnection(_configuration.GetConnectionString("CustomerRegistrationConnection"));
                 await connection.OpenAsync();
+
 
                 var existingCustomerCode = await connection.QueryFirstOrDefaultAsync<string>(
                     @"SELECT TOP 1 MCR_CustomerCode
@@ -1413,7 +1418,12 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
             return (success, message, otpToken);
         }
 
+        public async Task<(bool Success, string Message, string? OtpToken)> ForgPassSendOtpJwtAsync(string email)
+        {
+            var (success, message, otpToken, _) = await _otpService.ForgetPassSendOtpJwtAsync(email);
 
+            return (success, message, otpToken);
+        }
         //public async Task<(bool Success, string Message, string? OtpToken)> GenerateAndSendOtpJwtAsync(string email)
         //{
         //    return await _otpService.GenerateAndSendOtpJwtAsync(email);
@@ -2642,6 +2652,8 @@ ORDER BY ut.Id DESC";
         }
 
 
+
+        #region API for Dashboards
         public async Task<int> GetTotalClientsAsync()
         {
             var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
@@ -2711,7 +2723,6 @@ ORDER BY ut.Id DESC";
             }
         }
 
-
         public async Task<int> GetPendingIssueAsync()
         {
             var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
@@ -2734,7 +2745,6 @@ ORDER BY ut.Id DESC";
                 }
             }
         }
-
 
         public async Task<int> GetResolvedIssueAsync()
         {
@@ -2759,7 +2769,6 @@ ORDER BY ut.Id DESC";
             }
         }
 
-
         public async Task<int> GetApprovalStatusAsync()
         {
             var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
@@ -2782,7 +2791,6 @@ ORDER BY ut.Id DESC";
                 }
             }
         }
-
 
         public async Task<DashboardCounts> GetDashboardCardDetailsAsync()
         {
@@ -2828,7 +2836,6 @@ ORDER BY ut.Id DESC";
             return null;
         }
 
-
         public async Task<IEnumerable<ClientDetails>> GetClientDetailsAsync()
         {
             var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
@@ -2838,25 +2845,23 @@ ORDER BY ut.Id DESC";
                 await connection.OpenAsync();
 
                 string query = @"
-                        SELECT 
+                        SELECT A.MCR_ID as FirmID,
                         A.MCR_CustomerName as FirmName,
                          A.MCR_CustomerEmail as Email,
-                        CONVERT(varchar(10), A.MCR_FromDate, 103) + ' - ' +
-                        CONVERT(varchar(10), A.MCR_ToDate, 103) AS [Date],
- 
                         STRING_AGG(
                                 CASE 
                                     WHEN B.MP_ModuleName = 'Masters' THEN 'Settings'
 			                        WHEN B.MP_ModuleName = 'Digital Office' THEN 'Documents'
-			                        WHEN B.MP_ModuleName = 'Digital Audit Office - Fixed Asset' THEN 'Account Verification'
+			                        WHEN B.MP_ModuleName = 'Digital Audit Office - Fixed Asset' THEN 'Fixed Asset'
 			                        WHEN B.MP_ModuleName = 'Digital Audit Office - Assignments' THEN 'Task Management'
-			                        WHEN B.MP_ModuleName = 'Digital Audit Office - Financial Audit' THEN ''
+			                        WHEN B.MP_ModuleName = 'Digital Audit Office - Financial Audit' THEN 'Account Verification'
                                     ELSE B.MP_ModuleName
                                 END, ', '
                             ) AS ModuleNames,
 
-                        case when MCR_NumberOfUsers IS NULL then '0' else MCR_NumberOfUsers end as NumberOfUsers
-                        , '0' as IssueIDentified
+                        case when MCR_NumberOfUsers IS NULL then '0' else MCR_NumberOfUsers end as NumberOfUsers,
+                        CONVERT(varchar(10), A.MCR_FromDate, 103) + ' - ' + CONVERT(varchar(10), A.MCR_ToDate, 103) AS SignedDate,
+                        Case when MCR_TStatus = 'T' then 'Trial' else 'Subscribed' end as Types, '0' as IssueIDentified
                         FROM MMCS_CustomerRegistration A
                         JOIN MMCS_Modules B 
                         ON A.MCR_MP_ID = B.MM_MP_ID
@@ -2864,7 +2869,7 @@ ORDER BY ut.Id DESC";
                         GROUP BY A.MCR_CustomerName,
                         A.MCR_CustomerEmail,
                         A.MCR_FromDate,
-                        A.MCR_ToDate, MCR_NumberOfUsers
+                        A.MCR_ToDate, MCR_NumberOfUsers,MCR_TStatus,MCR_ID
                         Order by MCR_FromDate desc";
 
                 return await connection.QueryAsync<ClientDetails>(query, new
@@ -2873,9 +2878,250 @@ ORDER BY ut.Id DESC";
                 });
             }
         }
+        public async Task<(bool Success, string Message)> UpdatePasswordAsync(UpdatePasswordDto dto)
+        {
+            // 1️⃣ Validate password strength
+            if (!PasswordValidator.IsStrong(dto.Password))
+                return (false, "Password must contain Upper, Lower, Number & Special character.");
+
+            // 2️⃣ Get customer code from Registration DB
+            using var regCon = new SqlConnection(
+                _configuration.GetConnectionString("CustomerRegistrationConnection"));
+
+            await regCon.OpenAsync();
+
+            var customerCode = await regCon.QueryFirstOrDefaultAsync<string>(
+                @"SELECT TOP 1 MCR_CustomerCode
+          FROM MMCS_CustomerRegistration
+          CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
+          WHERE LOWER(LTRIM(RTRIM(Emails.value))) = LOWER(@Email)",
+                new { Email = dto.Email });
+
+            if (string.IsNullOrEmpty(customerCode))
+                return (false, "Customer not found.");
+
+            // 3️⃣ Get CUSTOMER DB connection
+            var customerDbConnStr = _configuration.GetConnectionString(customerCode);
+            if (string.IsNullOrEmpty(customerDbConnStr))
+                return (false, "Customer database not configured.");
+
+            using var custCon = new SqlConnection(customerDbConnStr);
+            await custCon.OpenAsync();
+
+            // 4️⃣ Check user exists in CUSTOMER DB
+            int exists = await custCon.ExecuteScalarAsync<int>(
+                @"SELECT COUNT(1)
+          FROM Sad_Userdetails
+          WHERE LOWER(usr_Email) = LOWER(@Email)",
+                new { Email = dto.Email });
+
+            if (exists == 0)
+                return (false, "User not found.");
+
+            // 5️⃣ Hash password
+            string hashedPassword = EncryptPassword(dto.Password);
+
+            // 6️⃣ Update password
+            await custCon.ExecuteAsync(
+                @"UPDATE Sad_Userdetails
+          SET usr_PassWord = @Password,
+              Usr_UpdatedOn = GETDATE()
+          WHERE LOWER(usr_Email) = LOWER(@Email)",
+                new { Password = hashedPassword, Email = dto.Email });
+
+            return (true, "Password updated successfully.");
+        }
+
+        public static class PasswordHasher
+        {
+            public static string Hash(string password)
+            {
+                byte[] salt = RandomNumberGenerator.GetBytes(16);
+
+                byte[] hash = KeyDerivation.Pbkdf2(
+                    password: password,
+                    salt: salt,
+                    prf: KeyDerivationPrf.HMACSHA256,
+                    iterationCount: 10000,
+                    numBytesRequested: 32);
+
+                return Convert.ToBase64String(salt) + "|" + Convert.ToBase64String(hash);
+            }
+        }
+        public static class PasswordValidator
+        {
+            public static bool IsStrong(string password)
+            {
+                if (string.IsNullOrWhiteSpace(password))
+                    return false;
+
+                bool hasUpper = password.Any(char.IsUpper);
+                bool hasLower = password.Any(char.IsLower);
+                bool hasDigit = password.Any(char.IsDigit);
+                bool hasSpecial = password.Any(ch => !char.IsLetterOrDigit(ch));
+
+                return hasUpper && hasLower && hasDigit && hasSpecial;
+            }
+        }
+        private bool ValidateOtpJwt(string token, string email)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_configuration["JwtSettings:Secret"]);
+
+            try
+            {
+                tokenHandler.ValidateToken(token, new TokenValidationParameters
+                {
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ValidateLifetime = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuerSigningKey = true,
+                    ClockSkew = TimeSpan.Zero
+                }, out SecurityToken validatedToken);
+
+                var jwt = (JwtSecurityToken)validatedToken;
+
+                var tokenEmail = jwt.Claims.First(x => x.Type == "email").Value;
+
+                return tokenEmail.Equals(email, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public async Task<int> GetTodayLoginAsync(int CompID)
+        {
+
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+
+                string query = @"SELECT ISNULL(Count(*), 0) as TodayLogin FROM [dbo].[Audit_Log]
+                                WHERE CAST(adt_Login AS DATE) = CAST(GETDATE() AS DATE) and ADT_CompID =@ADT_CompID";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@ADT_CompID", CompID);
+
+                    var result = await command.ExecuteScalarAsync();
+
+                    return Convert.ToInt32(result);
+                }
+            }
+        }
 
 
-    }
+        public async Task<int> GetTodayLogoutAsync(int CompID)
+        {
+
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+
+                string query = @"SELECT ISNULL(Count(*), 0) as TodayLogin FROM [dbo].[Audit_Log]
+                                WHERE CAST(adt_Logout AS DATE) = CAST(GETDATE() AS DATE) and ADT_CompID =@ADT_CompID";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@ADT_CompID", CompID);
+
+                    var result = await command.ExecuteScalarAsync();
+
+                    return Convert.ToInt32(result);
+                }
+            }
+        }
+
+
+        public async Task<int> GetTotalTimeSpentAsync(int CompID)
+        {
+
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+
+                string query = @"SELECT 
+                                CAST(SUM(DATEDIFF(MINUTE, adt_Login, ISNULL(adt_Logout, GETDATE()))) / 60.0 AS DECIMAL(10,2)) 
+                                AS TotalHoursSpent
+                                FROM [dbo].[Audit_Log]
+                                WHERE adt_Login >= DATEADD(DAY, -7, CAST(GETDATE() AS DATE)) and ADT_CompID =@ADT_CompID";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@ADT_CompID", CompID);
+
+                    var result = await command.ExecuteScalarAsync();
+
+                    return Convert.ToInt32(result);
+                }
+            }
+        }
+
+
+
+        public async Task<IEnumerable<ClientViewDetails>> GetClientFullDetailsAsync(int FirmID)
+        {
+            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+            using (var connection = new SqlConnection(mmcsConnection))
+            {
+                await connection.OpenAsync();
+
+                string query = @"
+                                SELECT 
+                                A.MCR_ID as FirmID,
+                                A.MCR_CustomerName as FirmName,
+                                 A.MCR_CustomerEmail as Email,
+                                Case when MCR_TStatus = 'T' then 'Trial' else 'Subscribed' end as Types,
+	                            CONVERT(varchar(10), A.MCR_FromDate, 103) + ' - ' +
+                                CONVERT(varchar(10), A.MCR_ToDate, 103) AS SignedDate,
+                                MCR_CustomerCode as AccessCode, '' as FirstLogin, '' as LastLogin, '' as TimeSpent, '' as TimeLogs
+ 
+                                FROM MMCS_CustomerRegistration A
+                                JOIN MMCS_Modules B 
+                                ON A.MCR_MP_ID = B.MM_MP_ID
+                                WHERE A.MCR_Status = 'A' and A.MCR_ID = 463
+                                GROUP BY A.MCR_CustomerName,
+                                A.MCR_CustomerEmail,
+                                A.MCR_FromDate,
+                                A.MCR_ToDate, MCR_NumberOfUsers,MCR_TStatus,MCR_ID,MCR_CustomerCode
+                                Order by MCR_FromDate desc";
+
+                return await connection.QueryAsync<ClientViewDetails>(query, new
+                {
+                    MCR_Status = "A"
+                });
+            }
+        }
+
+
+        #endregion
+
+    } 
 }
 
 

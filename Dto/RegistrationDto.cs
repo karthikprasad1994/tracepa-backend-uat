@@ -67,13 +67,29 @@
 
     public class ClientDetails
     {
+        public int FirmID { get; set; }
         public string FirmName { get; set; }
         public string Email { get; set; }
-        public string Date { get; set; }
         public string ModuleNames { get; set; }
         public string NumberOfUsers { get; set; }
+        public string SignedDate { get; set; }
+        public string Types { get; set; }
         public string IssueIDentified { get; set; }
-      
+       
+    }
+
+
+    public class ClientViewDetails
+    {
+        public int FirmID { get; set; }
+        public string FirmName { get; set; }
+        public string Email { get; set; }
+        public string SignedDate { get; set; }
+        public string AccessCode { get; set; }
+        public string FirstLogin { get; set; }
+        public string LastLogin { get; set; }
+        public string TimeSpent { get; set; }
+        public string TimeLoges { get; set; }
 
     }
 }

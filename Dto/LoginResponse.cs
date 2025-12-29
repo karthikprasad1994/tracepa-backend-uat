@@ -1,4 +1,6 @@
-﻿namespace TracePca.Dto
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace TracePca.Dto
 {
     public class LoginResponse
     {
@@ -35,4 +37,27 @@
         
 
     }
+    public class UpdatePasswordDto
+    {
+        [Required(ErrorMessage = "Email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        [MaxLength(150)]
+        public string Email { get; set; }
+
+        [Required(ErrorMessage = "Password is required")]
+        [MinLength(8, ErrorMessage = "Password must be at least 8 characters")]
+        [MaxLength(50)]
+        public string Password { get; set; }
+
+    }
+    public class ForgotPasswordDto
+    {
+        public string Email { get; set; } = string.Empty;
+    }
+    public class VerifyOtpDto
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Otp { get; set; } = string.Empty;
+    }
+
 }

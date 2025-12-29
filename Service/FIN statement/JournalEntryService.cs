@@ -2,16 +2,24 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using OfficeOpenXml;
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
 using System.Text;
+using TracePca.Interface;
+using TracePca.Models;
 using TracePca.Data;
 using TracePca.Dto.Audit;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
+using TracePca.Service.FIN_statement;
 using static Dropbox.Api.TeamLog.GroupJoinPolicy;
 using static TracePca.Dto.FIN_Statement.JournalEntryDto;
 using static TracePca.Service.FIN_statement.JournalEntryService;
+using static TracePca.Service.FIN_statement.BulkOperationsService;
+
+
 
 namespace TracePca.Service.FIN_statement
 {
@@ -20,12 +28,15 @@ namespace TracePca.Service.FIN_statement
         private readonly Trdmyus1Context _dbcontext;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly BulkOperationsService _bulkService;
 
-        public JournalEntryService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public JournalEntryService(Trdmyus1Context dbcontext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, BulkOperationsService bulkService)
         {
             _dbcontext = dbcontext;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
+            _bulkService = bulkService;
+
         }
 
         //GetJournalEntryInformation
@@ -332,6 +343,11 @@ namespace TracePca.Service.FIN_statement
                                 cmdDetail.Parameters.AddWithValue("@AJTB_Debit", t.AJTB_Debit);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_Credit", t.AJTB_Credit);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_CreatedBy", t.AJTB_CreatedBy);
+                                cmdDetail.Parameters.AddWithValue(
+                "@AJTB_CreatedOn",
+                dto.Acc_JE_BillDate ?? DateTime.Now
+            );
+
                                 cmdDetail.Parameters.AddWithValue("@AJTB_UpdatedBy", t.AJTB_UpdatedBy);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_Status", t.AJTB_Status ?? string.Empty);
                                 cmdDetail.Parameters.AddWithValue("@AJTB_IPAddress", t.AJTB_IPAddress ?? string.Empty);
@@ -1726,8 +1742,717 @@ WHERE ATBU_CustId = @CustId
 
             return newCode;
         }
+        public async Task<JournalEntryProcessResponse> ProcessJournalEntriesAsync(JournalEntryUploadDto uploadDto)
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var response = new JournalEntryProcessResponse();
 
-    }
+            try
+            {
+
+                // Read Excel file
+                var rows = await ReadExcelFileAsync(uploadDto.File.OpenReadStream());
+                response.TotalRecords = rows.Count;
+
+                if (rows.Count == 0)
+                {
+                    response.Success = false;
+                    response.Message = "No valid records found in the Excel file";
+                    return response;
+                }
+
+                // Process in optimized batches
+                var batchResult = await ProcessLargeDatasetOptimizedAsync(rows, uploadDto);
+
+                response.Success = batchResult.Success;
+                response.ProcessedRecords = batchResult.ProcessedCount;
+                response.FailedRecords = batchResult.FailedCount;
+                response.Errors = batchResult.Errors;
+                response.ProcessingTime = stopwatch.Elapsed;
+
+                response.Message = batchResult.Success
+                    ? $"Successfully processed {batchResult.ProcessedCount} records in {stopwatch.Elapsed.TotalSeconds:F2} seconds"
+                    : $"Processed {batchResult.ProcessedCount} records, {batchResult.FailedCount} failed";
+
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Message = "Error processing file: " + ex.Message;
+            }
+
+            return response;
+        }
+
+        private async Task<BatchProcessResult> ProcessLargeDatasetOptimizedAsync(
+            List<JournalEntryRowDto> rows,
+            JournalEntryUploadDto uploadDto)
+        {
+            var result = new BatchProcessResult();
+            var batchSize = 5000; // Increased batch size for better performance
+
+            // Get connection string
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                // 1. PRE-COMPUTE ALL REQUIRED DATA (Single round-trip)
+                var preComputedData = await PreComputeAllDataAsync(connection, transaction, rows, uploadDto);
+
+                if (!preComputedData.Success)
+                {
+                    transaction.Rollback();
+                    result.Errors.AddRange(preComputedData.Errors);
+                    return result;
+                }
+
+                // 2. BULK CREATE MISSING ACCOUNTS (Single operation)
+                await BulkCreateAccountsAsync(connection, transaction, preComputedData.AccountsToCreate, uploadDto);
+
+                // 3. PROCESS IN BATCHES WITH BULK OPERATIONS
+                var batches = rows.Chunk(batchSize);
+                int processedCount = 0;
+
+                foreach (var batch in batches)
+                {
+                    var batchResult = await ProcessBatchWithBulkOperationsAsync(
+                        connection, transaction, batch.ToList(), preComputedData, uploadDto);
+
+                    processedCount += batchResult.ProcessedCount;
+                    result.FailedCount += batchResult.FailedCount;
+                    result.Errors.AddRange(batchResult.Errors);
+
+                    if (!batchResult.Success && batchResult.Errors.Any(e => e.Contains("Fatal")))
+                    {
+                        transaction.Rollback();
+                        result.Success = false;
+                        return result;
+                    }
+                }
+
+                // 4. UPDATE TRAIL BALANCE IN BULK
+                await UpdateTrailBalanceBulkAsync(connection, transaction, preComputedData, uploadDto);
+
+                transaction.Commit();
+                result.Success = true;
+                result.ProcessedCount = processedCount;
+            }
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+                result.Errors.Add($"Transaction failed: {ex.Message}");
+                result.Success = false;
+            }
+
+            return result;
+        }
+
+        private async Task<PreComputedData> PreComputeAllDataAsync(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            List<JournalEntryRowDto> rows,
+            JournalEntryUploadDto uploadDto)
+        {
+            var result = new PreComputedData();
+
+            // 1. Get distinct voucher types and accounts in one go
+            var distinctVoucherTypes = rows
+                .Where(r => !string.IsNullOrEmpty(r.VchType))
+                .Select(r => r.VchType)
+                .Distinct()
+                .ToList();
+
+            var distinctAccounts = rows
+                .Where(r => !string.IsNullOrEmpty(r.Particulars))
+                .Select(r => r.Particulars)
+                .Distinct()
+                .ToList();
+
+            // 2. Batch fetch voucher type IDs
+            var voucherTypeIds = await BatchGetVoucherTypeIdsAsync(
+                connection, transaction, distinctVoucherTypes, uploadDto.AccessCodeId);
+
+            result.VoucherTypeCache = voucherTypeIds;
+
+            // 3. Batch check existing accounts
+            var existingAccounts = await BatchCheckAccountsAsync(
+                connection, transaction, distinctAccounts, uploadDto);
+
+            // 4. Identify accounts to create
+            foreach (var account in distinctAccounts)
+            {
+                if (!existingAccounts.ContainsKey(account) || existingAccounts[account] == 0)
+                {
+                    result.AccountsToCreate.Add(account);
+                }
+                else
+                {
+                    result.AccountIdCache[account] = existingAccounts[account];
+                }
+            }
+
+            // 5. Validate dates
+            int lineNo = 1;
+            foreach (var row in rows)
+            {
+                if (!string.IsNullOrEmpty(row.Date) && !IsValidDate(row.Date))
+                {
+                    result.Errors.Add($"Invalid date format at line {lineNo}: {row.Date}");
+                }
+                lineNo++;
+            }
+
+            result.Success = !result.Errors.Any();
+            return result;
+        }
+
+        private async Task BulkCreateAccountsAsync(
+         SqlConnection connection,
+         SqlTransaction transaction,
+         List<string> accountsToCreate,
+         JournalEntryUploadDto uploadDto)
+        {
+            if (!accountsToCreate.Any()) return;
+
+            // Get the next available ATBU_ID
+            var nextId = await GetNextATBU_IDAsync(connection, transaction);
+
+            // Create DataTable for bulk insert
+            var dt = new DataTable();
+            dt.Columns.Add("ATBU_ID", typeof(int)); // Add this required column
+            dt.Columns.Add("ATBU_CODE", typeof(string));
+            dt.Columns.Add("ATBU_Description", typeof(string));
+            dt.Columns.Add("ATBU_CustId", typeof(int));
+            dt.Columns.Add("ATBU_CompId", typeof(int));
+            dt.Columns.Add("ATBU_YEARId", typeof(int));
+            dt.Columns.Add("ATBU_Branchid", typeof(int));
+            dt.Columns.Add("ATBU_QuarterId", typeof(int));
+            dt.Columns.Add("ATBU_CRBY", typeof(int));
+            // Add other required columns that cannot be NULL...
+
+            // Get starting code
+            var maxCount = await GetMaxAccountCodeAsync(connection, transaction, uploadDto);
+
+            foreach (var account in accountsToCreate)
+            {
+                maxCount++;
+                dt.Rows.Add(
+                    nextId++, // Provide value for ATBU_ID
+                    $"SCh00{maxCount}",
+                    account,
+                    uploadDto.CustomerId,
+                    uploadDto.AccessCodeId,
+                    uploadDto.FinancialYearId,
+                    uploadDto.BranchId,
+                    uploadDto.DurationId,
+                    uploadDto.UserId
+                );
+            }
+
+            // Bulk insert using SqlBulkCopy
+            using var bulkCopy = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction);
+            bulkCopy.DestinationTableName = "Acc_TrailBalance_Upload";
+            bulkCopy.BatchSize = 1000;
+            bulkCopy.BulkCopyTimeout = 300; // 5 minutes
+
+            // Map columns
+            foreach (DataColumn column in dt.Columns)
+            {
+                bulkCopy.ColumnMappings.Add(column.ColumnName, column.ColumnName);
+            }
+
+            await bulkCopy.WriteToServerAsync(dt);
+        }
+
+        private async Task<int> GetNextATBU_IDAsync(SqlConnection connection, SqlTransaction transaction)
+        {
+            // Query to get the maximum ATBU_ID currently in the table
+            using var cmd = new SqlCommand(
+                "SELECT ISNULL(MAX(ATBU_ID), 0) + 1 FROM Acc_TrailBalance_Upload",
+                connection,
+                transaction);
+
+            var result = await cmd.ExecuteScalarAsync();
+            return Convert.ToInt32(result);
+        }
+
+        private async Task<BatchProcessResult> ProcessBatchWithBulkOperationsAsync(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            List<JournalEntryRowDto> batch,
+            PreComputedData preComputedData,
+            JournalEntryUploadDto uploadDto)
+        {
+            var result = new BatchProcessResult();
+            var journalEntries = new List<JournalEntryMaster>();
+            var transactionDetails = new List<JournalEntryDetail>();
+            var trailBalanceUpdates = new List<TrailBalanceUpdate>();
+
+            try
+            {
+                // Generate transaction numbers in bulk
+                var transactionNumbers = await GenerateTransactionNumbersAsync(
+                    connection, transaction, batch.Count, uploadDto);
+
+                int transactionIndex = 0;
+
+                foreach (var row in batch)
+                {
+                    try
+                    {
+                        if (string.IsNullOrEmpty(row.Particulars)) continue;
+
+                        // Get pre-computed values
+                        var voucherTypeId = preComputedData.VoucherTypeCache.TryGetValue(row.VchType ?? "", out var vtId)
+                            ? vtId : 0;
+
+                        var accountId = preComputedData.AccountIdCache.TryGetValue(row.Particulars, out var accId)
+                            ? accId : 0;
+
+                        if (accountId == 0)
+                        {
+                            result.FailedCount++;
+                            result.Errors.Add($"Account not found: {row.Particulars}");
+                            continue;
+                        }
+
+                        var transactionNo = transactionNumbers[transactionIndex];
+                        var transactionDate = ParseTransactionDate(row.Date);
+
+                        // Create journal entry master
+                        var journalEntry = new JournalEntryMaster
+                        {
+                            AJTB_TranscNo = transactionNo,
+                            Acc_JE_Party = uploadDto.CustomerId,
+                            Acc_JE_BillType = voucherTypeId,
+                            Acc_JE_BillNo = row.VchNo ?? "",
+                            Acc_JE_BillDate = transactionDate,
+                            Acc_JE_BillAmount = row.Debit + row.Credit,
+                            Acc_JE_YearID = uploadDto.FinancialYearId,
+                            Acc_JE_CompID = uploadDto.AccessCodeId,
+                            Acc_JE_CreatedBy = uploadDto.UserId,
+                            acc_JE_BranchId = uploadDto.BranchId,
+                            Acc_JE_Quarterly = uploadDto.DurationId
+                        };
+                        journalEntries.Add(journalEntry);
+
+                        // Create transaction details
+                        if (row.Debit > 0)
+                        {
+                            transactionDetails.Add(new JournalEntryDetail
+                            {
+                                AJTB_TranscNo = transactionNo,
+                                AJTB_CustId = uploadDto.CustomerId,
+                                AJTB_Desc = accountId,
+                                AJTB_DescName = row.Particulars,
+                                AJTB_Debit = row.Debit,
+                                AJTB_Credit = 0,
+                                AJTB_YearID = uploadDto.FinancialYearId,
+                                AJTB_CompID = uploadDto.AccessCodeId,
+                                AJTB_BranchId = uploadDto.BranchId,
+                                AJTB_QuarterId = uploadDto.DurationId,
+                                AJTB_CreatedOn = transactionDate
+                            });
+
+                            trailBalanceUpdates.Add(new TrailBalanceUpdate
+                            {
+                                AccountId = accountId,
+                                CustomerId = uploadDto.CustomerId,
+                                DebitAmount = row.Debit,
+                                CreditAmount = 0,
+                                BranchId = uploadDto.BranchId,
+                                DurationId = uploadDto.DurationId,
+                                CompId = uploadDto.AccessCodeId
+                            });
+                        }
+
+                        if (row.Credit > 0)
+                        {
+                            transactionDetails.Add(new JournalEntryDetail
+                            {
+                                AJTB_TranscNo = transactionNo,
+                                AJTB_CustId = uploadDto.CustomerId,
+                                AJTB_Desc = accountId,
+                                AJTB_DescName = row.Particulars,
+                                AJTB_Debit = 0,
+                                AJTB_Credit = row.Credit,
+                                AJTB_YearID = uploadDto.FinancialYearId,
+                                AJTB_CompID = uploadDto.AccessCodeId,
+                                AJTB_BranchId = uploadDto.BranchId,
+                                AJTB_QuarterId = uploadDto.DurationId,
+                                AJTB_CreatedOn = transactionDate
+                            });
+
+                            trailBalanceUpdates.Add(new TrailBalanceUpdate
+                            {
+                                AccountId = accountId,
+                                CustomerId = uploadDto.CustomerId,
+                                DebitAmount = 0,
+                                CreditAmount = row.Credit,
+                                BranchId = uploadDto.BranchId,
+                                DurationId = uploadDto.DurationId,
+                                CompId = uploadDto.AccessCodeId
+                            });
+                        }
+
+                        transactionIndex++;
+                        result.ProcessedCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        result.FailedCount++;
+                        result.Errors.Add($"Row error: {ex.Message}");
+                    }
+                }
+
+                // BULK INSERT Journal Entries
+                if (journalEntries.Any())
+                {
+                    await _bulkService.BulkInsertJournalEntriesAsync(connection, transaction, journalEntries);
+                }
+
+                // BULK INSERT Transaction Details
+                if (transactionDetails.Any())
+                {
+                    await _bulkService.BulkInsertTransactionDetailsAsync(connection, transaction, transactionDetails);
+                }
+
+                result.Success = true;
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"Batch processing failed: {ex.Message}");
+                result.Success = false;
+            }
+
+            return result;
+        }
+      
+        private async Task UpdateTrailBalanceBulkAsync(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            PreComputedData preComputedData,
+            JournalEntryUploadDto uploadDto)
+        {
+            // Use MERGE statement or stored procedure for bulk update
+            var sql = @"
+                UPDATE ATBU 
+                SET ATBU_Closing_TotalDebit_Amount = ATBU_Closing_TotalDebit_Amount + @Debit,
+                    ATBU_Closing_TotalCredit_Amount = ATBU_Closing_TotalCredit_Amount + @Credit
+                FROM Acc_TrailBalance_Upload ATBU
+                WHERE ATBU.ATBU_ID = @AccountId
+                  AND ATBU.ATBU_CustId = @CustomerId
+                  AND ATBU.ATBU_CompId = @CompId
+                  AND ATBU.ATBU_Branchid = @BranchId
+                  AND ATBU.ATBU_QuarterId = @QuarterId";
+
+            using var command = new SqlCommand(sql, connection, transaction);
+            command.Parameters.Add("@AccountId", SqlDbType.Int);
+            command.Parameters.Add("@CustomerId", SqlDbType.Int);
+            command.Parameters.Add("@CompId", SqlDbType.Int);
+            command.Parameters.Add("@BranchId", SqlDbType.Int);
+            command.Parameters.Add("@QuarterId", SqlDbType.Int);
+            command.Parameters.Add("@Debit", SqlDbType.Decimal);
+            command.Parameters.Add("@Credit", SqlDbType.Decimal);
+
+            // Batch execute updates
+            foreach (var update in preComputedData.TrailBalanceUpdates)
+            {
+                command.Parameters["@AccountId"].Value = update.AccountId;
+                command.Parameters["@CustomerId"].Value = update.CustomerId;
+                command.Parameters["@CompId"].Value = update.CompId;
+                command.Parameters["@BranchId"].Value = update.BranchId;
+                command.Parameters["@QuarterId"].Value = update.DurationId;
+                command.Parameters["@Debit"].Value = update.DebitAmount;
+                command.Parameters["@Credit"].Value = update.CreditAmount;
+
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+
+        public async Task<List<JournalEntryRowDto>> ReadExcelFileAsync(Stream fileStream)
+        {
+            var rows = new List<JournalEntryRowDto>();
+
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using var package = new ExcelPackage(fileStream);
+            var worksheet = package.Workbook.Worksheets[0];
+
+            int rowCount = worksheet.Dimension.Rows;
+            string lastParticulars = "";
+            string lastVchType = "";
+            string lastVchNo = "";
+
+            for (int row = 2; row <= rowCount; row++) // Start from row 2 (skip header)
+            {
+                try
+                {
+                    var dateCell = worksheet.Cells[row, 1].Text;
+                    var particulars = worksheet.Cells[row, 2].Text?.Trim();
+                    var vchType = worksheet.Cells[row, 3].Text?.Trim();
+                    var vchNo = worksheet.Cells[row, 4].Text?.Trim();
+                    var debitStr = worksheet.Cells[row, 5].Text;
+                    var creditStr = worksheet.Cells[row, 6].Text;
+
+                    // Skip if both debit and credit are empty/zero
+                    decimal debit = decimal.TryParse(debitStr, out var d) ? d : 0;
+                    decimal credit = decimal.TryParse(creditStr, out var c) ? c : 0;
+
+                    if (debit == 0 && credit == 0) continue;
+                    if (string.IsNullOrEmpty(particulars)) continue;
+
+                    // Apply carry-forward logic
+                    if (!string.IsNullOrEmpty(particulars)) lastParticulars = particulars;
+                    if (!string.IsNullOrEmpty(vchType)) lastVchType = vchType;
+                    if (!string.IsNullOrEmpty(vchNo)) lastVchNo = vchNo;
+
+                    var rowDto = new JournalEntryRowDto
+                    {
+                        Date = FormatDate(dateCell),
+                        Particulars = string.IsNullOrEmpty(particulars) ? lastParticulars : particulars,
+                        VchType = string.IsNullOrEmpty(vchType) ? lastVchType : vchType,
+                        VchNo = string.IsNullOrEmpty(vchNo) ? lastVchNo : vchNo,
+                        Debit = debit,
+                        Credit = credit
+                    };
+
+                    rows.Add(rowDto);
+                }
+                catch (Exception ex)
+                {
+                }
+            }
+
+            return rows;
+        }
+
+        private string FormatDate(string dateString)
+        {
+            if (string.IsNullOrEmpty(dateString)) return "";
+
+            try
+            {
+                if (DateTime.TryParse(dateString, out var date))
+                {
+                    return date.ToString("dd-MM-yyyy");
+                }
+            }
+            catch
+            {
+                // Keep original if can't parse
+            }
+
+            return dateString;
+        }
+
+        private bool IsValidDate(string dateString)
+        {
+            string[] dateFormats = {
+                "MM/dd/yyyy", "dd/MM/yyyy", "yyyy-MM-dd",
+                "dd-MM-yyyy", "MM-dd-yyyy", "dd.MM.yyyy",
+                "MMMM dd, yyyy", "dd MMMM yyyy", "yyyy/MM/dd",
+                "MMM dd, yyyy", "dd-MMM-yyyy", "yyyyMMdd"
+            };
+
+            return DateTime.TryParseExact(dateString, dateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+        }
+
+        private DateTime ParseTransactionDate(string dateString)
+        {
+            if (string.IsNullOrEmpty(dateString))
+                return new DateTime(1900, 1, 1);
+
+            string[] dateFormats = {
+                "MM/dd/yyyy", "dd/MM/yyyy", "yyyy-MM-dd",
+                "dd-MM-yyyy", "MM-dd-yyyy", "dd.MM.yyyy",
+                "MMMM dd, yyyy", "dd MMMM yyyy", "yyyy/MM/dd",
+                "MMM dd, yyyy", "dd-MMM-yyyy", "yyyyMMdd"
+            };
+
+            if (DateTime.TryParseExact(dateString, dateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var result))
+                return result;
+
+            return DateTime.MinValue;
+        }
+
+        // Helper classes for pre-computation
+        private class PreComputedData
+        {
+            public bool Success { get; set; }
+            public Dictionary<string, int> VoucherTypeCache { get; set; } = new();
+            public Dictionary<string, int> AccountIdCache { get; set; } = new();
+            public List<string> AccountsToCreate { get; set; } = new();
+            public List<TrailBalanceUpdate> TrailBalanceUpdates { get; set; } = new();
+            public List<string> Errors { get; set; } = new();
+        }
+
+        private class TrailBalanceUpdate
+        {
+            public int AccountId { get; set; }
+            public int CustomerId { get; set; }
+            public decimal DebitAmount { get; set; }
+            public decimal CreditAmount { get; set; }
+            public int BranchId { get; set; }
+            public int DurationId { get; set; }
+            public int CompId { get; set; }
+        }
+
+        // Database helper methods (optimized batch versions)
+        private async Task<Dictionary<string, int>> BatchGetVoucherTypeIdsAsync(
+            SqlConnection connection, SqlTransaction transaction, List<string> voucherTypes, int compId)
+        {
+            var result = new Dictionary<string, int>();
+
+            if (!voucherTypes.Any()) return result;
+
+            var sql = @"
+                SELECT cmm_Desc, cmm_ID 
+                FROM Content_Management_Master 
+                WHERE CMM_CompID = @CompID 
+                  AND cmm_Category = 'JE' 
+                  AND cmm_Delflag = 'A' 
+                  AND cmm_Desc IN ({0})";
+
+            var parameters = voucherTypes.Select((_, i) => $"@p{i}").ToArray();
+            var inClause = string.Join(",", parameters);
+            sql = string.Format(sql, inClause);
+
+            using var command = new SqlCommand(sql, connection, transaction);
+            command.Parameters.AddWithValue("@CompID", compId);
+
+            for (int i = 0; i < voucherTypes.Count; i++)
+            {
+                command.Parameters.AddWithValue($"@p{i}", voucherTypes[i]);
+            }
+
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                result[reader.GetString(0)] = reader.GetInt32(1);
+            }
+
+            // Set 0 for not found types
+            foreach (var type in voucherTypes.Where(t => !result.ContainsKey(t)))
+            {
+                result[type] = 0;
+            }
+
+            return result;
+        }
+
+        private async Task<Dictionary<string, int>> BatchCheckAccountsAsync(
+            SqlConnection connection, SqlTransaction transaction, List<string> accounts, JournalEntryUploadDto uploadDto)
+        {
+            var result = new Dictionary<string, int>();
+
+            if (!accounts.Any()) return result;
+
+            var sql = @"
+                SELECT ATBU_Description, ATBU_ID 
+                FROM Acc_TrailBalance_Upload 
+                WHERE ATBU_Description IN ({0})
+                  AND ATBU_CustId = @CustId
+                  AND ATBU_Branchid = @BranchId
+                  AND ATBU_CompId = @CompId
+                  AND ATBU_YEARId = @YearId";
+
+            if (uploadDto.DurationId != 0)
+            {
+                sql += " AND ATBU_QuarterId = @QuarterId";
+            }
+
+            var parameters = accounts.Select((_, i) => $"@p{i}").ToArray();
+            var inClause = string.Join(",", parameters);
+            sql = string.Format(sql, inClause);
+
+            using var command = new SqlCommand(sql, connection, transaction);
+            command.Parameters.AddWithValue("@CustId", uploadDto.CustomerId);
+            command.Parameters.AddWithValue("@BranchId", uploadDto.BranchId);
+            command.Parameters.AddWithValue("@CompId", uploadDto.AccessCodeId);
+            command.Parameters.AddWithValue("@YearId", uploadDto.FinancialYearId);
+
+            if (uploadDto.DurationId != 0)
+            {
+                command.Parameters.AddWithValue("@QuarterId", uploadDto.DurationId);
+            }
+
+            for (int i = 0; i < accounts.Count; i++)
+            {
+                command.Parameters.AddWithValue($"@p{i}", accounts[i]);
+            }
+
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                result[reader.GetString(0)] = reader.GetInt32(1);
+            }
+
+            return result;
+        }
+
+        private async Task<List<string>> GenerateTransactionNumbersAsync(
+            SqlConnection connection, SqlTransaction transaction, int count, JournalEntryUploadDto uploadDto)
+        {
+            var result = new List<string>();
+            var sql = @"
+                SELECT ISNULL(MAX(CAST(SUBSTRING(AJTB_TranscNo, 3, LEN(AJTB_TranscNo)) AS INT)), 0) + 1
+                FROM Acc_JETransactions_Details
+                WHERE AJTB_YearID = @YearId
+                  AND AJTB_CustId = @Party
+                  AND AJTB_QuarterId = @QuarterId
+                  AND AJTB_BranchId = @BranchId";
+
+            using var command = new SqlCommand(sql, connection, transaction);
+            command.Parameters.AddWithValue("@YearId", uploadDto.FinancialYearId);
+            command.Parameters.AddWithValue("@Party", uploadDto.CustomerId);
+            command.Parameters.AddWithValue("@QuarterId", uploadDto.DurationId);
+            command.Parameters.AddWithValue("@BranchId", uploadDto.BranchId);
+
+            var startNumber = Convert.ToInt32(await command.ExecuteScalarAsync());
+
+            for (int i = 0; i < count; i++)
+            {
+                result.Add($"TR{(startNumber + i):D3}");
+            }
+
+            return result;
+        }
+
+        private async Task<int> GetMaxAccountCodeAsync(SqlConnection connection, SqlTransaction transaction, JournalEntryUploadDto uploadDto)
+        {
+            var sql = "SELECT COUNT(*) FROM Acc_TrailBalance_Upload WHERE ATBU_CustId = @CustId AND ATBU_CompId = @CompId AND ATBU_YEARId = @YearId AND ATBU_BranchId = @BranchId AND ATBU_QuarterId = @QuarterId";
+
+            using var command = new SqlCommand(sql, connection, transaction);
+            command.Parameters.AddWithValue("@CustId", uploadDto.CustomerId);
+            command.Parameters.AddWithValue("@CompId", uploadDto.AccessCodeId);
+            command.Parameters.AddWithValue("@YearId", uploadDto.FinancialYearId);
+            command.Parameters.AddWithValue("@BranchId", uploadDto.BranchId);
+            command.Parameters.AddWithValue("@QuarterId", uploadDto.DurationId);
+
+            return Convert.ToInt32(await command.ExecuteScalarAsync());
+        }
+
+        // Implement other interface methods...
+        public Task<JournalEntryProcessResponse> ValidateAndProcessExcelFileAsync(Stream fileStream, JournalEntryUploadDto uploadDto)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<BatchProcessResult> ProcessBatchAsync(List<JournalEntryRowDto> batch, int customerId, int financialYearId, int branchId, int durationId, int accessCodeId, int userId, string ipAddress)
+        {
+            throw new NotImplementedException();
+        }
+    
+}
 }
 
 

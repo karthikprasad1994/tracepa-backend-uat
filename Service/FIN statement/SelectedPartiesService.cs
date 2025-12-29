@@ -122,7 +122,7 @@ namespace TracePca.Service.FIN_statement
         SELECT 
             JED.AJTB_ID,
             JED.AJTB_DescName,
-            JED.AJTB_TranscNo,
+          JE.ACC_JE_BILLNO as AJTB_TranscNo,
             JED.AJTB_CreatedOn,
             JED.AJTB_Debit,
             JED.AJTB_Credit,
@@ -132,6 +132,7 @@ namespace TracePca.Service.FIN_statement
         FROM Acc_JETransactions_Details AS JED
         LEFT JOIN Acc_TrailBalance_Upload AS TBU
             ON JED.AJTB_Deschead = TBU.ATBU_ID
+LEFT JOIN Acc_JE_Master AS JE   ON JE.ACC_JE_ID = JED.ajtb_masid
         WHERE 
             TBU.ATBU_DELFLG = 'S'
             AND JED.AJTB_CustId = @CustId
