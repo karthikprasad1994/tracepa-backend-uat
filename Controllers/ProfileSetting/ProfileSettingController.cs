@@ -131,7 +131,7 @@ namespace TracePca.Controllers.ProfileSetting
         }
 
         //UpdateUserProfile
-        [HttpPut("UpdateUserProfile")]
+        [HttpPost("UpdateUserProfile")]
         public async Task<IActionResult> UpdateUserProfileAsync([FromBody] UpdateUserProfileDto dto)
         {
             try
