@@ -288,8 +288,8 @@
             public int AM_LevelCode { get; set; }
             public int AM_ParentID { get; set; }
             public decimal AM_WDVITAct { get; set; }
-            public string AM_ITRate { get; set; }
-            public decimal AM_ResidualValue { get; set; }
+            public decimal AM_ITRate { get; set; }
+            public int AM_ResidualValue { get; set; }
             public int AM_CreatedBy { get; set; }
             public DateTime AM_CreatedOn { get; set; }
             public int AM_UpdatedBy { get; set; }
