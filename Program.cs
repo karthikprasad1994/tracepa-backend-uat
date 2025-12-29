@@ -252,7 +252,8 @@ builder.Services.AddCors(options =>
               "http://localhost:5173",
               "https://tracelites.multimedia.interactivedns.com",
               "https://clients.tracelites.multimedia.interactivedns.com",
-              "https://edictin.multimedia.interactivedns.com"
+              "https://edictin.multimedia.interactivedns.com",
+              "http://app.tracepa.mmcspl.com"
             )
               .AllowAnyMethod()
               .AllowAnyHeader()
