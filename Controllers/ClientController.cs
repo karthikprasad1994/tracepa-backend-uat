@@ -1055,28 +1055,28 @@ namespace TracePca.Controllers
         }
 
 
-        [HttpPost("upload-attachment-without-email")]
-        public async Task<IActionResult> UploadAttachmentWithoutEmail([FromForm] AddFileDto dto)
-        {
-            var result = await _AuditInterface.UploadAndSaveAttachmentsAsync(dto);
+        //[HttpPost("upload-attachment-without-email")]
+        //public async Task<IActionResult> UploadAttachmentWithoutEmail([FromForm] AddFileDto dto)
+        //{
+        //    var result = await _AuditInterface.UploadAndSaveAttachmentsAsync(dto);
 
-            if (result.StartsWith("Error"))
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new
-                {
-                    Status = 500,
-                    Success = false,
-                    Message = result
-                });
-            }
+        //    if (result.StartsWith("Error"))
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError, new
+        //        {
+        //            Status = 500,
+        //            Success = false,
+        //            Message = result
+        //        });
+        //    }
 
-            return Ok(new
-            {
-                Status = 200,
-                Success = true,
-                Message = result
-            });
-        }
+        //    return Ok(new
+        //    {
+        //        Status = 200,
+        //        Success = true,
+        //        Message = result
+        //    });
+        //}
 
         //[HttpPost("SaveAll")]
         //public async Task<IActionResult> SaveAll([FromBody]
