@@ -60,7 +60,7 @@ namespace TracePca.Interface.Audit
     int companyId, int auditId, int empId, bool isPartner, int headingId, string heading);
 
         Task UpdateScheduleCheckPointRemarksAnnexureAsync(UpdateScheduleCheckPointDto dto);
-        Task<string> UploadAndSaveAttachmentsAsync(AddFileDto dto);
+        //Task<string> UploadAndSaveAttachmentsAsync(AddFileDto dto);
         //Task<(byte[] fileBytes, string contentType, string fileName)> GenerateAndLogDRLReportAsync(DRLRequestDto request, string format);
         Task<CustomerInvoiceDto> GetCustomerDetailsForInvoiceAsync(int companyId, int customerId);
         Task<CustomerDataDto> GetCustomerDetailsWithTemplatesAsync(int companyId, int customerId, int reportTypeId);
