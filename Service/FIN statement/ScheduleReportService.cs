@@ -2288,9 +2288,9 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                     }
                                         else
                                     {
-                                        itemNet = (itemDescription.CrTotal ?? 0) - (itemDescription.DbTotal ?? 0);
-                                        itemPrevNet = (itemDescription.CrTotal1 ?? 0) - (itemDescription.DbTotal1 ?? 0);
-                                    }
+                                        itemNet =  (itemDescription.DbTotal ?? 0) - (itemDescription.CrTotal ?? 0);
+                                        itemPrevNet =  (itemDescription.DbTotal1 ?? 0)- (itemDescription.CrTotal1 ?? 0);
+                                        }
 
 
                                     totalIncome += itemNet;
