@@ -678,9 +678,7 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
 
         WHERE ATBU.ATBU_CustId = @CustId
           AND ATBU.ATBU_YearId = @YearId
-          AND ATBU.ATBU_BranchId = @BranchId
-          AND ATBU.ATBU_Description <> 'Net Income'
-
+          AND ATBU.ATBU_BranchId = @BranchId      
         GROUP BY ATBU.ATBU_Description, Tr.AJTB_Debit, Tr.AJTB_Credit;
 
         /* ===========================
@@ -770,11 +768,9 @@ LEFT JOIN (
       AND AJTB_BranchId = @BranchId
     GROUP BY AJTB_DescName
 ) Tr ON Tr.AJTB_DescName = ATBU.ATBU_Description
-
 WHERE ATBU.ATBU_CustId = @CustId
   AND ATBU.ATBU_YearId = @YearId
-  AND ATBU.ATBU_BranchId = @BranchId and ATBU.ATBU_Description <> 'Net Income'
-
+  AND ATBU.ATBU_BranchId = @BranchId 
 GROUP BY ATBU.ATBU_Description, Tr.AJTB_Debit, Tr.AJTB_Credit;
 ";
 
