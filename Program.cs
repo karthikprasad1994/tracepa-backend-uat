@@ -100,18 +100,13 @@ builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromHours(24);
+    options.IdleTimeout = TimeSpan.Zero; // No timeout
     options.Cookie.Name = ".AspNetCore.Session";
-    options.Cookie.MaxAge = TimeSpan.FromHours(24);
-
+    options.Cookie.MaxAge = TimeSpan.FromDays(365); // ← Changed from 24 hours to 365 days
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
-
-
-    // Always allow cross-site cookies
     options.Cookie.SameSite = SameSiteMode.None;
-    //options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; // Requires HTTPS
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
 // 🔥 FORCE DASH INSTEAD OF SLASH
@@ -288,14 +283,6 @@ builder.Services.AddDbContext<Trdmyus1Context>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection2")));
 builder.Services.AddScoped<IDbConnection>(sp =>
     new SqlConnection(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddDistributedMemoryCache();
-
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromMinutes(15);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-});
 
 builder.Services.AddHttpContextAccessor();
 

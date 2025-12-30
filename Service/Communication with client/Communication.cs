@@ -67,6 +67,7 @@ using Microsoft.Playwright;
 using Org.BouncyCastle.Asn1.Crmf;
 using TracePca.Interface.Master;
 using DocumentFormat.OpenXml.Drawing.Charts;
+using static OpenAI.ObjectModels.SharedModels.IOpenAiModels;
 
 
 
@@ -6668,6 +6669,34 @@ WHERE SA_ID = @AuditId";
             parameters.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
             await connection.ExecuteAsync("spAudit_DRLLog", parameters, commandType: CommandType.StoredProcedure);
+            int adrlIdFromSp = parameters.Get<int>("@iOper");
+
+            if (req.status == "RC")
+            {
+                const string updateSql = @"
+        UPDATE Audit_DRLLog
+        SET 
+            ADRL_ReceivedOn = GETDATE(),
+            ADRL_LogStatus = @LogStatus,
+            ADRL_ReceivedComments = @Comments,
+            ADRL_Status = 'Updated',
+            ADRL_UpdatedBy = @UserId,
+            ADRL_UpdatedOn = GETDATE(),
+            ADRL_AttachID = @AttachId
+        WHERE ADRL_CompID = @CompanyId
+          AND ADRL_ID = @ADRLId;
+    ";
+
+                await connection.ExecuteAsync(updateSql, new
+                {
+                    LogStatus = 1, // replace with actual status value
+                    Comments = req.Comments ?? "",
+                    UserId = req.UserId,
+                    AttachId = attachmentId,
+                    CompanyId = req.CompanyId,
+                    ADRLId = adrlIdFromSp // returned ADRL_ID from stored procedure
+                });
+            }
 
             // ✅ Get ADRL_ID returned through @iOper
             var iOper = parameters.Get<int>("@iOper");
