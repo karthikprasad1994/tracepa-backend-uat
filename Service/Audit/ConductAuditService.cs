@@ -491,7 +491,7 @@ namespace TracePca.Service.Audit
                     ISNULL((SELECT ADRL_AttachID FROM Audit_DRLLog WHERE ADRL_AuditNo = @AuditId AND ADRL_CompID = @CompId And ADRL_RequestedListID > 0 And ADRL_RequestedListID = a.SSW_DRLID), 0) As SSW_DRLAttachmentID,
                     CASE WHEN a.SSW_Status = 1 THEN 'Open' WHEN a.SSW_Status = 2 THEN 'WIP' WHEN a.SSW_Status = 3 THEN 'Closed' ELSE NULL END AS SSW_StatusName, a.SSW_AttachID,
 					ISNULL((SELECT Count(*) FROM edt_attachments WHERE ATCH_CompID = @CompId AND ATCH_ID = a.SSW_AttachID), 0) As SSW_AttachCount,
-                    a.SSW_CrBy,b.usr_FullName AS SSW_CrByName, a.SSW_CrOn, ISNULL(a.SSW_ReviewedBy, 0) AS SSW_ReviewedBy,ISNULL(d.usr_FullName, '') AS SSW_ReviewedByName, ISNULL(a.SSW_ReviewedOn, '') AS SSW_ReviewedOn, ISNULL(a.SSW_UpdatedBy, 0) AS SSW_UpdatedBy, ISNULL(c.usr_FullName, '') AS SSW_UpdatedByName, ISNULL(a.SSW_UpdatedOn, '') AS SSW_UpdatedOn, 
+                    a.SSW_CrBy,b.usr_FullName AS SSW_CrByName, a.SSW_CrOn, ISNULL(a.SSW_ReviewedBy, 0) AS SSW_ReviewedBy,ISNULL(d.usr_FullName, '') AS SSW_ReviewedByName, ISNULL(NULLIF(CONVERT(varchar(23), a.SSW_ReviewedOn, 121), '1900-01-01 00:00:00.000'), '') AS SSW_ReviewedOn, ISNULL(a.SSW_UpdatedBy, 0) AS SSW_UpdatedBy, ISNULL(c.usr_FullName, '') AS SSW_UpdatedByName, ISNULL(a.SSW_UpdatedOn, '') AS SSW_UpdatedOn, 
                     a.SSW_IPAddress, a.SSW_CompID FROM StandardAudit_ScheduleConduct_WorkPaper a 
                     LEFT JOIN sad_userdetails b ON b.Usr_ID = a.SSW_CrBy
                     LEFT JOIN sad_userdetails c ON c.Usr_ID = a.SSW_UpdatedBy

@@ -41,7 +41,8 @@ namespace TracePca.Dto.Audit
         public string ADRL_ReceivedComments { get; set; }
         public int ADRL_AttachId { get; set; }
         public int ADRL_AttchDocId { get; set; }
-       
+        public string ADRL_RequestedBy { get; set; }
+        public string ADRL_ReceivedBy { get; set; }
     }
 
     public class AuditProgramSummaryDto
