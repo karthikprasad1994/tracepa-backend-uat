@@ -60,7 +60,7 @@ namespace TracePca.Dto.Audit
         public string? SSW_ReviewerComments { get; set; }
         public int? SSW_ReviewedBy { get; set; }
         public string? SSW_ReviewedByName { get; set; }
-        public DateTime? SSW_ReviewedOn { get; set; }
+        public string? SSW_ReviewedOn { get; set; }
         public int? SSW_WPCheckListID { get; set; }
         public int? SSW_DRLID { get; set; }
         public int? SSW_DRLAttachmentID { get; set; }

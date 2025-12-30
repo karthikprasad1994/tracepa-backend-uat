@@ -268,10 +268,11 @@ namespace TracePca.Service.Audit
 			//WHERE ADRL_AuditNo=@AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and b.cmm_Desc = 'Beginning of the Audit' ORDER BY  ADRL_UpdatedOn DESC";
 
 
-			string query = @"SELECT distinct ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(E.RTM_ReportTypeName,'N/A')
-			ReportTypeText,ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ISNULL(ADRL_AttachId, 0) AS ADRL_AttachId,ISNULL(ADRL_AttchDocId, 0) AS ADRL_AttchDocId 
+			string query = @"SELECT distinct ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(E.RTM_ReportTypeName,'N/A') As ReportTypeText,
+			a.usr_FullName As ADRL_RequestedBy,ADRL_RequestedOn,ADRL_Comments,aa.usr_FullName As ADRL_ReceivedBy,ADRL_ReceivedOn,ADRL_ReceivedComments,ISNULL(ADRL_AttachId, 0) AS ADRL_AttachId,ISNULL(ADRL_AttchDocId, 0) AS ADRL_AttchDocId 
 			FROM Audit_DRLLog
 			LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
+            LEFT JOIN Sad_UserDetails aa ON aa.usr_Id = ADRL_UpdatedBy
 			LEFT JOIN SAD_ReportTypeMaster C ON RTM_Id = ADRL_ReportType
 			LEFT JOIN content_Management_Master b on b.cmm_ID = ADRL_RequestedListID
 			Left join edt_attachments D on D.atch_id = ADRL_AttachID  
@@ -304,16 +305,17 @@ namespace TracePca.Service.Audit
 
 			using var connection = new SqlConnection(connectionString);
 
-			//string query = @"
-			//         SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(RTM_ReportTypeName,'Unknown Report Type') AS ReportTypeText,
-			//         ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId 
-			//         FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy  LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType 
-			//         WHERE ADRL_AuditNo = @AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and ADRL_RequestedListID = @RequestId ORDER BY  ADRL_UpdatedOn DESC";
+            //string query = @"
+            //         SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(RTM_ReportTypeName,'Unknown Report Type') AS ReportTypeText,
+            //         ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId 
+            //         FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy  LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType 
+            //         WHERE ADRL_AuditNo = @AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and ADRL_RequestedListID = @RequestId ORDER BY  ADRL_UpdatedOn DESC";
 
-			string query = @"SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(RTM_ReportTypeName,'N/A')
-			ReportTypeText,ADRL_Comments, ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ISNULL(ADRL_AttachId, 0) AS ADRL_AttachId,ISNULL(ADRL_AttchDocId, 0) AS ADRL_AttchDocId 
+            string query = @"SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(RTM_ReportTypeName,'N/A') As ReportTypeText,
+			a.usr_FullName As ADRL_RequestedBy,ADRL_RequestedOn,ADRL_Comments,aa.usr_FullName As ADRL_ReceivedBy,ADRL_ReceivedOn,ADRL_ReceivedComments,ISNULL(ADRL_AttachId, 0) AS ADRL_AttachId,ISNULL(ADRL_AttchDocId, 0) AS ADRL_AttchDocId 
 			FROM Audit_DRLLog
 			LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
+            LEFT JOIN Sad_UserDetails aa ON aa.usr_Id = ADRL_UpdatedBy
 			LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType
 			LEFT JOIN content_Management_Master b on b.cmm_ID = ADRL_RequestedListID
 			WHERE ADRL_AuditNo=@AuditNo  AND ADRL_YearID = @YearId   AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and b.cmm_Desc = 'Nearing completion of the Audit' ORDER BY  ADRL_UpdatedOn DESC";
@@ -344,23 +346,24 @@ namespace TracePca.Service.Audit
 
 			using var connection = new SqlConnection(connectionString);
 
-			//string query = @"
-			//         SELECT ADRL_Id, Case When ADRL_RequestedListID > 0 then IsNull(CMM_Desc,'NA') When (ADRL_RequestedListID = 0 And ADRL_FunID > 0) Then 
-			//         IsNull(ACM_Checkpoint,'NA') End AS ReportTypeText, ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId   
-			//         FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy LEFT JOIN Content_Management_Master ON CMM_ID = ADRL_RequestedListID 
-			//         LEFT JOIN AuditType_Checklist_Master ON ACM_ID = ADRL_FunID 
-			//         WHERE ADRL_AuditNo =@AuditNo  AND ADRL_YearID =@YearId  AND ADRL_CompID =@CompId and ADRL_CustID = @CustomerId and (ADRL_ReportType Is NULL or ADRL_ReportType = 0) ORDER BY ADRL_UpdatedOn";
+            //string query = @"
+            //         SELECT ADRL_Id, Case When ADRL_RequestedListID > 0 then IsNull(CMM_Desc,'NA') When (ADRL_RequestedListID = 0 And ADRL_FunID > 0) Then 
+            //         IsNull(ACM_Checkpoint,'NA') End AS ReportTypeText, ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId   
+            //         FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy LEFT JOIN Content_Management_Master ON CMM_ID = ADRL_RequestedListID 
+            //         LEFT JOIN AuditType_Checklist_Master ON ACM_ID = ADRL_FunID 
+            //         WHERE ADRL_AuditNo =@AuditNo  AND ADRL_YearID =@YearId  AND ADRL_CompID =@CompId and ADRL_CustID = @CustomerId and (ADRL_ReportType Is NULL or ADRL_ReportType = 0) ORDER BY ADRL_UpdatedOn";
 
-			//string query = @"SELECT ADRL_Id, IsNull(RTM_ReportTypeName,'Unknown Report Type') AS ReportTypeText,ADRL_Comments,ADRL_RequestedOn,usr_FullName,
-			//				ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId   
-			//				FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType 
-			//				LEFT JOIN AuditType_Checklist_Master ON ACM_ID = ADRL_FunID 
-			//				WHERE ADRL_AuditNo = @AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId ORDER BY ADRL_UpdatedOn";
+            //string query = @"SELECT ADRL_Id, IsNull(RTM_ReportTypeName,'Unknown Report Type') AS ReportTypeText,ADRL_Comments,ADRL_RequestedOn,usr_FullName,
+            //				ADRL_ReceivedOn,ADRL_ReceivedComments,ADRL_AttchDocId   
+            //				FROM Audit_DRLLog LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType 
+            //				LEFT JOIN AuditType_Checklist_Master ON ACM_ID = ADRL_FunID 
+            //				WHERE ADRL_AuditNo = @AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId ORDER BY ADRL_UpdatedOn";
 
-			string query = @"SELECT ADRL_Id,ADRL_ReportType ,ADRL_AuditNo,IsNull(cmm_Desc,'N/A') as reportTypeText,
-			ADRL_Comments,ADRL_RequestedOn,usr_FullName,ADRL_ReceivedOn,ADRL_ReceivedComments,ISNULL(ADRL_AttachId, 0) AS ADRL_AttachId,ISNULL(ADRL_AttchDocId, 0) AS ADRL_AttchDocId 
+            string query = @"SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(cmm_Desc,'N/A') As ReportTypeText,
+			a.usr_FullName As ADRL_RequestedBy,ADRL_RequestedOn,ADRL_Comments,aa.usr_FullName As ADRL_ReceivedBy,ADRL_ReceivedOn,ADRL_ReceivedComments,ISNULL(ADRL_AttachId, 0) AS ADRL_AttachId,ISNULL(ADRL_AttchDocId, 0) AS ADRL_AttchDocId 
 			FROM Audit_DRLLog
 			LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
+            LEFT JOIN Sad_UserDetails aa ON aa.usr_Id = ADRL_UpdatedBy
 			LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType
 			LEFT JOIN content_Management_Master b on b.cmm_ID = ADRL_RequestedListID
 			WHERE ADRL_AuditNo=@AuditNo  AND ADRL_YearID = @YearId  AND ADRL_CompID = @CompId and ADRL_CustID = @CustomerId and ADRL_ReportType = 0 ORDER BY  ADRL_UpdatedOn DESC";

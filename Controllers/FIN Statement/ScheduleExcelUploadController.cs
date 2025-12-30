@@ -7,6 +7,8 @@ using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleExcelUploadDto;
 using static TracePca.Service.FIN_statement.ScheduleExcelUploadService;
+using static TracePca.Service.FIN_statement.ScheduleMappingService;
+
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Globalization;
 
@@ -21,13 +23,14 @@ namespace TracePca.Controllers.FIN_Statement
         private readonly ScheduleExcelUploadInterface _ScheduleExcelUploadService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IConfiguration _configuration;
+        private ScheduleMappingInterface _ScheduleMappingService;
 
-
-        public ScheduleExcelUploadController(ScheduleExcelUploadInterface ScheduleExcelUploadInterface, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public ScheduleExcelUploadController(ScheduleExcelUploadInterface ScheduleExcelUploadInterface, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, ScheduleMappingInterface scheduleMappingService)
         {
             _ScheduleExcelUploadService = ScheduleExcelUploadInterface;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
+            _ScheduleMappingService = scheduleMappingService;
         }
 
         //DownloadUploadableExcelAndTemplate
@@ -510,85 +513,321 @@ namespace TracePca.Controllers.FIN_Statement
 
             return new ApiResponse<string> { Success = true };
         }
-
-        private async Task BulkCreateMissingAccounts(SqlConnection connection, SqlTransaction transaction, JournalEntryUploadRequest request, int accessCodeId, int userId, string ipAddress)
+        private async Task<int> GetIdFromNameAsync(SqlConnection conn, SqlTransaction tran, string table, string column, string name, int orgType)
         {
-            // Get accounts that need to be created
+            string nameCol = column.Replace("_ID", "_Name");
+            string orgCol = column.Replace("_ID", "_Orgtype");
+
+            var query = $"SELECT ISNULL({column}, 0) FROM {table} WHERE {nameCol} = @name AND {orgCol} = @orgType";
+            using var cmd = new SqlCommand(query, conn, tran);
+            cmd.Parameters.AddWithValue("@name", name.Trim());
+            cmd.Parameters.AddWithValue("@orgType", orgType);
+
+            var result = await cmd.ExecuteScalarAsync();
+            return Convert.ToInt32(result ?? 0);
+        }
+
+        private async Task<DataTable> GetScheduleIDs(SqlConnection conn, SqlTransaction tran, int Id, int orgType, int LevelId)
+        {
+            string query = string.Empty;
+            int idValue = 0;
+            if (LevelId == 4)
+            {
+
+                query = @"SELECT AST_HeadingID, a.ASH_ID, a.ASH_Name, ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+                      ISNULL(b.ASSH_ID,0) AS ASSH_ID, ISNULL(b.ASSH_Name,'') AS ASSH_Name, 
+                      ISNULL(c.ASI_ID,0) AS ASI_ID, ISNULL(c.ASI_Name,'') AS ASI_Name,
+                      ISNULL(d.ASSI_ID,0) AS ASSi_ID, ISNULL(d.ASSI_Name,'') AS ASSI_Name 
+               FROM ACC_ScheduleTemplates 
+               LEFT JOIN ACC_ScheduleSubItems d ON d.ASSI_ID = AST_SubItemID
+               LEFT JOIN ACC_ScheduleItems c ON c.ASI_ID = AST_ItemID
+               LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID = AST_SubHeadingID
+               LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID = AST_HeadingID
+               WHERE AST_SubItemID = @ID AND AST_Companytype = @OrgType";
+            }
+            else if (LevelId == 3)
+            {
+                query = @"SELECT AST_HeadingID, a.ASH_ID, a.ASH_Name, ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+                      ISNULL(b.ASSH_ID,0) AS ASSH_ID, ISNULL(b.ASSH_Name,'') AS ASSH_Name, 
+                      ISNULL(c.ASI_ID,0) AS ASI_ID, ISNULL(c.ASI_Name,'') AS ASI_Name,
+                      0 AS ASSi_ID, '' AS ASSI_Name 
+               FROM ACC_ScheduleTemplates 
+               LEFT JOIN ACC_ScheduleSubItems d ON d.ASSI_ID = AST_SubItemID
+               LEFT JOIN ACC_ScheduleItems c ON c.ASI_ID = AST_ItemID
+               LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID = AST_SubHeadingID
+               LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID = AST_HeadingID
+               WHERE AST_ItemID = @ID AND AST_Companytype = @OrgType AND AST_SubItemID = 0";
+            }
+            else if (LevelId == 2)
+            {
+                query = @"SELECT AST_HeadingID, a.ASH_ID, a.ASH_Name, ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+                      ISNULL(b.ASSH_ID,0) AS ASSH_ID, ISNULL(b.ASSH_Name,'') AS ASSH_Name,
+                      0 AS ASI_ID, '' AS ASI_Name,
+                      0 AS ASSi_ID, '' AS ASSI_Name 
+               FROM ACC_ScheduleTemplates 
+               LEFT JOIN ACC_ScheduleSubItems d ON d.ASSI_ID = AST_SubItemID
+               LEFT JOIN ACC_ScheduleItems c ON c.ASI_ID = AST_ItemID
+               LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID = AST_SubHeadingID
+               LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID = AST_HeadingID
+               WHERE AST_SubHeadingID = @ID AND AST_Companytype = @OrgType";
+            }
+            else if (LevelId == 1)
+            {
+                query = @"SELECT AST_HeadingID, a.ASH_ID, a.ASH_Name, ISNULL(AST_Schedule_type,0) AS AST_Schedule_type,
+                      0 AS ASSH_ID, '' AS ASSH_Name,
+                      0 AS ASI_ID, '' AS ASI_Name,
+                      0 AS ASSi_ID, '' AS ASSI_Name 
+               FROM ACC_ScheduleTemplates 
+               LEFT JOIN ACC_ScheduleSubItems d ON d.ASSI_ID = AST_SubItemID
+               LEFT JOIN ACC_ScheduleItems c ON c.ASI_ID = AST_ItemID
+               LEFT JOIN ACC_ScheduleSubHeading b ON b.ASSH_ID = AST_SubHeadingID
+               LEFT JOIN ACC_ScheduleHeading a ON a.ASH_ID = AST_HeadingID
+               WHERE AST_HeadingID = @ID AND AST_Companytype = @OrgType";
+            }
+            else
+            {
+                return new DataTable(); // return empty if nothing is matched
+            }
+
+            using (SqlCommand cmd = new SqlCommand(query, conn, tran))
+            {
+                // Determine which ID to pass     
+                cmd.Parameters.AddWithValue("@ID", Id);
+                cmd.Parameters.AddWithValue("@OrgType", orgType);
+
+                using (SqlDataAdapter adapter = new SqlDataAdapter(cmd))
+                {
+                    DataTable result = new DataTable();
+                    await Task.Run(() => adapter.Fill(result));
+                    return result;
+                }
+            }
+        }
+        private async Task<int> GetScheduleTypeFromTemplateAsync(SqlConnection conn, SqlTransaction tran, int subItemId, int itemId, int subHeadingId, int headingId, int orgType)
+        {
+            string query = "";
+
+            if (subItemId > 0)
+                query = "SELECT ISNULL(AST_Schedule_type, 0) FROM ACC_ScheduleTemplates WHERE AST_SubItemID = @id AND AST_Companytype = @orgType";
+            else if (itemId > 0)
+                query = "SELECT ISNULL(AST_Schedule_type, 0) FROM ACC_ScheduleTemplates WHERE AST_ItemID = @id AND AST_SubItemID = 0 AND AST_Companytype = @orgType";
+            else if (subHeadingId > 0)
+                query = "SELECT ISNULL(AST_Schedule_type, 0) FROM ACC_ScheduleTemplates WHERE AST_SubHeadingID = @id AND AST_Companytype = @orgType";
+            else if (headingId > 0)
+                query = "SELECT ISNULL(AST_Schedule_type, 0) FROM ACC_ScheduleTemplates WHERE AST_HeadingID = @id AND AST_Companytype = @orgType";
+            else
+                return 0;
+
+            using var cmd = new SqlCommand(query, conn, tran);
+            cmd.Parameters.AddWithValue("@id", subItemId > 0 ? subItemId : itemId > 0 ? itemId : subHeadingId > 0 ? subHeadingId : headingId);
+            cmd.Parameters.AddWithValue("@orgType", orgType);
+
+            var result = await cmd.ExecuteScalarAsync();
+            return Convert.ToInt32(result ?? 0);
+        }
+        private async Task BulkCreateMissingAccounts(
+          SqlConnection connection,
+          SqlTransaction transaction,
+          JournalEntryUploadRequest request,
+          int accessCodeId,
+          int userId,
+          string ipAddress)
+        {
+            /* ===============================
+               STEP 1: FIND MISSING ACCOUNTS
+            =============================== */
             var accountsToCreate = new List<string>();
             var existingAccountsCache = new Dictionary<string, int>();
 
-            foreach (var row in request.Rows.Where(r => !string.IsNullOrEmpty(r.Account)))
+            foreach (var row in request.Rows.Where(r => !string.IsNullOrWhiteSpace(r.Account)))
             {
                 if (existingAccountsCache.ContainsKey(row.Account))
                     continue;
 
-                var accountExists = await CheckAccountData(connection, transaction, accessCodeId, request.CustomerId, row.Account, request.FinancialYearId, request.BranchId, request.DurationId);
-                existingAccountsCache[row.Account] = accountExists;
+                var exists = await CheckAccountData(
+                    connection, transaction, accessCodeId,
+                    request.CustomerId, row.Account,
+                    request.FinancialYearId,
+                    request.BranchId,
+                    request.DurationId);
 
-                if (accountExists == 0 && !accountsToCreate.Contains(row.Account))
-                {
+                existingAccountsCache[row.Account] = exists;
+
+                if (exists == 0)
                     accountsToCreate.Add(row.Account);
-                }
             }
 
-            if (!accountsToCreate.Any()) return;
+            if (!accountsToCreate.Any())
+                return;
 
-            // Get max count once instead of for each account
-            var maxCount = await GetDescMaxId(connection, transaction, accessCodeId, request.CustomerId, "", request.FinancialYearId, request.BranchId, request.DurationId);
+            int maxCount = await GetDescMaxId(
+                connection, transaction,
+                accessCodeId, request.CustomerId, "",
+                request.FinancialYearId,
+                request.BranchId,
+                request.DurationId);
 
-            // Create accounts in batch
+            /* ===============================
+               STEP 2: CHECK JE TYPES EXISTENCE
+            =============================== */
+            bool hasPurchase = request.Rows.Any(r =>
+                r.JE_Type?.Equals("Purchase", StringComparison.OrdinalIgnoreCase) == true);
+
+            bool hasSales = request.Rows.Any(r =>
+                r.JE_Type?.Equals("Sales", StringComparison.OrdinalIgnoreCase) == true);
+
+            /* ===============================
+               STEP 3: PREPARE PURCHASE MAPPING
+            =============================== */
+            int pHeadingId = 0, pSubHeadingId = 0, pItemId = 0, pScheduleType = 0;
+
+            if (hasPurchase)
+            {
+                pItemId = await GetIdFromNameAsync(
+                    connection, transaction,
+                    "ACC_ScheduleItems", "ASI_ID",
+                    "Others - Trade Payables",
+                    request.CustomerId);
+
+                var dt = await GetScheduleIDs(connection, transaction, pItemId, request.CustomerId, 3);
+                if (dt.Rows.Count > 0)
+                {
+                    pHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
+                    pSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
+                    pItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
+                }
+
+                pScheduleType = await GetScheduleTypeFromTemplateAsync(
+                    connection, transaction,
+                    0, pItemId, pSubHeadingId, pHeadingId, request.CustomerId);
+            }
+
+            /* ===============================
+               STEP 4: PREPARE SALES MAPPING
+            =============================== */
+            int sHeadingId = 0, sSubHeadingId = 0, sItemId = 0, sScheduleType = 0;
+
+            if (hasSales)
+            {
+                sItemId = await GetIdFromNameAsync(
+                    connection, transaction,
+                    "ACC_ScheduleItems", "ASI_ID",
+                    "Any others - Trade receivables",
+                    request.CustomerId);
+
+                var dt = await GetScheduleIDs(connection, transaction, sItemId, request.CustomerId, 3);
+                if (dt.Rows.Count > 0)
+                {
+                    sHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
+                    sSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
+                    sItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
+                }
+
+                sScheduleType = await GetScheduleTypeFromTemplateAsync(
+                    connection, transaction,
+                    0, sItemId, sSubHeadingId, sHeadingId, request.CustomerId);
+            }
+
+            /* ===============================
+               STEP 5: SAVE ACCOUNTS
+               → PASS 0 IF NO TRANSACTION DATE
+            =============================== */
             foreach (var account in accountsToCreate)
             {
                 maxCount++;
-                var uploadId = await SaveTrailBalanceExcelUpload(connection, transaction, new TrailBalanceUpload
-                {
-                    ATBU_ID = 0,
-                    ATBU_CODE = "SCh00" + maxCount,
-                    ATBU_Description = account,
-                    ATBU_CustId = request.CustomerId,
-                    ATBU_Opening_Debit_Amount = 0,
-                    ATBU_Opening_Credit_Amount = 0,
-                    ATBU_TR_Debit_Amount = 0,
-                    ATBU_TR_Credit_Amount = 0,
-                    ATBU_Closing_Debit_Amount = 0,
-                    ATBU_Closing_Credit_Amount = 0,
-                    ATBU_DELFLG = "A",
-                    ATBU_CRBY = userId,
-                    ATBU_STATUS = "C",
-                    ATBU_UPDATEDBY = userId,
-                    ATBU_IPAddress = ipAddress,
-                    ATBU_CompId = accessCodeId,
-                    ATBU_YEARId = request.FinancialYearId,
-                    ATBU_Branchname = request.BranchId,
-                    ATBU_QuaterId = request.DurationId
-                });
 
-                await SaveTrailBalanceExcelUploadDetails(connection, transaction, new TrailBalanceUpload
+                var uploadId = await SaveTrailBalanceExcelUpload(
+                    connection, transaction,
+                    new TrailBalanceUpload
+                    {
+                        ATBU_ID = 0,
+                        ATBU_CODE = "SCh00" + maxCount,
+                        ATBU_Description = account,
+                        ATBU_CustId = request.CustomerId,
+                        ATBU_Opening_Debit_Amount = 0,
+                        ATBU_Opening_Credit_Amount = 0,
+                        ATBU_TR_Debit_Amount = 0,
+                        ATBU_TR_Credit_Amount = 0,
+                        ATBU_Closing_Debit_Amount = 0,
+                        ATBU_Closing_Credit_Amount = 0,
+                        ATBU_DELFLG = "A",
+                        ATBU_CRBY = userId,
+                        ATBU_STATUS = "C",
+                        ATBU_UPDATEDBY = userId,
+                        ATBU_IPAddress = ipAddress,
+                        ATBU_CompId = accessCodeId,
+                        ATBU_YEARId = request.FinancialYearId,
+                        ATBU_Branchname = request.BranchId,
+                        ATBU_QuaterId = request.DurationId
+                    });
+
+                bool isPurchaseAccount = request.Rows.Any(r =>
+                    r.Account == account &&
+                    r.JE_Type?.Equals("Purchase", StringComparison.OrdinalIgnoreCase) == true);
+
+                bool isSalesAccount = request.Rows.Any(r =>
+                    r.Account == account &&
+                    r.JE_Type?.Equals("Sales", StringComparison.OrdinalIgnoreCase) == true);
+
+                // 🔑 NEW CHECK → Transaction Date exists for this account
+                bool hasTransactionDate = request.Rows.Any(r =>
+                    r.Account == account &&
+                    !string.IsNullOrWhiteSpace(r.Transaction_Date));
+
+                // DEFAULT TO 0
+                int headingId = 0;
+                int subHeadingId = 0;
+                int itemId = 0;
+                int scheduleType = 0;
+
+                if (hasTransactionDate)
                 {
-                    ATBUD_ID = 0,
-                    ATBUD_Masid = uploadId,
-                    ATBUD_CODE = "SCh00" + maxCount,
-                    ATBUD_Description = account,
-                    ATBUD_CustId = request.CustomerId,
-                    ATBUD_SChedule_Type = 0,
-                    ATBUD_Branchname = request.BranchId,
-                    ATBUD_iQuarterly = request.DurationId,
-                    ATBUD_Company_Type = request.CustomerId,
-                    ATBUD_Headingid = 0,
-                    ATBUD_Subheading = 0,
-                    ATBUD_itemid = 0,
-                    ATBUD_Subitemid = 0,
-                    ATBUD_DELFLG = "A",
-                    ATBUD_CRBY = userId,
-                    ATBUD_STATUS = "C",
-                    ATBUD_Progress = "Uploaded",
-                    ATBUD_UPDATEDBY = userId,
-                    ATBUD_IPAddress = ipAddress,
-                    ATBUD_CompId = accessCodeId,
-                    ATBUD_YEARId = request.FinancialYearId
-                });
+                    if (isPurchaseAccount)
+                    {
+                        headingId = pHeadingId;
+                        subHeadingId = pSubHeadingId;
+                        itemId = pItemId;
+                        scheduleType = pScheduleType;
+                    }
+                    else if (isSalesAccount)
+                    {
+                        headingId = sHeadingId;
+                        subHeadingId = sSubHeadingId;
+                        itemId = sItemId;
+                        scheduleType = sScheduleType;
+                    }
+                }
+
+                await SaveTrailBalanceExcelUploadDetails(
+                    connection, transaction,
+                    new TrailBalanceUpload
+                    {
+                        ATBUD_ID = 0,
+                        ATBUD_Masid = uploadId,
+                        ATBUD_CODE = "SCh00" + maxCount,
+                        ATBUD_Description = account,
+                        ATBUD_CustId = request.CustomerId,
+                        ATBUD_SChedule_Type = scheduleType,
+                        ATBUD_Branchname = request.BranchId,
+                        ATBUD_iQuarterly = request.DurationId,
+                        ATBUD_Company_Type = request.CustomerId,
+                        ATBUD_Headingid = headingId,      // ✅ 0 if no date
+                        ATBUD_Subheading = subHeadingId,  // ✅ 0 if no date
+                        ATBUD_itemid = itemId,            // ✅ 0 if no date
+                        ATBUD_Subitemid = 0,
+                        ATBUD_DELFLG = "A",
+                        ATBUD_CRBY = userId,
+                        ATBUD_STATUS = "C",
+                        ATBUD_Progress = "Uploaded",
+                        ATBUD_UPDATEDBY = userId,
+                        ATBUD_IPAddress = ipAddress,
+                        ATBUD_CompId = accessCodeId,
+                        ATBUD_YEARId = request.FinancialYearId
+                    });
             }
         }
+
+
 
         private async Task<ApiResponse<string>> ProcessTransactionsInBatches(SqlConnection connection, SqlTransaction transaction, JournalEntryUploadRequest request, int accessCodeId, int userId, string ipAddress)
         {

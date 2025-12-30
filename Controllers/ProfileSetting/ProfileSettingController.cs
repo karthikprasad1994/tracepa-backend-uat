@@ -57,7 +57,7 @@ namespace TracePca.Controllers.ProfileSetting
         }
 
         //ChangePasword
-        [HttpPut("UpdatePassword")]
+        [HttpPost("UpdatePassword")]
         public async Task<IActionResult> PutChangePasswordAsync([FromBody] TracePaChangePasswordDto dto)
         {
             try
@@ -131,7 +131,7 @@ namespace TracePca.Controllers.ProfileSetting
         }
 
         //UpdateUserProfile
-        [HttpPut("UpdateUserProfile")]
+        [HttpPost("UpdateUserProfile")]
         public async Task<IActionResult> UpdateUserProfileAsync([FromBody] UpdateUserProfileDto dto)
         {
             try
