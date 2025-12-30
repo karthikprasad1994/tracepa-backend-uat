@@ -974,7 +974,7 @@ namespace TracePca.Service.FixedAssetsService
                 parameters.Add("@AM_LevelCode", asset.AM_LevelCode);
                 parameters.Add("@AM_ParentID", asset.AM_ParentID);
                 parameters.Add("@AM_WDVITAct", asset.AM_WDVITAct);
-                parameters.Add("@AM_ITRate", asset.AM_ITRate ?? "");
+                parameters.Add("@AM_ITRate", asset.AM_ITRate);
                 parameters.Add("@AM_ResidualValue", asset.AM_ResidualValue);
                 parameters.Add("@AM_CreatedBy", asset.AM_CreatedBy);
                 parameters.Add("@AM_CreatedOn", asset.AM_CreatedOn);
