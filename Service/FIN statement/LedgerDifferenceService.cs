@@ -46,10 +46,24 @@ namespace TracePca.Service.FIN_statement
                         sql = @" Select ATBUD_Description as headingname, ATBUD_Masid as headingId,
                       abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) As CYamt,
                       abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)) As PYamt,
-                      abs(abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) -
-                          abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)))   As Difference_Amt,
-                      (abs(isnull(sum(d.ATBU_Closing_TotalCredit_Amount - d.ATBU_Closing_TotalDebit_Amount), 0)) /
-                          NULLIF(abs(isnull(sum(e.ATBU_Closing_TotalCredit_Amount - e.ATBU_Closing_TotalDebit_Amount), 0)), 0))   As Difference_Avg,
+               CASE   WHEN ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount - e.ATBU_Closing_TotalCredit_Amount), 0) = 0
+AND ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount - d.ATBU_Closing_TotalCredit_Amount), 0) <> 0
+ THEN  ABS(ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount - d.ATBU_Closing_TotalCredit_Amount), 0))
+ WHEN ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount - d.ATBU_Closing_TotalCredit_Amount), 0) = 0
+ AND ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount - e.ATBU_Closing_TotalCredit_Amount), 0) <> 0
+THEN ABS(ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount - e.ATBU_Closing_TotalCredit_Amount), 0))
+WHEN SIGN(ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount - d.ATBU_Closing_TotalCredit_Amount), 0))
+<> SIGN(ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount - e.ATBU_Closing_TotalCredit_Amount), 0))
+THEN ABS(ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount - d.ATBU_Closing_TotalCredit_Amount), 0))
++ ABS(ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount - e.ATBU_Closing_TotalCredit_Amount), 0))
+ELSE ABS( ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount - d.ATBU_Closing_TotalCredit_Amount), 0)
+- ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount - e.ATBU_Closing_TotalCredit_Amount), 0))END AS Difference_Amt,
+CASE WHEN ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount - e.ATBU_Closing_TotalCredit_Amount), 0) = 0 
+THEN 0 ELSE 
+ABS(ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount - d.ATBU_Closing_TotalCredit_Amount), 0)
+- ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount - e.ATBU_Closing_TotalCredit_Amount), 0)
+ )  / ABS(ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount - e.ATBU_Closing_TotalCredit_Amount), 0))
+END AS Difference_Avg,
 isnull (d.ATBU_Closing_TotalCredit_Amount,0) As cyCr,isnull (d.ATBU_Closing_TotalDebit_Amount,0) As cydb,
 isnull (e.ATBU_Closing_TotalCredit_Amount,0) As pyCr,isnull (e.ATBU_Closing_TotalDebit_Amount,0) As pydb,
                        d.ATBU_STATUS as Status
@@ -664,9 +678,7 @@ sum(isnull(e.ATBU_Closing_TotalCredit_Amount,0)) As pyCr,sum(isnull(e.ATBU_Closi
 
         WHERE ATBU.ATBU_CustId = @CustId
           AND ATBU.ATBU_YearId = @YearId
-          AND ATBU.ATBU_BranchId = @BranchId
-          AND ATBU.ATBU_Description <> 'Net Income'
-
+          AND ATBU.ATBU_BranchId = @BranchId      
         GROUP BY ATBU.ATBU_Description, Tr.AJTB_Debit, Tr.AJTB_Credit;
 
         /* ===========================
@@ -756,11 +768,9 @@ LEFT JOIN (
       AND AJTB_BranchId = @BranchId
     GROUP BY AJTB_DescName
 ) Tr ON Tr.AJTB_DescName = ATBU.ATBU_Description
-
 WHERE ATBU.ATBU_CustId = @CustId
   AND ATBU.ATBU_YearId = @YearId
-  AND ATBU.ATBU_BranchId = @BranchId and ATBU.ATBU_Description <> 'Net Income'
-
+  AND ATBU.ATBU_BranchId = @BranchId 
 GROUP BY ATBU.ATBU_Description, Tr.AJTB_Debit, Tr.AJTB_Credit;
 ";
 

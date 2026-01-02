@@ -147,10 +147,13 @@ namespace TracePca.Dto.Audit
     public class StandardAuditAllAttachmentsDTO
     {
         public List<AttachmentGroupDTO> AuditPlanAttachments { get; set; } = new();
-        public List<AttachmentGroupDTO> BeginningNearEndAuditAttachments { get; set; } = new();
+        public List<AttachmentGroupDTO> AuditScheduleAttachments { get; set; } = new();
+        public List<AttachmentGroupDTO> BeginningAuditAttachments { get; set; } = new();
+        public List<AttachmentGroupDTO> NearEndAuditAttachments { get; set; } = new();
         public List<AttachmentGroupDTO> DuringAuditAttachments { get; set; } = new();
         public List<AttachmentGroupDTO> WorkpaperAttachments { get; set; } = new();
         public List<AttachmentGroupDTO> ConductAuditAttachments { get; set; } = new();
+        public List<AttachmentGroupDTO> AccountFinalisationAttachments { get; set; } = new();        
     }
 
     public class AttachmentGroupDTO

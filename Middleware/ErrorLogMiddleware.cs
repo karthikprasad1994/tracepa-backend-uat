@@ -64,9 +64,8 @@ namespace TracePca.Middleware
                     context.Response.StatusCode = 500;
                     await context.Response.WriteAsJsonAsync(new
                     {
-                        status = 500,
-                        Message = "An internal error occurred. Please contact support.",
-                        error = "CustomerCode is missing in session. Please log in again."
+                        StatusCode = 500,
+                        Message = "An internal error occurred. Please contact support."
                     });
                 }
             }

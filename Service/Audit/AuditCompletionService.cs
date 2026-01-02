@@ -142,8 +142,6 @@ namespace TracePca.Service.Audit
             }
         }
 
-  
- 
         public async Task<IEnumerable<ReportTypeDetailsDTO>> GetReportTypeDetailsByAuditId(int compId, int auditId)
         {
             try
@@ -1885,13 +1883,14 @@ namespace TracePca.Service.Audit
                 var result = new StandardAuditAllAttachmentsDTO
                 {
                     AuditPlanAttachments = new List<AttachmentGroupDTO>(),
-                    BeginningNearEndAuditAttachments = new List<AttachmentGroupDTO>(),
+                    BeginningAuditAttachments = new List<AttachmentGroupDTO>(),
+                    NearEndAuditAttachments = new List<AttachmentGroupDTO>(),
                     DuringAuditAttachments = new List<AttachmentGroupDTO>(),
                     WorkpaperAttachments = new List<AttachmentGroupDTO>(),
                     ConductAuditAttachments = new List<AttachmentGroupDTO>()
                 };
 
-                // 0. Audit Plan/EngagementPlan
+                // 1. Audit Plan/EngagementPlan
                 var auditPlanTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
                 @"SELECT TOP 1 RTM.RTM_Id AS TypeId, RTM.RTM_ReportTypeName AS TypeName,
                 STUFF((SELECT DISTINCT ',' + CAST(LOET2.LOE_AttachID AS VARCHAR) FROM StandardAudit_Schedule SA2
@@ -1912,22 +1911,25 @@ namespace TracePca.Service.Audit
                         result.AuditPlanAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
-                // 1. Beginning Audit (Pre-Audit) & Nearing End Audit (Post-Audit)
+                // 2. Audit Schedule
+                result.AuditScheduleAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Audit Schedule Report", Attachments = null });
+
+                // 3. Beginning of the Audit Communication
                 var beginningTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
                  @"SELECT RTM_Id AS TypeId, RTM_ReportTypeName AS TypeName,
                   STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=@AuditID AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
                   FROM SAD_ReportTypeMaster
-                  WHERE RTM_CompID=@CompId AND RTM_TemplateId IN(2,4) AND RTM_DelFlag='A' AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory H WHERE H.SAR_SA_ID=@AuditID AND H.SAR_ReportType=RTM_Id AND H.SAR_AttchId>0)",
+                  WHERE RTM_CompID=@CompId AND RTM_TemplateId IN(2) AND RTM_DelFlag='A' AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory H WHERE H.SAR_SA_ID=@AuditID AND H.SAR_ReportType=RTM_Id AND H.SAR_AttchId>0)",
                  new { CompId = compId, AuditID = auditId });
 
                 foreach (var item in beginningTypes)
                 {
                     var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
                     if (attachments.Any())
-                        result.BeginningNearEndAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
+                        result.BeginningAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
-                // 2. During Audit (DRL)
+                // 4. During the Audit Requests
                 var duringTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
                 @"SELECT CMM_ID AS TypeId, CMM_Desc AS TypeName,
                   STUFF((SELECT DISTINCT ',' + CAST(ADRL_AttachID AS VARCHAR) FROM Audit_DRLLog WHERE ADRL_AuditNo=@AuditID AND ADRL_RequestedListID=CMM_ID AND ADRL_AttachID>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
@@ -1941,7 +1943,7 @@ namespace TracePca.Service.Audit
                         result.DuringAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
-                // 3. Workpaper
+                // 5. Workpapers and Attachments
                 var workpaperTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
                 @"SELECT wp.SSW_ID AS TypeId, wp.SSW_WorkpaperRef AS TypeName,
                   STUFF((SELECT DISTINCT ',' + CAST(SSW_AttachID AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID=@AuditID AND SSW_ID=wp.SSW_ID AND SSW_AttachID>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
@@ -1955,7 +1957,7 @@ namespace TracePca.Service.Audit
                         result.WorkpaperAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
-                // 4. Audit or Review - Testing (Checkpoints)
+                // 6. Conduct Audit Checkpoint wise Testing details and Annexures
                 var conductTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
                 @"SELECT DISTINCT ACM_ID AS TypeId, ACM_CheckPoint AS TypeName,
                   STUFF((SELECT DISTINCT ',' + CAST(SAC_AttachID AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID=@AuditID AND SAC_CheckPointID=cp.SAC_CheckPointID AND SAC_AttachID>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
@@ -1969,6 +1971,21 @@ namespace TracePca.Service.Audit
                     var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
                     if (attachments.Any())
                         result.ConductAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
+                }
+
+                // 7. Near End of the Audit
+                var nearEndTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
+                 @"SELECT RTM_Id AS TypeId, RTM_ReportTypeName AS TypeName,
+                  STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=@AuditID AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
+                  FROM SAD_ReportTypeMaster
+                  WHERE RTM_CompID=@CompId AND RTM_TemplateId IN(4) AND RTM_DelFlag='A' AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory H WHERE H.SAR_SA_ID=@AuditID AND H.SAR_ReportType=RTM_Id AND H.SAR_AttchId>0)",
+                 new { CompId = compId, AuditID = auditId });
+
+                foreach (var item in nearEndTypes)
+                {
+                    var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
+                    if (attachments.Any())
+                        result.NearEndAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
                 return result;
             }
@@ -2138,9 +2155,7 @@ namespace TracePca.Service.Audit
                 else
                 {
                     Directory.CreateDirectory(downloadDirectoryPath);
-                }
- 
-               
+                }               
 
                 int orgNode = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(Org_Node, 0) FROM sad_org_structure WHERE Org_Name = @Org_Name AND Org_CompID = @Org_CompID;",
                     new { Org_Name = OrgName, Org_CompID = compId });
@@ -2183,7 +2198,7 @@ namespace TracePca.Service.Audit
 
                 String mainFolder = SanitizeName(result.SubCabinet);
 
-                // 0. Audit Plan / Engagement Plan
+                // 1. Audit Plan
                 var auditPlanTypes =
                 "SELECT TOP 1 LOE_ID AS LOEID, RTM.RTM_Id AS TypeId,'LOE - ' + RTM.RTM_ReportTypeName AS TypeName," +
                 " STUFF((SELECT ',' + CAST(LOET2.LOE_AttachID AS VARCHAR) FROM StandardAudit_Schedule SA2" +
@@ -2199,7 +2214,7 @@ namespace TracePca.Service.Audit
                 " WHERE SA.SA_ID=" + auditId + " AND SA.SA_CompID=" + compId +
                 " AND EXISTS(SELECT 1 FROM LOE_Template t2 WHERE t2.LOET_LOEID=LOE.LOE_ID AND t2.LOE_AttachID>0)";
 
-                // 1. Beginning Audit (Pre-Audit)
+                // 3. Beginning of the Audit Communication
                 var beginningTypes =
                 "SELECT RTM_Id AS TypeId,1 As CheckReportType,'Beginning of the Audit - ' + RTM_ReportTypeName AS TypeName," +
                 " STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory" +
@@ -2208,7 +2223,7 @@ namespace TracePca.Service.Audit
                 " WHERE RTM_CompID=" + compId + " AND RTM_TemplateId=2 AND RTM_DelFlag='A'" +
                 " AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0)";
 
-                // 2. During Audit (DRL)
+                // 4. During the Audit Requests
                 var duringTypes =
                 "SELECT CMM_ID AS TypeId,0 As CheckReportType,'DRL - ' + CMM_Desc AS TypeName," +
                 " STUFF((SELECT ',' + CAST(ADRL_AttachID AS VARCHAR) FROM Audit_DRLLog" +
@@ -2217,16 +2232,7 @@ namespace TracePca.Service.Audit
                 " WHERE CMM_Category='DRL' AND CMS_Keycomponent=0" +
                 " AND EXISTS(SELECT 1 FROM Audit_DRLLog WHERE ADRL_AuditNo=" + auditId + " AND ADRL_RequestedListID=CMM_ID AND ADRL_AttachID>0)";
 
-                // 3. Nearing End Audit (Post-Audit)
-                var nearingEndTypes =
-                "SELECT RTM_Id AS TypeId,1 As CheckReportType,'Near end of the Audit - ' + RTM_ReportTypeName AS TypeName," +
-                " STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory" +
-                " WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
-                " FROM SAD_ReportTypeMaster" +
-                " WHERE RTM_CompID=" + compId + " AND RTM_TemplateId=4 AND RTM_DelFlag='A'" +
-                " AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0)";
-
-                // 4. Workpaper
+                // 5. Workpapers and Attachments
                 var workpaperTypes =
                 "SELECT wp.SSW_ID AS TypeId,0 As CheckReportType,'WP - ' + wp.SSW_WorkpaperRef AS TypeName," +
                 " STUFF((SELECT ',' + CAST(SSW_AttachID AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper" +
@@ -2235,7 +2241,7 @@ namespace TracePca.Service.Audit
                 " WHERE SSW_SA_ID=" + auditId +
                 " AND EXISTS(SELECT 1 FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID=" + auditId + " AND SSW_ID=wp.SSW_ID AND SSW_AttachID>0)";
 
-                // 5. Audit or Review - Testing (Checkpoints)
+                // 6. Conduct Audit Checkpoint wise Testing details and Annexures
                 var conductTypes =
                 "SELECT DISTINCT ACM_ID AS TypeId,0 As CheckReportType,CAST('CheckPoint_' + CAST(ACM_ID AS VARCHAR(10)) + ' - ' + CAST(ACM_Heading AS VARCHAR(MAX)) AS VARCHAR(MAX)) AS TypeName," +
                 " STUFF((SELECT ',' + CAST(SAC_AttachID AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList" +
@@ -2244,6 +2250,19 @@ namespace TracePca.Service.Audit
                 " INNER JOIN AuditType_Checklist_Master ON ACM_ID=cp.SAC_CheckPointID" +
                 " WHERE cp.SAC_SA_ID=" + auditId +
                 " AND EXISTS(SELECT 1 FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID=" + auditId + " AND SAC_CheckPointID=cp.SAC_CheckPointID AND SAC_AttachID>0)";
+
+                // 7. Near End of the Audit
+                var nearingEndTypes =
+                "SELECT RTM_Id AS TypeId,1 As CheckReportType,'Near end of the Audit - ' + RTM_ReportTypeName AS TypeName," +
+                " STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory" +
+                " WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
+                " FROM SAD_ReportTypeMaster" +
+                " WHERE RTM_CompID=" + compId + " AND RTM_TemplateId=4 AND RTM_DelFlag='A'" +
+                " AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0)";
+
+                // 8. Audit Completion Checkpoint Reports
+
+                // 9. Account Finalisation Reports
 
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, auditPlanTypes);
                 //@"SELECT DISTINCT ISNULL(CAST(SAR_AttchId AS VARCHAR), '0') AS SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = " + compId + " And RTM_TemplateId = 2) And RTM_DelFlag='A'",
@@ -2305,9 +2324,6 @@ namespace TracePca.Service.Audit
 
                 ZipFile.CreateFromDirectory(cleanedPath, zipFilePath);
 
-
-
-
                 var request = _httpContextAccessor.HttpContext.Request;
                 string baseUrl = $"{request.Scheme}://{request.Host}";
                 string downloadUrl = $"{baseUrl}/Tempfolder/{compId}/{SanitizeName(Cabinet) + ".zip"}";
@@ -2319,9 +2335,6 @@ namespace TracePca.Service.Audit
                 throw new Exception($"Failed to upload the attachment document.", ex);
             }
         }
-
-
-
 
         private async Task<DataTable> GetDataTableAsync(SqlConnection connection, string query)
         {
