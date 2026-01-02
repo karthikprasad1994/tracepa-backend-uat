@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using TracePca.Dto.FixedAssets;
 using TracePca.Interface.FixedAssetsInterface;
+using TracePca.Service.AssetService;
 using TracePca.Service.FixedAssetsService;
 using static TracePca.Dto.FixedAssets.AssetSetupDto;
 
@@ -966,8 +967,46 @@ namespace TracePca.Controllers.FixedAssets
             }
         }
 
-    }
+        //UpdateLoaction
+        [HttpPost("UpdateLocationSetup")]
+        public async Task<IActionResult> UpdateLocationSetup([FromBody] UpadteLocationSetupDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "No location setup data received.",
+                        data = (object)null
+                    });
+                }
 
+                var result = await _AssetSetupService.UpdateLocationSetupAsync(dto);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Location setup data saved successfully.",
+                    data = new
+                    {
+                        updateOrSave = result[0],
+                        operation = result[1]
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while saving location setup data.",
+                    error = ex.Message
+                });
+            }
+        }
+    }
 }
 
 

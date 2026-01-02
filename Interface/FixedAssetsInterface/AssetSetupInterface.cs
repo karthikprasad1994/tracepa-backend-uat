@@ -70,5 +70,7 @@ namespace TracePca.Interface.FixedAssetsInterface
         //SaveAssetClassUnderSubHeading
         Task<string[]> SaveAssetClassAsync(SaveAssetClassDto asset);
 
+        //UpdateLoaction
+        Task<int[]> UpdateLocationSetupAsync(UpadteLocationSetupDto dto);
     }
 }
