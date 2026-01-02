@@ -60,7 +60,7 @@
             public int AM_LevelCode { get; set; }
             public int AM_ParentID { get; set; }
             public decimal AM_WDVITAct { get; set; }
-            public string AM_ITRate { get; set; }
+            public decimal AM_ITRate { get; set; }
             public decimal AM_ResidualValue { get; set; }
             public int AM_CreatedBy { get; set; }
             public DateTime AM_CreatedOn { get; set; }
@@ -305,6 +305,28 @@
             public string AM_IPAddress { get; set; }
         }
 
-
+        //UpdateLoaction
+        public class UpadteLocationSetupDto
+        {
+            public int LS_ID { get; set; }
+            public string? LS_Description { get; set; }
+            public string? LS_DescCode { get; set; }
+            public string? LS_Code { get; set; }
+            public int LS_LevelCode { get; set; }
+            public int LS_ParentID { get; set; }
+            public int LS_CreatedBy { get; set; }
+            public DateTime LS_CreatedOn { get; set; }
+            public int LS_UpdatedBy { get; set; }
+            public DateTime LS_UpdatedOn { get; set; }
+            public string? LS_DelFlag { get; set; }
+            public string? LS_Status { get; set; }
+            public int LS_YearID { get; set; }
+            public int LS_CompID { get; set; }
+            public int LS_CustId { get; set; }
+            public int? LS_ApprovedBy { get; set; }
+            public DateTime? LS_ApprovedOn { get; set; }
+            public int LS_Opeartion { get; set; }   // 1 = Save, 2 = Update (as per SP)
+            public string? LS_IPAddress { get; set; }
+        }
     }
 }

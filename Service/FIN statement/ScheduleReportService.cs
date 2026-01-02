@@ -1807,7 +1807,7 @@ GROUP BY ATBUD_Headingid, ASH_Name, a.ASH_Notes ORDER BY ATBUD_Headingid";
  And f.ATBU_YEARId = @YearId  and f.ATBU_CustId = @CustomerId and ATBUD_YEARId = @YearId  and f.ATBU_Branchid = Atbud_Branchnameid And f.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  left join Acc_TrailBalance_Upload g on g.ATBU_Description = ATBUD_Description and ATBUD_SubItemId = 0 and ATBUD_itemid = 0 And g.ATBU_YEARId = @PrevYearId
  and g.ATBU_CustId = @CustomerId and ATBUD_YEARId = @PrevYearId and g.ATBU_Branchid = Atbud_Branchnameid And g.Atbu_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) 
- where ATBUD_Subheading= @subHeadingId  And ATBUD_Subheading<>0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId And Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+ where ATBUD_Subheading= @subHeadingId  And ATBUD_Subheading<>0 and ATBUD_itemid=0 and ATBUD_Schedule_type = @ScheduleTypeID   And ATBUD_CustId = @CustomerId And Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
  group by ATBUD_Subheading,ASSH_Name,AsSh_Notes,ASHN_Description,ATBUD_Description order by ATBUD_Subheading";
                             var descs = await connection.QueryAsync<DetailedReportBalanceSheetRow>(descriptionSql, new
                             {
