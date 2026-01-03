@@ -339,7 +339,7 @@ namespace TracePca.Service.FixedAssetsService
                     cmd.Parameters.AddWithValue("@AM_LevelCode", asset.AM_LevelCode);
                     cmd.Parameters.AddWithValue("@AM_ParentID", asset.AM_ParentID);
                     cmd.Parameters.AddWithValue("@AM_WDVITAct", asset.AM_WDVITAct);
-                    cmd.Parameters.AddWithValue("@AM_ITRate", asset.AM_ITRate ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@AM_ITRate", asset.AM_ITRate );
                     cmd.Parameters.AddWithValue("@AM_ResidualValue", asset.AM_ResidualValue);
                     cmd.Parameters.AddWithValue("@AM_CreatedBy", asset.AM_CreatedBy);
                     cmd.Parameters.AddWithValue("@AM_CreatedOn", asset.AM_CreatedOn);
@@ -1010,6 +1010,88 @@ namespace TracePca.Service.FixedAssetsService
             }
         }
 
+        //UpdateLocation
+        public async Task<int[]> UpdateLocationSetupAsync(UpadteLocationSetupDto dto)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            string connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                int iPKId = dto.LS_ID;
+                int updateOrSave;
+                int oper;
+
+                using (var command = new SqlCommand("spAcc_AssetLocationSetup", connection, transaction))
+                {
+                    command.CommandType = CommandType.StoredProcedure;
+
+                    // ➤ INPUT PARAMETERS
+                    command.Parameters.AddWithValue("@LS_ID", dto.LS_ID);
+                    command.Parameters.AddWithValue("@LS_Description", dto.LS_Description ?? string.Empty);
+                    command.Parameters.AddWithValue("@LS_DescCode", dto.LS_DescCode ?? string.Empty);
+                    command.Parameters.AddWithValue("@LS_Code", dto.LS_Code ?? string.Empty);
+                    command.Parameters.AddWithValue("@LS_LevelCode", dto.LS_LevelCode);
+                    command.Parameters.AddWithValue("@LS_ParentID", dto.LS_ParentID);
+                    command.Parameters.AddWithValue("@LS_CreatedBy", dto.LS_CreatedBy);
+                    command.Parameters.AddWithValue("@LS_CreatedOn", dto.LS_CreatedOn);
+                    command.Parameters.AddWithValue("@LS_UpdatedBy", dto.LS_UpdatedBy);
+                    command.Parameters.AddWithValue("@LS_UpdatedOn", dto.LS_UpdatedOn);
+                    command.Parameters.AddWithValue("@LS_DelFlag", dto.LS_DelFlag ?? "A");
+                    command.Parameters.AddWithValue("@LS_Status", dto.LS_Status ?? "C");
+                    command.Parameters.AddWithValue("@LS_YearID", dto.LS_YearID);
+                    command.Parameters.AddWithValue("@LS_CompID", dto.LS_CompID);
+                    command.Parameters.AddWithValue("@LS_CustId", dto.LS_CustId);
+                    command.Parameters.AddWithValue("@LS_ApprovedBy", dto.LS_ApprovedBy);
+                    command.Parameters.AddWithValue("@LS_ApprovedOn", dto.LS_ApprovedOn);
+                    command.Parameters.AddWithValue("@LS_Opeartion", dto.LS_Opeartion);
+                    command.Parameters.AddWithValue("@LS_IPAddress", dto.LS_IPAddress ?? string.Empty);
+
+                    // ➤ OUTPUT PARAMETERS
+                    var outputUpdateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
+                    {
+                        Direction = ParameterDirection.Output
+                    };
+
+                    var outputOper = new SqlParameter("@iOper", SqlDbType.Int)
+                    {
+                        Direction = ParameterDirection.Output
+                    };
+
+                    command.Parameters.Add(outputUpdateOrSave);
+                    command.Parameters.Add(outputOper);
+
+                    await command.ExecuteNonQueryAsync();
+
+                    updateOrSave = Convert.ToInt32(outputUpdateOrSave.Value);
+                    oper = Convert.ToInt32(outputOper.Value);
+                }
+
+                transaction.Commit();
+
+                return new int[]
+                {
+            updateOrSave,
+            oper
+                };
+            }
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+                throw new Exception("Error while saving Location Setup data: " + ex.Message, ex);
+            }
+        }
 
 
 
