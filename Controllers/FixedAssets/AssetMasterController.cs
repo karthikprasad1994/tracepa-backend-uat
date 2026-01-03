@@ -6,7 +6,6 @@ using TracePca.Interface;
 using TracePca.Interface.FixedAssetsInterface;
 using TracePca.Models.UserModels;
 using TracePca.Service;
-using TracePca.Service.AssetService;
 using TracePca.Service.FixedAssetsService;
 using static TracePca.Dto.FixedAssets.AssetMasterdto;
 //using static TracePca.Service.FixedAssetsService.AssetMasterService;
