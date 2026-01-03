@@ -1881,7 +1881,9 @@ WHERE UPPER(CUST_NAME) = UPPER(@CustomerName)
         {
             { "Employee Master", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\EmployeeMaster Template.xlsx" },
             { "Client Details", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\ClientDetails Template.xlsx" },
-            { "Client User", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\ClientUser Template.xlsx" }
+            { "Client User", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\ClientUser Template.xlsx" },
+            { "Audit Type & Checkpoints", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\AuditChecklistMaster.xlsx" },
+            { "Task & SubTasks", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\TaskMaster.xlsx" }
         };
 
             if (!templates.ContainsKey(templateName))
