@@ -1,11 +1,7 @@
 ﻿using System.Data;
 using Dapper;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
-using TracePca.Dto.FixedAssets;
 using TracePca.Interface.FixedAssetsInterface;
-using TracePca.Service.AssetService;
-using TracePca.Service.FixedAssetsService;
 using static TracePca.Dto.FixedAssets.AssetSetupDto;
 
 
@@ -967,46 +963,176 @@ namespace TracePca.Controllers.FixedAssets
             }
         }
 
-        //UpdateLoaction
-        [HttpPost("UpdateLocationSetup")]
-        public async Task<IActionResult> UpdateLocationSetup([FromBody] UpadteLocationSetupDto dto)
-        {
-            try
-            {
-                if (dto == null)
-                {
-                    return BadRequest(new
-                    {
-                        statusCode = 400,
-                        message = "No location setup data received.",
-                        data = (object)null
-                    });
-                }
+        ////UpdateLocation
+        //[HttpPost("UpdateLocationSetup")]
+        //public async Task<IActionResult> UpdateLocationSetup([FromBody] UpadteLocationSetupDto dto)
+        //{
+        //    try
+        //    {
+        //        if (dto == null)
+        //        {
+        //            return BadRequest(new
+        //            {
+        //                statusCode = 400,
+        //                message = "No location setup data received.",
+        //                data = (object)null
+        //            });
+        //        }
 
-                var result = await _AssetSetupService.UpdateLocationSetupAsync(dto);
+        //        var result = await _AssetSetupService.UpdateLocationSetupAsync(dto);
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Location setup data saved successfully.",
-                    data = new
-                    {
-                        updateOrSave = result[0],
-                        operation = result[1]
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An error occurred while saving location setup data.",
-                    error = ex.Message
-                });
-            }
-        }
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Location setup data saved successfully.",
+        //            data = new
+        //            {
+        //                updateOrSave = result[0],
+        //                operation = result[1]
+        //            }
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            statusCode = 500,
+        //            message = "An error occurred while saving location setup data.",
+        //            error = ex.Message
+        //        });
+        //    }
+        //}
+
+        ////UpdateDivision
+
+        //    [HttpPost("UpdateDivision")]
+        //    public async Task<IActionResult> UpdateDivisionSetup([FromBody] UpadteDivisionSetupDto dto)
+        //    {
+        //        if (dto == null || dto.LS_ID <= 0)
+        //        {
+        //            return BadRequest(new
+        //            {
+        //                statusCode = 400,
+        //                success = false,
+        //                message = "Invalid Division Setup data. LS_ID is required for update.",
+        //                data = new List<object>()
+        //            });
+        //        }
+
+        //        try
+        //        {
+        //            var result = await _AssetSetupService.UpdateDivisionSetupAsync(dto);
+
+        //            return Ok(new
+        //            {
+        //                statusCode = 200,
+        //                success = true,
+        //                message = "Division Setup updated successfully",
+        //                data = new
+        //                {
+        //                    updateOrSave = result[0], // 2 = updated, 3 = inserted
+        //                    oper = result[1]          // LS_ID
+        //                }
+        //            });
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            return StatusCode(500, new
+        //            {
+        //                statusCode = 500,
+        //                success = false,
+        //                message = "Error updating Division Setup: " + ex.Message
+        //            });
+        //        }
+        //    }
+
+        ////UpdateDepartment
+
+        //    [HttpPost("updateDepartment")]
+        //    public async Task<IActionResult> UpdateDepartmentSetup([FromBody] UpadteDepartmentSetupDto dto)
+        //    {
+        //        if (dto == null || dto.LS_ID <= 0)
+        //        {
+        //            return BadRequest(new
+        //            {
+        //                statusCode = 400,
+        //                success = false,
+        //                message = "Invalid Department Setup data. LS_ID is required for update."
+        //            });
+        //        }
+
+        //        try
+        //        {
+              
+        //            var result = await _AssetSetupService.UpdateDepartmentSetupAsync(dto);
+
+        //            return Ok(new
+        //            {
+        //                statusCode = 200,
+        //                success = true,
+        //                message = "Department Setup updated successfully",
+        //                data = new
+        //                {
+        //                    updateOrSave = result[0], // 2 = updated, 3 = inserted
+        //                    oper = result[1]          // LS_ID
+        //                }
+        //            });
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            return StatusCode(500, new
+        //            {
+        //                statusCode = 500,
+        //                success = false,
+        //                message = "Error updating Department Setup: " + ex.Message
+        //            });
+        //        }
+        //    }
+
+        ////UpdateBay
+        //    [HttpPost("updateBay")]
+        //    public async Task<IActionResult> UpdateBaySetup([FromBody] UpadteBaySetupDto dto)
+        //    {
+        //        if (dto == null || dto.LS_ID <= 0)
+        //        {
+        //            return BadRequest(new
+        //            {
+        //                statusCode = 400,
+        //                success = false,
+        //                message = "Invalid Bay Setup data. LS_ID is required for update."
+        //            });
+        //        }
+
+        //        try
+        //        {
+        //            var result = await _AssetSetupService.UpdateBaySetupAsync(dto);
+
+        //            return Ok(new
+        //            {
+        //                statusCode = 200,
+        //                success = true,
+        //                message = "Bay Setup updated successfully",
+        //                data = new
+        //                {
+        //                    updateOrSave = result[0], // 2 = updated, 3 = inserted
+        //                    oper = result[1]          // LS_ID
+        //                }
+        //            });
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            return StatusCode(500, new
+        //            {
+        //                statusCode = 500,
+        //                success = false,
+        //                message = "Error updating Bay Setup: " + ex.Message
+        //            });
+        //        }
+        //    }
+        
     }
 }
+
+
 
 

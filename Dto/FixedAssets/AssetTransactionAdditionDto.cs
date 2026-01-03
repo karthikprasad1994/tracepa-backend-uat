@@ -144,7 +144,7 @@ namespace TracePca.Dto.FixedAssets
             public string Module { get; set; }
             public string Form { get; set; }
             public string Event { get; set; }
-            public int MasterID { get; set; }
+             public int MasterID { get; set; }
             public string MasterName { get; set; }
             public int SubMasterID { get; set; }
             public string SubMasterName { get; set; }
