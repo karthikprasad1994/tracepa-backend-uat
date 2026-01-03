@@ -18,7 +18,6 @@ using System.Text.Json.Serialization;
 using TracePca.Data;
 using TracePca.Data.CustomerRegistration;
 using TracePca.Interface;
-using TracePca.Interface.AssetMaserInterface;
 using TracePca.Interface.Audit;
 using TracePca.Interface.ClientPortal;
 using TracePca.Interface.CustomerUserMaster;
@@ -37,7 +36,6 @@ using TracePca.Interface.ProfileSetting;
 using TracePca.Interface.SuperMaster;
 using TracePca.Interface.TaskManagement;
 using TracePca.Service;
-using TracePca.Service.AssetService;
 using TracePca.Service.Audit;
 using TracePca.Service.ClientPortal;
 using TracePca.Service.Communication_with_client;
@@ -57,6 +55,7 @@ using TracePca.Service.TaskManagement;
 using TracePca.Utility;
 using System.Globalization;
 using QuestPDF.Infrastructure;
+using JournalEntryUploadAPI.Services;
 
 
 
@@ -159,10 +158,7 @@ builder.Services.AddScoped<OtpService>();
 builder.Services.AddScoped<AssetMasterInterface, AssetMasterService>();
 builder.Services.AddScoped<AssetCreationInterface, AssetCreationService>();
 builder.Services.AddScoped<AssetSetupInterface, AssetSetupService>();
-builder.Services.AddScoped<AssetRegisterInterface, AssetRegister>();
-builder.Services.AddScoped<LocationSetUpInterface, LocationSeUpService>();
 builder.Services.AddScoped<AssetTransactionAdditionInterface, AssetTransactionAdditionService>();
-builder.Services.AddScoped<AssetAdditionDashboardInterface, AssetAdditionDashboard>();
 builder.Services.AddScoped<EngagementPlanInterface, EngagementPlanService>();
 builder.Services.AddScoped<AuditCompletionInterface, AuditCompletionService>();
 builder.Services.AddScoped<ExcelInformationInterfaces, ExcelInformationService>();
@@ -186,7 +182,7 @@ builder.Services.AddScoped<FlaggedTransactionInterface, FlaggedTransactionServic
 builder.Services.AddScoped<AgingAnalysisInterface, AgingAnalysisService>();
 builder.Services.AddScoped<SamplingInterface, SamplingService>();
 builder.Services.AddScoped<IClientPortalInterface, ClientPortalService>();
-
+builder.Services.AddScoped<IDBHelper, DBHelper>();
 
 // Register your custom DbConnectionFactory
 builder.Services.AddScoped<IDbConnectionFactory, DbConnectionFactory>();
@@ -225,6 +221,7 @@ builder.Services.AddScoped<CustomerMasterInterface, CustomerMaster>();
 builder.Services.AddScoped<CustomerUserMasterInterface, CustomerUserMaster>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
 builder.Services.AddScoped<ReportTemplateInterface, ReportTemplateService>();
+builder.Services.AddScoped<IBulkJournalEntryService, BulkJournalEntryService>();
 
 
 builder.Services.AddScoped<ApiPerformanceTracker>();
@@ -234,7 +231,6 @@ builder.Services.AddScoped<TaskDashboardInterface, TaskDashboardService>();
 builder.Services.AddScoped<TaskScheduleInterface, TaskScheduleService>();
 builder.Services.AddScoped<CompanyDetailsInterface, CompanyDetailsService>();
 builder.Services.AddScoped<TaskInvoiceAndReportInterface, TaskInvoiceAndReportService>();
-builder.Services.AddScoped<BulkOperationsService, BulkOperationsService>();
 builder.Services.AddScoped<JournalEntryInterface, JournalEntryService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

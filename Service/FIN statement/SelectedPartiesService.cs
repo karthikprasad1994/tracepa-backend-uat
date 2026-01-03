@@ -128,11 +128,15 @@ namespace TracePca.Service.FIN_statement
             JED.AJTB_Credit,
             TBU.ATBU_Description,
             TBU.ATBU_ID,
-            JED.AJTB_SeqReferenceNum as status
+            JED.AJTB_SeqReferenceNum as status,
+			c.cmm_Desc as JeType
+
         FROM Acc_JETransactions_Details AS JED
         LEFT JOIN Acc_TrailBalance_Upload AS TBU
             ON JED.AJTB_Deschead = TBU.ATBU_ID
 LEFT JOIN Acc_JE_Master AS JE   ON JE.ACC_JE_ID = JED.ajtb_masid
+		LEFT JOIN Content_Management_Master as c on c.cmm_ID = JE.Acc_JE_BillType and c.cmm_Category = 'JE'
+
         WHERE 
             TBU.ATBU_DELFLG = 'S'
             AND JED.AJTB_CustId = @CustId

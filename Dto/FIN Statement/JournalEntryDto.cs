@@ -266,6 +266,7 @@ namespace TracePca.Dto.FIN_Statement
             public decimal AJTB_Credit { get; set; }
             public decimal AJTB_Debit { get; set; }
             public string CUST_NAME { get; set; }
+            public string Acc_JE_BillNo { get; set; }
 
         }
 
@@ -324,6 +325,62 @@ namespace TracePca.Dto.FIN_Statement
         {
             public bool Success { get; set; }
             public int ProcessedCount { get; set; }
+            public int FailedCount { get; set; }
+            public List<string> Errors { get; set; } = new List<string>();
+        }
+
+
+
+        // Models/DTOs/JournalEntryUploadRequest.cs
+        public class JournalEntryUploadRequestLarge
+        {
+            public int CustomerId { get; set; }
+            public int FinancialYearId { get; set; }
+            public int BranchId { get; set; }
+            public int DurationId { get; set; }
+            public int AccessCodeId { get; set; }
+            public int UserId { get; set; }
+            public string IpAddress { get; set; }
+            public string FileName { get; set; }
+        }
+
+        // Models/DTOs/JournalEntryDto.cs
+        public class JournalEntryDtoLarge
+        {
+            public string SrNo { get; set; }
+            public string Trans { get; set; }
+            public string Type { get; set; }
+            public string Date { get; set; }
+            public string Num { get; set; }
+            public string Adj { get; set; }
+            public string Name { get; set; }
+            public string Memo { get; set; }
+            public string Account { get; set; }
+            public decimal? Debit { get; set; }
+            public decimal? Credit { get; set; }
+            public int RowIndex { get; set; }
+        }
+
+        // Models/DTOs/UploadResponse.cs
+        public class UploadResponse
+        {
+            public bool Success { get; set; }
+            public string Message { get; set; }
+            public int TotalRecords { get; set; }
+            public int ProcessedRecords { get; set; }
+            public int FailedRecords { get; set; }
+            public TimeSpan ProcessingTime { get; set; }
+            public double RecordsPerSecond { get; set; }
+            public List<string> Errors { get; set; } = new List<string>();
+            public string TransactionId { get; set; }
+            public DateTime StartTime { get; set; }
+            public DateTime EndTime { get; set; }
+        }
+
+        // Models/DTOs/BatchResult.cs
+        public class BatchResult
+        {
+            public int SuccessCount { get; set; }
             public int FailedCount { get; set; }
             public List<string> Errors { get; set; } = new List<string>();
         }

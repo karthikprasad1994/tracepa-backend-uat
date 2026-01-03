@@ -1,8 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TracePca.Dto;
 using TracePca.Interface.FixedAssetsInterface;
-using TracePca.Service.FixedAssetsService;
-using TracePca.Service.SuperMaster;
 using static TracePca.Dto.FixedAssets.AssetCreationDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -461,42 +459,42 @@ namespace TracePca.Controllers
         //------
 
 
-        [HttpPost("SaveFixedAsset")]
-        public async Task<IActionResult> SaveFixedAsset([FromBody] FixedAssetRequest request)
-        {
-            if (request == null || request.Asset == null || request.Audit == null)
+            [HttpPost("SaveFixedAsset")]
+            public async Task<IActionResult> SaveFixedAsset([FromBody] FixedAssetRequest request)
             {
-                return BadRequest(new
+                if (request == null || request.Asset == null || request.Audit == null)
                 {
-                    status = false,
-                    message = "Invalid request data."
-                });
-            }
+                    return BadRequest(new
+                    {
+                        status = false,
+                        message = "Invalid request data."
+                    });
+                }
 
-            try
-            {
-                int savedId = await _AssetCreationService.SaveFixedAssetAsync(request.Asset, request.Audit);
+                try
+                {
+                    int savedId = await _AssetCreationService.SaveFixedAssetAsync(request.Asset, request.Audit);
 
-                return Ok(new
+                    return Ok(new
+                    {
+                        status = 200,
+                        message = "Fixed Asset saved successfully.",
+                        data = new { MasterID = savedId }
+                    });
+                }
+                catch (Exception ex)
                 {
-                    status = 200,
-                    message = "Fixed Asset saved successfully.",
-                    data = new { MasterID = savedId }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    status = false,
-                    message = "An error occurred while saving Fixed Asset.",
-                    error = ex.Message
-                });
+                    return StatusCode(500, new
+                    {
+                        status = false,
+                        message = "An error occurred while saving Fixed Asset.",
+                        error = ex.Message
+                    });
+                }
             }
         }
-    }
 
-}
+    }
 
 //ExcelUpload
 

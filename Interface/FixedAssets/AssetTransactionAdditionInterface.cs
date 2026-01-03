@@ -30,6 +30,6 @@ namespace TracePca.Interface.FixedAssetsInterface
         AssetAdditionResult GetAssetAdditionExcelTemplate();
 
         //SaveDetails
-        Task<(int UpdateOrSave, int Oper)> SaveFixedAssetAsync(ClsAssetOpeningBalExcelUpload header, ClsAssetTransactionAddition details, AuditLogDto audit);
+        Task<(int UpdateOrSave, int Oper)> SaveFixedAssetAsync( ClsAssetOpeningBalExcelUpload header,ClsAssetTransactionAddition details,AuditLogDto audit);
     }
 }

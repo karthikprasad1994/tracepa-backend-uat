@@ -20,7 +20,7 @@ namespace TracePca.Interface.FixedAssetsInterface
         //FinancialYear
         Task<IEnumerable<YearDto>> GetYearsAsync(int compId);
 
-        // Location
+       // Location
         Task<IEnumerable<LocationDto>> GetLocationAsync(int compId, int CustId);
 
         //LoadDivision
@@ -41,7 +41,7 @@ namespace TracePca.Interface.FixedAssetsInterface
         Task<IEnumerable<ItemDto>> LoadItemsAsync(int compId, int parentId, int custId);
 
 
-
+       
     }
 
 }

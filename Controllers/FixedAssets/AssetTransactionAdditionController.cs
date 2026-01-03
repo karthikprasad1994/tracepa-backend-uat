@@ -1,9 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using TracePca.Interface;
-using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.FixedAssetsInterface;
-using TracePca.Service.FixedAssetsService;
 using static TracePca.Dto.FixedAssets.AssetTransactionAdditionDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -176,117 +173,117 @@ namespace TracePca.Controllers.FixedAssets
         //}
 
         //LoadAsset
-        [HttpGet("LoadfixedAssetTypes")]
-        public async Task<IActionResult> LoadFxdAssetType(int compId, int custId)
-        {
-            try
+            [HttpGet("LoadfixedAssetTypes")]
+            public async Task<IActionResult> LoadFxdAssetType(int compId, int custId)
             {
-                var result = await _AssetTransactionAdditionService.LoadFxdAssetTypeAsync(compId, custId);
-
-                if (result == null || !result.Any())
+                try
                 {
-                    return NotFound(new
+                    var result = await _AssetTransactionAdditionService.LoadFxdAssetTypeAsync(compId, custId);
+
+                    if (result == null || !result.Any())
                     {
-                        statusCode = 404,
-                        message = "No asset types found.",
-                        data = new List<object>()
+                        return NotFound(new
+                        {
+                            statusCode = 404,
+                            message = "No asset types found.",
+                            data = new List<object>()
+                        });
+                    }
+
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "Fixed asset types loaded successfully.",
+                        data = result
                     });
                 }
-
-                return Ok(new
+                catch (Exception ex)
                 {
-                    statusCode = 200,
-                    message = "Fixed asset types loaded successfully.",
-                    data = result
-                });
+                    return StatusCode(500, new
+                    {
+                        statusCode = 500,
+                        message = "An error occurred while loading asset types.",
+                        error = ex.Message
+                    });
+                }
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An error occurred while loading asset types.",
-                    error = ex.Message
-                });
-            }
-        }
-
+        
 
         //SaveTransactionAddition
 
         [HttpPost("SaveTrancastionAdditionAsset")]
-        public async Task<IActionResult> SaveAsset([FromBody] SaveAssetRequest request)
-        {
-            if (request == null || request.Asset == null || request.Audit == null)
-                return BadRequest("Invalid request payload.");
-
-            try
+            public async Task<IActionResult> SaveAsset([FromBody] SaveAssetRequest request)
             {
-                int result = await _AssetTransactionAdditionService.SaveTransactionAssetAndAuditAsync(request.Asset, request.Audit);
+                if (request == null || request.Asset == null || request.Audit == null)
+                    return BadRequest("Invalid request payload.");
 
-                if (result > 0)
-                    return Ok(new
+                try
+                {
+                    int result = await _AssetTransactionAdditionService.SaveTransactionAssetAndAuditAsync(request.Asset, request.Audit);
+
+                    if (result > 0)
+                        return Ok(new
+                        {
+                            Status = true,
+                            Message = "Asset saved successfully.",
+                            SavedAssetId = result
+                        });
+
+                    return StatusCode(StatusCodes.Status500InternalServerError, new
                     {
-                        Status = true,
-                        Message = "Asset saved successfully.",
-                        SavedAssetId = result
+                        Status = false,
+                        Message = "Failed to save asset."
                     });
-
-                return StatusCode(StatusCodes.Status500InternalServerError, new
+                }
+                catch (Exception ex)
                 {
-                    Status = false,
-                    Message = "Failed to save asset."
-                });
+                    return StatusCode(StatusCodes.Status500InternalServerError, new
+                    {
+                        Status = false,
+                        Message = ex.Message
+                    });
+                }
             }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new
-                {
-                    Status = false,
-                    Message = ex.Message
-                });
-            }
-        }
 
         //LoadVoucherNo(transactionno)
         [HttpGet("LoadVoucherNo(transactionno)")]
-        public async Task<IActionResult> ExistingTransactionNo(
+            public async Task<IActionResult> ExistingTransactionNo(
                 int compId,
                 int yearId,
                 int custId)
-        {
-            try
             {
-                var result = await _AssetTransactionAdditionService.ExistingTransactionNoAsync(
-                    compId, yearId, custId);
-
-                if (result == null || !result.Any())
+                try
                 {
-                    return NotFound(new
+                    var result = await _AssetTransactionAdditionService.ExistingTransactionNoAsync(
+                        compId, yearId, custId);
+
+                    if (result == null || !result.Any())
                     {
-                        statusCode = 404,
-                        message = "No asset transaction numbers found.",
-                        data = new List<object>()
+                        return NotFound(new
+                        {
+                            statusCode = 404,
+                            message = "No asset transaction numbers found.",
+                            data = new List<object>()
+                        });
+                    }
+
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "Asset transaction numbers fetched successfully.",
+                        data = result
                     });
                 }
-
-                return Ok(new
+                catch (Exception ex)
                 {
-                    statusCode = 200,
-                    message = "Asset transaction numbers fetched successfully.",
-                    data = result
-                });
+                    return StatusCode(500, new
+                    {
+                        statusCode = 500,
+                        message = "An error occurred while fetching asset transaction numbers.",
+                        error = ex.Message
+                    });
+                }
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An error occurred while fetching asset transaction numbers.",
-                    error = ex.Message
-                });
-            }
-        }
 
         //ExcelUpload
         [HttpGet("DownloadableAssetAdditionExcelFile")]
@@ -305,54 +302,54 @@ namespace TracePca.Controllers.FixedAssets
 
 
         //SaveDetails
-        [HttpPost("SaveDetails")]
-        public async Task<IActionResult> SaveFixedAsset([FromBody] SaveFixedAssetRequestDto request)
-        {
-            if (request == null || request.Header == null || request.Audit == null)
+            [HttpPost("SaveDetails")]
+            public async Task<IActionResult> SaveFixedAsset([FromBody] SaveFixedAssetRequestDto request)
             {
-                return BadRequest(new
+                if (request == null || request.Header == null || request.Audit == null)
                 {
-                    statusCode = 400,
-                    message = "Invalid request payload"
-                });
-            }
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "Invalid request payload"
+                    });
+                }
 
-            try
-            {
-                var result = await _AssetTransactionAdditionService.SaveFixedAssetAsync(
-                    request.Header,
-                    request.Details,
-                    request.Audit
-                );
+                try
+                {
+                    var result = await _AssetTransactionAdditionService.SaveFixedAssetAsync(
+                        request.Header,
+                        request.Details,
+                        request.Audit
+                    );
 
-                return Ok(new
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "Fixed asset saved successfully",
+                        updateOrSave = result.UpdateOrSave,
+                        operId = result.Oper
+                    });
+                }
+                catch (SqlException ex)
                 {
-                    statusCode = 200,
-                    message = "Fixed asset saved successfully",
-                    updateOrSave = result.UpdateOrSave,
-                    operId = result.Oper
-                });
-            }
-            catch (SqlException ex)
-            {
-                return StatusCode(500, new
+                    return StatusCode(500, new
+                    {
+                        statusCode = 500,
+                        message = "Database error occurred",
+                        error = ex.Message
+                    });
+                }
+                catch (Exception ex)
                 {
-                    statusCode = 500,
-                    message = "Database error occurred",
-                    error = ex.Message
-                });
+                    return StatusCode(500, new
+                    {
+                        statusCode = 500,
+                        message = "An unexpected error occurred",
+                        error = ex.Message
+                    });
+                }
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An unexpected error occurred",
-                    error = ex.Message
-                });
-            }
-        }
-
+                            
 
 
     }
