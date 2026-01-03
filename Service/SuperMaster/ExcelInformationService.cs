@@ -1879,9 +1879,11 @@ WHERE UPPER(CUST_NAME) = UPPER(@CustomerName)
         {
             var templates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            { "Employee Master", @"C:\Users\Crcuial\Desktop\TracePA-Backend-Latest\tracepa-corebackend\SampleExcels\EmployeeMaster Template.xlsx" },
-            { "Client Details", @"C:\Users\Crcuial\Desktop\TracePA-Backend-Latest\tracepa-corebackend\SampleExcels\ClientDetails Template.xlsx" },
-            { "Client User", @"C:\Users\Crcuial\Desktop\TracePA-Backend-Latest\tracepa-corebackend\SampleExcels\ClientUser Template.xlsx" }
+            { "Employee Master", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\EmployeeMaster Template.xlsx" },
+            { "Client Details", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\ClientDetails Template.xlsx" },
+            { "Client User", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\ClientUser Template.xlsx" },
+            { "Audit Type & Checkpoints", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\AuditChecklistMaster.xlsx" },
+            { "Task & SubTasks", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\TaskMaster.xlsx" }
         };
 
             if (!templates.ContainsKey(templateName))

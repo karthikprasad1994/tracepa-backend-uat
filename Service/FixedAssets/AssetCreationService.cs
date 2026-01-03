@@ -4,12 +4,8 @@ using DocumentFormat.OpenXml.Office.Word;
 using DocumentFormat.OpenXml.VariantTypes;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
-//using TracePca.Dto;
 using TracePca.Interface.FixedAssetsInterface;
 using static TracePca.Dto.FixedAssets.AssetCreationDto;
-//using static TracePca.Dto.SuperMaster.ExcelInformationDto;
-using static TracePca.Service.FixedAssetsService.AssetCreationService;
-//using static TracePca.Dto.FixedAssets.AssetMasterdto;
 
 namespace TracePca.Service.FixedAssetsService
 {
@@ -939,7 +935,7 @@ namespace TracePca.Service.FixedAssetsService
 
         //LoadImportedforeigncurrencytype
     }
-}
+    }
 
 
 

@@ -18,9 +18,9 @@ namespace TracePca.Dto.Master
     {
         public int RCM_Id { get; set; }
         public int RCM_ReportId { get; set; }
+        public string RCM_ReportName { get; set; }        
         public string RCM_Heading { get; set; }
         public string RCM_Description { get; set; }
-
         public int UserId { get; set; }
         public int CompId { get; set; }
         public string IpAddress { get; set; }

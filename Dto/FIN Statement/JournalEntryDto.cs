@@ -52,6 +52,10 @@ namespace TracePca.Dto.FIN_Statement
             public int gl_id { get; set; }
             public string GlDesc { get; set; }
         }
+        public class ContentMasterIdResponseDto
+        {
+            public int CmmId { get; set; }
+        }
 
         //SaveOrUpdateTransactionDetails
         public class SaveJournalEntryWithTransactionsDto

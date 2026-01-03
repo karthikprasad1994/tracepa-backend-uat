@@ -117,7 +117,38 @@ namespace TracePca.Service.FIN_statement
 
             return entries;
         }
+        public async Task<int?> GetContentMasterIdAsync(string description, int compId)
+        {
+            int? result = null;
 
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // Get connection string dynamically
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var query = @"
+            SELECT TOP 1 cmm_ID
+            FROM Content_Management_Master
+            WHERE cmm_Desc = @Desc
+              AND CMM_CompID = @CompId
+              AND cmm_Delflag = 'A'";
+
+            using var cmd = new SqlCommand(query, connection);
+            cmd.Parameters.AddWithValue("@Desc", description);
+            cmd.Parameters.AddWithValue("@CompId", compId);
+
+            var scalar = await cmd.ExecuteScalarAsync();
+            if (scalar != null && scalar != DBNull.Value)
+                result = Convert.ToInt32(scalar);
+
+            return result;
+        }
 
         //GetExistingJournalVouchers
         public async Task<IEnumerable<JournalEntryVoucherDto>> LoadExistingVoucherNosAsync(int compId, int yearId, int partyId, int branchId)
@@ -980,7 +1011,7 @@ WHERE ATBU_CustId = @CustId
 
                     updateSql = @"
 UPDATE Acc_TrailBalance_Upload
-SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+SET ATBU_Closing_TotalDebit_Amount = @DebitAmt, ATBU_Closing_TotalCredit_Amount='0.00'
 WHERE ATBU_CustId = @CustId
   AND ATBU_CompID = @CompId
   AND ATBU_QuarterId = @DurtnId
@@ -1006,7 +1037,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
 UPDATE Acc_TrailBalance_Upload
-SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+SET ATBU_Closing_TotalDebit_Amount = @DebitAmt , ATBU_Closing_TotalCredit_Amount='0.00'
 WHERE ATBU_CustId = @CustId
   AND ATBU_CompID = @CompId
   AND ATBU_QuarterId = @DurtnId
@@ -1022,7 +1053,7 @@ WHERE ATBU_CustId = @CustId
 
                     updateSql = @"
 UPDATE Acc_TrailBalance_Upload
-SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+SET ATBU_Closing_TotalDebit_Amount = @DebitAmt , ATBU_Closing_TotalCredit_Amount='0.00'
 WHERE ATBU_CustId = @CustId
   AND ATBU_CompID = @CompId
   AND ATBU_QuarterId = @DurtnId
@@ -1041,7 +1072,7 @@ WHERE ATBU_CustId = @CustId
 
                     updateSql = @"
 UPDATE Acc_TrailBalance_Upload
-SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+SET ATBU_Closing_TotalCredit_Amount = @CreditAmt , ATBU_Closing_TotalDebit_Amount ='0.00'
 WHERE ATBU_CustId = @CustId
   AND ATBU_CompID = @CompId
   AND ATBU_QuarterId = @DurtnId
@@ -1056,7 +1087,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
 UPDATE Acc_TrailBalance_Upload
-SET ATBU_Closing_TotalDebit_Amount = @CreditAmt
+SET ATBU_Closing_TotalDebit_Amount = @CreditAmt , ATBU_Closing_TotalCredit_Amount='0.00'
 WHERE ATBU_CustId = @CustId
   AND ATBU_CompID = @CompId
   AND ATBU_QuarterId = @DurtnId
@@ -1067,7 +1098,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
 UPDATE Acc_TrailBalance_Upload
-SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+SET ATBU_Closing_TotalCredit_Amount = @CreditAmt , ATBU_Closing_TotalDebit_Amount ='0.00'
 WHERE ATBU_CustId = @CustId
   AND ATBU_CompID = @CompId
   AND ATBU_QuarterId = @DurtnId
@@ -1083,7 +1114,7 @@ WHERE ATBU_CustId = @CustId
 
                     updateSql = @"
 UPDATE Acc_TrailBalance_Upload
-SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+SET ATBU_Closing_TotalCredit_Amount = @CreditAmt , ATBU_Closing_TotalDebit_Amount ='0.00'
 WHERE ATBU_CustId = @CustId
   AND ATBU_CompID = @CompId
   AND ATBU_QuarterId = @DurtnId

@@ -508,6 +508,28 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+        [HttpGet("get-Contra-id")]
+        public async Task<IActionResult> GetContentMasterId(
+            [FromQuery] string desc,
+            [FromQuery] int compId)
+        {
+            var cmmId = await _JournalEntryService.GetContentMasterIdAsync(desc, compId);
+
+            if (cmmId == null)
+                return NotFound(new
+                {
+                    success = false,
+                    message = "Record not found",
+                    data = (int?)null   // ✅ correct C# way
+                });
+
+            return Ok(new
+            {
+                success = true,
+                data = new { cmm_ID = cmmId }
+            });
+        }
+
         [HttpPost("upload-excel")]
         [RequestSizeLimit(100_000_000)] // 100MB limit
         public async Task<IActionResult> UploadJournalEntriesExcel([FromForm] JournalEntryUploadDto uploadDto)
