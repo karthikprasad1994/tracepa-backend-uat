@@ -531,10 +531,14 @@ namespace TracePca.Controllers.Audit
                 var customData = new Dictionary<string, object>
                     {
                         { "Audit Plan", result?.AuditPlanAttachments ?? new List<AttachmentGroupDTO>() },
-                        { "Pre / Post Audit", result?.BeginningNearEndAuditAttachments ?? new List<AttachmentGroupDTO>() },
-                        { "During Audit", result?.DuringAuditAttachments ?? new List<AttachmentGroupDTO>() },
-                        { "Workpaper", result?.WorkpaperAttachments ?? new List<AttachmentGroupDTO>() },
-                        { "Conduct Audit Checkpoints", result?.ConductAuditAttachments ?? new List<AttachmentGroupDTO>() }
+                        { "Audit Schedule", result?.AuditScheduleAttachments ?? new List<AttachmentGroupDTO>() },
+                        { "Beginning of the Audit Communication", result?.BeginningAuditAttachments ?? new List<AttachmentGroupDTO>() },
+                        { "During the Audit Requests", result?.DuringAuditAttachments ?? new List<AttachmentGroupDTO>() },
+                        { "Workpapers and Attachments", result?.WorkpaperAttachments ?? new List<AttachmentGroupDTO>() },
+                        { "Conduct Audit Checkpoint wise Testing details and Annexures", result?.ConductAuditAttachments ?? new List<AttachmentGroupDTO>() },
+                        { "Near End of the Audit", result?.NearEndAuditAttachments ?? new List<AttachmentGroupDTO>() },
+                        { "Audit Completion Checkpoint Reports", result?.AuditCompletionSubCheckpointAttachments ?? new List<AttachmentGroupDTO>() },
+                        { "Account Finalisation Reports", result?.AccountFinalisationAttachments ?? new List<AttachmentGroupDTO>() },
                     };
 
                 var isAnyDataPresent = customData.Values.OfType<IEnumerable<object>>().Any(list => list.Any());

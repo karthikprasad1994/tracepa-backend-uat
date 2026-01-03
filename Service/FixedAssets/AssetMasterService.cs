@@ -8,14 +8,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using OfficeOpenXml;
 using TracePca.Data;
-using TracePca.Dto.FixedAssets;
 using TracePca.Helpers;
 using TracePca.Interface;
 using TracePca.Interface.FixedAssetsInterface;
 using TracePca.Models;
 using TracePca.Models.UserModels;
 using static TracePca.Dto.FixedAssets.AssetMasterdto;
-using static TracePca.Service.FixedAssetsService.AssetMasterService;
 
 namespace TracePca.Service.FixedAssetsService
 {

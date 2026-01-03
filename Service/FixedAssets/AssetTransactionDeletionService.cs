@@ -4,7 +4,6 @@ using Dapper;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
 using TracePca.Interface.FixedAssetsInterface;
-//using static TracePca.Dto.FixedAssets.AssetCreationDto;
 using static TracePca.Dto.FixedAssets.AssetTransactionDeletionnDto;
 
 

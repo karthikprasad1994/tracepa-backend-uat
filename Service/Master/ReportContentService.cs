@@ -92,13 +92,20 @@ namespace TracePca.Service.Master
                 {
                     var newId = await con.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(RCM_Id), 0) + 1 FROM SAD_ReportContentMaster WHERE RCM_CompID = @CompId", new { CompId = dto.CompId }, tran);
 
+<<<<<<< HEAD
                     var sql = @"INSERT INTO SAD_ReportContentMaster (RCM_Id, RCM_ReportId, RCM_Heading, RCM_Description, RCM_Delflag, RCM_Status, RCM_CrBy, RCM_CrOn, RCM_IPAddress, RCM_CompID, RCM_Yearid)
                         VALUES (@Id, @ReportId, @Heading, @Description, 'A', 'A', @UserId, GETDATE(), @Ip, @CompId, @YearId)";
 
+=======
+                    var sql = @"INSERT INTO SAD_ReportContentMaster (RCM_Id, RCM_ReportId, RCM_ReportName, RCM_Heading, RCM_Description, RCM_Delflag, RCM_Status, RCM_CrBy, RCM_CrOn, RCM_IPAddress, RCM_CompID, RCM_Yearid)
+                        VALUES (@Id, @ReportId, @ReportName, @Heading, @Description, 'A', 'C', @UserId, GETDATE(), @Ip, @CompId, @YearId)";
+                     
+>>>>>>> 4d222b62edec8508ea82d89bb229f736fb8fbd76
                     await con.ExecuteAsync(sql, new
                     {
                         Id = newId,
                         ReportId = dto.RCM_ReportId,
+                        ReportName = dto.RCM_ReportName,
                         Heading = dto.RCM_Heading,
                         Description = dto.RCM_Description,
                         UserId = dto.UserId,

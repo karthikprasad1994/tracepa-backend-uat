@@ -2,13 +2,7 @@
 using Dapper;
 using Microsoft.Data.SqlClient;
 using TracePca.Data;
-using TracePca.Dto.Audit;
-
-//using TracePca.Dto;
 using TracePca.Interface.FixedAssetsInterface;
-using static TracePca.Dto.FixedAssets.AssetCreationDto;
-
-//using static TracePca.Dto.FixedAssets.AssetCreationDto;
 using static TracePca.Dto.FixedAssets.AssetTransactionAdditionDto;
 
 namespace TracePca.Service.FixedAssetsService
@@ -189,8 +183,7 @@ namespace TracePca.Service.FixedAssetsService
         WHERE AM_LevelCode = 2
           AND AM_DelFlag = 'A'
           AND AM_CompID = @CompId
-          AND AM_CustId = @CustId"
-            ;
+          AND AM_CustId = @CustId";
 
             return await connection.QueryAsync<AssettTypeDto>(query, new
             {
@@ -202,7 +195,7 @@ namespace TracePca.Service.FixedAssetsService
 
 
         //SaveTransactionAddition
-        public async Task<int> SaveTransactionAssetAndAuditAsync(ClsAssetTransactionAdditionDto asset, TransactionAuditDto audit)
+        public async Task<int> SaveTransactionAssetAndAuditAsync( ClsAssetTransactionAdditionDto asset, TransactionAuditDto audit)
         {
             // 🔹 Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -350,7 +343,7 @@ namespace TracePca.Service.FixedAssetsService
 
             query += " ORDER BY AFAA_ID ASC";
 
-            return await connection.QueryAsync<AssetTransactionDto>(query, new { CompId = compId, CustId = custId });
+            return await connection.QueryAsync<AssetTransactionDto>(query,new{CompId = compId, CustId = custId});
         }
 
         //ExcelUpload
@@ -374,7 +367,7 @@ namespace TracePca.Service.FixedAssetsService
         }
 
         //SaveDetails
-        public async Task<(int UpdateOrSave, int Oper)> SaveFixedAssetAsync(ClsAssetOpeningBalExcelUpload header, ClsAssetTransactionAddition details, AuditLogDto audit)
+        public async Task<(int UpdateOrSave, int Oper)> SaveFixedAssetAsync(ClsAssetOpeningBalExcelUpload header,ClsAssetTransactionAddition details,AuditLogDto audit)
         {
             // 1. Get database from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -391,7 +384,7 @@ namespace TracePca.Service.FixedAssetsService
 
             try
             {
-                // 1. SAVE / UPDATE ASSET HEADER (MANDATORY)
+                  // 1. SAVE / UPDATE ASSET HEADER (MANDATORY)
 
                 var headerParams = new DynamicParameters();
 
@@ -457,8 +450,8 @@ namespace TracePca.Service.FixedAssetsService
                 int headerUpdateOrSave = headerParams.Get<int>("@iUpdateOrSave");
                 int headerOper = headerParams.Get<int>("@iOper");
 
-                // 2. SAVE ASSET DETAILS (ONLY IF TrType = 2)
-
+                  // 2. SAVE ASSET DETAILS (ONLY IF TrType = 2)
+               
                 int detailUpdateOrSave = 0;
                 int detailOper = 0;
 
@@ -514,7 +507,7 @@ namespace TracePca.Service.FixedAssetsService
                     detailOper = detailParams.Get<int>("@iOper");
                 }
 
-                // 3. AUDIT LOG (ALWAYS)
+                  // 3. AUDIT LOG (ALWAYS)
 
                 var auditParams = new DynamicParameters();
 

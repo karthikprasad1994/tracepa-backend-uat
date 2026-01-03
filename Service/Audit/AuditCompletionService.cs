@@ -43,14 +43,16 @@ namespace TracePca.Service.Audit
         private readonly IConfiguration _configuration;
         private readonly EngagementPlanInterface _engagementPlanInterface;
         private readonly AuditSummaryInterface _auditSummaryInterface;
+        private readonly AuditAndDashboardInterface _auditAndDashboardInterface;        
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly string _connectionString;
 
-        public AuditCompletionService(IConfiguration configuration, EngagementPlanInterface engagementPlanInterface, AuditSummaryInterface auditSummaryInterface, IHttpContextAccessor httpContextAccessor)
+        public AuditCompletionService(IConfiguration configuration, EngagementPlanInterface engagementPlanInterface, AuditSummaryInterface auditSummaryInterface, AuditAndDashboardInterface auditAndDashboardInterface, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _engagementPlanInterface = engagementPlanInterface ?? throw new ArgumentNullException(nameof(engagementPlanInterface));
             _auditSummaryInterface = auditSummaryInterface ?? throw new ArgumentNullException(nameof(auditSummaryInterface));
+            _auditAndDashboardInterface = auditAndDashboardInterface ?? throw new ArgumentNullException(nameof(auditSummaryInterface));            
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
             _connectionString = GetConnectionStringFromSession();
         }
@@ -142,8 +144,6 @@ namespace TracePca.Service.Audit
             }
         }
 
-  
- 
         public async Task<IEnumerable<ReportTypeDetailsDTO>> GetReportTypeDetailsByAuditId(int compId, int auditId)
         {
             try
@@ -1885,13 +1885,14 @@ namespace TracePca.Service.Audit
                 var result = new StandardAuditAllAttachmentsDTO
                 {
                     AuditPlanAttachments = new List<AttachmentGroupDTO>(),
-                    BeginningNearEndAuditAttachments = new List<AttachmentGroupDTO>(),
+                    BeginningAuditAttachments = new List<AttachmentGroupDTO>(),
+                    NearEndAuditAttachments = new List<AttachmentGroupDTO>(),
                     DuringAuditAttachments = new List<AttachmentGroupDTO>(),
                     WorkpaperAttachments = new List<AttachmentGroupDTO>(),
                     ConductAuditAttachments = new List<AttachmentGroupDTO>()
                 };
 
-                // 0. Audit Plan/EngagementPlan
+                // 1. Audit Plan/EngagementPlan
                 var auditPlanTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
                 @"SELECT TOP 1 RTM.RTM_Id AS TypeId, RTM.RTM_ReportTypeName AS TypeName,
                 STUFF((SELECT DISTINCT ',' + CAST(LOET2.LOE_AttachID AS VARCHAR) FROM StandardAudit_Schedule SA2
@@ -1912,22 +1913,25 @@ namespace TracePca.Service.Audit
                         result.AuditPlanAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
-                // 1. Beginning Audit (Pre-Audit) & Nearing End Audit (Post-Audit)
+                // 2. Audit Schedule
+                result.AuditScheduleAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Audit Schedule Report", Attachments = null });
+
+                // 3. Beginning of the Audit Communication
                 var beginningTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
                  @"SELECT RTM_Id AS TypeId, RTM_ReportTypeName AS TypeName,
                   STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=@AuditID AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
                   FROM SAD_ReportTypeMaster
-                  WHERE RTM_CompID=@CompId AND RTM_TemplateId IN(2,4) AND RTM_DelFlag='A' AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory H WHERE H.SAR_SA_ID=@AuditID AND H.SAR_ReportType=RTM_Id AND H.SAR_AttchId>0)",
+                  WHERE RTM_CompID=@CompId AND RTM_TemplateId IN(2) AND RTM_DelFlag='A' AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory H WHERE H.SAR_SA_ID=@AuditID AND H.SAR_ReportType=RTM_Id AND H.SAR_AttchId>0)",
                  new { CompId = compId, AuditID = auditId });
 
                 foreach (var item in beginningTypes)
                 {
                     var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
                     if (attachments.Any())
-                        result.BeginningNearEndAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
+                        result.BeginningAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
-                // 2. During Audit (DRL)
+                // 4. During the Audit Requests
                 var duringTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
                 @"SELECT CMM_ID AS TypeId, CMM_Desc AS TypeName,
                   STUFF((SELECT DISTINCT ',' + CAST(ADRL_AttachID AS VARCHAR) FROM Audit_DRLLog WHERE ADRL_AuditNo=@AuditID AND ADRL_RequestedListID=CMM_ID AND ADRL_AttachID>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
@@ -1941,7 +1945,7 @@ namespace TracePca.Service.Audit
                         result.DuringAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
-                // 3. Workpaper
+                // 5. Workpapers and Attachments
                 var workpaperTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
                 @"SELECT wp.SSW_ID AS TypeId, wp.SSW_WorkpaperRef AS TypeName,
                   STUFF((SELECT DISTINCT ',' + CAST(SSW_AttachID AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID=@AuditID AND SSW_ID=wp.SSW_ID AND SSW_AttachID>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
@@ -1955,7 +1959,7 @@ namespace TracePca.Service.Audit
                         result.WorkpaperAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
-                // 4. Audit or Review - Testing (Checkpoints)
+                // 6. Conduct Audit Checkpoint wise Testing details and Annexures
                 var conductTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
                 @"SELECT DISTINCT ACM_ID AS TypeId, ACM_CheckPoint AS TypeName,
                   STUFF((SELECT DISTINCT ',' + CAST(SAC_AttachID AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID=@AuditID AND SAC_CheckPointID=cp.SAC_CheckPointID AND SAC_AttachID>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
@@ -1969,6 +1973,27 @@ namespace TracePca.Service.Audit
                     var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
                     if (attachments.Any())
                         result.ConductAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
+                }
+
+                // 7. Near End of the Audit
+                var nearEndTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
+                 @"SELECT RTM_Id AS TypeId, RTM_ReportTypeName AS TypeName,
+                  STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=@AuditID AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AS AttachIds
+                  FROM SAD_ReportTypeMaster
+                  WHERE RTM_CompID=@CompId AND RTM_TemplateId IN(4) AND RTM_DelFlag='A' AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory H WHERE H.SAR_SA_ID=@AuditID AND H.SAR_ReportType=RTM_Id AND H.SAR_AttchId>0)",
+                 new { CompId = compId, AuditID = auditId });
+
+                // 8. Audit Completion Checkpoint Reports
+                result.AuditCompletionSubCheckpointAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Report", Attachments = null });
+
+                // 9. Account Finalisation Reports
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Report", Attachments = null });
+
+                foreach (var item in nearEndTypes)
+                {
+                    var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
+                    if (attachments.Any())
+                        result.NearEndAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
                 return result;
             }
@@ -2138,9 +2163,7 @@ namespace TracePca.Service.Audit
                 else
                 {
                     Directory.CreateDirectory(downloadDirectoryPath);
-                }
- 
-               
+                }               
 
                 int orgNode = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(Org_Node, 0) FROM sad_org_structure WHERE Org_Name = @Org_Name AND Org_CompID = @Org_CompID;",
                     new { Org_Name = OrgName, Org_CompID = compId });
@@ -2183,7 +2206,7 @@ namespace TracePca.Service.Audit
 
                 String mainFolder = SanitizeName(result.SubCabinet);
 
-                // 0. Audit Plan / Engagement Plan
+                // 1. Audit Plan
                 var auditPlanTypes =
                 "SELECT TOP 1 LOE_ID AS LOEID, RTM.RTM_Id AS TypeId,'LOE - ' + RTM.RTM_ReportTypeName AS TypeName," +
                 " STUFF((SELECT ',' + CAST(LOET2.LOE_AttachID AS VARCHAR) FROM StandardAudit_Schedule SA2" +
@@ -2199,7 +2222,7 @@ namespace TracePca.Service.Audit
                 " WHERE SA.SA_ID=" + auditId + " AND SA.SA_CompID=" + compId +
                 " AND EXISTS(SELECT 1 FROM LOE_Template t2 WHERE t2.LOET_LOEID=LOE.LOE_ID AND t2.LOE_AttachID>0)";
 
-                // 1. Beginning Audit (Pre-Audit)
+                // 3. Beginning of the Audit Communication
                 var beginningTypes =
                 "SELECT RTM_Id AS TypeId,1 As CheckReportType,'Beginning of the Audit - ' + RTM_ReportTypeName AS TypeName," +
                 " STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory" +
@@ -2208,7 +2231,7 @@ namespace TracePca.Service.Audit
                 " WHERE RTM_CompID=" + compId + " AND RTM_TemplateId=2 AND RTM_DelFlag='A'" +
                 " AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0)";
 
-                // 2. During Audit (DRL)
+                // 4. During the Audit Requests
                 var duringTypes =
                 "SELECT CMM_ID AS TypeId,0 As CheckReportType,'DRL - ' + CMM_Desc AS TypeName," +
                 " STUFF((SELECT ',' + CAST(ADRL_AttachID AS VARCHAR) FROM Audit_DRLLog" +
@@ -2217,16 +2240,7 @@ namespace TracePca.Service.Audit
                 " WHERE CMM_Category='DRL' AND CMS_Keycomponent=0" +
                 " AND EXISTS(SELECT 1 FROM Audit_DRLLog WHERE ADRL_AuditNo=" + auditId + " AND ADRL_RequestedListID=CMM_ID AND ADRL_AttachID>0)";
 
-                // 3. Nearing End Audit (Post-Audit)
-                var nearingEndTypes =
-                "SELECT RTM_Id AS TypeId,1 As CheckReportType,'Near end of the Audit - ' + RTM_ReportTypeName AS TypeName," +
-                " STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory" +
-                " WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
-                " FROM SAD_ReportTypeMaster" +
-                " WHERE RTM_CompID=" + compId + " AND RTM_TemplateId=4 AND RTM_DelFlag='A'" +
-                " AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0)";
-
-                // 4. Workpaper
+                // 5. Workpapers and Attachments
                 var workpaperTypes =
                 "SELECT wp.SSW_ID AS TypeId,0 As CheckReportType,'WP - ' + wp.SSW_WorkpaperRef AS TypeName," +
                 " STUFF((SELECT ',' + CAST(SSW_AttachID AS VARCHAR) FROM StandardAudit_ScheduleConduct_WorkPaper" +
@@ -2235,7 +2249,7 @@ namespace TracePca.Service.Audit
                 " WHERE SSW_SA_ID=" + auditId +
                 " AND EXISTS(SELECT 1 FROM StandardAudit_ScheduleConduct_WorkPaper WHERE SSW_SA_ID=" + auditId + " AND SSW_ID=wp.SSW_ID AND SSW_AttachID>0)";
 
-                // 5. Audit or Review - Testing (Checkpoints)
+                // 6. Conduct Audit Checkpoint wise Testing details and Annexures
                 var conductTypes =
                 "SELECT DISTINCT ACM_ID AS TypeId,0 As CheckReportType,CAST('CheckPoint_' + CAST(ACM_ID AS VARCHAR(10)) + ' - ' + CAST(ACM_Heading AS VARCHAR(MAX)) AS VARCHAR(MAX)) AS TypeName," +
                 " STUFF((SELECT ',' + CAST(SAC_AttachID AS VARCHAR) FROM StandardAudit_ScheduleCheckPointList" +
@@ -2244,6 +2258,15 @@ namespace TracePca.Service.Audit
                 " INNER JOIN AuditType_Checklist_Master ON ACM_ID=cp.SAC_CheckPointID" +
                 " WHERE cp.SAC_SA_ID=" + auditId +
                 " AND EXISTS(SELECT 1 FROM StandardAudit_ScheduleCheckPointList WHERE SAC_SA_ID=" + auditId + " AND SAC_CheckPointID=cp.SAC_CheckPointID AND SAC_AttachID>0)";
+
+                // 7. Near End of the Audit
+                var nearingEndTypes =
+                "SELECT RTM_Id AS TypeId,1 As CheckReportType,'Near end of the Audit - ' + RTM_ReportTypeName AS TypeName," +
+                " STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory" +
+                " WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
+                " FROM SAD_ReportTypeMaster" +
+                " WHERE RTM_CompID=" + compId + " AND RTM_TemplateId=4 AND RTM_DelFlag='A'" +
+                " AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0)";
 
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, auditPlanTypes);
                 //@"SELECT DISTINCT ISNULL(CAST(SAR_AttchId AS VARCHAR), '0') AS SAR_AttchId FROM StandardAudit_Audit_DRLLog_RemarksHistory WHERE SAR_SA_ID = " + auditId + " AND SAR_ReportType IN (Select RTM_Id from SAD_ReportTypeMaster where RTM_CompID = " + compId + " And RTM_TemplateId = 2) And RTM_DelFlag='A'",
@@ -2270,7 +2293,7 @@ namespace TracePca.Service.Audit
                 //folderNameField: null, attachIdField: "SAC_AttachID");
 
 
-                // Audit Plan/EngagementPlan Report
+                // 1. Audit Plan
                 var dt = await GetDataTableAsync(connection, auditPlanTypes);
                 if (dt.Rows.Count > 0)
                 {
@@ -2285,17 +2308,31 @@ namespace TracePca.Service.Audit
                     await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, folderName, "LOE_Final.pdf", savedAudiPlanFilePath);
                 }
 
+                // 2. Audit Schedule Report
+                var savedAuditScheduleFilePath = await GenerateAuditScheduleTempPathAsync(compId, auditId, userId, "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Schedule Report", "Audit_Schedule_Report.pdf", savedAuditScheduleFilePath);
+
+                // 5. Workpapers Report
+                var savedWorkpapersFilePath = await GenerateWorkpapersTempPathAsync(compId, auditId, userId, "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Workpapers Report", "Workpapers_Report.pdf", savedWorkpapersFilePath);
+
+                // 6. Audit Completion Checkpoint Report
+                var savedACCheckpointFilePath = await GenerateACCheckpointTempPathAsync(compId, auditId, userId, "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Conduct Audit Checkpoint Report", "ConductAudit_Checkpoint_Report.pdf", savedACCheckpointFilePath);
+
                 // Information about the Auditee Report
                 var savedAuditeeFilePath = await GenerateAuditeeInfoTempPathAsync(compId, auditId);
                 await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Information about the Auditee", "Information_About_Auditee_Report.pdf", savedAuditeeFilePath);
 
-                // Audit Completion SubPoint Report
+                // 8. Audit Completion SubPoint Report
                 var savedAuditCompletionSubPointFilePath = await GenerateACSubPointsReportAndGetTempPathAsync(compId, auditId, userId, "pdf");
                 await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Completion", "Audit_Completion_SubPoint_Report.pdf", savedAuditCompletionSubPointFilePath);
 
-                // Audit Completion Report
+                // 8. Audit Completion Report
                 var savedAuditCompletionFilePath = await GenerateReportAndGetTempPathAsync(compId, auditId, "pdf");
                 await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Completion", "Audit_Completion_Report.pdf", savedAuditCompletionFilePath);
+
+                // 9. Account Finalisation Report
 
                 string cleanedPath = downloadDirectoryPath.TrimEnd('\\');
                 string zipFilePath = cleanedPath + ".zip";
@@ -2304,9 +2341,6 @@ namespace TracePca.Service.Audit
                     File.Delete(zipFilePath);
 
                 ZipFile.CreateFromDirectory(cleanedPath, zipFilePath);
-
-
-
 
                 var request = _httpContextAccessor.HttpContext.Request;
                 string baseUrl = $"{request.Scheme}://{request.Host}";
@@ -2319,9 +2353,6 @@ namespace TracePca.Service.Audit
                 throw new Exception($"Failed to upload the attachment document.", ex);
             }
         }
-
-
-
 
         private async Task<DataTable> GetDataTableAsync(SqlConnection connection, string query)
         {
@@ -2695,5 +2726,524 @@ namespace TracePca.Service.Audit
                 throw new ApplicationException("An error occurred while updating the Archive data in the audit.", ex);
             }
         }
+        List<int> ToIntList(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return new List<int>();
+
+            return value
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => x.Trim())
+                .Where(x => int.TryParse(x, out _))
+                .Select(int.Parse)
+                .ToList();
+        }
+        public async Task<string> GenerateAuditScheduleTempPathAsync(int compId, int auditId, int userId, string format)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+            try
+            {
+                var data = (await connection.QueryAsync(@"SELECT SA.SA_CustID, CM.CUST_NAME AS CustomerName, SA.SA_PartnerID, SA.SA_ReviewPartnerID, SA.SA_AdditionalSupportEmployeeID, SA.SA_EngagementPartnerID, 
+                    SA.SA_ScopeOfAudit FROM StandardAudit_Schedule SA INNER JOIN SAD_CUSTOMER_MASTER CM ON CM.CUST_ID = SA.SA_CustID AND CM.CUST_DELFLG = 'A' AND CM.CUST_CompID = @CompId 
+                    WHERE SA.SA_ID = @AuditId AND SA.SA_CompID = @CompId;",
+                    new { AuditId = auditId, CompId = compId })).FirstOrDefault() ?? throw new ApplicationException("Audit schedule not found.");
+
+                var dt = await _auditAndDashboardInterface.LoadAuditScheduleIntervalAsync(compId, auditId, "PDF");
+                var dt1 = await _auditAndDashboardInterface.LoadAssignedCheckPointsAndTeamMembersAsync(compId, auditId, (int)data.SA_CustID, "", "PDF");
+                var dt2 = await _auditAndDashboardInterface.GetFinalAuditTypeHeadingsAsync(compId, auditId);
+
+                var Engpartner = string.IsNullOrWhiteSpace(data.SA_EngagementPartnerID) ? null : await _auditAndDashboardInterface.GetUserNamesAsync(compId, ToIntList(data.SA_EngagementPartnerID));
+                var Reviewer = string.IsNullOrWhiteSpace(data.SA_ReviewPartnerID) ? null : await _auditAndDashboardInterface.GetUserNames1Async(compId, ToIntList(data.SA_ReviewPartnerID));
+                var partner = string.IsNullOrWhiteSpace(data.SA_PartnerID) ? null : await _auditAndDashboardInterface.GetUserNames2Async(compId, ToIntList(data.SA_PartnerID));
+                var Assist = string.IsNullOrWhiteSpace(data.SA_AdditionalSupportEmployeeID) ? null : await _auditAndDashboardInterface.GetUserNames3Async(compId, ToIntList(data.SA_AdditionalSupportEmployeeID));
+
+                byte[] fileBytes;
+                string contentType;
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Audit_Schedule_Report_{timestamp}";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GenerateAuditSchedulePdfAsync(dt, dt1, dt2, Engpartner, Reviewer, partner, Assist, data.SA_ScopeOfAudit ?? "", data.CustomerName ?? "");
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                var filePath = Path.Combine(tempFolder, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+                string downloadUrl = $"{tempFolder}/{fileName}";
+                return downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        public async Task<string> GenerateWorkpapersTempPathAsync(int compId, int auditId, int userId, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Workpapers_Report_{timestamp}";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GenerateWorkpapersPdfAsync(compId, auditId);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                var filePath = Path.Combine(tempFolder, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+                string downloadUrl = $"{tempFolder}/{fileName}";
+                return downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        public async Task<string> GenerateACCheckpointTempPathAsync(int compId, int auditId, int userId, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"ConductAudit_Checkpoint_Report_{timestamp}";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GenerateCheckPointsPdfAsync(compId, auditId);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                var filePath = Path.Combine(tempFolder, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+                string downloadUrl = $"{tempFolder}/{fileName}";
+                return downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        private async Task<byte[]> GenerateAuditSchedulePdfAsync(DataTable dt, DataTable dt1, DataTable dt2, string Engpartner, string Reviewer, string partner, string Assist, string scopeOfAudit , string customerName)
+        {
+            try
+            {
+                string Clean(string input) => string.IsNullOrWhiteSpace(input) ? "N/A" : input.Replace("\r", " ").Replace("\n", " ").Trim();
+                QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+                QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+                var doc = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.DefaultTextStyle(x => x.FontSize(11));
+
+                        page.Content().PaddingVertical(10).Column(col =>
+                        {
+                            col.Item().AlignCenter().Text("Audit Schedule Report").Bold().FontSize(20);
+                            col.Item().AlignCenter().LineHorizontal(1).LineColor(Colors.Black);
+                            col.Item().Text(t => { t.Span("Scope Of Audit: ").SemiBold(); t.Span(Clean(scopeOfAudit)); });
+                            col.Item().Text(t => { t.Span("Customer Name: ").SemiBold(); t.Span(Clean(customerName)); });
+                            col.Item().PaddingTop(5).Text("Audit Team").Bold().FontSize(14);
+                            col.Item().Text(t => { t.Span("Partner: ").SemiBold(); t.Span(Clean(partner)); });
+                            col.Item().Text(t => { t.Span("Reviewer: ").SemiBold(); t.Span(Clean(Reviewer)); });
+                            col.Item().Text(t => { t.Span("Audit Assistants: ").SemiBold(); t.Span(Clean(Assist)); });
+                            col.Item().PaddingVertical(10).LineHorizontal(0.5f).LineColor(Colors.Grey.Medium);
+
+                            col.Item().Text("Heading").Bold().FontSize(14).Underline();
+                            col.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(c =>
+                                {
+                                    c.RelativeColumn();
+                                    c.ConstantColumn(80);
+                                    c.ConstantColumn(60);
+                                    c.ConstantColumn(100);
+                                });
+
+                                table.Header(h =>
+                                {
+                                    h.Cell().Element(HeaderCellStyle).Text("Heading");
+                                    h.Cell().Element(HeaderCellStyle).AlignCenter().Text("Checkpoints");
+                                    h.Cell().Element(HeaderCellStyle).AlignCenter().Text("Hours");
+                                    h.Cell().Element(HeaderCellStyle).AlignCenter().Text("Deadline");
+                                });
+
+                                foreach (DataRow row in dt1.Rows)
+                                {
+                                    table.Cell().Element(CellStyle).Text(Clean(row["SACD_Heading"]?.ToString()));
+                                    table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["NoCheckpoints"]?.ToString()));
+                                    table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["Working_Hours"]?.ToString()));
+                                    table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["Timeline"]?.ToString()));
+                                }
+                            });
+                            col.Item().PaddingVertical(10).LineHorizontal(0.5f).LineColor(Colors.Grey.Medium);
+
+                            col.Item().Text("Checkpoints").Bold().FontSize(14).Underline();
+                            col.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(c =>
+                                {
+                                    c.RelativeColumn();
+                                    c.RelativeColumn();
+                                    c.ConstantColumn(80);
+                                });
+
+                                table.Header(h =>
+                                {
+                                    h.Cell().Element(HeaderCellStyle).Text("Heading");
+                                    h.Cell().Element(HeaderCellStyle).Text("Checkpoint");
+                                    h.Cell().Element(HeaderCellStyle).AlignCenter().Text("Mandatory");
+                                });
+
+                                foreach (DataRow row in dt2.Rows)
+                                {
+                                    table.Cell().Element(CellStyle).Text(Clean(row["ACM_Heading"]?.ToString()));
+                                    table.Cell().Element(CellStyle).Text(Clean(row["ACM_Checkpoint"]?.ToString()));
+                                    table.Cell().Element(CellStyle).AlignCenter().Text(Clean(row["SAC_Mandatory"]?.ToString()));
+                                }
+                            });
+                        });
+
+                        page.Footer().AlignCenter().Text(t =>
+                        {
+                            t.Span("Generated on ").FontSize(10);
+                            t.Span(DateTime.Now.ToString("dd MMM yyyy HH:mm")).SemiBold();
+                        });
+                    });
+                });
+
+                using var ms = new MemoryStream();
+                doc.GeneratePdf(ms);
+                return ms.ToArray();
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("Error occurred while generating Audit Schedule PDF.", ex);
+            }
+        }
+
+        public async Task<byte[]> GenerateWorkpapersPdfAsync(int compId, int auditId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            var result = await connection.QueryFirstOrDefaultAsync<(int EpPkId, int CustID, string CustName, string YearName, string AuditNo)>(
+                @"SELECT LOE.LOE_ID AS EpPkId, SA.SA_CustID As CustID, CUST.CUST_NAME As CustName, YMS.YMS_ID AS YearName, SA_AuditNo + ' - ' + CMA.CMM_Desc As AuditNo FROM StandardAudit_Schedule AS SA
+                  LEFT JOIN SAD_CUST_LOE AS LOE ON LOE.LOE_CustomerId = SA.SA_CustID AND LOE.LOE_YearId = SA.SA_YearID AND LOE.LOE_ServiceTypeId = SA.SA_AuditTyPeId
+                  LEFT JOIN SAD_CUSTOMER_MASTER AS CUST ON SA.SA_CustID = CUST_ID 
+                  LEFT JOIN YEAR_MASTER AS YMS ON YMS.YMS_YEARID = SA.SA_YearID
+                  LEFT JOIN Content_Management_Master CMA On CMA.cmm_ID = SA.SA_AuditTypeID
+                  WHERE LOE.LOE_CompID = @CompId AND SA.SA_ID = @AuditId;", new { CompId = compId, AuditId = auditId });
+
+            List<ConductAuditWorkPaperDTO> dtoCAWP = await LoadConductAuditWorkPapersAsync(compId, auditId);
+
+            var reportTypeList = await connection.QueryAsync<DropDownListData>(@"SELECT RTM_Id AS ID, RTM_ReportTypeName As Name FROM SAD_ReportTypeMaster
+                    WHERE RTM_TemplateId = 4 And RTM_DelFlag = 'A' AND RTM_CompID = @CompId ORDER BY RTM_ReportTypeName", new { CompId = compId }); //RTM_TemplateId = 4 And RTM_AudrptType = 3
+
+            var allDtoCAEs = new Dictionary<int, List<CommunicationWithClientTemplateReportDetailsDTO>>();
+            foreach (var reportType in reportTypeList)
+            {
+                var dtoCAE = (await connection.QueryAsync<CommunicationWithClientTemplateReportDetailsDTO>(
+                    @"SELECT LTD_ReportTypeID, LTD_Heading, LTD_Decription FROM LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = @ReportTypeID AND LTD_LOE_ID = @LOEId AND LTD_CompID = @CompId;",
+                    new { CompId = compId, ReportTypeID = reportType.ID, LOEId = auditId })).ToList();
+                if (dtoCAE.Count > 0)
+                {
+                    allDtoCAEs[reportType.ID] = dtoCAE;
+                }
+            }
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Workpaper Report").FontSize(16).Bold();
+                            column.Item().Text(text =>
+                            {
+                                text.Span("Client Name: ").FontSize(10).Bold();
+                                text.Span(result.CustName).FontSize(10);
+                            });
+                            column.Item().Text(text =>
+                            {
+                                text.Span("Audit No: ").FontSize(10).Bold();
+                                text.Span(result.AuditNo).FontSize(10);
+                            });
+
+                            column.Item().PaddingBottom(10);
+
+                            if (dtoCAWP.Any() == true)
+                            {
+                                column.Item().PaddingBottom(15).Table(table =>
+                                {
+                                    foreach (var details in dtoCAWP)
+                                    {
+                                        table.ColumnsDefinition(columns =>
+                                        {
+                                            columns.RelativeColumn(1);
+                                            columns.RelativeColumn(2);
+                                        });
+
+                                        table.Cell().Element(CellStyle).Text("Workpaper Name:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.WorkpaperRef).FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("Created By and Date:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text($"{details.CreatedBy}, {details.CreatedOn}").FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("Workpaper No:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.WorkpaperNo).FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("Reviewed By and Date:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text($"{details.ReviewedBy}, {details.ReviewedOn}").FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("Type of Test:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.TypeOfTest).FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("Status:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Status).FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("Exceeded Materiality:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.ExceededMateriality).FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("Auditor Hours Spent:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.AuditorHoursSpent).FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("Notes/Steps:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Notes).FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("Deviations/Exceptions Noted:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Deviations).FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("Critical Audit Matter(CAM):").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.CriticalAuditMatter).FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("Conclusion:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.Conclusion).FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("Attachments:").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text(details.AttachmentCount).FontSize(10);
+
+                                        table.Cell().Element(CellStyle).Text("").FontSize(10).Bold();
+                                        table.Cell().Element(CellStyle).Text("").FontSize(10);
+                                    }
+                                    static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                                });
+                            }
+
+                            column.Item().PaddingBottom(10);
+                        });
+                    });
+                });
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
+
+        public async Task<byte[]> GenerateCheckPointsPdfAsync(int compId, int auditId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            var result = await connection.QueryFirstOrDefaultAsync<(int EpPkId, int CustID, string CustName, string YearName, string AuditNo)>(
+                @"SELECT LOE.LOE_ID AS EpPkId, SA.SA_CustID As CustID, CUST.CUST_NAME As CustName, YMS.YMS_ID AS YearName, SA_AuditNo + ' - ' + CMA.CMM_Desc As AuditNo FROM StandardAudit_Schedule AS SA
+                  LEFT JOIN SAD_CUST_LOE AS LOE ON LOE.LOE_CustomerId = SA.SA_CustID AND LOE.LOE_YearId = SA.SA_YearID AND LOE.LOE_ServiceTypeId = SA.SA_AuditTyPeId
+                  LEFT JOIN SAD_CUSTOMER_MASTER AS CUST ON SA.SA_CustID = CUST_ID 
+                  LEFT JOIN YEAR_MASTER AS YMS ON YMS.YMS_YEARID = SA.SA_YearID
+                  LEFT JOIN Content_Management_Master CMA On CMA.cmm_ID = SA.SA_AuditTypeID
+                  WHERE LOE.LOE_CompID = @CompId AND SA.SA_ID = @AuditId;", new { CompId = compId, AuditId = auditId });
+
+            List<ConductAuditReportDetailDTO> dtoCA = await GetConductAuditReportAsync(compId, auditId);
+            List<ConductAuditRemarksReportDTO> dtoCAO = await GetConductAuditRemarksReportAsync(compId, auditId);
+
+            var reportTypeList = await connection.QueryAsync<DropDownListData>(@"SELECT RTM_Id AS ID, RTM_ReportTypeName As Name FROM SAD_ReportTypeMaster
+                    WHERE RTM_TemplateId = 4 And RTM_DelFlag = 'A' AND RTM_CompID = @CompId ORDER BY RTM_ReportTypeName", new { CompId = compId }); //RTM_TemplateId = 4 And RTM_AudrptType = 3
+
+            var allDtoCAEs = new Dictionary<int, List<CommunicationWithClientTemplateReportDetailsDTO>>();
+            foreach (var reportType in reportTypeList)
+            {
+                var dtoCAE = (await connection.QueryAsync<CommunicationWithClientTemplateReportDetailsDTO>(
+                    @"SELECT LTD_ReportTypeID, LTD_Heading, LTD_Decription FROM LOE_Template_Details WHERE LTD_FormName = 'CAE' AND LTD_ReportTypeID = @ReportTypeID AND LTD_LOE_ID = @LOEId AND LTD_CompID = @CompId;",
+                    new { CompId = compId, ReportTypeID = reportType.ID, LOEId = auditId })).ToList();
+                if (dtoCAE.Count > 0)
+                {
+                    allDtoCAEs[reportType.ID] = dtoCAE;
+                }
+            }
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Heading wise Checkpoints Report").FontSize(16).Bold();
+                            column.Item().Text(text =>
+                            {
+                                text.Span("Client Name: ").FontSize(10).Bold();
+                                text.Span(result.CustName).FontSize(10);
+                            });
+                            column.Item().Text(text =>
+                            {
+                                text.Span("Audit No: ").FontSize(10).Bold();
+                                text.Span(result.AuditNo).FontSize(10);
+                            });
+
+                            column.Item().PaddingBottom(10);
+
+                            if (dtoCA.Any() == true)
+                            {
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(0.5f);
+                                        columns.RelativeColumn(1.75f);
+                                        columns.RelativeColumn(1.75f);
+                                        columns.RelativeColumn(1.5f);
+                                        columns.RelativeColumn(2);
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Heading").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Check Point").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Assertions").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Workpaper Ref/Index").FontSize(10).Bold();
+                                    });
+
+                                    int slNo = 1;
+                                    foreach (var details in dtoCA)
+                                    {
+                                        table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Heading).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.CheckPoints).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text($"Mandatory: {details.Mandatory}\nTest Result: {details.TestResult}\nAnnexure: {details.Annexure}").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text($"Workpaper Ref: {details.WorkpaperRef}\nComments: {details.Comments}\nBy: {details.ConductedBy}\nOn: {details.ConductedOn}").FontSize(10);
+                                        slNo++;
+                                    }
+                                    static IContainer CellStyle(IContainer container) =>
+                                        container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                                });
+                            }
+
+                            column.Item().PaddingBottom(10);
+
+                            if (dtoCAO.Any() == true)
+                            {
+                                column.Item().AlignCenter().PaddingBottom(10).Text("Audit or Review - Testing Check Point Observation Details").FontSize(14).Bold();
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(0.5f);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn(2);
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Check Point").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Observations").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Remarks By").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Client Remarks").FontSize(10).Bold();
+                                    });
+
+                                    foreach (var details in dtoCAO)
+                                    {
+                                        table.Cell().Element(CellStyle).Text(details.SrNo.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.CheckPoint.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.Observations.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.RemarksBy.ToString() + "(" + details.RemarksByRole + ")").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ClientRemarks.ToString()).FontSize(10);
+                                    }
+                                    static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                                });
+                            }
+                        });
+                    });
+                });
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
+
+        private static IContainer CellStyle(IContainer container) => container.PaddingVertical(4).PaddingHorizontal(6).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2);
+
+        private static IContainer HeaderCellStyle(IContainer container) => container.PaddingVertical(6).PaddingHorizontal(6).Background(Colors.Grey.Lighten3).BorderBottom(1).BorderColor(Colors.Black);
     }
 }
