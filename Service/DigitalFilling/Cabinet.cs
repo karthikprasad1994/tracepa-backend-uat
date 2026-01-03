@@ -62,6 +62,7 @@ namespace TracePca.Service.DigitalFilling
             _isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
 
             string localPath = @"C:\Users\Crcuial\Desktop\TracePA-Backend-Latest\tracepa-corebackend\client_secret_desktop.json";
+            //string localPath = @"D:\Steffi\Backend Project\tracepa-corebackend\client_secret_desktop.json";
 
             string cloudPath = @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\GoogleDrive\client_secret.json";
             _credentialsPath = _isDevelopment ? localPath : cloudPath;
@@ -1302,7 +1303,8 @@ namespace TracePca.Service.DigitalFilling
                         A.PGE_Title AS Title, A.PGE_Ext AS Extension,PGE_BASENAME,
                         (select SAD_Config_Value from [Sad_Config_Settings] where sad_Config_key='DisplayPath') +
 						'BITMAPS\' + CAST(FLOOR(CAST(PGE_BASENAME AS numeric)/301) AS varchar) + '\' +
-						CAST(PGE_BASENAME AS varchar) + '.'  + A.PGE_Ext AS URLPath
+						CAST(PGE_BASENAME AS varchar) + '.'  + A.PGE_Ext AS URLPath,
+                        (SELECT TOP 1 UserEmail FROM UserDriveTokens ORDER BY Id DESC) AS UserEmail 
                         FROM edt_page A 
                         JOIN edt_Cabinet Cab ON A.PGE_CABINET = Cab.CBN_ID 
                         JOIN EDT_Cabinet SubCab ON A.PGE_SubCabinet = SubCab.cbn_Id
@@ -1429,7 +1431,8 @@ namespace TracePca.Service.DigitalFilling
                 string query = @"SELECT A.SA_ID,A.SA_AuditNo,A.SA_ScopeOfAudit,
                             A.SA_CustID,A.SA_AuditTypeID,A.SA_PartnerID,A.SA_ReviewPartnerID,
                             A.SA_AttachID,A.SA_CompID,A.SA_StartDate,A.SA_ExpCompDate,
-                            A.SA_AuditOpinionDate,A.SA_ExpiryDate,B.CUST_NAME,B.CUST_CODE,
+                            CASE WHEN A.SA_AuditOpinionDate <= '1900-01-01' THEN NULL
+							ELSE A.SA_AuditOpinionDate END AS SA_AuditOpinionDate, A.SA_ExpiryDate,B.CUST_NAME,B.CUST_CODE,
                             CMM.CMM_Code,CMM.CMM_Desc,A.SA_RetentionPeriod,
                             ISNULL(D.AttachmentCount, 0) AS AttachmentCount,D.SA_AttachmentID
                             FROM StandardAudit_Schedule A
