@@ -93,7 +93,7 @@ namespace TracePca.Service.Master
                     var newId = await con.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(RCM_Id), 0) + 1 FROM SAD_ReportContentMaster WHERE RCM_CompID = @CompId", new { CompId = dto.CompId }, tran);
 
                     var sql = @"INSERT INTO SAD_ReportContentMaster (RCM_Id, RCM_ReportId, RCM_Heading, RCM_Description, RCM_Delflag, RCM_Status, RCM_CrBy, RCM_CrOn, RCM_IPAddress, RCM_CompID, RCM_Yearid)
-                        VALUES (@Id, @ReportId, @Heading, @Description, 'N', 'A', @UserId, GETDATE(), @Ip, @CompId, @YearId)";
+                        VALUES (@Id, @ReportId, @Heading, @Description, 'A', 'A', @UserId, GETDATE(), @Ip, @CompId, @YearId)";
 
                     await con.ExecuteAsync(sql, new
                     {

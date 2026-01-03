@@ -2,7 +2,7 @@
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.JournalEntryDto;
-using static TracePca.Dto.FIN_Statement.LedgerMaterialityDto;
+//using static TracePca.Dto.FIN_Statement.LedgerMaterialityDto;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -14,7 +14,6 @@ namespace TracePca.Controllers.FIN_Statement
     {
         private JournalEntryInterface _JournalEntryInterface;
         private JournalEntryInterface _JournalEntryService;
-
         public JournalEntryController(JournalEntryInterface JournalEntryInterface)
         {
             _JournalEntryInterface = JournalEntryInterface;
@@ -530,72 +529,72 @@ namespace TracePca.Controllers.FIN_Statement
             });
         }
 
-        [HttpPost("upload-excel")]
-        [RequestSizeLimit(100_000_000)] // 100MB limit
-        public async Task<IActionResult> UploadJournalEntriesExcel([FromForm] JournalEntryUploadDto uploadDto)
-        {
-            try
-            {
-                if (uploadDto.File == null || uploadDto.File.Length == 0)
-                {
-                    return BadRequest(new { Success = false, Message = "Please select a file to upload" });
-                }
+        //[HttpPost("upload-excel")]
+        //[RequestSizeLimit(100_000_000)] // 100MB limit
+        //public async Task<IActionResult> UploadJournalEntriesExcel([FromForm] JournalEntryUploadDto uploadDto)
+        //{
+        //    try
+        //    {
+        //        if (uploadDto.File == null || uploadDto.File.Length == 0)
+        //        {
+        //            return BadRequest(new { Success = false, Message = "Please select a file to upload" });
+        //        }
 
-                // Validate file type
-                var allowedExtensions = new[] { ".xlsx", ".xls" };
-                var extension = Path.GetExtension(uploadDto.File.FileName).ToLowerInvariant();
-                if (!allowedExtensions.Contains(extension))
-                {
-                    return BadRequest(new { Success = false, Message = "Only Excel files are allowed" });
-                }
+        //        // Validate file type
+        //        var allowedExtensions = new[] { ".xlsx", ".xls" };
+        //        var extension = Path.GetExtension(uploadDto.File.FileName).ToLowerInvariant();
+        //        if (!allowedExtensions.Contains(extension))
+        //        {
+        //            return BadRequest(new { Success = false, Message = "Only Excel files are allowed" });
+        //        }
 
-                // Get user info from context
-                var accessCodeId = int.Parse(Request.Headers["AccessCodeID"].FirstOrDefault() ?? "1");
-                var userId = int.Parse(Request.Headers["UserID"].FirstOrDefault() ?? "0");
-                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        //        // Get user info from context
+        //        var accessCodeId = int.Parse(Request.Headers["AccessCodeID"].FirstOrDefault() ?? "1");
+        //        var userId = int.Parse(Request.Headers["UserID"].FirstOrDefault() ?? "0");
+        //        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
 
-                uploadDto.AccessCodeId = accessCodeId;
-                uploadDto.UserId = userId;
+        //        uploadDto.AccessCodeId = accessCodeId;
+        //        uploadDto.UserId = userId;
 
-                // Process the file
-                var result = await _JournalEntryService.ProcessJournalEntriesAsync(uploadDto);
+        //        // Process the file
+        //        var result = await _JournalEntryService.ProcessJournalEntriesAsync(uploadDto);
 
-                if (result.Success)
-                {
-                    return Ok(new
-                    {
-                        Success = true,
-                        Message = result.Message,
-                        Data = new
-                        {
-                            result.TotalRecords,
-                            result.ProcessedRecords,
-                            result.FailedRecords,
-                            result.ProcessingTime,
-                            Errors = result.Errors.Take(10) // Return only first 10 errors
-                        }
-                    });
-                }
-                else
-                {
-                    return BadRequest(new
-                    {
-                        Success = false,
-                        Message = result.Message,
-                        Errors = result.Errors.Take(20) // Return more errors for debugging
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    Success = false,
-                    Message = "Internal server error",
-                    Error = ex.Message
-                });
-            }
-        }
-
+        //        if (result.Success)
+        //        {
+        //            return Ok(new
+        //            {
+        //                Success = true,
+        //                Message = result.Message,
+        //                Data = new
+        //                {
+        //                    result.TotalRecords,
+        //                    result.ProcessedRecords,
+        //                    result.FailedRecords,
+        //                    result.ProcessingTime,
+        //                    Errors = result.Errors.Take(10) // Return only first 10 errors
+        //                }
+        //            });
+        //        }
+        //        else
+        //        {
+        //            return BadRequest(new
+        //            {
+        //                Success = false,
+        //                Message = result.Message,
+        //                Errors = result.Errors.Take(20) // Return more errors for debugging
+        //            });
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            Success = false,
+        //            Message = "Internal server error",
+        //            Error = ex.Message
+        //        });
+        //    }
+        //}
+    
     }
 }
