@@ -2695,8 +2695,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
 
             if (record == null)
                 return false;
-            decimal Debit = Convert.ToDecimal(record.ATBU_Closing_TotalDebit_Amount);
-            decimal Credit = Convert.ToDecimal(record.ATBU_Closing_TotalCredit_Amount);
+       
             decimal TrAmount;
             string updateQuery;
 
@@ -2705,15 +2704,6 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 TrAmount = pnlDecimal;
                 if (pnlDecimal < 0)
                 {
-                    if (Debit > 0)
-                    {
-                        pnlDecimal = pnlDecimal + Debit;
-                    }
-                    else
-                    {
-                        pnlDecimal = pnlDecimal - Credit;
-                    }
-
                     pnlDecimal = Math.Abs(pnlDecimal);
                     updateQuery = @"
           UPDATE Acc_TrailBalance_Upload 
@@ -2722,42 +2712,28 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
               ATBU_Closing_TotalDebit_Amount = @PnlAmount,
               ATBU_Closing_Credit_Amount = '0.00',
               ATBU_Closing_TotalCredit_Amount = '0.00',
-              ATBU_TR_Debit_Amount = @TrAmount
+            ATBU_TR_Credit_Amount = '0.00',
+              ATBU_TR_Debit_Amount = @PnlAmount
           WHERE ATBU_ID = @Id";
                 }
                 else
                 {
-                    if (Debit > 0)
-                    {
-                        pnlDecimal = pnlDecimal - Debit;
-                    }
-                    else
-                    {
-                        pnlDecimal = pnlDecimal + Credit;
-                    }
-                    updateQuery = @"
+          updateQuery = @"
           UPDATE Acc_TrailBalance_Upload 
-          SET 
-              ATBU_Closing_Credit_Amount = @PnlAmount,
+          SET ATBU_Closing_Credit_Amount = @PnlAmount,
               ATBU_Closing_TotalCredit_Amount = @PnlAmount,
               ATBU_Closing_Debit_Amount = '0.00',
               ATBU_Closing_TotalDebit_Amount = '0.00',
-              ATBU_TR_Credit_Amount = @TrAmount
-          WHERE ATBU_ID = @Id";
-
-
-                }
-
+              ATBU_TR_debit_Amount = '0.00',
+              ATBU_TR_Credit_Amount = @PnlAmount
+          WHERE ATBU_ID = @Id";                }
                 var affected = await connection.ExecuteAsync(updateQuery, new
                 {
                     PnlAmount = pnlDecimal.ToString("F2"),
-                    TrAmount = TrAmount,
                     Id = (int)record.ATBU_ID
                 });
-
                 return affected > 0;
             }
-
             return false;
         }
         public async Task<(int iUpdateOrSave, int iOper)> SaveCustomerStatutoryPartnerAsync(StatutoryPartnerDto partnerDto)
