@@ -1987,7 +1987,13 @@ namespace TracePca.Service.Audit
                 result.AuditCompletionSubCheckpointAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Report", Attachments = null });
 
                 // 9. Account Finalisation Reports
-                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Report", Attachments = null });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Summary Report - P&L", Attachments = null });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Summary Report - Balance sheet", Attachments = null });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Detailed Report - P&L", Attachments = null });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Detailed Report - Balance sheet", Attachments = null });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Accounting Ratio", Attachments = null });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Cashflow", Attachments = null });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "ScheduleNotes", Attachments = null });
 
                 foreach (var item in nearEndTypes)
                 {
@@ -2333,6 +2339,26 @@ namespace TracePca.Service.Audit
                 await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Completion", "Audit_Completion_Report.pdf", savedAuditCompletionFilePath);
 
                 // 9. Account Finalisation Report
+                var savedSummaryPLReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Summary Report - P&L", "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Summary_PL_Report.pdf", savedSummaryPLReportFilePath);
+
+                var savedSummaryBalanceSheetReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Summary Report - Balance Sheet", "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Summary_BalanceSheet_Report.pdf", savedSummaryBalanceSheetReportFilePath);
+
+                var savedDetailedPLReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Detailed Report - P&L", "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Detailed_PL_Report.pdf", savedDetailedPLReportFilePath);
+
+                var savedDetailedBalanceSheetReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Detailed Report - Balance sheet", "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Detailed_Report_BalanceSheet_Report.pdf", savedDetailedBalanceSheetReportFilePath);
+
+                var savedAccountingRatioFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Accounting Ratio", "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Accounting_Ratio_Report.pdf", savedAccountingRatioFilePath);
+
+                var savedCashflowFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Cashflow", "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Cashflow_Report.pdf", savedCashflowFilePath);
+
+                var savedScheduleNotesFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "ScheduleNotes", "pdf");
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "ScheduleNotes_Report.pdf", savedScheduleNotesFilePath);
 
                 string cleanedPath = downloadDirectoryPath.TrimEnd('\\');
                 string zipFilePath = cleanedPath + ".zip";
@@ -3233,6 +3259,77 @@ namespace TracePca.Service.Audit
                                     static IContainer CellStyle(IContainer container) => container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
                                 });
                             }
+                        });
+                    });
+                });
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
+
+        public async Task<string> GenerateTempReportAndGetTempPathAsync(int compId, int auditId, string reportHeading, string format)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"Audit_Completion_{timestamp}";
+
+                if (format.ToLower() == "pdf")
+                {
+                    fileBytes = await GenerateTempPdfAsync(compId, auditId, reportHeading);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                var filePath = Path.Combine(tempFolder, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+                string downloadUrl = $"{tempFolder}/{fileName}";
+                return downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        private async Task<byte[]> GenerateTempPdfAsync(int compId, int auditId, string reportHeading)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10).Text(reportHeading).FontSize(16).Bold();
+
                         });
                     });
                 });
