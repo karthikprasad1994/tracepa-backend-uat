@@ -2695,8 +2695,8 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
 
             if (record == null)
                 return false;
-            decimal Debit = Convert.ToDecimal(record.ATBU_Opening_Debit_Amount);
-            decimal Credit = Convert.ToDecimal(record.ATBU_Opening_Credit_Amount);
+            decimal Debit = Convert.ToDecimal(record.ATBU_Closing_TotalDebit_Amount);
+            decimal Credit = Convert.ToDecimal(record.ATBU_Closing_TotalCredit_Amount);
             decimal TrAmount;
             string updateQuery;
 

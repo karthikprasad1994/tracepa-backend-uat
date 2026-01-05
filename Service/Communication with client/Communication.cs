@@ -4336,23 +4336,23 @@ ORDER BY LTD_ID";
 
             List<LOEHeadingDto> fallbackHeadings;
 
-            if (!string.IsNullOrWhiteSpace(contentId))
-            {
-                var fallbackQueryWithContent = $@"
-SELECT 
-    RCM_Id AS LOEHeadingID, 
-    RCM_Heading AS LOEHeading, 
-    RCM_Description AS LOEDesc
-FROM SAD_ReportContentMaster 
-WHERE 
-    RCM_Id IN ({contentId}) 
-    AND RCM_ReportId = @ReportTypeId 
-ORDER BY RCM_Id";
+//            if (!string.IsNullOrWhiteSpace(contentId))
+//            {
+//                var fallbackQueryWithContent = $@"
+//SELECT 
+//    RCM_Id AS LOEHeadingID, 
+//    RCM_Heading AS LOEHeading, 
+//    RCM_Description AS LOEDesc
+//FROM SAD_ReportContentMaster 
+//WHERE 
+//    RCM_Id IN ({contentId}) 
+//    AND RCM_ReportId = @ReportTypeId 
+//ORDER BY RCM_Id";
 
-                fallbackHeadings = (await connection.QueryAsync<LOEHeadingDto>(fallbackQueryWithContent, new { ReportTypeId = reportTypeId })).ToList();
-            }
-            else
-            {
+//                fallbackHeadings = (await connection.QueryAsync<LOEHeadingDto>(fallbackQueryWithContent, new { ReportTypeId = reportTypeId })).ToList();
+//            }
+//            else
+//            {
                 var fallbackQuery = @"
 SELECT 
     RCM_Id AS LOEHeadingID, 
@@ -4364,7 +4364,7 @@ WHERE
 ORDER BY RCM_Id";
 
                 fallbackHeadings = (await connection.QueryAsync<LOEHeadingDto>(fallbackQuery, new { ReportTypeId = reportTypeId })).ToList();
-            }
+            //}
 
             return fallbackHeadings;
         }

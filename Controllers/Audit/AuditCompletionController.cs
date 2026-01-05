@@ -537,7 +537,7 @@ namespace TracePca.Controllers.Audit
                         { "Workpapers and Attachments", result?.WorkpaperAttachments ?? new List<AttachmentGroupDTO>() },
                         { "Conduct Audit Checkpoint wise Testing details and Annexures", result?.ConductAuditAttachments ?? new List<AttachmentGroupDTO>() },
                         { "Near End of the Audit", result?.NearEndAuditAttachments ?? new List<AttachmentGroupDTO>() },
-                        { "Audit Completion Checkpoint Reports", result?.ConductAuditAttachments ?? new List<AttachmentGroupDTO>() },
+                        { "Audit Completion Checkpoint Reports", result?.AuditCompletionSubCheckpointAttachments ?? new List<AttachmentGroupDTO>() },
                         { "Account Finalisation Reports", result?.AccountFinalisationAttachments ?? new List<AttachmentGroupDTO>() },
                     };
 

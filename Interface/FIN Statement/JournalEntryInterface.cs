@@ -47,11 +47,7 @@ namespace TracePca.Interface.FIN_Statement
         //SaveJEType
         Task<string> SaveOrUpdateContentForJEAsync(int? id, int compId, string description, string remarks, string Category);
 
-        Task<JournalEntryProcessResponse> ProcessJournalEntriesAsync(JournalEntryUploadDto uploadDto);
-        Task<JournalEntryProcessResponse> ValidateAndProcessExcelFileAsync(Stream fileStream, JournalEntryUploadDto uploadDto);
-        Task<BatchProcessResult> ProcessBatchAsync(List<JournalEntryRowDto> batch, int customerId, int financialYearId,
-            int branchId, int durationId, int accessCodeId, int userId, string ipAddress);
-        Task<List<JournalEntryRowDto>> ReadExcelFileAsync(Stream fileStream);
+ 
         Task<int?> GetContentMasterIdAsync(string description, int compId);
 
     }
