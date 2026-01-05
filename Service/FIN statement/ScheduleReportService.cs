@@ -2712,7 +2712,6 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
               ATBU_Closing_TotalDebit_Amount = @PnlAmount,
               ATBU_Closing_Credit_Amount = '0.00',
               ATBU_Closing_TotalCredit_Amount = '0.00',
-            ATBU_TR_Credit_Amount = '0.00',
               ATBU_TR_Debit_Amount = @PnlAmount
           WHERE ATBU_ID = @Id";
                 }
@@ -2720,11 +2719,11 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 {
           updateQuery = @"
           UPDATE Acc_TrailBalance_Upload 
-          SET ATBU_Closing_Credit_Amount = @PnlAmount,
+          SET 
+              ATBU_Closing_Credit_Amount = @PnlAmount,
               ATBU_Closing_TotalCredit_Amount = @PnlAmount,
               ATBU_Closing_Debit_Amount = '0.00',
               ATBU_Closing_TotalDebit_Amount = '0.00',
-              ATBU_TR_debit_Amount = '0.00',
               ATBU_TR_Credit_Amount = @PnlAmount
           WHERE ATBU_ID = @Id";                }
                 var affected = await connection.ExecuteAsync(updateQuery, new
