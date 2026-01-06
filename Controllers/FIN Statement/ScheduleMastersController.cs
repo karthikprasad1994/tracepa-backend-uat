@@ -365,6 +365,45 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
+        //GetCustomerAuditType
+        [HttpGet("GetCustomerAuditType")]
+        public async Task<IActionResult> GetCustomerAuditType([FromQuery] int CustId, [FromQuery] int CompId)
+        {
+            try
+            {
+                var result = await _ScheduleMastersService.GetCustomerAuditTypeAsync(CustId, CompId);
+
+                if (string.IsNullOrWhiteSpace(result))
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "Customer Audit type not found.",
+                        data = (string)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Customer Audit type retrieved successfully.",
+                    data = new
+                    {
+                        orgType = result
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while retrieving the Audit type.",
+                    error = ex.Message
+                });
+            }
+        }
+
 
         [HttpPost("save-location")]
         public async Task<IActionResult> SaveCustomerLocation([FromBody] CustomerLocationDto dto)

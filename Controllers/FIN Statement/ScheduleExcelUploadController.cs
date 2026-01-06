@@ -412,16 +412,11 @@ namespace TracePca.Controllers.FIN_Statement
                 // ✅ START TRANSACTION ONLY FOR DB WRITE
                 transaction = connection.BeginTransaction();
 
-                //await BulkCreateMissingAccounts(
-                //    connection, transaction, request, accessCodeId, userId, ipAddress);
+                await BulkCreateMissingAccounts(
+                    connection, transaction, request, accessCodeId, userId, ipAddress);
 
-                var processResult = await BulkCreateAndProcessTransactions(
-          connection,
-          transaction,
-          request,
-          accessCodeId,
-          userId,
-          ipAddress);
+                var processResult = await ProcessTransactionsInBatches(
+                    connection, transaction, request, accessCodeId, userId, ipAddress);
 
                 if (!processResult.Success)
                 {
@@ -630,236 +625,252 @@ namespace TracePca.Controllers.FIN_Statement
             var result = await cmd.ExecuteScalarAsync();
             return Convert.ToInt32(result ?? 0);
         }
-        private async Task<ApiResponse<string>> BulkCreateAndProcessTransactions(
-         SqlConnection connection,
-         SqlTransaction transaction,
-         JournalEntryUploadRequest request,
-         int accessCodeId,
-         int userId,
-         string ipAddress)
+        private async Task BulkCreateMissingAccounts(
+          SqlConnection connection,
+          SqlTransaction transaction,
+          JournalEntryUploadRequest request,
+          int accessCodeId,
+          int userId,
+          string ipAddress)
         {
-            const int batchSize = 1000;
+            /* ===============================
+               STEP 1: FIND MISSING ACCOUNTS
+            =============================== */
+            var accountsToCreate = new List<string>();
+            var existingAccountsCache = new Dictionary<string, int>();
+
+            foreach (var row in request.Rows.Where(r => !string.IsNullOrWhiteSpace(r.Account)))
+            {
+                if (existingAccountsCache.ContainsKey(row.Account))
+                    continue;
+
+                var exists = await CheckAccountData(
+                    connection, transaction, accessCodeId,
+                    request.CustomerId, row.Account,
+                    request.FinancialYearId,
+                    request.BranchId,
+                    request.DurationId);
+
+                existingAccountsCache[row.Account] = exists;
+
+                if (exists == 0)
+                    accountsToCreate.Add(row.Account);
+            }
+
+            if (!accountsToCreate.Any())
+                return;
+
+            int maxCount = await GetDescMaxId(
+                connection, transaction,
+                accessCodeId, request.CustomerId, "",
+                request.FinancialYearId,
+                request.BranchId,
+                request.DurationId);
+
+            /* ===============================
+               STEP 2: CHECK JE TYPES EXISTENCE
+            =============================== */
+            bool hasPurchase = request.Rows.Any(r =>
+                r.JE_Type?.Equals("Purchase", StringComparison.OrdinalIgnoreCase) == true);
+
+            bool hasSales = request.Rows.Any(r =>
+                r.JE_Type?.Equals("Sales", StringComparison.OrdinalIgnoreCase) == true);
+
+            /* ===============================
+               STEP 3: PREPARE PURCHASE MAPPING
+            =============================== */
+            int pHeadingId = 0, pSubHeadingId = 0, pItemId = 0, pScheduleType = 0;
+
+            if (hasPurchase)
+            {
+                pItemId = await GetIdFromNameAsync(
+                    connection, transaction,
+                    "ACC_ScheduleItems", "ASI_ID",
+                    "Others - Trade Payables",
+                    request.CustomerId);
+
+                var dt = await GetScheduleIDs(connection, transaction, pItemId, request.CustomerId, 3);
+                if (dt.Rows.Count > 0)
+                {
+                    pHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
+                    pSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
+                    pItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
+                }
+
+                pScheduleType = await GetScheduleTypeFromTemplateAsync(
+                    connection, transaction,
+                    0, pItemId, pSubHeadingId, pHeadingId, request.CustomerId);
+            }
+
+            /* ===============================
+               STEP 4: PREPARE SALES MAPPING
+            =============================== */
+            int sHeadingId = 0, sSubHeadingId = 0, sItemId = 0, sScheduleType = 0;
+
+            if (hasSales)
+            {
+                sItemId = await GetIdFromNameAsync(
+                    connection, transaction,
+                    "ACC_ScheduleItems", "ASI_ID",
+                    "Any others - Trade receivables",
+                    request.CustomerId);
+
+                var dt = await GetScheduleIDs(connection, transaction, sItemId, request.CustomerId, 3);
+                if (dt.Rows.Count > 0)
+                {
+                    sHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
+                    sSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
+                    sItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
+                }
+
+                sScheduleType = await GetScheduleTypeFromTemplateAsync(
+                    connection, transaction,
+                    0, sItemId, sSubHeadingId, sHeadingId, request.CustomerId);
+            }
+
+            /* ===============================
+               STEP 5: SAVE ACCOUNTS
+               → PASS 0 IF NO TRANSACTION DATE
+            =============================== */
+            foreach (var account in accountsToCreate)
+            {
+                maxCount++;
+
+                var uploadId = await SaveTrailBalanceExcelUpload(
+                    connection, transaction,
+                    new TrailBalanceUpload
+                    {
+                        ATBU_ID = 0,
+                        ATBU_CODE = "SCh00" + maxCount,
+                        ATBU_Description = account,
+                        ATBU_CustId = request.CustomerId,
+                        ATBU_Opening_Debit_Amount = 0,
+                        ATBU_Opening_Credit_Amount = 0,
+                        ATBU_TR_Debit_Amount = 0,
+                        ATBU_TR_Credit_Amount = 0,
+                        ATBU_Closing_Debit_Amount = 0,
+                        ATBU_Closing_Credit_Amount = 0,
+                        ATBU_DELFLG = "A",
+                        ATBU_CRBY = userId,
+                        ATBU_STATUS = "C",
+                        ATBU_UPDATEDBY = userId,
+                        ATBU_IPAddress = ipAddress,
+                        ATBU_CompId = accessCodeId,
+                        ATBU_YEARId = request.FinancialYearId,
+                        ATBU_Branchname = request.BranchId,
+                        ATBU_QuaterId = request.DurationId
+                    });
+
+                bool isPurchaseAccount = request.Rows.Any(r =>
+                    r.Account == account &&
+                    r.JE_Type?.Equals("Purchase", StringComparison.OrdinalIgnoreCase) == true);
+
+                bool isSalesAccount = request.Rows.Any(r =>
+                    r.Account == account &&
+                    r.JE_Type?.Equals("Sales", StringComparison.OrdinalIgnoreCase) == true);
+
+                // 🔑 NEW CHECK → Transaction Date exists for this account
+                bool hasTransactionDate = request.Rows.Any(r =>
+                    r.Account == account &&
+                    !string.IsNullOrWhiteSpace(r.Transaction_Date));
+
+                // DEFAULT TO 0
+                int headingId = 0;
+                int subHeadingId = 0;
+                int itemId = 0;
+                int scheduleType = 0;
+
+                if (hasTransactionDate)
+                {
+                    if (isPurchaseAccount)
+                    {
+                        headingId = pHeadingId;
+                        subHeadingId = pSubHeadingId;
+                        itemId = pItemId;
+                        scheduleType = pScheduleType;
+                    }
+                    else if (isSalesAccount)
+                    {
+                        headingId = sHeadingId;
+                        subHeadingId = sSubHeadingId;
+                        itemId = sItemId;
+                        scheduleType = sScheduleType;
+                    }
+                }
+
+                await SaveTrailBalanceExcelUploadDetails(
+                    connection, transaction,
+                    new TrailBalanceUpload
+                    {
+                        ATBUD_ID = 0,
+                        ATBUD_Masid = uploadId,
+                        ATBUD_CODE = "SCh00" + maxCount,
+                        ATBUD_Description = account,
+                        ATBUD_CustId = request.CustomerId,
+                        ATBUD_SChedule_Type = scheduleType,
+                        ATBUD_Branchname = request.BranchId,
+                        ATBUD_iQuarterly = request.DurationId,
+                        ATBUD_Company_Type = request.CustomerId,
+                        ATBUD_Headingid = headingId,      // ✅ 0 if no date
+                        ATBUD_Subheading = subHeadingId,  // ✅ 0 if no date
+                        ATBUD_itemid = itemId,            // ✅ 0 if no date
+                        ATBUD_Subitemid = 0,
+                        ATBUD_DELFLG = "A",
+                        ATBUD_CRBY = userId,
+                        ATBUD_STATUS = "C",
+                        ATBUD_Progress = "Uploaded",
+                        ATBUD_UPDATEDBY = userId,
+                        ATBUD_IPAddress = ipAddress,
+                        ATBUD_CompId = accessCodeId,
+                        ATBUD_YEARId = request.FinancialYearId
+                    });
+            }
+        }
+
+
+
+        private async Task<ApiResponse<string>> ProcessTransactionsInBatches(SqlConnection connection, SqlTransaction transaction, JournalEntryUploadRequest request, int accessCodeId, int userId, string ipAddress)
+        {
+            const int batchSize = 1000; // Process 1000 records at a time
             var validRows = request.Rows.Where(r => !string.IsNullOrEmpty(r.Account)).ToList();
             var batches = validRows.Batch(batchSize);
 
             var transactionNo = "0";
             var iErrorLine = 1;
             int MasId = 0;
+
+            // ✅ ADDED: Variable to track the last valid transaction date
             DateTime currentTransactionDate = DateTime.MinValue;
 
-            // ===============================
-            // STEP 1: PRE-CACHE ALL DATA
-            // ===============================
-            var accountsToCreate = new List<string>();
-            var existingAccountsCache = new Dictionary<string, int>();
-            var voucherTypesCache = new Dictionary<string, int>();
-
-            // Cache existing accounts and identify missing ones
-            foreach (var row in validRows)
-            {
-                if (string.IsNullOrWhiteSpace(row.Account)) continue;
-
-                var account = row.Account;
-                if (existingAccountsCache.ContainsKey(account)) continue;
-
-                var exists = await CheckAccountData(
-                    connection, transaction, accessCodeId,
-                    request.CustomerId, account,
-                    request.FinancialYearId,
-                    request.BranchId,
-                    request.DurationId);
-
-                existingAccountsCache[account] = exists;
-
-                if (exists == 0)
-                    accountsToCreate.Add(account);
-
-                // Cache voucher types
-                if (!string.IsNullOrWhiteSpace(row.JE_Type) && !voucherTypesCache.ContainsKey(row.JE_Type))
-                {
-                    var voucherId = await CheckVoucherType(connection, transaction, accessCodeId, "JE", row.JE_Type);
-                    voucherTypesCache[row.JE_Type] = voucherId;
-                }
-            }
-
-            // ===============================
-            // STEP 2: CREATE MISSING ACCOUNTS
-            // ===============================
-            if (accountsToCreate.Any())
-            {
-                int maxCount = await GetDescMaxId(
-                    connection, transaction,
-                    accessCodeId, request.CustomerId, "",
-                    request.FinancialYearId,
-                    request.BranchId,
-                    request.DurationId);
-
-                // Determine if we need schedule mappings
-                bool hasPurchase = validRows.Any(r =>
-                    r.JE_Type?.Equals("Purchase", StringComparison.OrdinalIgnoreCase) == true);
-                bool hasSales = validRows.Any(r =>
-                    r.JE_Type?.Equals("Sales", StringComparison.OrdinalIgnoreCase) == true);
-
-                // Pre-calculate schedule mappings
-                int pHeadingId = 0, pSubHeadingId = 0, pItemId = 0, pScheduleType = 0;
-                int sHeadingId = 0, sSubHeadingId = 0, sItemId = 0, sScheduleType = 0;
-
-                if (hasPurchase)
-                {
-                    pItemId = await GetIdFromNameAsync(
-                        connection, transaction,
-                        "ACC_ScheduleItems", "ASI_ID",
-                        "Others - Trade Payables",
-                        request.CustomerId);
-
-                    var dt = await GetScheduleIDs(connection, transaction, pItemId, request.CustomerId, 3);
-                    if (dt.Rows.Count > 0)
-                    {
-                        pHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
-                        pSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
-                        pItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
-                    }
-
-                    pScheduleType = await GetScheduleTypeFromTemplateAsync(
-                        connection, transaction,
-                        0, pItemId, pSubHeadingId, pHeadingId, request.CustomerId);
-                }
-
-                if (hasSales)
-                {
-                    sItemId = await GetIdFromNameAsync(
-                        connection, transaction,
-                        "ACC_ScheduleItems", "ASI_ID",
-                        "Any others - Trade receivables",
-                        request.CustomerId);
-
-                    var dt = await GetScheduleIDs(connection, transaction, sItemId, request.CustomerId, 3);
-                    if (dt.Rows.Count > 0)
-                    {
-                        sHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
-                        sSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
-                        sItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
-                    }
-
-                    sScheduleType = await GetScheduleTypeFromTemplateAsync(
-                        connection, transaction,
-                        0, sItemId, sSubHeadingId, sHeadingId, request.CustomerId);
-                }
-
-                // Create missing accounts
-                foreach (var account in accountsToCreate)
-                {
-                    maxCount++;
-
-                    var uploadId = await SaveTrailBalanceExcelUpload(
-                        connection, transaction,
-                        new TrailBalanceUpload
-                        {
-                            ATBU_ID = 0,
-                            ATBU_CODE = "SCh00" + maxCount,
-                            ATBU_Description = account,
-                            ATBU_CustId = request.CustomerId,
-                            ATBU_Opening_Debit_Amount = 0,
-                            ATBU_Opening_Credit_Amount = 0,
-                            ATBU_TR_Debit_Amount = 0,
-                            ATBU_TR_Credit_Amount = 0,
-                            ATBU_Closing_Debit_Amount = 0,
-                            ATBU_Closing_Credit_Amount = 0,
-                            ATBU_DELFLG = "A",
-                            ATBU_CRBY = userId,
-                            ATBU_STATUS = "C",
-                            ATBU_UPDATEDBY = userId,
-                            ATBU_IPAddress = ipAddress,
-                            ATBU_CompId = accessCodeId,
-                            ATBU_YEARId = request.FinancialYearId,
-                            ATBU_Branchname = request.BranchId,
-                            ATBU_QuaterId = request.DurationId
-                        });
-
-                    bool isPurchaseAccount = validRows.Any(r =>
-                        r.Account == account &&
-                        r.JE_Type?.Equals("Purchase", StringComparison.OrdinalIgnoreCase) == true);
-
-                    bool isSalesAccount = validRows.Any(r =>
-                        r.Account == account &&
-                        r.JE_Type?.Equals("Sales", StringComparison.OrdinalIgnoreCase) == true);
-
-                    bool hasTransactionDate = validRows.Any(r =>
-                        r.Account == account &&
-                        !string.IsNullOrWhiteSpace(r.Transaction_Date));
-
-                    int headingId = 0;
-                    int subHeadingId = 0;
-                    int itemId = 0;
-                    int scheduleType = 0;
-
-                    if (hasTransactionDate)
-                    {
-                        if (isPurchaseAccount)
-                        {
-                            headingId = pHeadingId;
-                            subHeadingId = pSubHeadingId;
-                            itemId = pItemId;
-                            scheduleType = pScheduleType;
-                        }
-                        else if (isSalesAccount)
-                        {
-                            headingId = sHeadingId;
-                            subHeadingId = sSubHeadingId;
-                            itemId = sItemId;
-                            scheduleType = sScheduleType;
-                        }
-                    }
-
-                    await SaveTrailBalanceExcelUploadDetails(
-                        connection, transaction,
-                        new TrailBalanceUpload
-                        {
-                            ATBUD_ID = 0,
-                            ATBUD_Masid = uploadId,
-                            ATBUD_CODE = "SCh00" + maxCount,
-                            ATBUD_Description = account,
-                            ATBUD_CustId = request.CustomerId,
-                            ATBUD_SChedule_Type = scheduleType,
-                            ATBUD_Branchname = request.BranchId,
-                            ATBUD_iQuarterly = request.DurationId,
-                            ATBUD_Company_Type = request.CustomerId,
-                            ATBUD_Headingid = headingId,
-                            ATBUD_Subheading = subHeadingId,
-                            ATBUD_itemid = itemId,
-                            ATBUD_Subitemid = 0,
-                            ATBUD_DELFLG = "A",
-                            ATBUD_CRBY = userId,
-                            ATBUD_STATUS = "C",
-                            ATBUD_Progress = "Uploaded",
-                            ATBUD_UPDATEDBY = userId,
-                            ATBUD_IPAddress = ipAddress,
-                            ATBUD_CompId = accessCodeId,
-                            ATBUD_YEARId = request.FinancialYearId
-                        });
-
-                    // Get the actual account ID after creation
-                    var newAccountId = await CheckAccountData(
-                        connection, transaction, accessCodeId,
-                        request.CustomerId, account,
-                        request.FinancialYearId,
-                        request.BranchId,
-                        request.DurationId);
-
-                    existingAccountsCache[account] = newAccountId;
-                }
-            }
-
-            // ===============================
-            // STEP 3: PROCESS TRANSACTIONS
-            // ===============================
             foreach (var batch in batches)
             {
+                // ✅ OPTIMIZATION: Pre-load account IDs for this batch
+                var accountIds = new Dictionary<string, int>();
+                var accountsInBatch = batch.Where(r => !string.IsNullOrEmpty(r.Account)).Select(r => r.Account).Distinct();
+
+                foreach (var account in accountsInBatch)
+                {
+                    var accountId = await CheckAccountData(connection, transaction, accessCodeId, request.CustomerId, account, request.FinancialYearId, request.BranchId, request.DurationId);
+                    accountIds[account] = accountId;
+                }
+
+                // ✅ OPTIMIZATION: Pre-load voucher types for this batch
+                var voucherTypes = new Dictionary<string, int>();
+                var voucherTypesInBatch = batch.Where(r => !string.IsNullOrEmpty(r.JE_Type)).Select(r => r.JE_Type).Distinct();
+
+                foreach (var voucherType in voucherTypesInBatch)
+                {
+                    var voucherId = await CheckVoucherType(connection, transaction, accessCodeId, "JE", voucherType);
+                    voucherTypes[voucherType] = voucherId;
+                }
+
+
+                // Process each row in the batch
                 foreach (var row in batch)
                 {
                     if (string.IsNullOrEmpty(row.Account)) continue;
 
-                    // Parse transaction date
+                    // ✅ MODIFIED: Parse date only if it exists, otherwise use the last valid date
                     DateTime transactionDate = DateTime.MinValue;
 
                     if (!string.IsNullOrEmpty(row.Transaction_Date))
@@ -871,39 +882,23 @@ namespace TracePca.Controllers.FIN_Statement
                             return new ApiResponse<string> { Success = false, Message = $"Invalid Date Format - Line No: {iErrorLine}" };
                         }
 
+                        // ✅ Update currentTransactionDate with the new valid date
                         currentTransactionDate = transactionDate;
                     }
-                    else
-                    {
-                        transactionDate = currentTransactionDate;
 
-                        if (transactionDate == DateTime.MinValue)
-                        {
-                            return new ApiResponse<string> { Success = false, Message = $"No valid date found to carry forward - Line No: {iErrorLine}" };
-                        }
-                    }
+                    // Generate transaction number if needed
+                    var billType = voucherTypes.ContainsKey(row.JE_Type) ? voucherTypes[row.JE_Type] : 0;
+                    var accountId = accountIds[row.Account];
+                    int iJEID = 0;
 
-                    // Get account ID from cache
-                    var accountId = existingAccountsCache[row.Account];
-                    if (accountId == 0)
-                    {
-                        return new ApiResponse<string> { Success = false, Message = $"Account not found: {row.Account} - Line No: {iErrorLine}" };
-                    }
 
-                    // Get voucher type from cache
-                    var billType = !string.IsNullOrWhiteSpace(row.JE_Type) && voucherTypesCache.ContainsKey(row.JE_Type)
-                        ? voucherTypesCache[row.JE_Type]
-                        : 0;
-
-                    // Create Journal Entry Master for new transaction date
+                    // Save Journal Entry Master if we have a valid date
+                    // ✅ MODIFIED: Only check for default date, not 1900-01-01
                     if (transactionDate != DateTime.MinValue && transactionDate != new DateTime(1900, 1, 1))
                     {
-                        transactionNo = await GenerateTransactionNo(
-                            connection, transaction, accessCodeId,
-                            request.FinancialYearId, request.CustomerId,
-                            request.DurationId, request.BranchId);
+                        transactionNo = await GenerateTransactionNo(connection, transaction, accessCodeId, request.FinancialYearId, request.CustomerId, request.DurationId, request.BranchId);
 
-                        MasId = await SaveJournalEntryMaster(connection, transaction, new JournalEntry
+                        iJEID = await SaveJournalEntryMaster(connection, transaction, new JournalEntry
                         {
                             Acc_JE_ID = 0,
                             AJTB_TranscNo = transactionNo,
@@ -934,8 +929,31 @@ namespace TracePca.Controllers.FIN_Statement
                             Acc_JE_Comments = row.Comments ?? "",
                             Acc_JE_Quarterly = request.DurationId
                         });
+                        MasId = iJEID;
                     }
+                    if (!string.IsNullOrEmpty(row.Transaction_Date))
+                    {
+                        transactionDate = ParseTransactionDate(row.Transaction_Date);
 
+                        if (transactionDate == DateTime.MinValue)
+                        {
+                            return new ApiResponse<string> { Success = false, Message = $"Invalid Date Format - Line No: {iErrorLine}" };
+                        }
+
+                        // ✅ Update currentTransactionDate with the new valid date
+                        currentTransactionDate = transactionDate;
+                    }
+                    else
+                    {
+                        // ✅ If no date provided, use the last valid transaction date
+                        transactionDate = currentTransactionDate;
+
+                        // Check if we have a valid date to carry forward
+                        if (transactionDate == DateTime.MinValue)
+                        {
+                            return new ApiResponse<string> { Success = false, Message = $"No valid date found to carry forward - Line No: {iErrorLine}" };
+                        }
+                    }
                     // Process Debit
                     if (row.Debit.HasValue && row.Debit > 0)
                     {
@@ -962,12 +980,7 @@ namespace TracePca.Controllers.FIN_Statement
                             AJTB_CreatedOn = transactionDate
                         });
 
-                        await UpdateJeDet(
-                            connection, transaction, accessCodeId,
-                            request.FinancialYearId, accountId,
-                            request.CustomerId, 0, (double)row.Debit.Value,
-                            request.BranchId, (double)row.Debit.Value, 0,
-                            request.DurationId);
+                        await UpdateJeDet(connection, transaction, accessCodeId, request.FinancialYearId, accountId, request.CustomerId, 0, (double)row.Debit.Value, request.BranchId, (double)row.Debit.Value, 0, request.DurationId);
                     }
 
                     // Process Credit
@@ -996,12 +1009,7 @@ namespace TracePca.Controllers.FIN_Statement
                             AJTB_CreatedOn = transactionDate
                         });
 
-                        await UpdateJeDet(
-                            connection, transaction, accessCodeId,
-                            request.FinancialYearId, accountId,
-                            request.CustomerId, 1, (double)row.Credit.Value,
-                            request.BranchId, 0, (double)row.Credit.Value,
-                            request.DurationId);
+                        await UpdateJeDet(connection, transaction, accessCodeId, request.FinancialYearId, accountId, request.CustomerId, 1, (double)row.Credit.Value, request.BranchId, 0, (double)row.Credit.Value, request.DurationId);
                     }
 
                     iErrorLine++;
