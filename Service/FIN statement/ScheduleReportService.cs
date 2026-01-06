@@ -910,7 +910,7 @@ GROUP BY AST_SubHeadingID, ASsH_Name, ASSH_Notes";
                     results.Add(new SummaryReportPnLRow
                     {
                         SrNo = (results.Count + 1).ToString(),
-                        Name = "Total",
+                        Name = "Net Income",
                         HeaderSLNo = fallback == 0 ? "-" : fallback.ToString($"N{RoundOff}"),
                         PrevYearTotal = fallbackPrev == 0 ? "-" : fallbackPrev.ToString($"N{RoundOff}"),
                         status = "1"
