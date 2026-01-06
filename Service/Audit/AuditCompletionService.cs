@@ -2459,7 +2459,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                bool folderExists = true;
+                //bool folderExists = true;
                 string folderPath = System.IO.Path.Combine(downloadDirectoryPath, mainFolder, SanitizeName(folderName));
 
                 if (!Directory.Exists(folderPath))
@@ -2468,7 +2468,7 @@ namespace TracePca.Service.Audit
                 int folderId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(FOL_FOLID, 0) FROM edt_folder WHERE FOL_NAME = @Name AND FOL_CABINET = @SubCabinetId AND FOL_CompID = @CompId", new { Name = folderName, SubCabinetId = subCabinetId, CompId = compId });
                 if (folderId == 0)
                 {
-                    folderExists = false;
+                    //folderExists = false;
 
                     folderId = await connection.ExecuteScalarAsync<int>(@"DECLARE @NewFolId INT = (SELECT ISNULL(MAX(FOL_FOLID), 0) + 1 FROM edt_folder);
                           INSERT INTO edt_folder (FOL_FOLID, FOL_NAME, FOL_NOTE, FOL_CABINET, FOL_CREATEDBY, FOL_CREATEDON, FOL_STATUS, FOL_DELFLAG, FOL_COMPID)
@@ -2497,8 +2497,8 @@ namespace TracePca.Service.Audit
                     }
                 }
 
-                if (!folderExists)
-                    IndexingFileAsync(connection, cabinetId, subCabinetId, folderId, userId, compId, destFilePath, "FALSE");
+                //if (!folderExists)
+                IndexingFileAsync(connection, cabinetId, subCabinetId, folderId, userId, compId, destFilePath, "FALSE");
             }
             catch (Exception ex)
             {
@@ -2601,35 +2601,42 @@ namespace TracePca.Service.Audit
                 string fileExt = System.IO.Path.GetExtension(filePath)?.TrimStart('.') ?? "";
                 string objectType = GetObjectType(fileExt);
 
-                int newBaseName = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(PGE_BASENAME), 0) + 1 FROM EDT_PAGE");
-                int newPageNo = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(PGE_PAGENO), 0) + 1 FROM EDT_PAGE");
+                var isAlreadyIndexed = await connection.ExecuteScalarAsync<int>(
+                    @"SELECT COUNT(1) FROM EDT_PAGE WHERE PGE_CABINET = @PGE_CABINET AND PGE_SubCabinet = @PGE_SubCabinet AND PGE_FOLDER = @PGE_FOLDER And PGE_TITLE = @PGE_TITLE AND PGE_CompID = @CompId",
+                    new { PGE_CABINET = cabinetId, PGE_SubCabinet = subCabinetId, PGE_FOLDER = folderId, PGE_TITLE = fileName, CompId = compId });
 
-                await connection.ExecuteAsync(
-                    @"INSERT INTO EDT_PAGE (PGE_BASENAME, PGE_CABINET, PGE_FOLDER, PGE_DOCUMENT_TYPE, PGE_TITLE, PGE_DATE, PGE_DETAILS_ID, PGE_CreatedBy, PGE_CreatedOn, PGE_OBJECT, PGE_PAGENO, PGE_EXT, PGE_KEYWORD, PGE_OCRText, 
-                    PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, PGE_OrignalFileName, PGE_BatchID, PGE_OCRDelFlag, PGE_CompID, pge_Delflag, PGE_RFID) VALUES (
-                    @BaseName, @CabinetId, @FolderId, 0, @Title, GETDATE(), @DetailsId, @CreatedBy, GETDATE(), @Object, @PageNo, @Ext, '', '', 0, 0, 'A', @SubCabinetId, 0, 'F', @BatchName, @OriginalFileName, 0, 0, @CompId, 'A', '')",
-                    new
-                    {
-                        BaseName = newBaseName,
-                        CabinetId = cabinetId,
-                        FolderId = folderId,
-                        Title = fileName,
-                        DetailsId = newBaseName,
-                        CreatedBy = userId,
-                        Object = objectType,
-                        PageNo = newPageNo,
-                        Ext = fileExt,
-                        SubCabinetId = subCabinetId,
-                        BatchName = newBaseName,
-                        OriginalFileName = fileName,
-                        CompId = compId
-                    }
-                );
-
-                string fileGeneratedPath = await Urlenp(connection, compId, userId, newBaseName, filePath);
-                if (isBlobData.ToUpper() == "TRUE")
+                if (isAlreadyIndexed == 0)
                 {
-                    FilePageInEdictAsync(connection, compId, newBaseName, fileGeneratedPath);
+                    int newBaseName = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(PGE_BASENAME), 0) + 1 FROM EDT_PAGE");
+                    int newPageNo = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(PGE_PAGENO), 0) + 1 FROM EDT_PAGE");
+
+                    await connection.ExecuteAsync(
+                        @"INSERT INTO EDT_PAGE (PGE_BASENAME, PGE_CABINET, PGE_FOLDER, PGE_DOCUMENT_TYPE, PGE_TITLE, PGE_DATE, PGE_DETAILS_ID, PGE_CreatedBy, PGE_CreatedOn, PGE_OBJECT, PGE_PAGENO, PGE_EXT, PGE_KEYWORD, PGE_OCRText, 
+                        PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, PGE_OrignalFileName, PGE_BatchID, PGE_OCRDelFlag, PGE_CompID, pge_Delflag, PGE_RFID) VALUES (
+                        @BaseName, @CabinetId, @FolderId, 0, @Title, GETDATE(), @DetailsId, @CreatedBy, GETDATE(), @Object, @PageNo, @Ext, '', '', 0, 0, 'A', @SubCabinetId, 0, 'F', @BatchName, @OriginalFileName, 0, 0, @CompId, 'A', '')",
+                        new
+                        {
+                            BaseName = newBaseName,
+                            CabinetId = cabinetId,
+                            FolderId = folderId,
+                            Title = fileName,
+                            DetailsId = newBaseName,
+                            CreatedBy = userId,
+                            Object = objectType,
+                            PageNo = newPageNo,
+                            Ext = fileExt,
+                            SubCabinetId = subCabinetId,
+                            BatchName = newBaseName,
+                            OriginalFileName = fileName,
+                            CompId = compId
+                        }
+                    );
+
+                    string fileGeneratedPath = await Urlenp(connection, compId, userId, newBaseName, filePath);
+                    if (isBlobData.ToUpper() == "TRUE")
+                    {
+                        FilePageInEdictAsync(connection, compId, newBaseName, fileGeneratedPath);
+                    }
                 }
             }
             catch (Exception ex)
