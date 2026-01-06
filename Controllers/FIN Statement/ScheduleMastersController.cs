@@ -389,7 +389,7 @@ namespace TracePca.Controllers.FIN_Statement
                     message = "Customer Audit type retrieved successfully.",
                     data = new
                     {
-                        orgType = result
+                        auditType = result
                     }
                 });
             }
