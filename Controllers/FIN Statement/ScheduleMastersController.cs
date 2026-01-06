@@ -365,7 +365,7 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        //GetCustomerOrgType
+        //GetCustomerAuditType
         [HttpGet("GetCustomerAuditType")]
         public async Task<IActionResult> GetCustomerAuditType([FromQuery] int CustId, [FromQuery] int CompId)
         {
