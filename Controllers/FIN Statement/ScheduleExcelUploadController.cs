@@ -838,6 +838,10 @@ namespace TracePca.Controllers.FIN_Statement
             var transactionNo = "0";
             var iErrorLine = 1;
             int MasId = 0;
+
+            // ✅ ADDED: Variable to track the last valid transaction date
+            DateTime currentTransactionDate = DateTime.MinValue;
+
             foreach (var batch in batches)
             {
                 // ✅ OPTIMIZATION: Pre-load account IDs for this batch
@@ -859,31 +863,41 @@ namespace TracePca.Controllers.FIN_Statement
                     var voucherId = await CheckVoucherType(connection, transaction, accessCodeId, "JE", voucherType);
                     voucherTypes[voucherType] = voucherId;
                 }
-                
+
 
                 // Process each row in the batch
                 foreach (var row in batch)
                 {
                     if (string.IsNullOrEmpty(row.Account)) continue;
 
-                    DateTime transactionDate = ParseTransactionDate(row.Transaction_Date);
-                    if (transactionDate == DateTime.MinValue)
+                    // ✅ MODIFIED: Parse date only if it exists, otherwise use the last valid date
+                    DateTime transactionDate = DateTime.MinValue;
+
+                    if (!string.IsNullOrEmpty(row.Transaction_Date))
                     {
-                        return new ApiResponse<string> { Success = false, Message = $"Invalid Date Format - Line No: {iErrorLine}" };
+                        transactionDate = ParseTransactionDate(row.Transaction_Date);
+
+                        if (transactionDate == DateTime.MinValue)
+                        {
+                            return new ApiResponse<string> { Success = false, Message = $"Invalid Date Format - Line No: {iErrorLine}" };
+                        }
+
+                        // ✅ Update currentTransactionDate with the new valid date
+                        currentTransactionDate = transactionDate;
                     }
 
                     // Generate transaction number if needed
-
-
-                    transactionNo = await GenerateTransactionNo(connection, transaction, accessCodeId, request.FinancialYearId, request.CustomerId, request.DurationId, request.BranchId);
                     var billType = voucherTypes.ContainsKey(row.JE_Type) ? voucherTypes[row.JE_Type] : 0;
                     var accountId = accountIds[row.Account];
                     int iJEID = 0;
-                    
+
 
                     // Save Journal Entry Master if we have a valid date
-                    if (transactionDate != new DateTime(1900, 1, 1))
+                    // ✅ MODIFIED: Only check for default date, not 1900-01-01
+                    if (transactionDate != DateTime.MinValue && transactionDate != new DateTime(1900, 1, 1))
                     {
+                        transactionNo = await GenerateTransactionNo(connection, transaction, accessCodeId, request.FinancialYearId, request.CustomerId, request.DurationId, request.BranchId);
+
                         iJEID = await SaveJournalEntryMaster(connection, transaction, new JournalEntry
                         {
                             Acc_JE_ID = 0,
@@ -917,7 +931,29 @@ namespace TracePca.Controllers.FIN_Statement
                         });
                         MasId = iJEID;
                     }
+                    if (!string.IsNullOrEmpty(row.Transaction_Date))
+                    {
+                        transactionDate = ParseTransactionDate(row.Transaction_Date);
 
+                        if (transactionDate == DateTime.MinValue)
+                        {
+                            return new ApiResponse<string> { Success = false, Message = $"Invalid Date Format - Line No: {iErrorLine}" };
+                        }
+
+                        // ✅ Update currentTransactionDate with the new valid date
+                        currentTransactionDate = transactionDate;
+                    }
+                    else
+                    {
+                        // ✅ If no date provided, use the last valid transaction date
+                        transactionDate = currentTransactionDate;
+
+                        // Check if we have a valid date to carry forward
+                        if (transactionDate == DateTime.MinValue)
+                        {
+                            return new ApiResponse<string> { Success = false, Message = $"No valid date found to carry forward - Line No: {iErrorLine}" };
+                        }
+                    }
                     // Process Debit
                     if (row.Debit.HasValue && row.Debit > 0)
                     {
@@ -970,8 +1006,7 @@ namespace TracePca.Controllers.FIN_Statement
                             AJTB_BillType = billType,
                             AJTB_BranchId = request.BranchId,
                             AJTB_QuarterId = request.DurationId,
-                             AJTB_CreatedOn = transactionDate
-
+                            AJTB_CreatedOn = transactionDate
                         });
 
                         await UpdateJeDet(connection, transaction, accessCodeId, request.FinancialYearId, accountId, request.CustomerId, 1, (double)row.Credit.Value, request.BranchId, 0, (double)row.Credit.Value, request.DurationId);
