@@ -626,5 +626,111 @@ left join ACC_ScheduleTemplates on AST_Companytype=ud.atbud_custid and AST_Sched
 
             return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1 };
         }
+
+        public async Task<List<MaterialityMasterDto>> GetMaterialityAsync(
+       int branchId,
+       int custId,
+       int compId,
+       int financialYearId)
+        {
+            var query = @"
+        SELECT *
+        FROM MaterialityMaster
+        WHERE M_branchid = @BranchId
+          AND M_custid = @CustId
+          AND M_compid = @CompId
+          AND M_FinancialYearId = @FinancialYearId;
+    ";
+
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrWhiteSpace(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Create SQL Connection
+            using var connection = new SqlConnection(
+                _configuration.GetConnectionString(dbName)
+            );
+
+            // ✅ Step 3: Execute query
+            var result = await connection.QueryAsync<MaterialityMasterDto>(
+                query,
+                new
+                {
+                    BranchId = branchId,
+                    CustId = custId,
+                    CompId = compId,
+                    FinancialYearId = financialYearId
+                });
+
+            return result.ToList();
+        }
+        public async Task<int> UpdateMaterialityAsync(LedgerMaterialityUpdateDto dto)
+        {
+            try
+            {
+                // 1️⃣ Validate DTO
+                if (dto == null)
+                    throw new ArgumentNullException(nameof(dto), "Materiality data is required.");
+
+                if (dto.M_Id <= 0)
+                    throw new ArgumentException("Invalid Materiality Id.");
+
+                // 2️⃣ Get DB Name from Session
+                string dbName = _httpContextAccessor.HttpContext?
+                    .Session.GetString("CustomerCode");
+
+                if (string.IsNullOrWhiteSpace(dbName))
+                    throw new UnauthorizedAccessException(
+                        "CustomerCode is missing in session. Please log in again."
+                    );
+
+                // 3️⃣ Get Connection String
+                var connectionString = _configuration.GetConnectionString(dbName);
+                if (string.IsNullOrWhiteSpace(connectionString))
+                    throw new InvalidOperationException(
+                        $"Connection string not found for database '{dbName}'."
+                    );
+
+                // 4️⃣ Create Connection
+                using var connection = new SqlConnection(connectionString);
+
+                // 5️⃣ SQL
+                var sql = @"
+            UPDATE MaterialityMaster
+            SET 
+                m_TypeEntId = @M_TypeEntId,
+                m_perc      = @M_Perc
+            WHERE m_id = @M_Id
+        ";
+
+                // 6️⃣ Execute
+                var rowsAffected = await connection.ExecuteAsync(sql, dto);
+
+                // 7️⃣ Handle no-row update
+                if (rowsAffected == 0)
+                    throw new KeyNotFoundException(
+                        $"No LedgerMateriality record found with M_Id = {dto.M_Id}."
+                    );
+
+                return rowsAffected;
+            }
+            catch (SqlException ex)
+            {
+                // 🔴 Database-specific errors
+                throw new Exception(
+                    "A database error occurred while updating materiality.",
+                    ex
+                );
+            }
+            catch (Exception)
+            {
+                // 🔴 Let controller decide HTTP response
+                throw;
+            }
+        }
+
+
     }
 }
