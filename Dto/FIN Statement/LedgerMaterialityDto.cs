@@ -108,5 +108,23 @@
             public decimal AssetPercantage { get; set; }
 
         }
+        public class MaterialityMasterDto
+        {
+            public int M_id { get; set; }
+            public int M_TypeEntId { get; set; }
+            public string M_BenchMark { get; set; }
+            public decimal M_perc { get; set; }
+            public int M_branchid { get; set; }
+            public int M_custid { get; set; }
+            public int M_compid { get; set; }
+            public int M_FinancialYearId { get; set; }
+        }
+        public class LedgerMaterialityUpdateDto
+        {
+            public int M_Id { get; set; }
+            public int M_TypeEntId { get; set; }
+            public decimal M_Perc { get; set; }
+        }
+
     }
 }
