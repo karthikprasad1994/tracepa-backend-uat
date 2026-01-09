@@ -1,8 +1,10 @@
 ﻿using Dapper;
+using DocumentFormat.OpenXml.Bibliography;
 using iText.Commons.Bouncycastle.Cert.Ocsp;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using System.Data;
+using System.Text.RegularExpressions;
 using TracePca.Data;
 using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
@@ -44,48 +46,62 @@ namespace TracePca.Service.FIN_statement
                 // define the 11 ratios metadata
                 var ratioNames = new[]
                 {
-                    "Debt Equity Ratio",
-                    "Debt Capital",
+                    "Current ratio",
+                    "Debt Equity ratio",
                     "Debt Service coverage ratio",
                     "Return on Equity Ratio",
                     "Inventory Turnover Ratio",
                     "Trade Receivables turnover ratio",
                     "Trade payables turnover ratio",
-                    "Net capital turnover ratio",
-                    "Net profit ratio",
-                    "Return on Capital employed",
-                    "Return on investment"
+                    "Net working capital Ratio",
+                    "Net profit/ sales",
+                    "Return/capital employed",
+                    "Return/ investment"
+                };
+                var Formula = new[]
+             {
+                    "Current Assets / Current Liabilities",
+                    "Total Debt / Shareholders fund",
+                    "Net  Income  / Total Debt",
+                    "Net Income / Shareholders fund",
+                    "Net Sales / Inventory ",
+                    "Net Sales / Accounts Receivable",
+                    "Net Purchases / Accounts Payable",
+                    "Net Sales / Current assets- current liability ",
+                    "Net Income / Net Sales",
+                    "Net Income / Total Assets - Current Liability ",
+                    "Net Income/ Shareholders fund"
                 };
 
-                var numerators = new[]
-                {
-                    "Total Current Assets",
-                    "Debt Capital",
-                    "EBITDA-CAPEX",
-                    "Profit for the year",
-                    "COGS",
-                    "Net Sales",
-                    "Total Purchases (Fuel Cost + Other Expenses+Closing Inventory-Opening Inventory)",
-                    "Sales",
-                    "Net Profit",
-                    "Earnings before interest and tax",
-                    "Net Profit"
-                };
+                //var numerators = new[]
+                //{
+                //    "Total Current Assets",
+                //    "Debt Capital",
+                //    "EBITDA-CAPEX",
+                //    "Profit for the year",
+                //    "COGS",
+                //    "Net Sales",
+                //    "Total Purchases (Fuel Cost + Other Expenses+Closing Inventory-Opening Inventory)",
+                //    "Sales",
+                //    "Net Profit",
+                //    "Earnings before interest and tax",
+                //    "Net Profit"
+                //};
 
-                var denominators = new[]
-                {
-                    "Total Current Liabilities",
-                    "Shareholder's Equity",
-                    "Debt Service (Int+Principal)",
-                    "Average Shareholder’s Equity",
-                    "Average Inventory",
-                    "Average trade receivables",
-                    "Closing Trade Payables",
-                    "Working capital (CA-CL)",
-                    "Sales",
-                    "Capital Employed",
-                    "Investment"
-                };
+                //var denominators = new[]
+                //{
+                //    "Total Current Liabilities",
+                //    "Shareholder's Equity",
+                //    "Debt Service (Int+Principal)",
+                //    "Average Shareholder’s Equity",
+                //    "Average Inventory",
+                //    "Average trade receivables",
+                //    "Closing Trade Payables",
+                //    "Working capital (CA-CL)",
+                //    "Sales",
+                //    "Capital Employed",
+                //    "Investment"
+                //};
 
                 // Helper for safe division
                 decimal SafeDiv(decimal num, decimal den)
@@ -98,7 +114,7 @@ namespace TracePca.Service.FIN_statement
                 {
                     // Adjust heading names to match your DB
                     int headingIdCA = await GetHeadingId(conn, tran, customerId, "2 Current Assets");
-                    int headingIdCL = await GetHeadingId(conn, tran, customerId, "4 Current Liabilities");
+                    int headingIdCL = await GetHeadingId(conn, tran, customerId, "Current Liabilities");
 
                     var ca = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headingIdCA);
                     var cl = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headingIdCL);
@@ -110,66 +126,64 @@ namespace TracePca.Service.FIN_statement
                     {
                         Sr_No = 1,
                         RatioName = ratioNames[0],
-                        Numerator = numerators[0],
-                        Denominator = denominators[0],
+                        Formula= Formula[0],
+                        Numerator = (Decimal.Round(ca.Dc1,2)).ToString(),
+                        Denominator = (Decimal.Round(cl.Dc1,2)).ToString(),
                         CurrentReportingPeriod = Decimal.Round(cur, 4),
                         PreviousReportingPeriod = Decimal.Round(prev, 4),
-                        Change = Decimal.Round(cur - prev, 4)
+                        Change = Math.Abs(Decimal.Round(cur - prev, 4))
                     });
                 }
 
                 // --- Example 2: Debt Capital (Long-term+Short-term vs Shareholder funds) ---
                 {
-                    int subLongTermId = await GetSubHeadingId(conn, tran, customerId, "(a) Long-term borrowings");
-                    int subShortTermId = await GetSubHeadingId(conn, tran, customerId, "(a) Short Term Borrowings");
-                    int headingShareId = await GetHeadingId(conn, tran, customerId, "1 Shareholders Funds");
+                    //int subLongTermId = await GetSubHeadingId(conn, tran, customerId, "(a) Long-term borrowings");
+                    //int subShortTermId = await GetSubHeadingId(conn, tran, customerId, "(a) Short Term Borrowings");
 
-                    var longTerm = await GetSubHeadingAmt(conn, tran, yearId, customerId, 4, subLongTermId);
-                    var shortTerm = await GetSubHeadingAmt(conn, tran, yearId, customerId, 4, subShortTermId);
+                    int headingNonCrLiablId = await GetHeadingId(conn, tran, customerId, "Non-current Liabilities");
+                    int headingShareId = await GetHeadingId(conn, tran, customerId, "Shareholders  funds");
+
+                    var longTerm = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headingNonCrLiablId);                
                     var share = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headingShareId);
 
-                    decimal totalBorrowCurrent = (longTerm.Dc1 + shortTerm.Dc1);
-                    decimal totalBorrowPrev = (longTerm.DP1 + shortTerm.DP1);
+                  
 
-                    // For shareholder funds we may add P&L — use GetPandLFinalAmt
-                    decimal pandlCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
-                    decimal pandlPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);
-
-                    decimal denomCur = share.Dc1 + pandlCur;
-                    decimal denomPrev = share.DP1 + pandlPrev;
-
-                    decimal cur = SafeDiv(totalBorrowCurrent, denomCur);
-                    decimal prev = SafeDiv(totalBorrowPrev, denomPrev);
+                    decimal cur = SafeDiv(longTerm.Dc1, share.Dc1);
+                    decimal prev = SafeDiv(longTerm.DP1, share.DP1);
 
                     result.Ratios.Add(new ScheduleAccountingRatioDto.RatioDto
                     {
                         Sr_No = 2,
                         RatioName = ratioNames[1],
-                        Numerator = numerators[1],
-                        Denominator = denominators[1],
+                        Formula = Formula[1],
+                        Numerator = (Decimal.Round(longTerm.Dc1, 2)).ToString(),
+                        Denominator = (Decimal.Round(share.Dc1, 2)).ToString(),
                         CurrentReportingPeriod = Decimal.Round(cur, 4),
                         PreviousReportingPeriod = Decimal.Round(prev, 4),
-                        Change = Decimal.Round(cur - prev, 4)
+                        Change = Math.Abs(Decimal.Round(cur - prev, 4))
                     });
                 }
 
                 // --- Example 3: Debt Service coverage ratio (simplified) ---
                 {
-                    // This is a sample; adapt to your exact formula & subheadings
-                    // We'll try: (EBITDA - CAPEX) / (Interest + Principal)
-                    // For denominator search we might use long term borrowings + finance costs
-                    decimal ebitdaCur = 0m, ebitdaPrev = 0m;
-                    // If you have functions to pull these exact numbers, call them here.
-                    // For now we insert 0 to avoid crash and produce an entry (please adapt)
+                    decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
+                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);
+                    int headingNonCrLiablId = await GetHeadingId(conn, tran, customerId, "Non-current Liabilities");
+                    var longTerm = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headingNonCrLiablId);
+
+                    decimal cur = SafeDiv(plCur,longTerm.Dc1);
+                    decimal prev = SafeDiv(plPrev ,longTerm.DP1);
+
                     result.Ratios.Add(new ScheduleAccountingRatioDto.RatioDto
                     {
                         Sr_No = 3,
                         RatioName = ratioNames[2],
-                        Numerator = numerators[2],
-                        Denominator = denominators[2],
-                        CurrentReportingPeriod = 0m,
-                        PreviousReportingPeriod = 0m,
-                        Change = 0m
+                        Formula = Formula[2],
+                        Numerator = (Decimal.Round(plCur, 2)).ToString(),
+                        Denominator = (Decimal.Round(longTerm.Dc1, 2)).ToString(),
+                        CurrentReportingPeriod = cur,
+                        PreviousReportingPeriod = prev,
+                        Change = Math.Abs(Decimal.Round(cur - prev, 4))
                     });
                 }
 
@@ -179,53 +193,45 @@ namespace TracePca.Service.FIN_statement
                     decimal pandlCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
                     decimal pandlPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);
 
-                    int headingShareId = await GetHeadingId(conn, tran, customerId, "1 Shareholders Funds");
-                    var curShare = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headingShareId);
-                    var prevShare = await GetHeadingAmt(conn, tran, yearId - 1, customerId, 4, headingShareId);
+                    int headingShareId = await GetHeadingId(conn, tran, customerId, "Shareholders  funds");
+                    var share = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headingShareId);
 
-                    // approximate average shareholder funds (current)
-                    decimal avgShareCur = SafeDiv((curShare.Dc1 + pandlCur) + (prevShare.Dc1 + pandlPrev), 2);
-                    decimal avgSharePrev = SafeDiv((prevShare.Dc1 + pandlPrev) + (prevShare.DP1 + pandlPrev), 2);
-
-                    decimal cur = SafeDiv(pandlCur, avgShareCur);
-                    decimal prev = SafeDiv(pandlPrev, avgSharePrev);
+                    decimal cur = SafeDiv(pandlCur, share.Dc1);
+                    decimal prev = SafeDiv(pandlPrev, share.DP1);
 
                     result.Ratios.Add(new ScheduleAccountingRatioDto.RatioDto
                     {
                         Sr_No = 4,
                         RatioName = ratioNames[3],
-                        Numerator = numerators[3],
-                        Denominator = denominators[3],
+                        Formula = Formula[3],
+                        Numerator = (Decimal.Round(pandlCur, 2)).ToString(),
+                        Denominator = (Decimal.Round(share.Dc1, 2)).ToString(),
                         CurrentReportingPeriod = Decimal.Round(cur, 4),
                         PreviousReportingPeriod = Decimal.Round(prev, 4),
-                        Change = Decimal.Round(cur - prev, 4)
+                        Change = Math.Abs(Decimal.Round(cur - prev, 4))
                     });
                 }
 
                 // --- Ratio 5: Inventory Turnover Ratio ---
                 {
-                    int subCostMaterialId = await GetSubHeadingId(conn, tran, customerId, "(a) Cost Of Materials Consumed");
-                    int subInventoriesId = await GetSubHeadingId(conn, tran, customerId, "(b) Inventories");
-
-                    var dtCostSales = await GetSubHeadingAmt(conn, tran, yearId, customerId, 3, subCostMaterialId);
+                    int subRevenueId = await GetSubHeadingId(conn, tran, customerId, "I Revenue from operations");
+                    var dtRevenue = await GetSubHeadingAmt(conn, tran, yearId, customerId, 3, subRevenueId);
+            
+                    int subInventoriesId = await GetSubHeadingId(conn, tran, customerId, "(b) Inventories");                    
                     var dtCurInv = await GetSubHeadingAmt(conn, tran, yearId, customerId, 4, subInventoriesId);
-                    var dtPrevInv = await GetSubHeadingAmt(conn, tran, yearId - 1, customerId, 4, subInventoriesId);
-
-                    decimal avgInvCur = (dtCurInv.Dc1 + dtPrevInv.Dc1) / 2;
-                    decimal avgInvPrev = (dtCurInv.DP1 + dtPrevInv.DP1) / 2;
-
-                    decimal cur = SafeDiv(dtCostSales.Dc1, avgInvCur);
-                    decimal prev = SafeDiv(dtCostSales.DP1, avgInvPrev);
-
+                             
+                    decimal cur = SafeDiv(dtRevenue.Dc1, dtCurInv.Dc1);
+                    decimal prev = SafeDiv(dtRevenue.DP1, dtCurInv.DP1);
                     result.Ratios.Add(new RatioDto
                     {
                         Sr_No = 5,
                         RatioName = ratioNames[4],
-                        Numerator = numerators[4],
-                        Denominator = denominators[4],
+                        Formula = Formula[4],
+                        Numerator = (Decimal.Round(dtRevenue.Dc1, 2)).ToString(),
+                        Denominator = (Decimal.Round(dtRevenue.Dc1, 2)).ToString(),
                         CurrentReportingPeriod = Math.Round(cur, 4),
                         PreviousReportingPeriod = Math.Round(prev, 4),
-                        Change = Math.Round(cur - prev, 4)
+                        Change = Math.Abs(Math.Round(cur - prev, 4))
                     });
                 }
 
@@ -235,21 +241,17 @@ namespace TracePca.Service.FIN_statement
                     int subReceivableId = await GetSubHeadingId(conn, tran, customerId, "(c) Trade receivables");
 
                     var dtRevenue = await GetSubHeadingAmt(conn, tran, yearId, customerId, 3, subRevenueId);
-                    var dtCurRec = await GetSubHeadingAmt(conn, tran, yearId, customerId, 4, subReceivableId);
-                    var dtPrevRec = await GetSubHeadingAmt(conn, tran, yearId - 1, customerId, 4, subReceivableId);
+                    var dtCurRec = await GetSubHeadingAmt(conn, tran, yearId, customerId, 4, subReceivableId);                           
 
-                    decimal avgRecCur = (dtCurRec.Dc1 + dtPrevRec.Dc1) / 2;
-                    decimal avgRecPrev = (dtCurRec.DP1 + dtPrevRec.DP1) / 2;
-
-                    decimal cur = SafeDiv(dtRevenue.Dc1, avgRecCur);
-                    decimal prev = SafeDiv(dtRevenue.DP1, avgRecPrev);
-
+                    decimal cur = SafeDiv(dtRevenue.Dc1, dtCurRec.Dc1);
+                    decimal prev = SafeDiv(dtRevenue.DP1, dtCurRec.DP1);
                     result.Ratios.Add(new RatioDto
                     {
                         Sr_No = 6,
-                        RatioName = ratioNames[5],
-                        Numerator = numerators[5],
-                        Denominator = denominators[5],
+                        RatioName = ratioNames[5] ,
+                        Formula = Formula[5],
+                        Numerator = (Decimal.Round(dtRevenue.Dc1, 2)).ToString(),
+                        Denominator = (Decimal.Round(dtCurRec.Dc1, 2)).ToString(),
                         CurrentReportingPeriod = Math.Round(cur, 4),
                         PreviousReportingPeriod = Math.Round(prev, 4),
                         Change = Math.Round(cur - prev, 4)
@@ -271,17 +273,18 @@ namespace TracePca.Service.FIN_statement
                     {
                         Sr_No = 7,
                         RatioName = ratioNames[6],
-                        Numerator = numerators[6],
-                        Denominator = denominators[6],
-                        CurrentReportingPeriod = Math.Round(cur, 4),
-                        PreviousReportingPeriod = Math.Round(prev, 4),
-                        Change = Math.Round(cur - prev, 4)
+                        Formula = Formula[6],
+                        Numerator = (Decimal.Round(dtCOGS.Dc1, 2)).ToString(),
+                        Denominator = (Decimal.Round(dtPay.Dc1, 2)).ToString(),
+                        CurrentReportingPeriod = Math.Abs(Math.Round(cur, 4)),
+                        PreviousReportingPeriod = Math.Abs(Math.Round(prev, 4)),
+                        Change = Math.Abs(Math.Round(cur - prev, 4))
                     });
                 }
 
                 // --- Ratio 8: Net Capital Turnover Ratio ---
                 {
-                    int headCLA = await GetHeadingId(conn, tran, customerId, "4 Current Liabilities");
+                    int headCLA = await GetHeadingId(conn, tran, customerId, "Current Liabilities");
                     int headCSA = await GetHeadingId(conn, tran, customerId, "2 Current Assets");
 
                     var dtCL = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headCLA);
@@ -300,11 +303,12 @@ namespace TracePca.Service.FIN_statement
                     {
                         Sr_No = 8,
                         RatioName = ratioNames[7],
-                        Numerator = numerators[7],
-                        Denominator = denominators[7],
-                        CurrentReportingPeriod = Math.Round(cur, 4),
-                        PreviousReportingPeriod = Math.Round(prev, 4),
-                        Change = Math.Round(cur - prev, 4)
+                        Formula = Formula[7],
+                        Numerator = (Decimal.Round(dtRevenue.Dc1, 2)).ToString(),
+                        Denominator = (Decimal.Round(workingCapCur,2 )).ToString(),
+                        CurrentReportingPeriod = Math.Abs(Math.Round(cur, 4)),
+                        PreviousReportingPeriod = Math.Abs(Math.Round(prev, 4)),
+                        Change = Math.Abs(Math.Round(cur - prev, 4))
                     });
                 }
 
@@ -317,54 +321,54 @@ namespace TracePca.Service.FIN_statement
                     int subRevenueId = await GetSubHeadingId(conn, tran, customerId, "I Revenue from operations");
                     var dtRevenue = await GetSubHeadingAmt(conn, tran, yearId, customerId, 3, subRevenueId);
 
-                    decimal cur = SafeDiv(plCur, dtRevenue.Dc1);
+                    decimal cur = (SafeDiv(plCur, dtRevenue.Dc1)*100);
                     decimal prev = SafeDiv(plPrev, dtRevenue.DP1);
 
                     result.Ratios.Add(new RatioDto
                     {
                         Sr_No = 9,
                         RatioName = ratioNames[8],
-                        Numerator = numerators[8],
-                        Denominator = denominators[8],
-                        CurrentReportingPeriod = Math.Round(cur, 4),
+                        Formula = Formula[8],
+                        Numerator = (Decimal.Round(plCur, 2)).ToString(),
+                        Denominator = (Decimal.Round(dtRevenue.Dc1, 2)).ToString(),
+                        CurrentReportingPeriod = (Math.Round(cur, 4)), //+ "%"
                         PreviousReportingPeriod = Math.Round(prev, 4),
-                        Change = Math.Round(cur - prev, 4)
+                        Change = Math.Abs(Math.Round(cur - prev, 4))
                     });
                 }
 
                 // --- Ratio 10: Return on Capital Employed ---
                 {
-                    int headIncomeId = await GetHeadingId(conn, tran, customerId, "Income");
-                    int headExpenseId = await GetHeadingId(conn, tran, customerId, "IV Expenses");
+                    int headNCAssetId = await GetHeadingId(conn, tran, customerId, "1 Non-Current Assets");
+                    int headCAssetId = await GetHeadingId(conn, tran, customerId, "2 Current Assets");
+                    var dtNCAsset = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headNCAssetId);
+                    var dtCAsset = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headCAssetId);
+                    decimal AssetCur = dtNCAsset.Dc1 + dtCAsset.Dc1;
+                    decimal AssetPrev = dtNCAsset.DP1 + dtCAsset.DP1;
 
-                    var dtIncome = await GetHeadingAmt(conn, tran, yearId, customerId, 3, headIncomeId);
-                    var dtExpense = await GetHeadingAmt(conn, tran, yearId, customerId, 3, headExpenseId);
-
-                    decimal profitCur = dtIncome.Dc1 - dtExpense.Dc1;
-                    decimal profitPrev = dtIncome.DP1 - dtExpense.DP1;
-
-                    int headShareId = await GetHeadingId(conn, tran, customerId, "1 Shareholders Funds");
+                    int headShareId = await GetHeadingId(conn, tran, customerId, "Current Liabilities");
                     var dtShare = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headShareId);
-                    var dtSharePrev = await GetHeadingAmt(conn, tran, yearId - 1, customerId, 4, headShareId);
+
+                    decimal capCur = Math.Abs(dtShare.Dc1 - AssetCur);
+                    decimal capPrev = Math.Abs(dtShare.DP1 - AssetPrev);
+
 
                     decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
-                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);
+                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);                   
 
-                    decimal capCur = dtShare.Dc1 + plCur;
-                    decimal capPrev = dtSharePrev.DP1 + plPrev;
-
-                    decimal cur = SafeDiv(profitCur, capCur);
-                    decimal prev = SafeDiv(profitPrev, capPrev);
+                    decimal cur = Math.Abs((SafeDiv(plCur, capCur) * 100));
+                    decimal prev = Math.Abs((SafeDiv(plPrev, capPrev)* 100));
 
                     result.Ratios.Add(new RatioDto
                     {
                         Sr_No = 10,
                         RatioName = ratioNames[9],
-                        Numerator = numerators[9],
-                        Denominator = denominators[9],
-                        CurrentReportingPeriod = Math.Round(cur, 4),
-                        PreviousReportingPeriod = Math.Round(prev, 4),
-                        Change = Math.Round(cur - prev, 4)
+                        Formula = Formula[9],
+                        Numerator = (Decimal.Round(plCur, 2)).ToString(),
+                        Denominator = (Decimal.Round(capCur, 2)).ToString(),
+                        CurrentReportingPeriod = Math.Abs(Math.Round(cur, 4)),
+                        PreviousReportingPeriod = Math.Abs(Math.Round(prev, 4)),
+                        Change = Math.Abs(Math.Round(cur - prev, 4))
                     });
                 }
 
@@ -373,27 +377,23 @@ namespace TracePca.Service.FIN_statement
                     decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
                     decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);
 
-                    int subCurrentInv = await GetSubHeadingId(conn, tran, customerId, "(a) Current Investments");
-                    int subNonCurrentInv = await GetSubHeadingId(conn, tran, customerId, "(b) Non-current investments");
+                    int headingShareId = await GetHeadingId(conn, tran, customerId, "Shareholders  funds");
 
-                    var dtCurInv = await GetSubHeadingAmt(conn, tran, yearId, customerId, 4, subCurrentInv);
-                    var dtNonInv = await GetSubHeadingAmt(conn, tran, yearId, customerId, 4, subNonCurrentInv);
+                    var share = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headingShareId);
 
-                    decimal totalInvestCur = dtCurInv.Dc1 + dtNonInv.Dc1;
-                    decimal totalInvestPrev = dtCurInv.DP1 + dtNonInv.DP1;
-
-                    decimal cur = SafeDiv(plCur, totalInvestCur);
-                    decimal prev = SafeDiv(plPrev, totalInvestPrev);
+                    decimal cur = (SafeDiv(plCur, share.Dc1)*100);
+                    decimal prev = (SafeDiv(plPrev, share.DP1)*100);            
 
                     result.Ratios.Add(new RatioDto
                     {
                         Sr_No = 11,
                         RatioName = ratioNames[10],
-                        Numerator = numerators[10],
-                        Denominator = denominators[10],
-                        CurrentReportingPeriod = Math.Round(cur, 4),
-                        PreviousReportingPeriod = Math.Round(prev, 4),
-                        Change = Math.Round(cur - prev, 4)
+                        Formula = Formula[10],
+                        Numerator = (Decimal.Round(plCur, 2)).ToString(),
+                        Denominator = (Decimal.Round(share.Dc1, 2)).ToString(),
+                        CurrentReportingPeriod = Math.Abs(Math.Round(cur, 4)),
+                        PreviousReportingPeriod = Math.Abs(Math.Round(prev, 4)),
+                        Change = Math.Abs(Math.Round(cur - prev, 4))
                     });
                 }
 
@@ -435,7 +435,7 @@ namespace TracePca.Service.FIN_statement
                 FROM Acc_TrailBalance_Upload_Details ud
                 LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
                 LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
-                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_HeadingId = @HeadingId
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_HeadingId = @HeadingId and ud.ATBUD_yearid=@YearId
             ";
 
             var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, HeadingId = headingId }, tran);
@@ -460,7 +460,7 @@ namespace TracePca.Service.FIN_statement
                 FROM Acc_TrailBalance_Upload_Details ud
                 LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
                 LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
-                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_SubHeading = @SubHeadingId
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_SubHeading = @SubHeadingId and ud.ATBUD_yearid=@YearId
             ";
 
             var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, SubHeadingId = subHeadingId }, tran);
@@ -476,7 +476,7 @@ namespace TracePca.Service.FIN_statement
         private async Task<decimal> GetPandLFinalAmt(SqlConnection conn, SqlTransaction tran, int yearId, int customerId, int branchId)
         {
             const string sql = @"
-                SELECT ISNULL(SUM(ATBU_Closing_TotalDebit_Amount - ATBU_Closing_TotalCredit_Amount), 0)
+                SELECT Abs(ISNULL(SUM(ATBU_Closing_TotalDebit_Amount - ATBU_Closing_TotalCredit_Amount), 0))
                 FROM Acc_TrailBalance_Upload
                 WHERE ATBU_Description = 'Net Income' AND ATBU_YearId = @YearId AND ATBU_CustId = @CustomerId AND ATBU_BranchId = @BranchId
             ";

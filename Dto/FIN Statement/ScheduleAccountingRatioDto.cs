@@ -8,6 +8,7 @@ namespace TracePca.Dto.FIN_Statement
         {
             public int Sr_No { get; set; }
             public string RatioName { get; set; }
+            public string Formula { get; set; }
             public string Numerator { get; set; }
             public string Denominator { get; set; }
             public decimal CurrentReportingPeriod { get; set; }
