@@ -473,6 +473,240 @@ WHERE ATBUD_Custid = @CustId
         }
 
         //FreezeForNextDuration
+        //        public async Task<int[]> FreezeNextDurationTrialBalanceAsync(List<FreezeNextYearTrialBalanceDto> inputList)
+        //        {
+        //            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //            if (string.IsNullOrEmpty(dbName))
+        //                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //            var connectionString = _configuration.GetConnectionString(dbName);
+
+        //            using var connection = new SqlConnection(connectionString);
+        //            await connection.OpenAsync();
+
+        //            using var transaction = connection.BeginTransaction();
+        //            var detailIds = new List<int>();
+
+        //            try
+        //            {
+        //                // First, find or create the SURPLUS record to accumulate the Net Income
+        //                var surplusRecord = inputList.FirstOrDefault(x =>
+        //                    x.AtbU_Description?.Trim().Equals("SURPLUS", StringComparison.OrdinalIgnoreCase) == true);
+
+        //                // Find or create the Opening Stock record
+        //                var openingStockRecord = inputList.FirstOrDefault(x =>
+        //                    x.AtbU_Description?.Trim().Equals("Opening Stock", StringComparison.OrdinalIgnoreCase) == true);
+
+        //                // Collect all Net Income amounts
+        //                decimal netIncomeClosingDebit = 0;
+        //                decimal netIncomeClosingCredit = 0;
+
+        //                // Collect all Closing Stock amounts
+        //                decimal closingStockDebit = 0;
+        //                decimal closingStockCredit = 0;
+
+        //                foreach (var record in inputList)
+        //                {
+        //                    if (record.AtbU_Description?.Trim().Equals("Net Income", StringComparison.OrdinalIgnoreCase) == true)
+        //                    {
+        //                        netIncomeClosingDebit += record.AtbU_Closing_Debit_Amount;
+        //                        netIncomeClosingCredit += record.AtbU_Closing_Credit_Amount;
+        //                    }
+
+        //                    if (record.AtbU_Description?.Trim().Equals("Closing Stock", StringComparison.OrdinalIgnoreCase) == true)
+        //                    {
+        //                        closingStockDebit += record.AtbU_Closing_Debit_Amount;
+        //                        closingStockCredit += record.AtbU_Closing_Credit_Amount;
+        //                    }
+        //                }
+
+        //                foreach (var record in inputList)
+        //                {
+        //                    int nextYearId = record.AtbU_YEARId + 1;
+
+        //                    var AtbuPkId = await connection.ExecuteScalarAsync<int>(
+        //                        @"SELECT ISNULL(ATBU_ID, 0)
+        //FROM Acc_TrailBalance_Upload
+        //WHERE ATBU_Custid = @CustId
+        //  AND ATBU_YEARId = @YearId
+        //  AND ISNULL(ATBU_Description, '') = @Description
+        //  AND ISNULL(ATBU_QuarterId, 0) = @QuarterId",
+        //                        new
+        //                        {
+        //                            CustId = record.AtbU_CustId,
+        //                            YearId = nextYearId,
+        //                            Description = record.AtbU_Description ?? string.Empty,
+        //                            QuarterId = record.AtbU_QuarterId
+        //                        },
+        //                        transaction
+        //                    );
+
+        //                    var AtbudPkId = await connection.ExecuteScalarAsync<int>(
+        //                        @"SELECT ISNULL(ATBUD_ID, 0)
+        //FROM Acc_TrailBalance_Upload_Details
+        //WHERE ATBUD_Custid = @CustId
+        //  AND ATBUD_YEARId = @YearId
+        //  AND ISNULL(ATBUD_Description, '') = @Description
+        //  AND ISNULL(ATBUD_QuarterId, 0) = @QuarterId",
+        //                        new
+        //                        {
+        //                            CustId = record.AtbuD_CustId,
+        //                            YearId = nextYearId,
+        //                            Description = record.AtbuD_Description ?? string.Empty,
+        //                            QuarterId = record.AtbuD_QuarterId
+        //                        },
+        //                        transaction
+        //                    );
+
+        //                    // ✅ Step 1: Handle ATBU record (master)
+        //                    var atbuParams = new DynamicParameters();
+        //                    atbuParams.Add("@ATBU_ID", AtbuPkId);
+        //                    atbuParams.Add("@ATBU_CODE", record.AtbU_CODE ?? string.Empty);
+        //                    atbuParams.Add("@ATBU_Description", record.AtbU_Description ?? string.Empty);
+        //                    atbuParams.Add("@ATBU_CustId", record.AtbU_CustId);
+
+        //                    // Check if this is the SURPLUS record
+        //                    bool isSurplusRecord = record.AtbU_Description?.Trim().Equals("SURPLUS", StringComparison.OrdinalIgnoreCase) == true;
+
+        //                    // Check if this is the Opening Stock record
+        //                    bool isOpeningStockRecord = record.AtbU_Description?.Trim().Equals("Opening Stock", StringComparison.OrdinalIgnoreCase) == true;
+
+        //                    // Check if this is a Net Income record
+        //                    bool isNetIncomeRecord = record.AtbU_Description?.Trim().Equals("Net Income", StringComparison.OrdinalIgnoreCase) == true;
+
+        //                    // Check if this is a Closing Stock record
+        //                    bool isClosingStockRecord = record.AtbU_Description?.Trim().Equals("Closing Stock", StringComparison.OrdinalIgnoreCase) == true;
+
+        //                    // ✅ Include your original condition logic here
+        //                    if (record.AtbuD_SChedule_Type == 4)
+        //                    {
+        //                        // For Net Income record - save with 0 amounts
+        //                        if (isNetIncomeRecord)
+        //                        {
+        //                            atbuParams.Add("@ATBU_Opening_Debit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_Opening_Credit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_Closing_Debit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_Closing_Credit_Amount", 0);
+        //                        }
+        //                        // For Closing Stock record - save with 0 amounts
+        //                        else if (isClosingStockRecord)
+        //                        {
+        //                            atbuParams.Add("@ATBU_Opening_Debit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_Opening_Credit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_Closing_Debit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_Closing_Credit_Amount", 0);
+        //                        }
+        //                        // For SURPLUS record, add the Net Income amounts to opening balances
+        //                        else if (isSurplusRecord)
+        //                        {
+        //                            atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount + netIncomeClosingDebit);
+        //                            atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount + netIncomeClosingCredit);
+        //                            atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount + netIncomeClosingDebit);
+        //                            atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount + netIncomeClosingCredit);
+        //                        }
+        //                        // For Opening Stock record, add the Closing Stock amounts to opening balances
+        //                        else if (isOpeningStockRecord)
+        //                        {
+        //                            atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount + closingStockDebit);
+        //                            atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount + closingStockCredit);
+        //                            atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount + closingStockDebit);
+        //                            atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount + closingStockCredit);
+        //                        }
+        //                        else
+        //                        {
+        //                            atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount);
+        //                            atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount);
+        //                            atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+        //                            atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount);
+        //                            atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount);
+        //                        }
+        //                    }
+        //                    else
+        //                    {
+        //                        atbuParams.Add("@ATBU_Opening_Debit_Amount", 0);
+        //                        atbuParams.Add("@ATBU_Opening_Credit_Amount", 0);
+        //                        atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+        //                        atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+        //                        atbuParams.Add("@ATBU_Closing_Debit_Amount", 0);
+        //                        atbuParams.Add("@ATBU_Closing_Credit_Amount", 0);
+        //                    }
+
+        //                    atbuParams.Add("@ATBU_DELFLG", record.AtbU_DELFLG ?? "N");
+        //                    atbuParams.Add("@ATBU_CRBY", record.AtbU_CRBY);
+        //                    atbuParams.Add("@ATBU_STATUS", record.AtbU_STATUS ?? "Active");
+        //                    atbuParams.Add("@ATBU_UPDATEDBY", record.AtbU_UPDATEDBY);
+        //                    atbuParams.Add("@ATBU_IPAddress", record.AtbU_IPAddress ?? string.Empty);
+        //                    atbuParams.Add("@ATBU_CompId", record.AtbU_CompId);
+        //                    atbuParams.Add("@ATBU_YEARId", nextYearId);
+        //                    atbuParams.Add("@ATBU_Branchid", record.AtbU_Branchid);
+        //                    atbuParams.Add("@ATBU_QuarterId", record.AtbU_QuarterId);
+        //                    atbuParams.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+        //                    atbuParams.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+        //                    await connection.ExecuteAsync(
+        //                        "spAcc_TrailBalance_Upload",
+        //                        atbuParams,
+        //                        transaction,
+        //                        commandType: CommandType.StoredProcedure
+        //                    );
+        //                    int masId = atbuParams.Get<int>("@iOper");
+
+        //                    // ✅ Step 2: Handle ATBUD record (detail)
+        //                    var atbudParams = new DynamicParameters();
+        //                    atbudParams.Add("@ATBUD_ID", AtbudPkId);
+        //                    atbudParams.Add("@ATBUD_Masid", masId);
+        //                    atbudParams.Add("@ATBUD_CODE", record.AtbuD_CODE ?? string.Empty);
+        //                    atbudParams.Add("@ATBUD_Description", record.AtbuD_Description ?? string.Empty);
+        //                    atbudParams.Add("@ATBUD_CustId", record.AtbuD_CustId);
+        //                    atbudParams.Add("@ATBUD_SChedule_Type", record.AtbuD_SChedule_Type);
+        //                    atbudParams.Add("@ATBUD_Branchid", record.AtbuD_Branchid);
+        //                    atbudParams.Add("@ATBUD_QuarterId", record.AtbuD_QuarterId);
+        //                    atbudParams.Add("@ATBUD_Company_Type", record.AtbuD_Company_Type);
+        //                    atbudParams.Add("@ATBUD_Headingid", record.AtbuD_Headingid);
+        //                    atbudParams.Add("@ATBUD_Subheading", record.AtbuD_Subheading);
+        //                    atbudParams.Add("@ATBUD_itemid", record.AtbuD_itemid);
+        //                    atbudParams.Add("@ATBUD_SubItemId", record.AtbuD_SubItemid);
+        //                    atbudParams.Add("@ATBUD_DELFLG", record.AtbuD_DELFLG ?? "N");
+        //                    atbudParams.Add("@ATBUD_CRBY", record.AtbuD_CRBY);
+        //                    atbudParams.Add("@ATBUD_UPDATEDBY", record.AtbuD_UPDATEDBY);
+        //                    atbudParams.Add("@ATBUD_STATUS", record.AtbuD_STATUS ?? "Active");
+        //                    atbudParams.Add("@ATBUD_Progress", record.AtbuD_Progress ?? string.Empty);
+        //                    atbudParams.Add("@ATBUD_IPAddress", record.AtbuD_IPAddress ?? string.Empty);
+        //                    atbudParams.Add("@ATBUD_CompId", record.AtbuD_CompId);
+        //                    atbudParams.Add("@ATBUD_YEARId", nextYearId);
+        //                    atbudParams.Add("@iUpdateOrSave", dbType: DbType.Int32, direction: ParameterDirection.Output);
+        //                    atbudParams.Add("@iOper", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+        //                    await connection.ExecuteAsync(
+        //                        "spAcc_TrailBalance_Upload_Details",
+        //                        atbudParams,
+        //                        transaction,
+        //                        commandType: CommandType.StoredProcedure
+        //                    );
+
+        //                    int detailResultId = atbudParams.Get<int>("@iOper");
+        //                    detailIds.Add(detailResultId);
+        //                }
+
+        //                transaction.Commit();
+        //                return detailIds.ToArray();
+        //            }
+        //            catch
+        //            {
+        //                transaction.Rollback();
+        //                throw;
+        //            }
+        //        }
+
         public async Task<int[]> FreezeNextDurationTrialBalanceAsync(List<FreezeNextYearTrialBalanceDto> inputList)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -489,16 +723,163 @@ WHERE ATBUD_Custid = @CustId
 
             try
             {
+                // Collect all Net Income amounts
+                decimal netIncomeClosingDebit = 0;
+                decimal netIncomeClosingCredit = 0;
+
+                // Collect all Closing Stock amounts
+                decimal closingStockDebit = 0;
+                decimal closingStockCredit = 0;
+
+                // Find existing records
+                FreezeNextYearTrialBalanceDto? surplusRecord = null;
+                FreezeNextYearTrialBalanceDto? openingStockRecord = null;
+
+                foreach (var record in inputList)
+                {
+                    if (record.AtbU_Description?.Trim().Equals("Net Income", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        netIncomeClosingDebit += record.AtbU_Closing_Debit_Amount;
+                        netIncomeClosingCredit += record.AtbU_Closing_Credit_Amount;
+                    }
+
+                    if (record.AtbU_Description?.Trim().Equals("Closing Stock", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        closingStockDebit += record.AtbU_Closing_Debit_Amount;
+                        closingStockCredit += record.AtbU_Closing_Credit_Amount;
+                    }
+
+                    if (record.AtbU_Description?.Trim().Equals("SURPLUS", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        surplusRecord = record;
+                    }
+
+                    if (record.AtbU_Description?.Trim().Equals("Opening Stock", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        openingStockRecord = record;
+                    }
+                }
+
+                // Create SURPLUS record if it doesn't exist
+                if (surplusRecord == null)
+                {
+                    surplusRecord = new FreezeNextYearTrialBalanceDto
+                    {
+                        AtbU_CODE = "SURPLUS",
+                        AtbU_Description = "SURPLUS",
+                        AtbU_CustId = inputList.First().AtbU_CustId, // Use first record's customer ID
+                        AtbU_YEARId = inputList.First().AtbU_YEARId,
+                        AtbU_Closing_Debit_Amount = 0,
+                        AtbU_Closing_Credit_Amount = 0,
+                        AtbU_DELFLG = "A",
+                        AtbU_CRBY = inputList.First().AtbU_CRBY,
+                        AtbU_STATUS = "A",
+                        AtbU_UPDATEDBY = inputList.First().AtbU_UPDATEDBY,
+                        AtbU_IPAddress = inputList.First().AtbU_IPAddress,
+                        AtbU_CompId = inputList.First().AtbU_CompId,
+                        AtbU_Branchid = inputList.First().AtbU_Branchid,
+                        AtbU_QuarterId = inputList.First().AtbU_QuarterId,
+                        AtbuD_CODE = "SURPLUS",
+                        AtbuD_Description = "SURPLUS",
+                        AtbuD_CustId = inputList.First().AtbuD_CustId,
+                        AtbuD_SChedule_Type = 4, // Assuming schedule type 4 for surplus
+                        AtbuD_Branchid = inputList.First().AtbuD_Branchid,
+                        AtbuD_QuarterId = inputList.First().AtbuD_QuarterId,
+                        AtbuD_Company_Type = inputList.First().AtbuD_Company_Type,
+                        AtbuD_Headingid = 0, // Default or get from config
+                        AtbuD_Subheading = 0,
+                        AtbuD_itemid = 0,
+                        AtbuD_SubItemid = 0,
+                        AtbuD_DELFLG = "A",
+                        AtbuD_CRBY = inputList.First().AtbuD_CRBY,
+                        AtbuD_UPDATEDBY = inputList.First().AtbuD_UPDATEDBY,
+                        AtbuD_STATUS = "A",
+                        AtbuD_Progress = "",
+                        AtbuD_IPAddress = inputList.First().AtbuD_IPAddress,
+                        AtbuD_CompId = inputList.First().AtbuD_CompId,
+                        HeadingName = "SURPLUS"
+                    };
+                    inputList.Add(surplusRecord);
+                }
+
+                // Create Opening Stock record if it doesn't exist
+                if (openingStockRecord == null)
+                {
+                    var first = inputList.First();
+
+                    // Schedule Type = 3 (Stock)
+                    int scheduleType = 3;
+
+                    // 🔹 Resolve hierarchy correctly
+                    var headingId = await GetScheduleIdAsync(scheduleType, first.AtbuD_CustId, 1, 3);
+                    var subHeadingId = headingId.HasValue
+                        ? await GetScheduleIdAsync(scheduleType, first.AtbuD_CustId, 2, headingId.Value)
+                        : null;
+
+                    //var itemId = subHeadingId.HasValue
+                    //    ? await GetScheduleIdAsync(scheduleType, first.AtbuD_CustId,         -+  3, subHeadingId.Value)
+                    //    : null;
+
+                    //var subItemId = itemId.HasValue
+                    //    ? await GetScheduleIdAsync(scheduleType, first.AtbuD_CustId, 4, itemId.Value)
+                    //    : null;
+
+                    openingStockRecord = new FreezeNextYearTrialBalanceDto
+                    {
+                        AtbU_CODE = "Opening Stock",
+                        AtbU_Description = "Opening Stock",
+                        AtbU_CustId = first.AtbU_CustId,
+                        AtbU_YEARId = first.AtbU_YEARId,
+                        AtbU_Closing_Debit_Amount = 0,
+                        AtbU_Closing_Credit_Amount = 0,
+                        AtbU_DELFLG = "A",
+                        AtbU_CRBY = first.AtbU_CRBY,
+                        AtbU_STATUS = "A",
+                        AtbU_UPDATEDBY = first.AtbU_UPDATEDBY,
+                        AtbU_IPAddress = first.AtbU_IPAddress,
+                        AtbU_CompId = first.AtbU_CompId,
+                        AtbU_Branchid = first.AtbU_Branchid,
+                        AtbU_QuarterId = first.AtbU_QuarterId,
+
+                        AtbuD_CODE = "Opening Stock",
+                        AtbuD_Description = "Opening Stock",
+                        AtbuD_CustId = first.AtbuD_CustId,
+                        AtbuD_SChedule_Type = scheduleType,
+                        AtbuD_Branchid = first.AtbuD_Branchid,
+                        AtbuD_QuarterId = first.AtbuD_QuarterId,
+                        AtbuD_Company_Type = first.AtbuD_Company_Type,
+
+                        AtbuD_Headingid = headingId ?? 0,
+                        AtbuD_Subheading = subHeadingId ?? 0,
+                        AtbuD_itemid = 0,
+                        AtbuD_SubItemid = 0,
+
+                        AtbuD_DELFLG = "A",
+                        AtbuD_CRBY = first.AtbuD_CRBY,
+                        AtbuD_UPDATEDBY = first.AtbuD_UPDATEDBY,
+                        AtbuD_STATUS = "A",
+                        AtbuD_Progress = "",
+                        AtbuD_IPAddress = first.AtbuD_IPAddress,
+                        AtbuD_CompId = first.AtbuD_CompId,
+
+                        HeadingName = "Opening Stock"
+                    };
+
+                    inputList.Add(openingStockRecord);
+                }
+
+
                 foreach (var record in inputList)
                 {
                     int nextYearId = record.AtbU_YEARId + 1;
+
                     var AtbuPkId = await connection.ExecuteScalarAsync<int>(
                         @"SELECT ISNULL(ATBU_ID, 0)
-      FROM Acc_TrailBalance_Upload
-      WHERE ATBU_Custid = @CustId
-        AND ATBU_YEARId = @YearId
-        AND ISNULL(ATBU_Description, '') = @Description
-        AND ISNULL(ATBU_QuarterId, 0) = @QuarterId",
+FROM Acc_TrailBalance_Upload
+WHERE ATBU_Custid = @CustId
+  AND ATBU_YEARId = @YearId
+  AND ISNULL(ATBU_Description, '') = @Description
+  AND ISNULL(ATBU_QuarterId, 0) = @QuarterId",
                         new
                         {
                             CustId = record.AtbU_CustId,
@@ -511,11 +892,11 @@ WHERE ATBUD_Custid = @CustId
 
                     var AtbudPkId = await connection.ExecuteScalarAsync<int>(
                         @"SELECT ISNULL(ATBUD_ID, 0)
-      FROM Acc_TrailBalance_Upload_Details
-      WHERE ATBUD_Custid = @CustId
-        AND ATBUD_YEARId = @YearId
-        AND ISNULL(ATBUD_Description, '') = @Description
-        AND ISNULL(ATBUD_QuarterId, 0) = @QuarterId",
+FROM Acc_TrailBalance_Upload_Details
+WHERE ATBUD_Custid = @CustId
+  AND ATBUD_YEARId = @YearId
+  AND ISNULL(ATBUD_Description, '') = @Description
+  AND ISNULL(ATBUD_QuarterId, 0) = @QuarterId",
                         new
                         {
                             CustId = record.AtbuD_CustId,
@@ -526,8 +907,6 @@ WHERE ATBUD_Custid = @CustId
                         transaction
                     );
 
-
-
                     // ✅ Step 1: Handle ATBU record (master)
                     var atbuParams = new DynamicParameters();
                     atbuParams.Add("@ATBU_ID", AtbuPkId);
@@ -535,28 +914,64 @@ WHERE ATBUD_Custid = @CustId
                     atbuParams.Add("@ATBU_Description", record.AtbU_Description ?? string.Empty);
                     atbuParams.Add("@ATBU_CustId", record.AtbU_CustId);
 
+                    // Check record types
+                    bool isNetIncomeRecord = record.AtbU_Description?.Trim().Equals("Net Income", StringComparison.OrdinalIgnoreCase) == true;
+                    bool isClosingStockRecord = record.AtbU_Description?.Trim().Equals("Closing Stock", StringComparison.OrdinalIgnoreCase) == true;
+                    bool isOpeningStockRecord = record.AtbU_Description?.Trim().Equals("Opening Stock", StringComparison.OrdinalIgnoreCase) == true;
+                    bool isSurplusRecord = record.AtbU_Description?.Trim().Equals("SURPLUS", StringComparison.OrdinalIgnoreCase) == true;
+
                     // ✅ Include your original condition logic here
                     if (record.AtbuD_SChedule_Type == 4)
                     {
-                        atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount);
-                        atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount);
-                        atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
-                        atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
-                        atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount);
-                        atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount);
-
-                        //if (!string.IsNullOrEmpty(record.AtbuD_Description) &&
-                        //     (record.AtbuD_Description.Trim().Equals("Income", StringComparison.OrdinalIgnoreCase) ||
-                        //     record.AtbuD_Description.Trim().Equals("Expenses", StringComparison.OrdinalIgnoreCase)))
-                        //{
-                        //    atbuParams.Add("@ATBU_Closing_Debit_Amount", 0);
-                        //    atbuParams.Add("@ATBU_Closing_Credit_Amount", 0);
-                        //}
-                        //else
-                        //{
-                        //    atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount);
-                        //    atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount);
-                        //}
+                        // For Net Income record - save with 0 amounts
+                        if (isNetIncomeRecord)
+                        {
+                            atbuParams.Add("@ATBU_Opening_Debit_Amount", 0);
+                            atbuParams.Add("@ATBU_Opening_Credit_Amount", 0);
+                            atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+                            atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+                            atbuParams.Add("@ATBU_Closing_Debit_Amount", 0);
+                            atbuParams.Add("@ATBU_Closing_Credit_Amount", 0);
+                        }
+                        // For Closing Stock record - save with 0 amounts
+                        else if (isClosingStockRecord)
+                        {
+                            atbuParams.Add("@ATBU_Opening_Debit_Amount", 0);
+                            atbuParams.Add("@ATBU_Opening_Credit_Amount", 0);
+                            atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+                            atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+                            atbuParams.Add("@ATBU_Closing_Debit_Amount", 0);
+                            atbuParams.Add("@ATBU_Closing_Credit_Amount", 0);
+                        }
+                        // For SURPLUS record, add the Net Income amounts to opening balances
+                        else if (isSurplusRecord)
+                        {
+                            atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount + netIncomeClosingDebit);
+                            atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount + netIncomeClosingCredit);
+                            atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+                            atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+                            atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount + netIncomeClosingDebit);
+                            atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount + netIncomeClosingCredit);
+                        }
+                        // For Opening Stock record, add the Closing Stock amounts to opening balances
+                        else if (isOpeningStockRecord)
+                        {
+                            atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount + closingStockDebit);
+                            atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount + closingStockCredit);
+                            atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+                            atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+                            atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount + closingStockDebit);
+                            atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount + closingStockCredit);
+                        }
+                        else
+                        {
+                            atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount);
+                            atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount);
+                            atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+                            atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+                            atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount);
+                            atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount);
+                        }
                     }
                     else
                     {
@@ -566,6 +981,16 @@ WHERE ATBUD_Custid = @CustId
                         atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
                         atbuParams.Add("@ATBU_Closing_Debit_Amount", 0);
                         atbuParams.Add("@ATBU_Closing_Credit_Amount", 0);
+
+                        if (isOpeningStockRecord)
+                        {
+                            atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount + closingStockDebit);
+                            atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount + closingStockCredit);
+                            atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+                            atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+                            atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount + closingStockDebit);
+                            atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount + closingStockCredit);
+                        }
                     }
 
                     atbuParams.Add("@ATBU_DELFLG", record.AtbU_DELFLG ?? "N");
@@ -587,7 +1012,6 @@ WHERE ATBUD_Custid = @CustId
                         commandType: CommandType.StoredProcedure
                     );
                     int masId = atbuParams.Get<int>("@iOper");
-
 
                     // ✅ Step 2: Handle ATBUD record (detail)
                     var atbudParams = new DynamicParameters();
@@ -635,6 +1059,68 @@ WHERE ATBUD_Custid = @CustId
                 throw;
             }
         }
+
+        private async Task<int?> GetScheduleIdAsync(
+    int scheduleType,
+    int custId,
+    int level,          // 1=Heading, 2=SubHeading, 3=Item, 4=SubItem
+    int parentId
+)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session.");
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
+            await connection.OpenAsync();
+
+            return level switch
+            {
+                // 🔹 HEADING
+                1 => await connection.ExecuteScalarAsync<int?>(@"
+                SELECT TOP 1 ASH_ID
+                FROM ACC_ScheduleHeading
+                WHERE ASH_scheduletype = @scheduleType
+                  AND ASH_Orgtype = @custId
+                  AND ASH_Name = 'Expenses'
+                ORDER BY ASH_ID",
+                        new { scheduleType, custId, parentId }),
+
+                // 🔹 SUB HEADING
+                2 => await connection.ExecuteScalarAsync<int?>(@"
+                SELECT TOP 1 ASSH_ID
+                FROM ACC_ScheduleSubHeading
+                WHERE ASSH_scheduletype = @scheduleType
+                  AND ASSH_Orgtype = @custId
+                  AND ASSH_Name = '(a) Cost Of Materials Consumed'
+                ORDER BY ASSH_ID",
+                        new { scheduleType, custId, parentId }),
+
+                // 🔹 ITEM
+                3 => await connection.ExecuteScalarAsync<int?>(@"
+                SELECT TOP 1 ASI_ID
+                FROM ACC_ScheduleItems
+                WHERE ASI_scheduletype = @scheduleType
+                  AND ASI_Orgtype = @custId
+                  AND ASI_SubHeadingID = @parentId
+                ORDER BY ASI_ID",
+                        new { scheduleType, custId, parentId }),
+
+                // 🔹 SUB ITEM
+                4 => await connection.ExecuteScalarAsync<int?>(@"
+                SELECT TOP 1 ASSI_ID
+                FROM ACC_ScheduleSubItems
+                WHERE ASSI_scheduletype = @scheduleType
+                  AND ASSI_Orgtype = @custId
+                  AND ASSI_ItemsID = @parentId
+                ORDER BY ASSI_ID",
+                        new { scheduleType, custId, parentId }),
+
+                _ => throw new ArgumentException("Invalid schedule level")
+            };
+        }
+
+
 
         //DownloadUploadableExcelAndTemplate
         public FileDownloadResult GetExcelTemplate()

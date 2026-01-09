@@ -361,7 +361,7 @@ namespace TracePca.Dto.FixedAssets
             public double NextYrCarry { get; set; }
         }
 
-        //company calculation
+        //ITcalculation
         public class ITDepreciationRequestDto
         {
             public string NameSpace { get; set; } // Database schema / namespace
@@ -392,12 +392,44 @@ namespace TracePca.Dto.FixedAssets
             public double NextYrCarry { get; set; }
         }
 
+        //CompanyCalculation
+        // Request DTO
+        public class CompanyDepreciationRequestDto
+        {
+            public int CompId { get; set; }
+            public int CustId { get; set; }
+            public int YearId { get; set; }
+            public int Method { get; set; } // 1 = SLM, 2 = WDV
+            public int NoOfDays { get; set; } // FY days
+            public int TotalDays { get; set; } // Usually 365
+            public int Duration { get; set; } // 1 = yearly, 2 = quarterly, 3 = monthly
+            public DateTime StartDate { get; set; }
+            public DateTime EndDate { get; set; }
+        }
 
+        // Response DTO
+        public class CompanyDepreciationResponseDto
+        {
+            public int AssetClassID { get; set; }
+            public int AssetID { get; set; }
+            public string AssetType { get; set; }
+            public string AssetCode { get; set; }
 
+            public int LocationID { get; set; }
+            public int DivisionID { get; set; }
+            public int DepartmentID { get; set; }
+            public int BayID { get; set; }
 
+            public double OriginalCost { get; set; }
+            public double ResidualValue { get; set; }
+            public double SalvageValue { get; set; }
+            public int AssetAge { get; set; }
 
-
-
+            public double DepreciationRate { get; set; }
+            public double OPBForYear { get; set; }
+            public double DepreciationForFY { get; set; }
+            public double WrittenDownValue { get; set; }
+        }
 
 
     }

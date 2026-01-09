@@ -30,5 +30,8 @@ namespace TracePca.Interface.FIN_Statement
 
         //GetCustomerOrgType
         Task<string> GetCustomerOrgTypeAsync(int CustId, int CompId);
+
+        //GetCustomerAuditType
+        Task<string> GetCustomerAuditTypeAsync(int CustId, int CompId);
     }
 }

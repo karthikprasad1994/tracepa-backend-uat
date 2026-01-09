@@ -410,6 +410,8 @@
             public string CUST_Amount_Type { get; set; }
             public string CUST_RoundOff { get; set; }
             public int Cust_DurtnId { get; set; }
+
+            public string CUST_ORGID { get; set; }
         }
 
     }

@@ -169,9 +169,9 @@ namespace TracePca.Service.FIN_statement
 
         //
 
-            public async Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(
-       int CompId, int ScheduleId, int CustId, int AccHead)
-            {
+        public async Task<IEnumerable<ScheduleFormatTemplateDto>> GetScheduleTemplateAsync(
+   int CompId, int ScheduleId, int CustId, int AccHead)
+        {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -394,10 +394,10 @@ FROM NumberedRows
                     updateOrSave = (int)(updateOrSaveParam.Value ?? 0);
                     oper = (int)(operParam.Value ?? 0);
                 }
-                 bool isNewHeading = dto.ASH_ID == 0 || updateOrSave == 1;
+                bool isNewHeading = dto.ASH_ID == 0 || updateOrSave == 1;
 
                 // Check if it's a new heading insert, then insert template
-               if (iPKId == 0)
+                if (iPKId == 0)
                 {
                     using var templateCommand = new SqlCommand("spACC_ScheduleTemplates", connection, transaction);
                     templateCommand.CommandType = CommandType.StoredProcedure;
@@ -814,7 +814,7 @@ FROM NumberedRows
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             {
-               
+
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
@@ -886,7 +886,7 @@ FROM NumberedRows
          FROM ACC_ScheduleTemplates
          WHERE AST_Companytype = @CustId AND AST_CompId = @CompId";
 
-            var result = await connection.QueryAsync<ScheduleTemplateCountDto>(query, new{CustId, CompId});
+            var result = await connection.QueryAsync<ScheduleTemplateCountDto>(query, new { CustId, CompId });
 
             return result;
         }
@@ -1313,7 +1313,8 @@ WHERE
                     CUST_INDTYPEID,
                     CUST_Amount_Type,
                     CUST_RoundOff,
-                    Cust_DurtnId
+                    Cust_DurtnId,
+                    CUST_ORGID
                 FROM SAD_CUSTOMER_MASTER 
                 WHERE Cust_Id = @CustId AND CUST_CompID = @CompId";
 

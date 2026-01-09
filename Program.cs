@@ -55,6 +55,7 @@ using TracePca.Service.TaskManagement;
 using TracePca.Utility;
 using System.Globalization;
 using QuestPDF.Infrastructure;
+using JournalEntryUploadAPI.Services;
 
 
 
@@ -181,7 +182,7 @@ builder.Services.AddScoped<FlaggedTransactionInterface, FlaggedTransactionServic
 builder.Services.AddScoped<AgingAnalysisInterface, AgingAnalysisService>();
 builder.Services.AddScoped<SamplingInterface, SamplingService>();
 builder.Services.AddScoped<IClientPortalInterface, ClientPortalService>();
-
+builder.Services.AddScoped<IDBHelper, DBHelper>();
 
 // Register your custom DbConnectionFactory
 builder.Services.AddScoped<IDbConnectionFactory, DbConnectionFactory>();
@@ -220,6 +221,7 @@ builder.Services.AddScoped<CustomerMasterInterface, CustomerMaster>();
 builder.Services.AddScoped<CustomerUserMasterInterface, CustomerUserMaster>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
 builder.Services.AddScoped<ReportTemplateInterface, ReportTemplateService>();
+builder.Services.AddScoped<IBulkJournalEntryService, BulkJournalEntryService>();
 
 
 builder.Services.AddScoped<ApiPerformanceTracker>();
@@ -229,7 +231,6 @@ builder.Services.AddScoped<TaskDashboardInterface, TaskDashboardService>();
 builder.Services.AddScoped<TaskScheduleInterface, TaskScheduleService>();
 builder.Services.AddScoped<CompanyDetailsInterface, CompanyDetailsService>();
 builder.Services.AddScoped<TaskInvoiceAndReportInterface, TaskInvoiceAndReportService>();
-builder.Services.AddScoped<BulkOperationsService, BulkOperationsService>();
 builder.Services.AddScoped<JournalEntryInterface, JournalEntryService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

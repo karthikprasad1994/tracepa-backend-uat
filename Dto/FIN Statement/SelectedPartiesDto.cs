@@ -32,6 +32,7 @@
             public string ATBU_Description { get; set; }
             public int ATBU_ID { get; set; }
             public int Status { get; set; }
+            public string JeType { get; set; }
 
         }
 
