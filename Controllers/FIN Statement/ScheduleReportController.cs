@@ -473,6 +473,53 @@ namespace TracePca.Controllers.FIN_Statement
             return Ok(result);
         }
 
+        //SaveFinancialStatement
+        [HttpPost("save")]
+        public async Task<IActionResult> SaveLoeTemplates([FromBody] SaveLoeTemplateRequestDto request)
+        {
+            try
+            {
+                if (request == null)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Request data is required."
+                    });
+                }
 
+                var result = await _ScheduleReportService.SaveLoeTemplatesAsync(
+                    request.LoeId,
+                    request.ReportTypeId,
+                    request.CompId,
+                    request.createdBy,
+                    request.ipAddress);
+
+                if (!result)
+                {
+                    return BadRequest(new
+                    {
+                        StatusCode = 400,
+                        Message = "Failed to save LOE templates."
+                    });
+                }
+
+                return Ok(new
+                {
+                    StatusCode = 200,
+                    Message = "LOE templates saved successfully.",
+                    Data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while saving LOE templates.",
+                    Error = ex.Message
+                });
+            }
+        }
     }
 }

@@ -380,7 +380,17 @@ namespace TracePca.Service.SuperMaster
                     errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "EmployeeName missing" });
 
                 if (string.IsNullOrWhiteSpace(emp.LoginName))
+                {
                     errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "LoginName missing" });
+                }
+                else
+                {
+                    string trimmedEmail = emp.LoginName.Trim();
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(trimmedEmail, @"^[a-z0-9](\.?[a-z0-9]){1,}@gmail\.com$"))
+                    {
+                        errors.Add(new UploadEmployeeMasterDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Invalid Login format. Must be like 'username@gmail.com'" });
+                    }
+                }
 
                 // ✅ Gmail format check
                 if (string.IsNullOrWhiteSpace(emp.Email))
@@ -1623,12 +1633,23 @@ WHERE UPPER(CUST_NAME) = UPPER(@CustomerName)
                     errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "EmployeeName missing" });
 
                 if (string.IsNullOrWhiteSpace(emp.LoginName))
+                {
                     errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "LoginName missing" });
+                }
+                else
+                {
+                    string trimmedEmail = emp.LoginName.Trim();
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(trimmedEmail, @"^[a-z0-9](\.?[a-z0-9]){1,}@gmail\.com$"))
+                    {
+                        errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Invalid Gmail format. Must be like 'username@gmail.com'" });
+                    }
+                }
 
                 // ✅ Email check
                 if (string.IsNullOrWhiteSpace(emp.Email))
                 {
                     errors.Add(new UploadClientUserDto { EmpCode = emp.EmpCode, EmployeeName = emp.EmployeeName, ErrorMessage = "Email missing" });
+
                 }
                 else
                 {

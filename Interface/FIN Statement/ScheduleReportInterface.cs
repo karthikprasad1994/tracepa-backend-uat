@@ -42,8 +42,8 @@ namespace TracePca.Interface.FIN_Statement
         Task<DirectorDto> GetDirectorByIdAsync(int directorId);
         Task<CustomerAmountSettingsDto> GetCustomerAmountSettingsAsync(int customerId);
 
-
-
+        //SaveFinancialStatement
+        Task<bool> SaveLoeTemplatesAsync(int loeId, int reportTypeId, int compId, int createdBy,string ipAddress);
     }
 }
                          

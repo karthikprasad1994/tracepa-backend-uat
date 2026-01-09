@@ -3259,8 +3259,96 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
             return null;
         }
 
+        //SaveFinancialStatement
+        public async Task<bool> SaveLoeTemplatesAsync( int loeId, int reportTypeId, int compId, int createdBy, string ipAddress)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
 
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                // 1. Fetch templates for the selected report type
+                string fetchQuery = @"
+            SELECT
+                RCM_ID,
+                RCM_Heading,
+                RCM_Description
+            FROM SAD_ReportContentMaster
+            WHERE RCM_ReportId = @ReportTypeId
+              AND RCM_DelFlag = 'A'";
+
+                var templates = await connection.QueryAsync(fetchQuery,
+                    new { ReportTypeId = reportTypeId },
+                    transaction);
+
+                if (!templates.Any())
+                    throw new Exception("No templates found for the selected report type.");
+
+                // 2. Insert into LOE_Template_details
+                string insertQuery = @"
+            INSERT INTO LOE_Template_details
+            (
+                LTD_LOE_ID,
+                LTD_ReportTypeID,
+                LTD_HeadingID,
+                LTD_Heading,
+                LTD_Decription,
+                LTD_FormName,
+                LTD_CrBy,
+                LTD_CrOn,
+                LTD_IPAddress,
+                LTD_CompID,
+                LTD_UpdatedBy,
+                LTD_UpdatedOn
+            )
+            VALUES
+            (
+                @LoeId,
+                @ReportTypeId,
+                @HeadingId,
+                @Heading,
+                @Description,
+                @FormName,
+                @CreatedBy,
+                GETDATE(),
+                @IPAddress,
+                @CompId
+                @UpdatedBy
+                @UpdateOn
+            )";
+
+                foreach (var item in templates)
+                {
+                    await connection.ExecuteAsync(insertQuery, new
+                    {
+                        LoeId = loeId,
+                        ReportTypeId = reportTypeId,
+                        HeadingId = item.RCM_Id,
+                        Heading = item.RCM_Heading,
+                        Description = item.RCM_Description,
+                        CreatedBy = createdBy,
+                        IPAddress = ipAddress,
+                        CompId = compId
+                    }, transaction);
+                }
+                transaction.Commit();
+                return true;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
     }
 }
 
