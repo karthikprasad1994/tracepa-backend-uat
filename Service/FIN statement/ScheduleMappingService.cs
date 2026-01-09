@@ -214,6 +214,7 @@ WHERE
     AND a.ATBU_CompId = @compId
     AND a.ATBU_YearId = @yearId
     AND a.ATBU_BranchId = @branchId
+    AND a.ATBU_Description<>'Net Income' 
     AND a.ATBU_QuarterId = @durationId;";
 
             return await connection.QueryAsync<CustCOASummaryDto>(query, new { CompId, CustId, YearId, BranchId, DurationId });
@@ -771,9 +772,9 @@ WHERE ATBUD_Custid = @CustId
                         AtbU_YEARId = inputList.First().AtbU_YEARId,
                         AtbU_Closing_Debit_Amount = 0,
                         AtbU_Closing_Credit_Amount = 0,
-                        AtbU_DELFLG = "N",
+                        AtbU_DELFLG = "A",
                         AtbU_CRBY = inputList.First().AtbU_CRBY,
-                        AtbU_STATUS = "Active",
+                        AtbU_STATUS = "A",
                         AtbU_UPDATEDBY = inputList.First().AtbU_UPDATEDBY,
                         AtbU_IPAddress = inputList.First().AtbU_IPAddress,
                         AtbU_CompId = inputList.First().AtbU_CompId,
@@ -790,10 +791,10 @@ WHERE ATBUD_Custid = @CustId
                         AtbuD_Subheading = 0,
                         AtbuD_itemid = 0,
                         AtbuD_SubItemid = 0,
-                        AtbuD_DELFLG = "N",
+                        AtbuD_DELFLG = "A",
                         AtbuD_CRBY = inputList.First().AtbuD_CRBY,
                         AtbuD_UPDATEDBY = inputList.First().AtbuD_UPDATEDBY,
-                        AtbuD_STATUS = "Active",
+                        AtbuD_STATUS = "A",
                         AtbuD_Progress = "",
                         AtbuD_IPAddress = inputList.First().AtbuD_IPAddress,
                         AtbuD_CompId = inputList.First().AtbuD_CompId,
@@ -805,44 +806,69 @@ WHERE ATBUD_Custid = @CustId
                 // Create Opening Stock record if it doesn't exist
                 if (openingStockRecord == null)
                 {
+                    var first = inputList.First();
+
+                    // Schedule Type = 3 (Stock)
+                    int scheduleType = 3;
+
+                    // 🔹 Resolve hierarchy correctly
+                    var headingId = await GetScheduleIdAsync(scheduleType, first.AtbuD_CustId, 1, 3);
+                    var subHeadingId = headingId.HasValue
+                        ? await GetScheduleIdAsync(scheduleType, first.AtbuD_CustId, 2, headingId.Value)
+                        : null;
+
+                    //var itemId = subHeadingId.HasValue
+                    //    ? await GetScheduleIdAsync(scheduleType, first.AtbuD_CustId,         -+  3, subHeadingId.Value)
+                    //    : null;
+
+                    //var subItemId = itemId.HasValue
+                    //    ? await GetScheduleIdAsync(scheduleType, first.AtbuD_CustId, 4, itemId.Value)
+                    //    : null;
+
                     openingStockRecord = new FreezeNextYearTrialBalanceDto
                     {
                         AtbU_CODE = "Opening Stock",
                         AtbU_Description = "Opening Stock",
-                        AtbU_CustId = inputList.First().AtbU_CustId,
-                        AtbU_YEARId = inputList.First().AtbU_YEARId,
+                        AtbU_CustId = first.AtbU_CustId,
+                        AtbU_YEARId = first.AtbU_YEARId,
                         AtbU_Closing_Debit_Amount = 0,
                         AtbU_Closing_Credit_Amount = 0,
-                        AtbU_DELFLG = "N",
-                        AtbU_CRBY = inputList.First().AtbU_CRBY,
-                        AtbU_STATUS = "Active",
-                        AtbU_UPDATEDBY = inputList.First().AtbU_UPDATEDBY,
-                        AtbU_IPAddress = inputList.First().AtbU_IPAddress,
-                        AtbU_CompId = inputList.First().AtbU_CompId,
-                        AtbU_Branchid = inputList.First().AtbU_Branchid,
-                        AtbU_QuarterId = inputList.First().AtbU_QuarterId,
+                        AtbU_DELFLG = "A",
+                        AtbU_CRBY = first.AtbU_CRBY,
+                        AtbU_STATUS = "A",
+                        AtbU_UPDATEDBY = first.AtbU_UPDATEDBY,
+                        AtbU_IPAddress = first.AtbU_IPAddress,
+                        AtbU_CompId = first.AtbU_CompId,
+                        AtbU_Branchid = first.AtbU_Branchid,
+                        AtbU_QuarterId = first.AtbU_QuarterId,
+
                         AtbuD_CODE = "Opening Stock",
                         AtbuD_Description = "Opening Stock",
-                        AtbuD_CustId = inputList.First().AtbuD_CustId,
-                        AtbuD_SChedule_Type = 4, // Assuming schedule type 4 for stock accounts
-                        AtbuD_Branchid = inputList.First().AtbuD_Branchid,
-                        AtbuD_QuarterId = inputList.First().AtbuD_QuarterId,
-                        AtbuD_Company_Type = inputList.First().AtbuD_Company_Type,
-                        AtbuD_Headingid = 0,
-                        AtbuD_Subheading = 0,
+                        AtbuD_CustId = first.AtbuD_CustId,
+                        AtbuD_SChedule_Type = scheduleType,
+                        AtbuD_Branchid = first.AtbuD_Branchid,
+                        AtbuD_QuarterId = first.AtbuD_QuarterId,
+                        AtbuD_Company_Type = first.AtbuD_Company_Type,
+
+                        AtbuD_Headingid = headingId ?? 0,
+                        AtbuD_Subheading = subHeadingId ?? 0,
                         AtbuD_itemid = 0,
                         AtbuD_SubItemid = 0,
-                        AtbuD_DELFLG = "N",
-                        AtbuD_CRBY = inputList.First().AtbuD_CRBY,
-                        AtbuD_UPDATEDBY = inputList.First().AtbuD_UPDATEDBY,
-                        AtbuD_STATUS = "Active",
+
+                        AtbuD_DELFLG = "A",
+                        AtbuD_CRBY = first.AtbuD_CRBY,
+                        AtbuD_UPDATEDBY = first.AtbuD_UPDATEDBY,
+                        AtbuD_STATUS = "A",
                         AtbuD_Progress = "",
-                        AtbuD_IPAddress = inputList.First().AtbuD_IPAddress,
-                        AtbuD_CompId = inputList.First().AtbuD_CompId,
+                        AtbuD_IPAddress = first.AtbuD_IPAddress,
+                        AtbuD_CompId = first.AtbuD_CompId,
+
                         HeadingName = "Opening Stock"
                     };
+
                     inputList.Add(openingStockRecord);
                 }
+
 
                 foreach (var record in inputList)
                 {
@@ -956,6 +982,16 @@ WHERE ATBUD_Custid = @CustId
                         atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
                         atbuParams.Add("@ATBU_Closing_Debit_Amount", 0);
                         atbuParams.Add("@ATBU_Closing_Credit_Amount", 0);
+
+                        if (isOpeningStockRecord)
+                        {
+                            atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount + closingStockDebit);
+                            atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount + closingStockCredit);
+                            atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
+                            atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
+                            atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount + closingStockDebit);
+                            atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount + closingStockCredit);
+                        }
                     }
 
                     atbuParams.Add("@ATBU_DELFLG", record.AtbU_DELFLG ?? "N");
@@ -1024,6 +1060,68 @@ WHERE ATBUD_Custid = @CustId
                 throw;
             }
         }
+
+        private async Task<int?> GetScheduleIdAsync(
+    int scheduleType,
+    int custId,
+    int level,          // 1=Heading, 2=SubHeading, 3=Item, 4=SubItem
+    int parentId
+)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session.");
+
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
+            await connection.OpenAsync();
+
+            return level switch
+            {
+                // 🔹 HEADING
+                1 => await connection.ExecuteScalarAsync<int?>(@"
+                SELECT TOP 1 ASH_ID
+                FROM ACC_ScheduleHeading
+                WHERE ASH_scheduletype = @scheduleType
+                  AND ASH_Orgtype = @custId
+                  AND ASH_Name = 'Expenses'
+                ORDER BY ASH_ID",
+                        new { scheduleType, custId, parentId }),
+
+                // 🔹 SUB HEADING
+                2 => await connection.ExecuteScalarAsync<int?>(@"
+                SELECT TOP 1 ASSH_ID
+                FROM ACC_ScheduleSubHeading
+                WHERE ASSH_scheduletype = @scheduleType
+                  AND ASSH_Orgtype = @custId
+                  AND ASSH_Name = '(a) Cost Of Materials Consumed'
+                ORDER BY ASSH_ID",
+                        new { scheduleType, custId, parentId }),
+
+                // 🔹 ITEM
+                3 => await connection.ExecuteScalarAsync<int?>(@"
+                SELECT TOP 1 ASI_ID
+                FROM ACC_ScheduleItems
+                WHERE ASI_scheduletype = @scheduleType
+                  AND ASI_Orgtype = @custId
+                  AND ASI_SubHeadingID = @parentId
+                ORDER BY ASI_ID",
+                        new { scheduleType, custId, parentId }),
+
+                // 🔹 SUB ITEM
+                4 => await connection.ExecuteScalarAsync<int?>(@"
+                SELECT TOP 1 ASSI_ID
+                FROM ACC_ScheduleSubItems
+                WHERE ASSI_scheduletype = @scheduleType
+                  AND ASSI_Orgtype = @custId
+                  AND ASSI_ItemsID = @parentId
+                ORDER BY ASSI_ID",
+                        new { scheduleType, custId, parentId }),
+
+                _ => throw new ArgumentException("Invalid schedule level")
+            };
+        }
+
+
 
         //DownloadUploadableExcelAndTemplate
         public FileDownloadResult GetExcelTemplate()

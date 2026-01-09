@@ -23,7 +23,9 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using TracePca.Data;
 using TracePca.Dto.Audit;
+using TracePca.Interface;
 using TracePca.Interface.Audit;
+using TracePca.Interface.Master;
 using TracePca.Service.DigitalFilling;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
@@ -43,17 +45,22 @@ namespace TracePca.Service.Audit
         private readonly IConfiguration _configuration;
         private readonly EngagementPlanInterface _engagementPlanInterface;
         private readonly AuditSummaryInterface _auditSummaryInterface;
-        private readonly AuditAndDashboardInterface _auditAndDashboardInterface;        
+        private readonly AuditAndDashboardInterface _auditAndDashboardInterface;
+        private readonly EmailInterface _emailInterface;
+        private readonly IGoogleDriveService _driveService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly string _connectionString;
 
-        public AuditCompletionService(IConfiguration configuration, EngagementPlanInterface engagementPlanInterface, AuditSummaryInterface auditSummaryInterface, AuditAndDashboardInterface auditAndDashboardInterface, IHttpContextAccessor httpContextAccessor)
+        public AuditCompletionService(IConfiguration configuration, EngagementPlanInterface engagementPlanInterface, AuditSummaryInterface auditSummaryInterface, AuditAndDashboardInterface auditAndDashboardInterface,
+            EmailInterface emailinterface, IGoogleDriveService driveService, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _engagementPlanInterface = engagementPlanInterface ?? throw new ArgumentNullException(nameof(engagementPlanInterface));
             _auditSummaryInterface = auditSummaryInterface ?? throw new ArgumentNullException(nameof(auditSummaryInterface));
             _auditAndDashboardInterface = auditAndDashboardInterface ?? throw new ArgumentNullException(nameof(auditSummaryInterface));            
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _emailInterface = emailinterface ?? throw new ArgumentNullException(nameof(emailinterface));
+            _driveService = driveService ?? throw new ArgumentNullException(nameof(driveService));
             _connectionString = GetConnectionStringFromSession();
         }
 
@@ -1906,6 +1913,7 @@ namespace TracePca.Service.Audit
                   WHERE SA.SA_ID=@AuditID AND SA.SA_CompID=@CompId",
                 new { CompId = compId, AuditID = auditId });
 
+                result.AuditPlanAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "LOE Report", Attachments = new List<AttachmentDetailsDTO>() });
                 foreach (var item in auditPlanTypes)
                 {
                     var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
@@ -1914,7 +1922,7 @@ namespace TracePca.Service.Audit
                 }
 
                 // 2. Audit Schedule
-                result.AuditScheduleAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Audit Schedule Report", Attachments = null });
+                result.AuditScheduleAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Audit Schedule Report", Attachments = new List<AttachmentDetailsDTO>() });
 
                 // 3. Beginning of the Audit Communication
                 var beginningTypes = await connection.QueryAsync<(int TypeId, string TypeName, string AttachIds)>(
@@ -1924,11 +1932,12 @@ namespace TracePca.Service.Audit
                   WHERE RTM_CompID=@CompId AND RTM_TemplateId IN(2) AND RTM_DelFlag='A' AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory H WHERE H.SAR_SA_ID=@AuditID AND H.SAR_ReportType=RTM_Id AND H.SAR_AttchId>0)",
                  new { CompId = compId, AuditID = auditId });
 
+                result.BeginningAuditAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Report", Attachments = new List<AttachmentDetailsDTO>() });
                 foreach (var item in beginningTypes)
                 {
                     var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
                     if (attachments.Any())
-                        result.BeginningAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
+                        result.BeginningAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });                    
                 }
 
                 // 4. During the Audit Requests
@@ -1938,11 +1947,12 @@ namespace TracePca.Service.Audit
                   FROM Content_Management_Master WHERE CMM_Category='DRL' AND CMS_Keycomponent=0 AND EXISTS(SELECT 1 FROM Audit_DRLLog WHERE ADRL_AuditNo=@AuditID AND ADRL_RequestedListID=CMM_ID AND ADRL_AttachID>0)",
                 new { AuditID = auditId });
 
+                result.DuringAuditAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Report", Attachments = new List<AttachmentDetailsDTO>() });
                 foreach (var item in duringTypes)
                 {
                     var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
                     if (attachments.Any())
-                        result.DuringAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
+                        result.DuringAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });                    
                 }
 
                 // 5. Workpapers and Attachments
@@ -1952,6 +1962,7 @@ namespace TracePca.Service.Audit
                   FROM StandardAudit_ScheduleConduct_WorkPaper wp WHERE SSW_SA_ID=@AuditID AND EXISTS(SELECT 1 FROM StandardAudit_ScheduleConduct_WorkPaper W WHERE W.SSW_SA_ID=@AuditID AND W.SSW_ID=wp.SSW_ID AND W.SSW_AttachID>0)",
                 new { AuditID = auditId });
 
+                result.WorkpaperAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Report", Attachments = new List<AttachmentDetailsDTO>() });
                 foreach (var item in workpaperTypes)
                 {
                     var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
@@ -1968,6 +1979,7 @@ namespace TracePca.Service.Audit
                   WHERE cp.SAC_SA_ID=@AuditID AND EXISTS(SELECT 1 FROM StandardAudit_ScheduleCheckPointList X WHERE X.SAC_SA_ID=@AuditID AND X.SAC_CheckPointID=cp.SAC_CheckPointID AND X.SAC_AttachID>0)",
                 new { AuditID = auditId });
 
+                result.ConductAuditAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Report", Attachments = new List<AttachmentDetailsDTO>() });
                 foreach (var item in conductTypes)
                 {
                     var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
@@ -1983,18 +1995,26 @@ namespace TracePca.Service.Audit
                   WHERE RTM_CompID=@CompId AND RTM_TemplateId IN(4) AND RTM_DelFlag='A' AND EXISTS(SELECT 1 FROM StandardAudit_Audit_DRLLog_RemarksHistory H WHERE H.SAR_SA_ID=@AuditID AND H.SAR_ReportType=RTM_Id AND H.SAR_AttchId>0)",
                  new { CompId = compId, AuditID = auditId });
 
-                // 8. Audit Completion Checkpoint Reports
-                result.AuditCompletionSubCheckpointAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Report", Attachments = null });
-
-                // 9. Account Finalisation Reports
-                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Report", Attachments = null });
-
+                result.NearEndAuditAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Report", Attachments = new List<AttachmentDetailsDTO>() });
                 foreach (var item in nearEndTypes)
                 {
                     var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
                     if (attachments.Any())
                         result.NearEndAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
+
+                // 8. Audit Completion Checkpoint Reports
+                result.AuditCompletionSubCheckpointAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Report", Attachments = new List<AttachmentDetailsDTO>() });
+
+                // 9. Account Finalisation Reports
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Summary Report - P&L", Attachments = new List<AttachmentDetailsDTO>() });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Summary Report - Balance sheet", Attachments = new List<AttachmentDetailsDTO>() });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Detailed Report - P&L", Attachments = new List<AttachmentDetailsDTO>() });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Detailed Report - Balance sheet", Attachments = new List<AttachmentDetailsDTO>() });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Accounting Ratio", Attachments = new List<AttachmentDetailsDTO>() });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Cashflow", Attachments = new List<AttachmentDetailsDTO>() });
+                result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "ScheduleNotes", Attachments = new List<AttachmentDetailsDTO>() });
+                
                 return result;
             }
             catch (Exception ex)
@@ -2208,11 +2228,12 @@ namespace TracePca.Service.Audit
 
                 // 1. Audit Plan
                 var auditPlanTypes =
-                "SELECT TOP 1 LOE_ID AS LOEID, RTM.RTM_Id AS TypeId,'LOE - ' + RTM.RTM_ReportTypeName AS TypeName," +
+                //"SELECT TOP 1 LOE_ID AS LOEID, RTM.RTM_Id AS TypeId,'LOE - ' + RTM.RTM_ReportTypeName AS TypeName," +
+                "SELECT TOP 1 LOE_ID AS LOEID, RTM.RTM_Id AS TypeId, 0 As CheckReportType, 'Audit Plan' AS TypeName," +
                 " STUFF((SELECT ',' + CAST(LOET2.LOE_AttachID AS VARCHAR) FROM StandardAudit_Schedule SA2" +
                 " JOIN SAD_CUST_LOE LOE2 ON LOE2.LOE_CustomerId=SA2.SA_CustID AND LOE2.LOE_YearId=SA2.SA_YearID AND LOE2.LOE_ServiceTypeId=SA2.SA_AuditTypeID" +
                 " JOIN LOE_Template LOET2 ON LOET2.LOET_LOEID=LOE2.LOE_ID" +
-                " WHERE SA2.SA_ID=" + auditId + " AND SA2.SA_CompID=" + compId + " AND LOET2.LOE_AttachID>0" +
+                " WHERE SA2.SA_ID=" + auditId + " AND SA2.SA_CompID=" + compId + "" + //AND LOET2.LOE_AttachID>0
                 " FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),1,1,'') AttachIds" +
                 " FROM StandardAudit_Schedule SA" +
                 " JOIN SAD_CUST_LOE LOE ON LOE.LOE_CustomerId=SA.SA_CustID AND LOE.LOE_YearId=SA.SA_YearID AND LOE.LOE_ServiceTypeId=SA.SA_AuditTypeID" +
@@ -2220,7 +2241,7 @@ namespace TracePca.Service.Audit
                 " JOIN LOE_Template_Details LTD ON LTD.LTD_LOE_ID=LOET.LOET_LOEID AND LTD.LTD_FormName='LOE' AND LTD.LTD_CompID=SA.SA_CompID" +
                 " JOIN SAD_ReportTypeMaster RTM ON RTM.RTM_Id=LTD.LTD_ReportTypeID" +
                 " WHERE SA.SA_ID=" + auditId + " AND SA.SA_CompID=" + compId +
-                " AND EXISTS(SELECT 1 FROM LOE_Template t2 WHERE t2.LOET_LOEID=LOE.LOE_ID AND t2.LOE_AttachID>0)";
+                " AND EXISTS(SELECT 1 FROM LOE_Template t2 WHERE t2.LOET_LOEID=LOE.LOE_ID)";//AND t2.LOE_AttachID>0
 
                 // 3. Beginning of the Audit Communication
                 var beginningTypes =
@@ -2293,6 +2314,10 @@ namespace TracePca.Service.Audit
                 //folderNameField: null, attachIdField: "SAC_AttachID");
 
 
+                // Information about the Auditee Report
+                var savedAuditeeFilePath = await GenerateAuditeeInfoTempPathAsync(compId, auditId);
+                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Information about the Auditee", "Information_About_Auditee_Report.pdf", savedAuditeeFilePath);
+
                 // 1. Audit Plan
                 var dt = await GetDataTableAsync(connection, auditPlanTypes);
                 if (dt.Rows.Count > 0)
@@ -2301,38 +2326,114 @@ namespace TracePca.Service.Audit
                     string folderName = row["TypeName"] == null ? "StandardAudit" : row["TypeName"]?.ToString() ?? "StandardAudit";
                     int epPKid = row["LOEID"] == DBNull.Value ? 0 : Convert.ToInt32(row["LOEID"]);
                     string folderPath = Path.Combine(downloadDirectoryPath, mainFolder, SanitizeName(folderName));
-                    var savedAudiPlanFilePath = await _engagementPlanInterface.GenerateReportAndGetTempPathAsync(compId, epPKid, "pdf");
+                    var savedAuditPlanFilePath = await _engagementPlanInterface.GenerateReportAndGetTempPathAsync(compId, epPKid, "pdf");
                     if (!Directory.Exists(folderPath))
                         Directory.CreateDirectory(folderPath);
 
-                    await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, folderName, "LOE_Final.pdf", savedAudiPlanFilePath);
+                    int auditPlanAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedAuditPlanFilePath, compId, userId);
+                    var auditPlan = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Audit Plan' AS TypeName, {auditPlanAttachmentId} AS AttachIds";
+                    await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, auditPlan);
+                    //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, folderName, "LOE_Final.pdf", savedAuditPlanFilePath);
                 }
 
                 // 2. Audit Schedule Report
                 var savedAuditScheduleFilePath = await GenerateAuditScheduleTempPathAsync(compId, auditId, userId, "pdf");
-                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Schedule Report", "Audit_Schedule_Report.pdf", savedAuditScheduleFilePath);
+                int auditScheduleAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedAuditScheduleFilePath, compId, userId);
+                var auditSchedule = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Audit Schedule Report' AS TypeName, {auditScheduleAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, auditSchedule);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Schedule Report", "Audit_Schedule_Report.pdf", savedAuditScheduleFilePath);
+
+                // 3. Beginning of the Audit Communication
+                var savedBeginningoftheAuditFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Beginning_ofthe_Audit_Report", "", "pdf", 3);
+                int beginningoftheAuditAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedBeginningoftheAuditFilePath, compId, userId);
+                var beginningoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Beginning of the Audit Report' AS TypeName, {beginningoftheAuditAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, beginningoftheAudit);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Report", "Beginning_ofthe_Audit_Report.pdf", savedScheduleNotesFilePath);
+
+                // 4. During the Audit Requests
+                var savedDRLFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "DRL_Report", "", "pdf", 3);
+                int DRLAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedDRLFilePath, compId, userId);
+                var DRL = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Near End of the Audit Report' AS TypeName, {DRLAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, DRL);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Near end of the Audit Report", "DRL_Report.pdf", savedScheduleNotesFilePath);
 
                 // 5. Workpapers Report
                 var savedWorkpapersFilePath = await GenerateWorkpapersTempPathAsync(compId, auditId, userId, "pdf");
-                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Workpapers Report", "Workpapers_Report.pdf", savedWorkpapersFilePath);
+                int workpaperReportAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedWorkpapersFilePath, compId, userId);
+                var workpaper = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Workpapers Report' AS TypeName, {workpaperReportAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, workpaper);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Workpapers Report", "Workpapers_Report.pdf", savedWorkpapersFilePath);
 
                 // 6. Audit Completion Checkpoint Report
                 var savedACCheckpointFilePath = await GenerateACCheckpointTempPathAsync(compId, auditId, userId, "pdf");
-                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Conduct Audit Checkpoint Report", "ConductAudit_Checkpoint_Report.pdf", savedACCheckpointFilePath);
+                int ACCheckpointeAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedACCheckpointFilePath, compId, userId);
+                var ACCheckpoint = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Conduct Audit Checkpoint Report' AS TypeName, {ACCheckpointeAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, ACCheckpoint);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Conduct Audit Checkpoint Report", "ConductAudit_Checkpoint_Report.pdf", savedACCheckpointFilePath);
 
-                // Information about the Auditee Report
-                var savedAuditeeFilePath = await GenerateAuditeeInfoTempPathAsync(compId, auditId);
-                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Information about the Auditee", "Information_About_Auditee_Report.pdf", savedAuditeeFilePath);
+                // 7. Near End of the Audit
+                var savedNearEndoftheAuditFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Near_End_ofthe_Audit_Report", "", "pdf", 3);
+                int nearEndoftheAuditAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedNearEndoftheAuditFilePath, compId, userId);
+                var nearEndoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Near End of the Audit Report' AS TypeName, {nearEndoftheAuditAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, nearEndoftheAudit);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Near end of the Audit Report", "Near_End_ofthe_Audit_Report.pdf", savedScheduleNotesFilePath);
 
                 // 8. Audit Completion SubPoint Report
                 var savedAuditCompletionSubPointFilePath = await GenerateACSubPointsReportAndGetTempPathAsync(compId, auditId, userId, "pdf");
-                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Completion", "Audit_Completion_SubPoint_Report.pdf", savedAuditCompletionSubPointFilePath);
+                int auditCompletionSubPointAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedAuditCompletionSubPointFilePath, compId, userId);
+                var auditCompletionSubPoint = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Audit Completion' AS TypeName, {auditCompletionSubPointAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, auditCompletionSubPoint);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Completion", "Audit_Completion_SubPoint_Report.pdf", savedAuditCompletionSubPointFilePath);
 
                 // 8. Audit Completion Report
                 var savedAuditCompletionFilePath = await GenerateReportAndGetTempPathAsync(compId, auditId, "pdf");
-                await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Completion", "Audit_Completion_Report.pdf", savedAuditCompletionFilePath);
+                int auditCompletionAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedAuditCompletionFilePath, compId, userId);
+                var auditCompletion = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Audit Completion' AS TypeName, {auditCompletionAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, auditCompletion);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Completion", "Audit_Completion_Report.pdf", savedAuditCompletionFilePath);
 
                 // 9. Account Finalisation Report
+                var savedSummaryPLReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Summary_PL_Report", "Summary Report - P&L", "pdf", 0);
+                int summaryPLAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedSummaryPLReportFilePath, compId, userId);
+                var summaryPL = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {summaryPLAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, summaryPL);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Summary_PL_Report.pdf", savedSummaryPLReportFilePath);
+
+                var savedSummaryBalanceSheetReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Summary_BalanceSheet_Report", "Summary Report - Balance Sheet", "pdf", 0);
+                int summaryBalanceSheetAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedSummaryBalanceSheetReportFilePath, compId, userId);
+                var summaryBalanceSheet = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {summaryBalanceSheetAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, summaryBalanceSheet);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Summary_BalanceSheet_Report.pdf", savedSummaryBalanceSheetReportFilePath);
+
+                var savedDetailedPLReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Detailed_PL_Report", "Detailed Report - P&L", "pdf", 0);
+                int detailedPLAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedDetailedPLReportFilePath, compId, userId);
+                var detailedPL = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {detailedPLAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, detailedPL);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Detailed_PL_Report.pdf", savedDetailedPLReportFilePath);
+
+                var savedDetailedBalanceSheetReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Detailed_Report_BalanceSheet_Report", "Detailed Report - Balance sheet", "pdf", 0);
+                int detailedBalanceSheetAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedDetailedBalanceSheetReportFilePath, compId, userId);
+                var detailedBalanceSheet = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {detailedBalanceSheetAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, detailedBalanceSheet);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Detailed_Report_BalanceSheet_Report.pdf", savedDetailedBalanceSheetReportFilePath);
+
+                var savedAccountingRatioFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Accounting_Ratio_Report", "Accounting Ratio", "pdf", 0);
+                int accountingRatioAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedAccountingRatioFilePath, compId, userId);
+                var accountingRatio = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {accountingRatioAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, accountingRatio);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Accounting_Ratio_Report.pdf", savedAccountingRatioFilePath);
+
+                var savedCashflowFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Cashflow_Report", "Cashflow", "pdf", 0);
+                int cashflowAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedCashflowFilePath, compId, userId);
+                var cashflow = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {cashflowAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, cashflow);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Cashflow_Report.pdf", savedCashflowFilePath);
+
+                var savedScheduleNotesFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "ScheduleNotes_Report", "ScheduleNotes", "pdf", 0);
+                int scheduleNotesAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedScheduleNotesFilePath, compId, userId);
+                var scheduleNotes = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {scheduleNotesAttachmentId} AS AttachIds";
+                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, scheduleNotes);
+                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "ScheduleNotes_Report.pdf", savedScheduleNotesFilePath);
 
                 string cleanedPath = downloadDirectoryPath.TrimEnd('\\');
                 string zipFilePath = cleanedPath + ".zip";
@@ -2426,7 +2527,7 @@ namespace TracePca.Service.Audit
         {
             try
             {
-                bool folderExists = true;
+                //bool folderExists = true;
                 string folderPath = System.IO.Path.Combine(downloadDirectoryPath, mainFolder, SanitizeName(folderName));
 
                 if (!Directory.Exists(folderPath))
@@ -2435,7 +2536,7 @@ namespace TracePca.Service.Audit
                 int folderId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(FOL_FOLID, 0) FROM edt_folder WHERE FOL_NAME = @Name AND FOL_CABINET = @SubCabinetId AND FOL_CompID = @CompId", new { Name = folderName, SubCabinetId = subCabinetId, CompId = compId });
                 if (folderId == 0)
                 {
-                    folderExists = false;
+                    //folderExists = false;
 
                     folderId = await connection.ExecuteScalarAsync<int>(@"DECLARE @NewFolId INT = (SELECT ISNULL(MAX(FOL_FOLID), 0) + 1 FROM edt_folder);
                           INSERT INTO edt_folder (FOL_FOLID, FOL_NAME, FOL_NOTE, FOL_CABINET, FOL_CREATEDBY, FOL_CREATEDON, FOL_STATUS, FOL_DELFLAG, FOL_COMPID)
@@ -2464,8 +2565,8 @@ namespace TracePca.Service.Audit
                     }
                 }
 
-                if (!folderExists)
-                    IndexingFileAsync(connection, cabinetId, subCabinetId, folderId, userId, compId, destFilePath, "FALSE");
+                //if (!folderExists)
+                IndexingFileAsync(connection, cabinetId, subCabinetId, folderId, userId, compId, destFilePath, "FALSE");
             }
             catch (Exception ex)
             {
@@ -2537,9 +2638,7 @@ namespace TracePca.Service.Audit
                         }
 
 
-						await connection.ExecuteAsync(
-							 @"UPDATE edt_attachments SET Atch_FolderId = @Atch_FolderId, Atch_Path = @Atch_Path 
-                                WHERE ATCH_ID = @ATCH_ID AND Atch_DocID = @Atch_DocID",
+						await connection.ExecuteAsync(@"UPDATE edt_attachments SET Atch_FolderId = @Atch_FolderId, Atch_Path = @Atch_Path WHERE ATCH_ID = @ATCH_ID AND Atch_DocID = @Atch_DocID",
 							new
 							{
 								Atch_FolderId = folderId,
@@ -2568,35 +2667,42 @@ namespace TracePca.Service.Audit
                 string fileExt = System.IO.Path.GetExtension(filePath)?.TrimStart('.') ?? "";
                 string objectType = GetObjectType(fileExt);
 
-                int newBaseName = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(PGE_BASENAME), 0) + 1 FROM EDT_PAGE");
-                int newPageNo = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(PGE_PAGENO), 0) + 1 FROM EDT_PAGE");
+                var isAlreadyIndexed = await connection.ExecuteScalarAsync<int>(
+                    @"SELECT COUNT(1) FROM EDT_PAGE WHERE PGE_CABINET = @PGE_CABINET AND PGE_SubCabinet = @PGE_SubCabinet AND PGE_FOLDER = @PGE_FOLDER And PGE_TITLE = @PGE_TITLE AND PGE_CompID = @CompId",
+                    new { PGE_CABINET = cabinetId, PGE_SubCabinet = subCabinetId, PGE_FOLDER = folderId, PGE_TITLE = fileName, CompId = compId });
 
-                await connection.ExecuteAsync(
-                    @"INSERT INTO EDT_PAGE (PGE_BASENAME, PGE_CABINET, PGE_FOLDER, PGE_DOCUMENT_TYPE, PGE_TITLE, PGE_DATE, PGE_DETAILS_ID, PGE_CreatedBy, PGE_CreatedOn, PGE_OBJECT, PGE_PAGENO, PGE_EXT, PGE_KEYWORD, PGE_OCRText, 
-                    PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, PGE_OrignalFileName, PGE_BatchID, PGE_OCRDelFlag, PGE_CompID, pge_Delflag, PGE_RFID) VALUES (
-                    @BaseName, @CabinetId, @FolderId, 0, @Title, GETDATE(), @DetailsId, @CreatedBy, GETDATE(), @Object, @PageNo, @Ext, '', '', 0, 0, 'A', @SubCabinetId, 0, 'F', @BatchName, @OriginalFileName, 0, 0, @CompId, 'A', '')",
-                    new
-                    {
-                        BaseName = newBaseName,
-                        CabinetId = cabinetId,
-                        FolderId = folderId,
-                        Title = fileName,
-                        DetailsId = newBaseName,
-                        CreatedBy = userId,
-                        Object = objectType,
-                        PageNo = newPageNo,
-                        Ext = fileExt,
-                        SubCabinetId = subCabinetId,
-                        BatchName = newBaseName,
-                        OriginalFileName = fileName,
-                        CompId = compId
-                    }
-                );
-
-                string fileGeneratedPath = await Urlenp(connection, compId, userId, newBaseName, filePath);
-                if (isBlobData.ToUpper() == "TRUE")
+                if (isAlreadyIndexed == 0)
                 {
-                    FilePageInEdictAsync(connection, compId, newBaseName, fileGeneratedPath);
+                    int newBaseName = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(PGE_BASENAME), 0) + 1 FROM EDT_PAGE");
+                    int newPageNo = await connection.ExecuteScalarAsync<int>("SELECT ISNULL(MAX(PGE_PAGENO), 0) + 1 FROM EDT_PAGE");
+
+                    await connection.ExecuteAsync(
+                        @"INSERT INTO EDT_PAGE (PGE_BASENAME, PGE_CABINET, PGE_FOLDER, PGE_DOCUMENT_TYPE, PGE_TITLE, PGE_DATE, PGE_DETAILS_ID, PGE_CreatedBy, PGE_CreatedOn, PGE_OBJECT, PGE_PAGENO, PGE_EXT, PGE_KEYWORD, PGE_OCRText, 
+                        PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, PGE_OrignalFileName, PGE_BatchID, PGE_OCRDelFlag, PGE_CompID, pge_Delflag, PGE_RFID) VALUES (
+                        @BaseName, @CabinetId, @FolderId, 0, @Title, GETDATE(), @DetailsId, @CreatedBy, GETDATE(), @Object, @PageNo, @Ext, '', '', 0, 0, 'A', @SubCabinetId, 0, 'F', @BatchName, @OriginalFileName, 0, 0, @CompId, 'A', '')",
+                        new
+                        {
+                            BaseName = newBaseName,
+                            CabinetId = cabinetId,
+                            FolderId = folderId,
+                            Title = fileName,
+                            DetailsId = newBaseName,
+                            CreatedBy = userId,
+                            Object = objectType,
+                            PageNo = newPageNo,
+                            Ext = fileExt,
+                            SubCabinetId = subCabinetId,
+                            BatchName = newBaseName,
+                            OriginalFileName = fileName,
+                            CompId = compId
+                        }
+                    );
+
+                    string fileGeneratedPath = await Urlenp(connection, compId, userId, newBaseName, filePath);
+                    if (isBlobData.ToUpper() == "TRUE")
+                    {
+                        FilePageInEdictAsync(connection, compId, newBaseName, fileGeneratedPath);
+                    }
                 }
             }
             catch (Exception ex)
@@ -3240,6 +3346,402 @@ namespace TracePca.Service.Audit
                 document.GeneratePdf(ms);
                 return ms.ToArray();
             });
+        }
+
+        public async Task<string> GenerateTempReportAndGetTempPathAsync(int compId, int auditId, string name, string reportHeading, string format, int reportId)
+        {
+            try
+            {
+                byte[] fileBytes;
+                string contentType;
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"{name}_{timestamp}";
+
+                if (format.ToLower() == "pdf")
+                {
+                    if (reportId == 1)
+                        fileBytes = await GenerateTempBeginningAuditPdfAsync(compId, auditId, reportHeading);
+                    else if (reportId == 2)
+                        fileBytes = await GenerateTempDRLPdfAsync(compId, auditId, reportHeading);
+                    else if (reportId == 3)
+                        fileBytes = await GenerateTempNearAuditPdfAsync(compId, auditId, reportHeading);
+                    else
+                        fileBytes = await GenerateTempPdfAsync(compId, auditId, reportHeading);
+                    contentType = "application/pdf";
+                    fileName += ".pdf";
+                }
+                else
+                {
+                    throw new ApplicationException("Unsupported format. Only PDF is currently supported.");
+                }
+
+                string tempFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                var filePath = Path.Combine(tempFolder, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+                string downloadUrl = $"{tempFolder}/{fileName}";
+                return downloadUrl;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while generating the report.", ex);
+            }
+        }
+
+        private async Task<byte[]> GenerateTempPdfAsync(int compId, int auditId, string reportHeading)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10).Text(reportHeading).FontSize(16).Bold();
+                        });
+                    });
+                });
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
+
+        private async Task<byte[]> GenerateTempBeginningAuditPdfAsync(int compId, int auditId, string reportHeading)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            string query = @"SELECT distinct ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(E.RTM_ReportTypeName,'N/A') As ReportTypeText,
+			        a.usr_FullName As ADRL_RequestedBy,ADRL_RequestedOn,ADRL_Comments,aa.usr_FullName As ADRL_ReceivedBy,ADRL_ReceivedOn,ADRL_ReceivedComments,ISNULL(ADRL_AttachId, 0) AS ADRL_AttachId,ISNULL(ADRL_AttchDocId, 0) AS ADRL_AttchDocId 
+			        FROM Audit_DRLLog
+			        LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
+                    LEFT JOIN Sad_UserDetails aa ON aa.usr_Id = ADRL_UpdatedBy
+			        LEFT JOIN SAD_ReportTypeMaster C ON RTM_Id = ADRL_ReportType
+			        LEFT JOIN content_Management_Master b on b.cmm_ID = ADRL_RequestedListID
+			        Left join edt_attachments D on D.atch_id = ADRL_AttachID  
+			        left join SAD_ReportTypeMaster E on E.RTM_ID = ATCH_ReportType
+			        WHERE ADRL_AuditNo=@AuditNo AND ADRL_CompID = @CompId and b.cmm_Desc = 'Beginning of the Audit' ORDER BY  REportTypeText asc";
+            var dto = await connection.QueryAsync<DocumentRequestSummaryDto>(query, new { CompId = compId, AuditNo = auditId });
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10).Text(reportHeading).FontSize(16).Bold();
+                            if (dto.Any() == true)
+                            {
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(0.5f);
+                                        columns.RelativeColumn(1.75f);
+                                        columns.RelativeColumn(1.75f);
+                                        columns.RelativeColumn(1f);
+                                        columns.RelativeColumn(1f);
+                                        columns.RelativeColumn(2);
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Document/Report Type").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Description/Comments").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Requested").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Shared").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Comments").FontSize(10).Bold();
+                                    });
+
+                                    int slNo = 1;
+                                    foreach (var details in dto)
+                                    {
+                                        table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ReportTypeText).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ADRL_Comments).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text($"By: {details.ADRL_RequestedBy}\nOn: {details.ADRL_RequestedOn}").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text($"By: {details.ADRL_ReceivedBy}\nOn: {details.ADRL_ReceivedOn}").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ADRL_ReceivedComments).FontSize(10);
+                                        slNo++;
+                                    }
+                                    static IContainer CellStyle(IContainer container) =>
+                                        container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                                });
+                            }
+                        });
+                    });
+                });
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
+
+        private async Task<byte[]> GenerateTempDRLPdfAsync(int compId, int auditId, string reportHeading)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            string query = @"SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(cmm_Desc,'N/A') As ReportTypeText,
+			        a.usr_FullName As ADRL_RequestedBy,ADRL_RequestedOn,ADRL_Comments,aa.usr_FullName As ADRL_ReceivedBy,ADRL_ReceivedOn,ADRL_ReceivedComments,ISNULL(ADRL_AttachId, 0) AS ADRL_AttachId,ISNULL(ADRL_AttchDocId, 0) AS ADRL_AttchDocId 
+			        FROM Audit_DRLLog
+			        LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
+                    LEFT JOIN Sad_UserDetails aa ON aa.usr_Id = ADRL_UpdatedBy
+			        LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType
+			        LEFT JOIN content_Management_Master b on b.cmm_ID = ADRL_RequestedListID
+			        WHERE ADRL_AuditNo=@AuditNo AND ADRL_CompID = @CompId and ADRL_ReportType = 0 ORDER BY  ADRL_UpdatedOn DESC";
+            var dto = await connection.QueryAsync<DocumentRequestSummaryDto>(query, new { CompId = compId, AuditNo = auditId });
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10).Text(reportHeading).FontSize(16).Bold();
+                            if (dto.Any() == true)
+                            {
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(0.5f);
+                                        columns.RelativeColumn(1.75f);
+                                        columns.RelativeColumn(1.75f);
+                                        columns.RelativeColumn(1f);
+                                        columns.RelativeColumn(1f);
+                                        columns.RelativeColumn(2);
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("DRL/Checkpoint").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Description/Comments").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Requested").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Shared").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Comments").FontSize(10).Bold();
+                                    });
+
+                                    int slNo = 1;
+                                    foreach (var details in dto)
+                                    {
+                                        table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ReportTypeText).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ADRL_Comments).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text($"By: {details.ADRL_RequestedBy}\nOn: {details.ADRL_RequestedOn}").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text($"By: {details.ADRL_ReceivedBy}\nOn: {details.ADRL_ReceivedOn}").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ADRL_ReceivedComments).FontSize(10);
+                                        slNo++;
+                                    }
+                                    static IContainer CellStyle(IContainer container) =>
+                                        container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                                });
+                            }
+                        });
+                    });
+                });
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
+
+        private async Task<byte[]> GenerateTempNearAuditPdfAsync(int compId, int auditId, string reportHeading)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            string query = @"SELECT ADRL_Id,ADRL_ReportType,ADRL_AuditNo,IsNull(RTM_ReportTypeName,'N/A') As ReportTypeText,
+			        a.usr_FullName As ADRL_RequestedBy,ADRL_RequestedOn,ADRL_Comments,aa.usr_FullName As ADRL_ReceivedBy,ADRL_ReceivedOn,ADRL_ReceivedComments,ISNULL(ADRL_AttachId, 0) AS ADRL_AttachId,ISNULL(ADRL_AttchDocId, 0) AS ADRL_AttchDocId 
+			        FROM Audit_DRLLog
+			        LEFT JOIN Sad_UserDetails a ON a.usr_Id = ADRL_CrBy
+                    LEFT JOIN Sad_UserDetails aa ON aa.usr_Id = ADRL_UpdatedBy
+			        LEFT JOIN SAD_ReportTypeMaster ON RTM_Id = ADRL_ReportType
+			        LEFT JOIN content_Management_Master b on b.cmm_ID = ADRL_RequestedListID
+			        WHERE ADRL_AuditNo=@AuditNo AND ADRL_CompID = @CompId and b.cmm_Desc = 'Nearing completion of the Audit' ORDER BY  ADRL_UpdatedOn DESC";
+            var dto = await connection.QueryAsync<DocumentRequestSummaryDto>(query, new { CompId = compId, AuditNo = auditId });
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(30);
+                        page.Size(PageSizes.A4);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().PaddingBottom(10).Text(reportHeading).FontSize(16).Bold();
+                            if (dto.Any() == true)
+                            {
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(0.5f);
+                                        columns.RelativeColumn(1.75f);
+                                        columns.RelativeColumn(1.75f);
+                                        columns.RelativeColumn(1f);
+                                        columns.RelativeColumn(1f);
+                                        columns.RelativeColumn(2);
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().Element(CellStyle).Text("Sl No").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Document/Report Type").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Description/Comments").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Requested").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Shared").FontSize(10).Bold();
+                                        header.Cell().Element(CellStyle).Text("Comments").FontSize(10).Bold();
+                                    });
+
+                                    int slNo = 1;
+                                    foreach (var details in dto)
+                                    {
+                                        table.Cell().Element(CellStyle).Text(slNo.ToString()).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ReportTypeText).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ADRL_Comments).FontSize(10);
+                                        table.Cell().Element(CellStyle).Text($"By: {details.ADRL_RequestedBy}\nOn: {details.ADRL_RequestedOn}").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text($"By: {details.ADRL_ReceivedBy}\nOn: {details.ADRL_ReceivedOn}").FontSize(10);
+                                        table.Cell().Element(CellStyle).Text(details.ADRL_ReceivedComments).FontSize(10);
+                                        slNo++;
+                                    }
+                                    static IContainer CellStyle(IContainer container) =>
+                                        container.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                                });
+                            }
+                        });
+                    });
+                });
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
+
+        public async Task<int> UploadAndSaveAttachmentFromPhysicalPathAsync(string physicalFilePath, int compId, int userId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(physicalFilePath) || !File.Exists(physicalFilePath))
+                    throw new ArgumentException("Invalid file path.");
+
+                var fileInfo = new FileInfo(physicalFilePath);
+
+                FileStream stream = new FileStream(physicalFilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                IFormFile formFile = new FormFile(stream, 0, stream.Length, "file", fileInfo.Name)
+                {
+                    Headers = new HeaderDictionary(),
+                    ContentType = "application/octet-stream"
+                };
+
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                int attachId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = compId });
+                int docId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = compId });
+
+                string originalName = Path.GetFileNameWithoutExtension(fileInfo.Name) ?? "unknown";
+                string safeFileName = originalName.Replace("&", " and").Substring(0, Math.Min(95, originalName.Length));
+
+                string fileExt = fileInfo.Extension.ToLower().Trim('.');
+                long fileSize = fileInfo.Length;
+
+                dynamic uploadedFile = await _driveService.UploadFileToFolderAsync(formFile, "TracePA/Audit", GetUserEmail(), docId);
+
+                if (uploadedFile == null || uploadedFile.Status != "Success")
+                    throw new Exception(uploadedFile?.Message ?? "File upload failed.");
+
+                var insertQuery = @"
+                    INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, ATCH_Status, ATCH_CompID, Atch_Vstatus,             ATCH_REPORTTYPE, ATCH_DRLID)
+                    VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
+
+                await connection.ExecuteAsync(insertQuery, new
+                {
+                    AtchId = attachId,
+                    DocId = docId,
+                    FileName = safeFileName,
+                    FileExt = fileExt,
+                    CreatedBy = userId,
+                    Size = fileSize,
+                    CompId = compId
+                });
+
+                return attachId;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Failed to upload and save attachment.", ex);
+            }
+        }
+
+        public string GetUserEmail()
+        {
+            var dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            if (string.IsNullOrWhiteSpace(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connStr = _configuration.GetConnectionString(dbName);
+            if (string.IsNullOrWhiteSpace(connStr))
+                throw new Exception($"Connection string for '{dbName}' not found in configuration.");
+
+            using var connection = new SqlConnection(connStr);
+            connection.Open();
+
+            string sql = "SELECT TOP 1 UserEmail FROM UserDriveTokens ORDER BY Id DESC";
+
+            using var command = new SqlCommand(sql, connection);
+            var result = command.ExecuteScalar();
+
+            return result.ToString() ?? "";
         }
 
         private static IContainer CellStyle(IContainer container) => container.PaddingVertical(4).PaddingHorizontal(6).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2);
