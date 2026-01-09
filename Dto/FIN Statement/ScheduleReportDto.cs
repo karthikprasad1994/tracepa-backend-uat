@@ -266,5 +266,37 @@ namespace TracePca.Dto.FIN_Statement
             public decimal? CUST_RoundOff { get; set; }
         }
 
+        //SaveFinancialStatement
+        public class SaveLoeTemplateRequestDto
+        {
+            public int LoeId { get; set; }
+            public int ReportTypeId { get; set; }
+            public int CompId { get; set; }
+            public int createdBy { get; set; }
+            public string ipAddress { get; set; }
+        }
+        public class ReportContentDto
+        {
+            public int RCM_HeadingID { get; set; }
+            public string RCM_Heading { get; set; }
+            public string RCM_Description { get; set; }
+            public string RCM_FormName { get; set; }
+        }
+        public class LoeTemplateDetailDto
+        {
+            public int LTD_ID { get; set; }
+            public int LTD_LOE_ID { get; set; }
+            public int LTD_ReportTypeID { get; set; }
+            public int LTD_HeadingID { get; set; }
+            public string LTD_Heading { get; set; }
+            public string LTD_Decription { get; set; }
+            public string LTD_FormName { get; set; }
+            public int LTD_CrBy { get; set; }
+            public DateTime LTD_CrOn { get; set; }
+            public string LTD_IPAddress { get; set; }
+            public int LTD_CompID { get; set; }
+            public int? LTD_UpdatedBy { get; set; }
+            public DateTime? LTD_UpdatedOn { get; set; }
+        }
     }
 }
