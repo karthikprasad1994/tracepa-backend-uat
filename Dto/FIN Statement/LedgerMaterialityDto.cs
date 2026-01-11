@@ -124,7 +124,13 @@
             public int M_Id { get; set; }
             public int M_TypeEntId { get; set; }
             public decimal M_Perc { get; set; }
+
+            public int M_branchid { get; set; }
+            public int M_custid { get; set; }
+            public int M_compid { get; set; }
+            public int M_FinancialYearId { get; set; }
         }
+
 
     }
 }

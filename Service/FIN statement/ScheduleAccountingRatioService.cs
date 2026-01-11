@@ -127,11 +127,11 @@ namespace TracePca.Service.FIN_statement
                         Sr_No = 1,
                         RatioName = ratioNames[0],
                         Formula= Formula[0],
-                        Numerator = (Decimal.Round(ca.Dc1,2)).ToString(),
-                        Denominator = (Decimal.Round(cl.Dc1,2)).ToString(),
+                        Numerator = Decimal.Round(ca.Dc1,2).ToString(),
+                        Denominator = Decimal.Round(cl.Dc1,2).ToString(),
                         CurrentReportingPeriod = Decimal.Round(cur, 4),
                         PreviousReportingPeriod = Decimal.Round(prev, 4),
-                        Change = Math.Abs(Decimal.Round(cur - prev, 4))
+                        Change = Math.Abs(Decimal.Round((((cur - prev)/ prev)*100), 4))
                     });
                 }
 
@@ -160,7 +160,7 @@ namespace TracePca.Service.FIN_statement
                         Denominator = (Decimal.Round(share.Dc1, 2)).ToString(),
                         CurrentReportingPeriod = Decimal.Round(cur, 4),
                         PreviousReportingPeriod = Decimal.Round(prev, 4),
-                        Change = Math.Abs(Decimal.Round(cur - prev, 4))
+                        Change = Math.Abs(Decimal.Round((((cur - prev) / prev) * 100), 4))
                     });
                 }
 
@@ -183,7 +183,7 @@ namespace TracePca.Service.FIN_statement
                         Denominator = (Decimal.Round(longTerm.Dc1, 2)).ToString(),
                         CurrentReportingPeriod = cur,
                         PreviousReportingPeriod = prev,
-                        Change = Math.Abs(Decimal.Round(cur - prev, 4))
+                        Change = Math.Abs(Decimal.Round((((cur - prev) / prev) * 100), 4))
                     });
                 }
 
@@ -206,9 +206,9 @@ namespace TracePca.Service.FIN_statement
                         Formula = Formula[3],
                         Numerator = (Decimal.Round(pandlCur, 2)).ToString(),
                         Denominator = (Decimal.Round(share.Dc1, 2)).ToString(),
-                        CurrentReportingPeriod = Decimal.Round(cur, 4),
-                        PreviousReportingPeriod = Decimal.Round(prev, 4),
-                        Change = Math.Abs(Decimal.Round(cur - prev, 4))
+                        CurrentReportingPeriod = Decimal.Round(cur *100, 4),
+                        PreviousReportingPeriod = Decimal.Round(prev *100, 4),
+                        Change = Math.Abs(Decimal.Round((((cur - prev) / prev) * 100), 4))
                     });
                 }
 
@@ -231,7 +231,7 @@ namespace TracePca.Service.FIN_statement
                         Denominator = (Decimal.Round(dtRevenue.Dc1, 2)).ToString(),
                         CurrentReportingPeriod = Math.Round(cur, 4),
                         PreviousReportingPeriod = Math.Round(prev, 4),
-                        Change = Math.Abs(Math.Round(cur - prev, 4))
+                        Change = Math.Abs(Decimal.Round((((cur - prev) / prev) * 100), 4))
                     });
                 }
 
@@ -241,7 +241,7 @@ namespace TracePca.Service.FIN_statement
                     int subReceivableId = await GetSubHeadingId(conn, tran, customerId, "(c) Trade receivables");
 
                     var dtRevenue = await GetSubHeadingAmt(conn, tran, yearId, customerId, 3, subRevenueId);
-                    var dtCurRec = await GetSubHeadingAmt(conn, tran, yearId, customerId, 4, subReceivableId);                           
+                    var dtCurRec = await GetSubHeadingAmt(conn, tran, yearId, customerId, 4, subReceivableId);                          
 
                     decimal cur = SafeDiv(dtRevenue.Dc1, dtCurRec.Dc1);
                     decimal prev = SafeDiv(dtRevenue.DP1, dtCurRec.DP1);
@@ -254,7 +254,7 @@ namespace TracePca.Service.FIN_statement
                         Denominator = (Decimal.Round(dtCurRec.Dc1, 2)).ToString(),
                         CurrentReportingPeriod = Math.Round(cur, 4),
                         PreviousReportingPeriod = Math.Round(prev, 4),
-                        Change = Math.Round(cur - prev, 4)
+                        Change = Math.Abs(Decimal.Round((((cur - prev) / prev) * 100), 4))
                     });
                 }
 
@@ -262,7 +262,6 @@ namespace TracePca.Service.FIN_statement
                 {
                     int subCostOfGoodsId = await GetSubHeadingId(conn, tran, customerId, "(a) Cost Of Materials Consumed");
                     int subTradePayId = await GetSubHeadingId(conn, tran, customerId, "(b) Trade payables");
-
                     var dtCOGS = await GetSubHeadingAmt(conn, tran, yearId, customerId, 3, subCostOfGoodsId);
                     var dtPay = await GetSubHeadingAmt(conn, tran, yearId, customerId, 4, subTradePayId);
 
@@ -278,7 +277,7 @@ namespace TracePca.Service.FIN_statement
                         Denominator = (Decimal.Round(dtPay.Dc1, 2)).ToString(),
                         CurrentReportingPeriod = Math.Abs(Math.Round(cur, 4)),
                         PreviousReportingPeriod = Math.Abs(Math.Round(prev, 4)),
-                        Change = Math.Abs(Math.Round(cur - prev, 4))
+                        Change = Math.Abs(Decimal.Round((((cur - prev) / prev) * 100), 4))
                     });
                 }
 
@@ -286,16 +285,12 @@ namespace TracePca.Service.FIN_statement
                 {
                     int headCLA = await GetHeadingId(conn, tran, customerId, "Current Liabilities");
                     int headCSA = await GetHeadingId(conn, tran, customerId, "2 Current Assets");
-
                     var dtCL = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headCLA);
                     var dtCA = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headCSA);
-
                     decimal workingCapCur = dtCA.Dc1 - dtCL.Dc1;
                     decimal workingCapPrev = dtCA.DP1 - dtCL.DP1;
-
                     int subRevenueId = await GetSubHeadingId(conn, tran, customerId, "I Revenue from operations");
                     var dtRevenue = await GetSubHeadingAmt(conn, tran, yearId, customerId, 3, subRevenueId);
-
                     decimal cur = SafeDiv(dtRevenue.Dc1, workingCapCur);
                     decimal prev = SafeDiv(dtRevenue.DP1, workingCapPrev);
 
@@ -308,7 +303,7 @@ namespace TracePca.Service.FIN_statement
                         Denominator = (Decimal.Round(workingCapCur,2 )).ToString(),
                         CurrentReportingPeriod = Math.Abs(Math.Round(cur, 4)),
                         PreviousReportingPeriod = Math.Abs(Math.Round(prev, 4)),
-                        Change = Math.Abs(Math.Round(cur - prev, 4))
+                        Change = Math.Abs(Decimal.Round((((cur - prev) / prev) * 100), 4))
                     });
                 }
 
@@ -317,12 +312,10 @@ namespace TracePca.Service.FIN_statement
                 {
                     decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
                     decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);
-
                     int subRevenueId = await GetSubHeadingId(conn, tran, customerId, "I Revenue from operations");
                     var dtRevenue = await GetSubHeadingAmt(conn, tran, yearId, customerId, 3, subRevenueId);
-
                     decimal cur = (SafeDiv(plCur, dtRevenue.Dc1)*100);
-                    decimal prev = SafeDiv(plPrev, dtRevenue.DP1);
+                    decimal prev = (SafeDiv(plPrev, dtRevenue.DP1)*100);
 
                     result.Ratios.Add(new RatioDto
                     {
@@ -333,7 +326,7 @@ namespace TracePca.Service.FIN_statement
                         Denominator = (Decimal.Round(dtRevenue.Dc1, 2)).ToString(),
                         CurrentReportingPeriod = (Math.Round(cur, 4)), //+ "%"
                         PreviousReportingPeriod = Math.Round(prev, 4),
-                        Change = Math.Abs(Math.Round(cur - prev, 4))
+                        Change = Math.Abs(Decimal.Round((((cur - prev) / prev) * 100), 4))
                     });
                 }
 
@@ -345,17 +338,12 @@ namespace TracePca.Service.FIN_statement
                     var dtCAsset = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headCAssetId);
                     decimal AssetCur = dtNCAsset.Dc1 + dtCAsset.Dc1;
                     decimal AssetPrev = dtNCAsset.DP1 + dtCAsset.DP1;
-
                     int headShareId = await GetHeadingId(conn, tran, customerId, "Current Liabilities");
                     var dtShare = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headShareId);
-
                     decimal capCur = Math.Abs(dtShare.Dc1 - AssetCur);
                     decimal capPrev = Math.Abs(dtShare.DP1 - AssetPrev);
-
-
                     decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
-                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);                   
-
+                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);                
                     decimal cur = Math.Abs((SafeDiv(plCur, capCur) * 100));
                     decimal prev = Math.Abs((SafeDiv(plPrev, capPrev)* 100));
 
@@ -368,7 +356,7 @@ namespace TracePca.Service.FIN_statement
                         Denominator = (Decimal.Round(capCur, 2)).ToString(),
                         CurrentReportingPeriod = Math.Abs(Math.Round(cur, 4)),
                         PreviousReportingPeriod = Math.Abs(Math.Round(prev, 4)),
-                        Change = Math.Abs(Math.Round(cur - prev, 4))
+                        Change = Math.Abs(Decimal.Round((((cur - prev) / prev) * 100), 4))
                     });
                 }
 
@@ -376,13 +364,10 @@ namespace TracePca.Service.FIN_statement
                 {
                     decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
                     decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);
-
                     int headingShareId = await GetHeadingId(conn, tran, customerId, "Shareholders  funds");
-
                     var share = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headingShareId);
-
                     decimal cur = (SafeDiv(plCur, share.Dc1)*100);
-                    decimal prev = (SafeDiv(plPrev, share.DP1)*100);            
+                                        decimal prev = (SafeDiv(plPrev, share.DP1)*100);            
 
                     result.Ratios.Add(new RatioDto
                     {
@@ -393,11 +378,9 @@ namespace TracePca.Service.FIN_statement
                         Denominator = (Decimal.Round(share.Dc1, 2)).ToString(),
                         CurrentReportingPeriod = Math.Abs(Math.Round(cur, 4)),
                         PreviousReportingPeriod = Math.Abs(Math.Round(prev, 4)),
-                        Change = Math.Abs(Math.Round(cur - prev, 4))
+                        Change = Math.Abs(Decimal.Round((((cur - prev) / prev) * 100), 4))
                     });
                 }
-
-
                 tran.Commit();
                 return result;
             }
@@ -433,18 +416,13 @@ namespace TracePca.Service.FIN_statement
                   ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
                   ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
                 FROM Acc_TrailBalance_Upload_Details ud
-                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
-                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
-                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_HeadingId = @HeadingId and ud.ATBUD_yearid=@YearId
-            ";
-
-            var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, HeadingId = headingId }, tran);
-
+                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId and ud.ATBUD_yearid=@YearId
+                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId and ud.ATBUD_yearid=@PrevYear
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_HeadingId = @HeadingId  ";
+              var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, HeadingId = headingId }, tran);
             if (row == null) return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = 0m, DP1 = 0m };
-
             decimal dc1 = row.Dc1 == null ? 0m : Convert.ToDecimal(row.Dc1);
             decimal dp1 = row.DP1 == null ? 0m : Convert.ToDecimal(row.DP1);
-
             return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1 };
         }
 
@@ -458,18 +436,13 @@ namespace TracePca.Service.FIN_statement
                   ABS(ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount),0)) AS Dc1,
                   ABS(ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount),0) - ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount),0)) AS DP1
                 FROM Acc_TrailBalance_Upload_Details ud
-                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId
-                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId
-                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_SubHeading = @SubHeadingId and ud.ATBUD_yearid=@YearId
-            ";
-
+                LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YearId = @YearId AND d.ATBU_CustId = @CustomerId and ud.ATBUD_yearid=@YearId
+                LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YearId = @PrevYear AND e.ATBU_CustId = @CustomerId and ud.ATBUD_yearid=@PrevYear
+                WHERE ud.ATBUD_Schedule_Type = @SchedType AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_SubHeading = @SubHeadingId     ";
             var row = await conn.QueryFirstOrDefaultAsync(sql, new { YearId = yearId, PrevYear = yearId - 1, CustomerId = customerId, SchedType = schedType, SubHeadingId = subHeadingId }, tran);
-
             if (row == null) return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = 0m, DP1 = 0m };
-
             decimal dc1 = row.Dc1 == null ? 0m : Convert.ToDecimal(row.Dc1);
             decimal dp1 = row.DP1 == null ? 0m : Convert.ToDecimal(row.DP1);
-
             return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1 };
         }
 
