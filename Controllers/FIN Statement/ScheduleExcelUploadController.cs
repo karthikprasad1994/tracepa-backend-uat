@@ -711,7 +711,7 @@ namespace TracePca.Controllers.FIN_Statement
 
                         currentTransactionDate = transactionDate;
                     }
-                   
+
 
                     // Get account ID from cache
                     var accountId = existingAccountsCache[row.Account];

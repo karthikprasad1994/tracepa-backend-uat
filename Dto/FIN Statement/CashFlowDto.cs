@@ -1,4 +1,6 @@
-﻿namespace TracePca.Dto.FIN_Statement
+﻿using TracePca.Dto.Audit;
+
+namespace TracePca.Dto.FIN_Statement
 {
     public class CashFlowDto
     {
@@ -48,6 +50,43 @@
             public string Description { get; set; } = string.Empty;
             public decimal CurrentYear { get; set; } = 0m;
             public decimal PreviousYear { get; set; } = 0m;
+        }
+
+        public class CashflowClientDto
+        {
+            public int Cust_Id { get; set; }
+            public string Cust_Name { get; set; }
+        }
+
+        public class CashflowBranchDto
+        {
+            public int BranchId { get; set; }
+            public string BranchName { get; set; }
+        }
+
+        public class CashflowFinacialYearDto
+        {
+            public int YMS_YEARID { get; set; }
+            public string YMS_ID { get; set; }
+        }
+
+        public class CashFlowAddDto
+        {
+            public string ACF_Description { get; set; }
+            public int ACF_Custid { get; set; }
+            public int ACF_Branchid { get; set; }
+            public int ACF_Yearid { get; set; }
+            public int ACF_Compid { get; set; }
+        }
+
+
+        public class CashFlowOperatingSystemDto
+        {
+            public int SrNo { get; set; }
+            public int CashFlowId { get; set; }
+            public string Particulars { get; set; }
+            public decimal PreviousAmount { get; set; }
+            public decimal CurrentAmount { get; set; }
         }
     }
 }

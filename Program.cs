@@ -66,8 +66,8 @@ var builder = WebApplication.CreateBuilder(args);
 //        options.JsonSerializerOptions.PropertyNamingPolicy = null; // ? Keep original case
 //    });
 //var environment = builder.Environment;
-//QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
-//ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 // Add services to the container.
 
 builder.Services.AddControllers()

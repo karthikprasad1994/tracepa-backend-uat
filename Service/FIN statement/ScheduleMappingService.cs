@@ -214,6 +214,7 @@ WHERE
     AND a.ATBU_CompId = @compId
     AND a.ATBU_YearId = @yearId
     AND a.ATBU_BranchId = @branchId
+    AND a.ATBU_Description<>'Net Income' 
     AND a.ATBU_QuarterId = @durationId;";
 
             return await connection.QueryAsync<CustCOASummaryDto>(query, new { CompId, CustId, YearId, BranchId, DurationId });

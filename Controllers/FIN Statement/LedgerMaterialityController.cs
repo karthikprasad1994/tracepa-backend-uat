@@ -286,6 +286,40 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+        [HttpGet]
+        public async Task<IActionResult> GetMateriality(
+    [FromQuery] int branchId,
+    [FromQuery] int custId,
+    [FromQuery] int compId,
+    [FromQuery] int financialYearId)
+        {
+
+            var data = await _LedgerMaterialityService.GetMaterialityAsync(
+                branchId,
+                custId,
+                compId,
+                financialYearId);
+
+            if (data == null || !data.Any())
+                return NotFound("Materiality data not found.");
+
+            return Ok(data);
+        }
+
+        [HttpPost("update")]
+        public async Task<IActionResult> UpdateMateriality(
+    [FromBody] LedgerMaterialityUpdateDto dto)
+        {
+
+            var rows = await _LedgerMaterialityService.UpdateMaterialityAsync(dto);
+
+            return Ok(new
+            {
+                success = rows > 0
+            });
+        }
+
+
     }
 }
 
