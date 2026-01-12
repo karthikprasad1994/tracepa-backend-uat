@@ -77,7 +77,8 @@ namespace TracePca.Dto.Audit
         public int? SA_RetentionPeriod { get; set; }
         public int? SA_ForCompleteAudit { get; set; }
         public DateTime? SA_ExpiryDate { get; set; }
-        public int SA_CompID { get; set; }        
+        public int SA_CompID { get; set; }
+        public int? SA_UserID { get; set; } = 0;
     }
 
     public class AuditReportCustInfoAuditeeDetailDTO
