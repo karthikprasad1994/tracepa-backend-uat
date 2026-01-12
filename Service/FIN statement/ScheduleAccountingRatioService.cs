@@ -26,7 +26,7 @@ namespace TracePca.Service.FIN_statement
         }
 
 
-        public async Task<ScheduleAccountingRatioDto.AccountingRatioResult> LoadAccRatioAsync(int yearId, int customerId, int branchId)
+        public async Task<ScheduleAccountingRatioDto.AccountingRatioResult> LoadAccRatioAsync(int yearId, int customerId )
         {
             // Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -166,8 +166,8 @@ namespace TracePca.Service.FIN_statement
 
                 // --- Example 3: Debt Service coverage ratio (simplified) ---
                 {
-                    decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
-                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);
+                    decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId);
+                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId);
                     int headingNonCrLiablId = await GetHeadingId(conn, tran, customerId, "Non-current Liabilities");
                     var longTerm = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headingNonCrLiablId);
 
@@ -190,8 +190,8 @@ namespace TracePca.Service.FIN_statement
                 // --- Ratio 4: Return on Equity (sample) ---
                 {
                     // Use P&L / Average shareholder funds
-                    decimal pandlCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
-                    decimal pandlPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);
+                    decimal pandlCur = await GetPandLFinalAmt(conn, tran, yearId, customerId);
+                    decimal pandlPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId);
 
                     int headingShareId = await GetHeadingId(conn, tran, customerId, "Shareholders  funds");
                     var share = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headingShareId);
@@ -310,8 +310,8 @@ namespace TracePca.Service.FIN_statement
 
                 // --- Ratio 9: Net Profit Ratio ---
                 {
-                    decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
-                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);
+                    decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId);
+                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId);
                     int subRevenueId = await GetSubHeadingId(conn, tran, customerId, "I Revenue from operations");
                     var dtRevenue = await GetSubHeadingAmt(conn, tran, yearId, customerId, 3, subRevenueId);
                     decimal cur = (SafeDiv(plCur, dtRevenue.Dc1)*100);
@@ -342,8 +342,8 @@ namespace TracePca.Service.FIN_statement
                     var dtShare = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headShareId);
                     decimal capCur = Math.Abs(dtShare.Dc1 - AssetCur);
                     decimal capPrev = Math.Abs(dtShare.DP1 - AssetPrev);
-                    decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
-                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);                
+                    decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId);
+                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId);                
                     decimal cur = Math.Abs((SafeDiv(plCur, capCur) * 100));
                     decimal prev = Math.Abs((SafeDiv(plPrev, capPrev)* 100));
 
@@ -362,8 +362,8 @@ namespace TracePca.Service.FIN_statement
 
                 // --- Ratio 11: Return on Investment ---
                 {
-                    decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId, branchId);
-                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId, branchId);
+                    decimal plCur = await GetPandLFinalAmt(conn, tran, yearId, customerId);
+                    decimal plPrev = await GetPandLFinalAmt(conn, tran, yearId - 1, customerId);
                     int headingShareId = await GetHeadingId(conn, tran, customerId, "Shareholders  funds");
                     var share = await GetHeadingAmt(conn, tran, yearId, customerId, 4, headingShareId);
                     decimal cur = (SafeDiv(plCur, share.Dc1)*100);
@@ -446,14 +446,14 @@ namespace TracePca.Service.FIN_statement
             return new ScheduleAccountingRatioDto.HeadingAmount { Dc1 = dc1, DP1 = dp1 };
         }
 
-        private async Task<decimal> GetPandLFinalAmt(SqlConnection conn, SqlTransaction tran, int yearId, int customerId, int branchId)
+        private async Task<decimal> GetPandLFinalAmt(SqlConnection conn, SqlTransaction tran, int yearId, int customerId)
         {
             const string sql = @"
                 SELECT Abs(ISNULL(SUM(ATBU_Closing_TotalDebit_Amount - ATBU_Closing_TotalCredit_Amount), 0))
                 FROM Acc_TrailBalance_Upload
-                WHERE ATBU_Description = 'Net Income' AND ATBU_YearId = @YearId AND ATBU_CustId = @CustomerId AND ATBU_BranchId = @BranchId
+                WHERE ATBU_Description = 'Net Income' AND ATBU_YearId = @YearId AND ATBU_CustId = @CustomerId
             ";
-            var value = await conn.ExecuteScalarAsync<decimal?>(sql, new { YearId = yearId, CustomerId = customerId, BranchId = branchId }, tran);
+            var value = await conn.ExecuteScalarAsync<decimal?>(sql, new { YearId = yearId, CustomerId = customerId }, tran);
             return value ?? 0m;
         }
 
