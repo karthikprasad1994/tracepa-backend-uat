@@ -5,6 +5,6 @@ namespace TracePca.Interface.FIN_Statement
 {
     public interface ScheduleAccountingRatioInterface
     {
-        Task<ScheduleAccountingRatioDto.AccountingRatioResult> LoadAccRatioAsync(int yearId, int customerId, int branchId);
+        Task<ScheduleAccountingRatioDto.AccountingRatioResult> LoadAccRatioAsync(int yearId, int customerId);
     }
 }
