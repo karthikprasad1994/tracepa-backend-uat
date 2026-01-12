@@ -2158,8 +2158,8 @@ namespace TracePca.Service.Audit
             {
                 var result = await connection.QueryFirstOrDefaultAsync<(string SubCabinet, string CustCode, string CustName, string YearName, string UserName, DateTime DocumentExpiryDate, int ReminderDay)>(
                     @"Select SA_AuditNo + ' - ' + CMM.CMM_Desc, CUST_CODE, CUST_NAME, YMS_ID, usr_FullName, ISNULL(SA_ExpiryDate, DATEADD(YEAR, 7, GETDATE())) AS SA_ExpiryDate, ISNULL(SA_RetentionPeriod, 7) AS SA_RetentionPeriod
-		            from StandardAudit_Schedule JOIN SAD_CUSTOMER_MASTER On CUST_ID=SA_CustID JOIN Year_Master On YMS_YEARID = SA_YearID Join Sad_Userdetails On Usr_Id = @UserId 
-		            JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA_AuditTypeID Where SA_ID= @AuditId;",
+		            from StandardAudit_Schedule LEFT JOIN SAD_CUSTOMER_MASTER On CUST_ID=SA_CustID LEFT JOIN Year_Master On YMS_YEARID = SA_YearID LEFT Join Sad_Userdetails On Usr_Id = @UserId 
+		            LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA_AuditTypeID Where SA_ID= @AuditId;",
                     new { CompId = compId, AuditId = auditId, UserId = userId });
 
                 String OrgName = result.CustName;
@@ -2282,7 +2282,7 @@ namespace TracePca.Service.Audit
 
                 // 7. Near End of the Audit
                 var nearingEndTypes =
-                "SELECT RTM_Id AS TypeId,1 As CheckReportType,'Near end of the Audit - ' + RTM_ReportTypeName AS TypeName," +
+                "SELECT RTM_Id AS TypeId,1 As CheckReportType,'Near End of the Audit - ' + RTM_ReportTypeName AS TypeName," +
                 " STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory" +
                 " WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
                 " FROM SAD_ReportTypeMaster" +
@@ -2346,14 +2346,14 @@ namespace TracePca.Service.Audit
                 // 3. Beginning of the Audit Communication
                 var savedBeginningoftheAuditFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Beginning_ofthe_Audit_Report", "", "pdf", 3);
                 int beginningoftheAuditAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedBeginningoftheAuditFilePath, compId, userId);
-                var beginningoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Beginning of the Audit Report' AS TypeName, {beginningoftheAuditAttachmentId} AS AttachIds";
+                var beginningoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Beginning of the Audit - Report' AS TypeName, {beginningoftheAuditAttachmentId} AS AttachIds";
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, beginningoftheAudit);
                 //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Report", "Beginning_ofthe_Audit_Report.pdf", savedScheduleNotesFilePath);
 
                 // 4. During the Audit Requests
                 var savedDRLFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "DRL_Report", "", "pdf", 3);
                 int DRLAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedDRLFilePath, compId, userId);
-                var DRL = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Near End of the Audit Report' AS TypeName, {DRLAttachmentId} AS AttachIds";
+                var DRL = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'DRL - Report' AS TypeName, {DRLAttachmentId} AS AttachIds";
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, DRL);
                 //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Near end of the Audit Report", "DRL_Report.pdf", savedScheduleNotesFilePath);
 
@@ -2374,7 +2374,7 @@ namespace TracePca.Service.Audit
                 // 7. Near End of the Audit
                 var savedNearEndoftheAuditFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Near_End_ofthe_Audit_Report", "", "pdf", 3);
                 int nearEndoftheAuditAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedNearEndoftheAuditFilePath, compId, userId);
-                var nearEndoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Near End of the Audit Report' AS TypeName, {nearEndoftheAuditAttachmentId} AS AttachIds";
+                var nearEndoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Near End of the Audit - Report' AS TypeName, {nearEndoftheAuditAttachmentId} AS AttachIds";
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, nearEndoftheAudit);
                 //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Near end of the Audit Report", "Near_End_ofthe_Audit_Report.pdf", savedScheduleNotesFilePath);
 
@@ -3701,7 +3701,7 @@ namespace TracePca.Service.Audit
                     throw new Exception(uploadedFile?.Message ?? "File upload failed.");
 
                 var insertQuery = @"
-                    INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, ATCH_Status, ATCH_CompID, Atch_Vstatus,             ATCH_REPORTTYPE, ATCH_DRLID)
+                    INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID)
                     VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
 
                 await connection.ExecuteAsync(insertQuery, new
