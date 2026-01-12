@@ -476,7 +476,7 @@ namespace TracePca.Controllers.FIN_Statement
  int userId,
  string ipAddress)
         {
-            const int batchSize = 1000;
+            const int batchSize = 4000;
             var validRows = request.Rows.Where(r => !string.IsNullOrEmpty(r.Account)).ToList();
             var batches = validRows.Batch(batchSize);
 
