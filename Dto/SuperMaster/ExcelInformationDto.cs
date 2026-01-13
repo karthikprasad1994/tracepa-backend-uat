@@ -5,66 +5,66 @@ namespace TracePca.Dto.SuperMaster
     public class ExcelInformationDto
     {
         //UploadEmployeeMasters
-        public class UploadEmployeeMasterDto
-        {
-            public string EmpCode { get; set; }         
-            public string EmployeeName { get; set; }      
-            public string LoginName { get; set; }       
-            public string Email { get; set; }
-            public string OfficePhoneNo { get; set; }
-            public string Designation { get; set; }      
-            public string Role { get; set; }              
-            public string Partner { get; set; }
-            // 🔹 Optional Fields (present in Excel)
-            public int? EmpId { get; set; }
-            public int? EmpNode { get; set; }
-            public int? LevelGrp { get; set; }
-            public int? EmpCategory { get; set; }
-            public int? CompanyId { get; set; }
-            public string Password { get; set; }
-            public string DelFlag { get; set; }
-            public string Status { get; set; }
-            public string IPAddress { get; set; }
-            public int? CompId { get; set; }
-            public string Type { get; set; }
-            public int? IsSuperuser { get; set; }
-            public int? DeptID { get; set; }
-            public int? MemberType { get; set; }
-            public int? Levelcode { get; set; }
-            public int? Suggestions { get; set; }
-            // 🔹 Extra fields required by SP but not in your DTO yet
-            public string DutyStatus { get; set; }      
-            public string PhoneNo { get; set; }         
-            public string MobileNo { get; set; }
-            public string OfficePhoneExtn { get; set; }
-            public int? OrgnId { get; set; }
-            public int? GrpOrUserLvlPerm { get; set; }
-            // 🔹 Module flags
-            public int? MasterModule { get; set; }
-            public int? AuditModule { get; set; }
-            public int? RiskModule { get; set; }
-            public int? ComplianceModule { get; set; }
-            public int? BCMModule { get; set; }
-            public int? DigitalOfficeModule { get; set; }
-            // 🔹 Role flags
-            public int? MasterRole { get; set; }
-            public int? AuditRole { get; set; }
-            public int? RiskRole { get; set; }
-            public int? ComplianceRole { get; set; }
-            public int? BCMRole { get; set; }
-            public int? DigitalOfficeRole { get; set; }
-            // 🔹 Metadata
-            public int? CreatedBy { get; set; }
-            public int? UpdatedBy { get; set; }
-            //Validation
-            public string ErrorMessage { get; set; }
-        }
-        // small helper DTO for validation results
-        public class ValidationResult
-        {
-            public List<UploadEmployeeMasterDto> MissingOrInvalid { get; set; } = new();
-            public List<UploadEmployeeMasterDto> Duplicates { get; set; } = new();
-        }
+        //public class UploadEmployeeMasterDto
+        //{
+        //    public string EmpCode { get; set; }         
+        //    public string EmployeeName { get; set; }      
+        //    public string LoginName { get; set; }       
+        //    public string Email { get; set; }
+        //    public string OfficePhoneNo { get; set; }
+        //    public string Designation { get; set; }      
+        //    public string Role { get; set; }              
+        //    public string Partner { get; set; }
+        //    // 🔹 Optional Fields (present in Excel)
+        //    public int? EmpId { get; set; }
+        //    public int? EmpNode { get; set; }
+        //    public int? LevelGrp { get; set; }
+        //    public int? EmpCategory { get; set; }
+        //    public int? CompanyId { get; set; }
+        //    public string Password { get; set; }
+        //    public string DelFlag { get; set; }
+        //    public string Status { get; set; }
+        //    public string IPAddress { get; set; }
+        //    public int? CompId { get; set; }
+        //    public string Type { get; set; }
+        //    public int? IsSuperuser { get; set; }
+        //    public int? DeptID { get; set; }
+        //    public int? MemberType { get; set; }
+        //    public int? Levelcode { get; set; }
+        //    public int? Suggestions { get; set; }
+        //    // 🔹 Extra fields required by SP but not in your DTO yet
+        //    public string DutyStatus { get; set; }      
+        //    public string PhoneNo { get; set; }         
+        //    public string MobileNo { get; set; }
+        //    public string OfficePhoneExtn { get; set; }
+        //    public int? OrgnId { get; set; }
+        //    public int? GrpOrUserLvlPerm { get; set; }
+        //    // 🔹 Module flags
+        //    public int? MasterModule { get; set; }
+        //    public int? AuditModule { get; set; }
+        //    public int? RiskModule { get; set; }
+        //    public int? ComplianceModule { get; set; }
+        //    public int? BCMModule { get; set; }
+        //    public int? DigitalOfficeModule { get; set; }
+        //    // 🔹 Role flags
+        //    public int? MasterRole { get; set; }
+        //    public int? AuditRole { get; set; }
+        //    public int? RiskRole { get; set; }
+        //    public int? ComplianceRole { get; set; }
+        //    public int? BCMRole { get; set; }
+        //    public int? DigitalOfficeRole { get; set; }
+        //    // 🔹 Metadata
+        //    public int? CreatedBy { get; set; }
+        //    public int? UpdatedBy { get; set; }
+        //    //Validation
+        //    public string ErrorMessage { get; set; }
+        //}
+        //// small helper DTO for validation results
+        //public class ValidationResult
+        //{
+        //    public List<UploadEmployeeMasterDto> MissingOrInvalid { get; set; } = new();
+        //    public List<UploadEmployeeMasterDto> Duplicates { get; set; } = new();
+        //}
 
         //SaveEmployeeMaster
         public class SuperMasterSaveEmployeeMasterDto
@@ -116,71 +116,71 @@ namespace TracePca.Dto.SuperMaster
         }
 
 
-        //UploadClientDetails
-        public class UploadClientDetailsDto
-        {
-            // DB / Stored Procedure fields
-            public int CUST_ID { get; set; }
-            public string CUST_NAME { get; set; }
-            public string CUST_CODE { get; set; }
-            public string CUST_WEBSITE { get; set; }
-            public string CUST_EMAIL { get; set; }
-            public string CUST_GROUPNAME { get; set; }
-            public int CUST_GROUPINDIVIDUAL { get; set; }
-            public string CUST_ORGTYPEID { get; set; }
-            public string CUST_INDTYPEID { get; set; }
-            public int CUST_MGMTTYPEID { get; set; }
-            public DateTime? CUST_CommitmentDate { get; set; }
-            public string CUSt_BranchId { get; set; }
-            public string CUST_COMM_ADDRESS { get; set; }
-            public string CUST_COMM_CITY { get; set; }
-            public string CUST_COMM_PIN { get; set; }
-            public string CUST_COMM_STATE { get; set; }
-            public string CUST_COMM_COUNTRY { get; set; }
-            public string CUST_COMM_FAX { get; set; }
-            public string CUST_COMM_TEL { get; set; }
-            public string CUST_COMM_Email { get; set; }
-            public string CUST_ADDRESS { get; set; }
-            public string CUST_CITY { get; set; }
-            public string CUST_PIN { get; set; }
-            public string CUST_STATE { get; set; }
-            public string CUST_COUNTRY { get; set; }
-            public string CUST_FAX { get; set; }
-            public string CUST_TELPHONE { get; set; }
-            public string CUST_ConEmailID { get; set; }
-            public string CUST_LOCATIONID { get; set; }
-            public string CUST_TASKS { get; set; }
-            public int CUST_ORGID { get; set; }
-            public int CUST_CRBY { get; set; }
-            public int CUST_UpdatedBy { get; set; }
-            public string CUST_BOARDOFDIRECTORS { get; set; }
-            public int CUST_DEPMETHOD { get; set; }
-            public string CUST_IPAddress { get; set; }
-            public int CUST_CompID { get; set; }
-            public decimal CUST_Amount_Type { get; set; }
-            public decimal CUST_RoundOff { get; set; }
-            public int Cust_DurtnId { get; set; }
-            public string Cust_FY { get; set; }
-            public string CIN { get; set; }
-            public string TAN { get; set; }
-            public string GST { get; set; }  
-            public string PAN { get; set; }
-            public string GSTN { get; set; }
+        ////UploadClientDetails
+        //public class UploadClientDetailsDto
+        //{
+        //    // DB / Stored Procedure fields
+        //    public int CUST_ID { get; set; }
+        //    public string CUST_NAME { get; set; }
+        //    public string CUST_CODE { get; set; }
+        //    public string CUST_WEBSITE { get; set; }
+        //    public string CUST_EMAIL { get; set; }
+        //    public string CUST_GROUPNAME { get; set; }
+        //    public int CUST_GROUPINDIVIDUAL { get; set; }
+        //    public string CUST_ORGTYPEID { get; set; }
+        //    public string CUST_INDTYPEID { get; set; }
+        //    public int CUST_MGMTTYPEID { get; set; }
+        //    public DateTime? CUST_CommitmentDate { get; set; }
+        //    public string CUSt_BranchId { get; set; }
+        //    public string CUST_COMM_ADDRESS { get; set; }
+        //    public string CUST_COMM_CITY { get; set; }
+        //    public string CUST_COMM_PIN { get; set; }
+        //    public string CUST_COMM_STATE { get; set; }
+        //    public string CUST_COMM_COUNTRY { get; set; }
+        //    public string CUST_COMM_FAX { get; set; }
+        //    public string CUST_COMM_TEL { get; set; }
+        //    public string CUST_COMM_Email { get; set; }
+        //    public string CUST_ADDRESS { get; set; }
+        //    public string CUST_CITY { get; set; }
+        //    public string CUST_PIN { get; set; }
+        //    public string CUST_STATE { get; set; }
+        //    public string CUST_COUNTRY { get; set; }
+        //    public string CUST_FAX { get; set; }
+        //    public string CUST_TELPHONE { get; set; }
+        //    public string CUST_ConEmailID { get; set; }
+        //    public string CUST_LOCATIONID { get; set; }
+        //    public string CUST_TASKS { get; set; }
+        //    public int CUST_ORGID { get; set; }
+        //    public int CUST_CRBY { get; set; }
+        //    public int CUST_UpdatedBy { get; set; }
+        //    public string CUST_BOARDOFDIRECTORS { get; set; }
+        //    public int CUST_DEPMETHOD { get; set; }
+        //    public string CUST_IPAddress { get; set; }
+        //    public int CUST_CompID { get; set; }
+        //    public decimal CUST_Amount_Type { get; set; }
+        //    public decimal CUST_RoundOff { get; set; }
+        //    public int Cust_DurtnId { get; set; }
+        //    public string Cust_FY { get; set; }
+        //    public string CIN { get; set; }
+        //    public string TAN { get; set; }
+        //    public string GST { get; set; }  
+        //    public string PAN { get; set; }
+        //    public string GSTN { get; set; }
 
-            //New fields for Location
-            public int Mas_Id { get; set; }
-            public string Mas_code { get; set; }
-            public string LocationName { get; set; }
-            public string DelFlag { get; set; }
-            public string Address { get; set; }
-            public string ContactPerson { get; set; }
-            public string Mobile { get; set; }
-            public string Landline { get; set; }
-            public string Email { get; set; }
-            public string Designation { get; set; }
-            // Validation helper
-            public string ErrorMessage { get; set; }
-        }
+        //    //New fields for Location
+        //    public int Mas_Id { get; set; }
+        //    public string Mas_code { get; set; }
+        //    public string LocationName { get; set; }
+        //    public string DelFlag { get; set; }
+        //    public string Address { get; set; }
+        //    public string ContactPerson { get; set; }
+        //    public string Mobile { get; set; }
+        //    public string Landline { get; set; }
+        //    public string Email { get; set; }
+        //    public string Designation { get; set; }
+        //    // Validation helper
+        //    public string ErrorMessage { get; set; }
+        //}
 
         //SaveClientDetails
         public class SuperMasterSaveCustomerDto
@@ -253,64 +253,64 @@ namespace TracePca.Dto.SuperMaster
             public string GST { get; set; }
         }
 
-        //UploadClientUser
-        public class UploadClientUserDto
-        {
-            //Customer Table
-            public string CustomerName { get; set; }
-            //Employee Table
-            public string EmpCode { get; set; }         
-            public string EmployeeName { get; set; }     
-            public string LoginName { get; set; }       
-            public string Email { get; set; }
-            public string PhoneNo { get; set; }
-            public int? Designation { get; set; }     
-            public int? Role { get; set; }            
-            public int? Partner { get; set; }
-            // 🔹 Optional Fields (present in Excel)
-            public int? EmpId { get; set; }
-            public int? EmpNode { get; set; }
-            public int? LevelGrp { get; set; }
-            public int? EmpCategory { get; set; }
-            public string CompanyId { get; set; }
-            public string Password { get; set; }
-            public string DelFlag { get; set; }
-            public string Status { get; set; }
-            public string IPAddress { get; set; }
-            public int? CompId { get; set; }
-            public string Type { get; set; }
-            public int? IsSuperuser { get; set; }
-            public int? DeptID { get; set; }
-            public int? MemberType { get; set; }
-            public int? Levelcode { get; set; }
-            public int? Suggestions { get; set; }
+        ////UploadClientUser
+        //public class UploadClientUserDto
+        //{
+        //    //Customer Table
+        //    public string CustomerName { get; set; }
+        //    //Employee Table
+        //    public string EmpCode { get; set; }         
+        //    public string EmployeeName { get; set; }     
+        //    public string LoginName { get; set; }       
+        //    public string Email { get; set; }
+        //    public string PhoneNo { get; set; }
+        //    public int? Designation { get; set; }     
+        //    public int? Role { get; set; }            
+        //    public int? Partner { get; set; }
+        //    // 🔹 Optional Fields (present in Excel)
+        //    public int? EmpId { get; set; }
+        //    public int? EmpNode { get; set; }
+        //    public int? LevelGrp { get; set; }
+        //    public int? EmpCategory { get; set; }
+        //    public string CompanyId { get; set; }
+        //    public string Password { get; set; }
+        //    public string DelFlag { get; set; }
+        //    public string Status { get; set; }
+        //    public string IPAddress { get; set; }
+        //    public int? CompId { get; set; }
+        //    public string Type { get; set; }
+        //    public int? IsSuperuser { get; set; }
+        //    public int? DeptID { get; set; }
+        //    public int? MemberType { get; set; }
+        //    public int? Levelcode { get; set; }
+        //    public int? Suggestions { get; set; }
 
-            // 🔹 Extra fields required by SP but not in your DTO yet
-            public string DutyStatus { get; set; }
-            public string OfficePhoneNo { get; set; }
-            public string MobileNo { get; set; }
-            public string OfficePhoneExtn { get; set; }
-            public int? OrgnId { get; set; }
-            public int? GrpOrUserLvlPerm { get; set; }
-            public int? MasterModule { get; set; }
-            public int? AuditModule { get; set; }
-            public int? RiskModule { get; set; }
-            public int? ComplianceModule { get; set; }
-            public int? BCMModule { get; set; }
-            public int? DigitalOfficeModule { get; set; }
-            public int? MasterRole { get; set; }
-            public int? AuditRole { get; set; }
-            public int? RiskRole { get; set; }
-            public int? ComplianceRole { get; set; }
-            public int? BCMRole { get; set; }
-            public int? DigitalOfficeRole { get; set; }
-            // 🔹 Metadata
-            public int? CreatedBy { get; set; }
-            public int? UpdatedBy { get; set; }
-            //Validation
-            public string ErrorMessage { get; set; }
+        //    // 🔹 Extra fields required by SP but not in your DTO yet
+        //    public string DutyStatus { get; set; }
+        //    public string OfficePhoneNo { get; set; }
+        //    public string MobileNo { get; set; }
+        //    public string OfficePhoneExtn { get; set; }
+        //    public int? OrgnId { get; set; }
+        //    public int? GrpOrUserLvlPerm { get; set; }
+        //    public int? MasterModule { get; set; }
+        //    public int? AuditModule { get; set; }
+        //    public int? RiskModule { get; set; }
+        //    public int? ComplianceModule { get; set; }
+        //    public int? BCMModule { get; set; }
+        //    public int? DigitalOfficeModule { get; set; }
+        //    public int? MasterRole { get; set; }
+        //    public int? AuditRole { get; set; }
+        //    public int? RiskRole { get; set; }
+        //    public int? ComplianceRole { get; set; }
+        //    public int? BCMRole { get; set; }
+        //    public int? DigitalOfficeRole { get; set; }
+        //    // 🔹 Metadata
+        //    public int? CreatedBy { get; set; }
+        //    public int? UpdatedBy { get; set; }
+        //    //Validation
+        //    public string ErrorMessage { get; set; }
 
-        }
+        //}
 
         //SaveCleintUser
         public class SaveClientUserDto
@@ -408,6 +408,38 @@ namespace TracePca.Dto.SuperMaster
         {
             public List<AssignmentTaskChecklistMasterDTO> Rows { get; set; } = new();
             public List<string> HeaderErrors { get; set; } = new();
+        }
+
+        //ChangedUploadEmployeeMasters
+        public class UploadEmployeeMasterDto
+        {
+            public string EmpCode { get; set; }
+            public string EmployeeName { get; set; }
+            public string Email { get; set; }
+            public string MobileNo { get; set; }
+            public string LoginName { get; set; }
+            public string Password { get; set; }
+            public string Role { get; set; }
+            public string Permission { get; set; }
+            public int? CreatedBy { get; set; }
+            public int? UpdatedBy { get; set; }
+            public string IPAddress { get; set; }
+            public string ErrorMessage { get; set; }
+        }
+
+        //ChangedUploadClientUser
+        public class UploadClientUserDto
+        {
+            public string Customer { get; set; }          
+            public string EmpCode { get; set; }         
+            public string Email { get; set; }           
+            public string OfficePhoneNo { get; set; }   
+            public string EmployeeName { get; set; }       
+            public string MobileNo { get; set; }           
+            public string LoginName { get; set; }        
+            public string Password { get; set; }  
+            public string ErrorMessage { get; set; }
+            public string? EmployeeFullName { get; internal set; }
         }
     }
 }

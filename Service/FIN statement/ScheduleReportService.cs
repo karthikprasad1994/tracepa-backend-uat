@@ -12,6 +12,7 @@ using System.Data;
 using System.Globalization;
 using System.Text;
 using TracePca.Data;
+using TracePca.Dto.Audit;
 using TracePca.Interface.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.ScheduleReportDto;
 namespace TracePca.Service.FIN_statement
@@ -1046,7 +1047,7 @@ ORDER BY ud.ATBUD_Subheading";
 
                         decimal subNet = (subBalance?.CrTotal ?? 0) - (subBalance?.DbTotal ?? 0);
                         decimal subPrevNet = (subBalance?.PrevCrTotal ?? 0) - (subBalance?.PrevDbTotal ?? 0);
-                                                totalIncome += subNet;
+                        totalIncome += subNet;
                         totalPrevIncome += subPrevNet;
 
                         results.Add(new SummaryReportBalanceSheetRow
@@ -1176,7 +1177,7 @@ ORDER BY ud.ATBUD_Subheading";
                         ScheduleTypeID,
                         SubHeadingID = sub.SubHeadingID
                     });
-                                        decimal subNet = (subBalance?.DbTotal ?? 0) - (subBalance?.CrTotal ?? 0);
+                    decimal subNet = (subBalance?.DbTotal ?? 0) - (subBalance?.CrTotal ?? 0);
                     decimal subPrevNet = (subBalance?.PrevDbTotal ?? 0) - (subBalance?.PrevCrTotal ?? 0);
                     totalExpense += subNet;
                     totalPrevExpense += subPrevNet;
@@ -2049,7 +2050,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                             PrevYearTotal = totalPrevIncome.ToString($"N{RoundOff}")
                         });
                         results.Add(new DetailedReportPandLRow
-                        {                         
+                        {
                         });
                         totalIncome = 0; totalPrevIncome = 0;
                     }
@@ -2679,15 +2680,15 @@ GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                         {
                                             itemNet = (itemDescription.DbTotal ?? 0) - (itemDescription.CrTotal ?? 0);
                                             itemPrevNet = (itemDescription.DbTotal1 ?? 0) - (itemDescription.CrTotal1 ?? 0);
-                                    }
+                                        }
                                         else
-                                    {
-                                        itemNet =  (itemDescription.DbTotal ?? 0) - (itemDescription.CrTotal ?? 0);
-                                        itemPrevNet =  (itemDescription.DbTotal1 ?? 0)- (itemDescription.CrTotal1 ?? 0);
+                                        {
+                                            itemNet = (itemDescription.DbTotal ?? 0) - (itemDescription.CrTotal ?? 0);
+                                            itemPrevNet = (itemDescription.DbTotal1 ?? 0) - (itemDescription.CrTotal1 ?? 0);
                                         }
 
 
-                                    totalIncome += itemNet;
+                                        totalIncome += itemNet;
                                         totalPrevIncome += itemPrevNet;
                                         results.Add(new DetailedReportBalanceSheetRow
                                         {
@@ -3053,7 +3054,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
 
             if (record == null)
                 return false;
-       
+
             decimal TrAmount;
             string updateQuery;
 
@@ -3075,7 +3076,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 }
                 else
                 {
-          updateQuery = @"
+                    updateQuery = @"
           UPDATE Acc_TrailBalance_Upload 
           SET 
               ATBU_Closing_Credit_Amount = @PnlAmount,
@@ -3083,7 +3084,8 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
               ATBU_Closing_Debit_Amount = '0.00',
               ATBU_Closing_TotalDebit_Amount = '0.00',
               ATBU_TR_Credit_Amount = @PnlAmount
-          WHERE ATBU_ID = @Id";                }
+          WHERE ATBU_ID = @Id";
+                }
                 var affected = await connection.ExecuteAsync(updateQuery, new
                 {
                     PnlAmount = pnlDecimal.ToString("F2"),
@@ -3260,96 +3262,162 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         }
 
         //SaveFinancialStatement
-        public async Task<bool> SaveLoeTemplatesAsync( int loeId, int reportTypeId, int compId, int createdBy, string ipAddress)
+        public async Task<int> SaveOrUpdateFinancialStatementAsync(SREngagementPlanDetailsDTO dto)
         {
+            // Step 1: Get DB name
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
+            // Step 2: Get connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
+            // ✅ FIX 1: Create transaction
             using var transaction = connection.BeginTransaction();
 
             try
             {
-                // 1. Fetch templates for the selected report type
-                string fetchQuery = @"
-            SELECT
-                RCM_ID,
-                RCM_Heading,
-                RCM_Description
-            FROM SAD_ReportContentMaster
-            WHERE RCM_ReportId = @ReportTypeId
-              AND RCM_DelFlag = 'A'";
+                // Step 3: Get Audit Framework ID
+                var reportTypeId = dto.EngagementTemplateDetails?.FirstOrDefault()?.LTD_ReportTypeID;
 
-                var templates = await connection.QueryAsync(fetchQuery,
-                    new { ReportTypeId = reportTypeId },
-                    transaction);
+                dto.LOE_AuditFrameworkId =
+                    await connection.QueryFirstOrDefaultAsync<int>(
+                        @"SELECT RTM_AuditFrameworkId 
+                      FROM SAD_ReportTypeMaster 
+                      WHERE RTM_ID = @ReportTypeID",
+                        new { ReportTypeID = reportTypeId },
+                        transaction);
 
-                if (!templates.Any())
-                    throw new Exception("No templates found for the selected report type.");
-
-                // 2. Insert into LOE_Template_details
-                string insertQuery = @"
-            INSERT INTO LOE_Template_details
-            (
-                LTD_LOE_ID,
-                LTD_ReportTypeID,
-                LTD_HeadingID,
-                LTD_Heading,
-                LTD_Decription,
-                LTD_FormName,
-                LTD_CrBy,
-                LTD_CrOn,
-                LTD_IPAddress,
-                LTD_CompID,
-                LTD_UpdatedBy,
-                LTD_UpdatedOn
-            )
-            VALUES
-            (
-                @LoeId,
-                @ReportTypeId,
-                @HeadingId,
-                @Heading,
-                @Description,
-                @FormName,
-                @CreatedBy,
-                GETDATE(),
-                @IPAddress,
-                @CompId
-                @UpdatedBy
-                @UpdateOn
-            )";
-
-                foreach (var item in templates)
+                bool isUpdate = dto.LOE_Id > 0;
+                // UPDATE LOE
+                if (isUpdate)
                 {
-                    await connection.ExecuteAsync(insertQuery, new
-                    {
-                        LoeId = loeId,
-                        ReportTypeId = reportTypeId,
-                        HeadingId = item.RCM_Id,
-                        Heading = item.RCM_Heading,
-                        Description = item.RCM_Description,
-                        CreatedBy = createdBy,
-                        IPAddress = ipAddress,
-                        CompId = compId
-                    }, transaction);
+                    await connection.ExecuteAsync(
+                        @"UPDATE SAD_CUST_LOE 
+                      SET LOE_AuditFrameworkId = @LOE_AuditFrameworkId,
+                          LOE_NatureOfService = @LOE_NatureOfService,
+                          LOE_Total = @LOE_Total,
+                          LOE_Frequency = @LOE_Frequency,
+                          LOE_UpdatedBy = @LOE_UpdatedBy,
+                          LOE_UpdatedOn = GETDATE(),
+                          LOE_IPAddress = @LOE_IPAddress
+                      WHERE LOE_Id = @LOE_Id;",
+                        dto,
+                        transaction);
+
+                    await connection.ExecuteAsync(
+                        @"DELETE FROM LOE_Template_Details 
+                      WHERE LTD_FormName = 'LOE' AND LTD_LOE_ID = @LOE_Id;",
+                        dto,
+                        transaction);
+
+                    await connection.ExecuteAsync(
+                        @"DELETE FROM LOE_AdditionalFees 
+                      WHERE LAF_LOEID = @LOE_Id;",
+                        dto,
+                        transaction);
                 }
-                transaction.Commit();
-                return true;
+                // INSERT LOE
+                else
+                {
+                    dto.LOE_Name = await GenerateLOENameAsync(
+                        dto.LOE_CompID,
+                        dto.LOE_YearId,
+                        dto.LOE_CustomerId,
+                        connection,
+                        transaction);
+
+                    dto.LOE_Id = await connection.ExecuteScalarAsync<int>(
+                        @"DECLARE @NewId INT;
+                      SELECT @NewId = ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE;
+
+                      INSERT INTO SAD_CUST_LOE
+                      (LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId,
+                       LOE_NatureOfService, LOE_CrBy, LOE_CrOn,
+                       LOE_Total, LOE_Name, LOE_Frequency,
+                       LOE_STATUS, LOE_Delflag, LOE_IPAddress,
+                       LOE_CompID, LOE_AuditFrameworkId)
+                      VALUES
+                      (@NewId, @LOE_YearId, @LOE_CustomerId, @LOE_ServiceTypeId,
+                       @LOE_NatureOfService, @LOE_CrBy, GETDATE(),
+                       @LOE_Total, @LOE_Name, @LOE_Frequency,
+                       'C', 'A', @LOE_IPAddress,
+                       @LOE_CompID, @LOE_AuditFrameworkId);
+
+                      SELECT @NewId;",
+                        dto,
+                        transaction);
+                }
+                // INSERT TEMPLATE DETAILS
+                foreach (var item in dto.EngagementTemplateDetails)
+                {
+                    item.LTD_LOE_ID = dto.LOE_Id ?? 0;
+
+                    await connection.ExecuteAsync(
+                        @"DECLARE @NewId INT;
+                      SELECT @NewId = ISNULL(MAX(LTD_ID), 0) + 1 FROM LOE_Template_Details;
+
+                      INSERT INTO LOE_Template_Details
+                      (LTD_ID, LTD_LOE_ID, LTD_ReportTypeID,
+                       LTD_HeadingID, LTD_Heading, LTD_Decription,
+                       LTD_FormName, LTD_CrBy, LTD_CrOn,
+                       LTD_IPAddress, LTD_CompID)
+                      VALUES
+                      (@NewId, @LTD_LOE_ID, @LTD_ReportTypeID,
+                       @LTD_HeadingID, @LTD_Heading, @LTD_Decription,
+                       @LTD_FormName, @LTD_CrBy, GETDATE(),
+                       @LTD_IPAddress, @LTD_CompID);",
+                        item,
+                        transaction);
+                }
+                // INSERT ADDITIONAL FEES
+                foreach (var fee in dto.EngagementAdditionalFees)
+                {
+                    fee.LAF_LOEID = dto.LOE_Id ?? 0;
+
+                    await connection.ExecuteAsync(
+                        @"DECLARE @NewId INT;
+                      SELECT @NewId = ISNULL(MAX(LAF_ID), 0) + 1 FROM LOE_AdditionalFees;
+
+                      INSERT INTO LOE_AdditionalFees
+                      (LAF_ID, LAF_LOEID, LAF_OtherExpensesID,
+                       LAF_Charges, LAF_OtherExpensesName,
+                       LAF_Delflag, LAF_STATUS, LAF_CrBy,
+                       LAF_CrOn, LAF_IPAddress, LAF_CompID)
+                      VALUES
+                      (@NewId, @LAF_LOEID, @LAF_OtherExpensesID,
+                       @LAF_Charges, @LAF_OtherExpensesName,
+                       'A', 'A', @LAF_CrBy,
+                       GETDATE(), @LAF_IPAddress, @LAF_CompID);",
+                        fee,
+                        transaction);
+                }
+
+                await transaction.CommitAsync();
+                return dto.LOE_Id ?? 0;
             }
             catch
             {
-                transaction.Rollback();
+                await transaction.RollbackAsync();
                 throw;
             }
         }
+        private async Task<string> GenerateLOENameAsync(
+            int compId,
+            int yearId,
+            int customerId,
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            return await connection.ExecuteScalarAsync<string>(
+                @"SELECT 'LOE-' + CAST(@CustomerId AS VARCHAR) + '-' + CAST(@YearId AS VARCHAR);",
+                new { CustomerId = customerId, YearId = yearId },
+                transaction);
+        }
     }
 }
-
 

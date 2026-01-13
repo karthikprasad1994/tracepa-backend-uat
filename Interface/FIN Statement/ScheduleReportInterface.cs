@@ -1,4 +1,6 @@
-﻿using static TracePca.Dto.FIN_Statement.ScheduleReportDto;
+﻿using TracePca.Dto.Audit;
+using TracePca.Dto.FIN_Statement;
+using static TracePca.Dto.FIN_Statement.ScheduleReportDto;
 
 
 namespace TracePca.Interface.FIN_Statement
@@ -43,7 +45,7 @@ namespace TracePca.Interface.FIN_Statement
         Task<CustomerAmountSettingsDto> GetCustomerAmountSettingsAsync(int customerId);
 
         //SaveFinancialStatement
-        Task<bool> SaveLoeTemplatesAsync(int loeId, int reportTypeId, int compId, int createdBy,string ipAddress);
+        Task<int> SaveOrUpdateFinancialStatementAsync(SREngagementPlanDetailsDTO dto);
     }
 }
                          
