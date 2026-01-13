@@ -25,45 +25,45 @@ namespace TracePca.Controllers.SuperMaster
         }
 
         //UploadEmployeeMasters
-        [HttpPost("UploadEmployeeMasters")]
-        public async Task<IActionResult> UploadEmployeeMaster([FromQuery] int compId, IFormFile file)
-        {
-            if (file == null || file.Length == 0)
-                return BadRequest(new
-                {
-                    statusCode = 400,
-                    message = "No file uploaded."
-                });
+        //[HttpPost("UploadEmployeeMasters")]
+        //public async Task<IActionResult> UploadEmployeeMaster([FromQuery] int compId, IFormFile file)
+        //{
+        //    if (file == null || file.Length == 0)
+        //        return BadRequest(new
+        //        {
+        //            statusCode = 400,
+        //            message = "No file uploaded."
+        //        });
 
-            try
-            {
-                var results = await _ExcelInformationService.UploadEmployeeDetailsAsync(compId, file);
+        //    try
+        //    {
+        //        var results = await _ExcelInformationService.UploadEmployeeDetailsAsync(compId, file);
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Employee master processed successfully"
-                });
-            }
-            catch (EmployeeUploadException ex) // <-- catch your structured exception
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new
-                {
-                    statusCode = 404,
-                    message = ex.Message,
-                    data = ex.Errors // <-- structured dictionary
-                });
-            }
-            catch (Exception ex) // fallback for other unexpected errors
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new
-                {
-                    statusCode = 404,
-                    message = "Error processing employee master",
-                    data = new List<string> { ex.Message }
-                });
-            }
-        }
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Employee master processed successfully"
+        //        });
+        //    }
+        //    catch (EmployeeUploadException ex) // <-- catch your structured exception
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError, new
+        //        {
+        //            statusCode = 404,
+        //            message = ex.Message,
+        //            data = ex.Errors // <-- structured dictionary
+        //        });
+        //    }
+        //    catch (Exception ex) // fallback for other unexpected errors
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError, new
+        //        {
+        //            statusCode = 404,
+        //            message = "Error processing employee master",
+        //            data = new List<string> { ex.Message }
+        //        });
+        //    }
+        //}
 
 
         //SaveEmployeeMaster
@@ -95,46 +95,46 @@ namespace TracePca.Controllers.SuperMaster
             }
         }
 
-        //UploadClientDetails
-        [HttpPost("UploadClientDetails")]
-        public async Task<IActionResult> UploadClientDetails([FromQuery] int compId, IFormFile file)
-        {
-            if (file == null || file.Length == 0)
-                return BadRequest(new
-                {
-                    statusCode = 400,
-                    message = "No file uploaded."
-                });
+        ////UploadClientDetails
+        //[HttpPost("UploadClientDetails")]
+        //public async Task<IActionResult> UploadClientDetails([FromQuery] int compId, IFormFile file)
+        //{
+        //    if (file == null || file.Length == 0)
+        //        return BadRequest(new
+        //        {
+        //            statusCode = 400,
+        //            message = "No file uploaded."
+        //        });
 
-            try
-            {
-                await _ExcelInformationService.UploadClientDetailsAsync(compId, file);
+        //    try
+        //    {
+        //        await _ExcelInformationService.UploadClientDetailsAsync(compId, file);
 
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Client details processed successfully"
-                });
-            }
-            catch (ClientDetailsUploadException ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new
-                {
-                    statusCode = 404,
-                    message = "Error processing client details",
-                    data = ex.Errors
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new
-                {
-                    statusCode = 404,
-                    message = "Error processing client details",
-                    data = new List<string> { ex.Message }
-                });
-            }
-        }
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Client details processed successfully"
+        //        });
+        //    }
+        //    catch (ClientDetailsUploadException ex)
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError, new
+        //        {
+        //            statusCode = 404,
+        //            message = "Error processing client details",
+        //            data = ex.Errors
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError, new
+        //        {
+        //            statusCode = 404,
+        //            message = "Error processing client details",
+        //            data = new List<string> { ex.Message }
+        //        });
+        //    }
+        //}
 
         //SaveClientDetails
         [HttpPost("SaveClientDetails")]
@@ -162,47 +162,47 @@ namespace TracePca.Controllers.SuperMaster
             }
         }
 
-        //UploadClientUser
-        [HttpPost("UploadClientUser")]
-        public async Task<IActionResult> UploadClientUser([FromQuery] int compId, IFormFile file)
-        {
-            if (file == null || file.Length == 0)
-                return BadRequest(new
-                {
-                    statusCode = 400,
-                    message = "No file uploaded."
-                });
+        ////UploadClientUser
+        //[HttpPost("UploadClientUser")]
+        //public async Task<IActionResult> UploadClientUser([FromQuery] int compId, IFormFile file)
+        //{
+        //    if (file == null || file.Length == 0)
+        //        return BadRequest(new
+        //        {
+        //            statusCode = 400,
+        //            message = "No file uploaded."
+        //        });
 
-            try
-            {
-                var results = await _ExcelInformationService.UploadClientUserAsync(compId, file);
+        //    try
+        //    {
+        //        var results = await _ExcelInformationService.UploadClientUserAsync(compId, file);
 
-                // If processed successfully
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Client user processed successfully"
-                });
-            }
-            catch (ClientUserUploadException ex) // <-- catch your structured exception
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new
-                {
-                    statusCode = 404,
-                    message = "Error processing client user",  // custom message for client users
-                    data = ex.Errors // <-- structured dictionary (Missing column, Missing values, Duplication)
-                });
-            }
-            catch (Exception ex) // fallback for other unexpected errors
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new
-                {
-                    statusCode = 404,
-                    message = "Error processing client user",
-                    data = new List<string> { ex.Message }
-                });
-            }
-        }
+        //        // If processed successfully
+        //        return Ok(new
+        //        {
+        //            statusCode = 200,
+        //            message = "Client user processed successfully"
+        //        });
+        //    }
+        //    catch (ClientUserUploadException ex) // <-- catch your structured exception
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError, new
+        //        {
+        //            statusCode = 404,
+        //            message = "Error processing client user",  // custom message for client users
+        //            data = ex.Errors // <-- structured dictionary (Missing column, Missing values, Duplication)
+        //        });
+        //    }
+        //    catch (Exception ex) // fallback for other unexpected errors
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError, new
+        //        {
+        //            statusCode = 404,
+        //            message = "Error processing client user",
+        //            data = new List<string> { ex.Message }
+        //        });
+        //    }
+        //}
 
 
         //SaveClientUser
@@ -336,6 +336,95 @@ namespace TracePca.Controllers.SuperMaster
             catch (Exception ex)
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, new { statusCode = 404, message = "Error processing Task And Subtasks", data = new List<string> { ex.Message } });
+            }
+        }
+
+        //ChangedUploadEmployeeMasters
+        [HttpPost("UploadEmployeeMasters")]
+        public async Task<IActionResult> UploadEmployeeMaster([FromQuery] int compId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "No file uploaded."
+                });
+
+            try
+            {
+                var results = await _ExcelInformationService
+                    .UploadEmployeeDetailsAsync(compId, file);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Employee master processed successfully",
+                    data = results
+                });
+            }
+            catch (EmployeeUploadException ex)
+            {
+                // Validation / duplication / business errors
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 404,
+                    message = ex.Message,
+                    data = ex.Errors
+                });
+            }
+            catch (Exception ex)
+            {
+                // Unexpected runtime errors
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 404,
+                    message = "Error processing employee master",
+                    data = new List<string> { ex.Message }
+                });
+            }
+        }
+
+        //ChangedUploadClientUser
+        [HttpPost("UploadClientUser")]
+        public async Task<IActionResult> UploadClientUsers([FromQuery] int compId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "No file uploaded."
+                });
+
+            try
+            {
+                var results = await _ExcelInformationService.UploadClientUsersAsync(compId, file);
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Client user master processed successfully",
+                    data = results
+                });
+            }
+            catch (ClientUserUploadException ex)
+            {
+                // Validation / duplication / business errors
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 404,
+                    message = ex.Message,
+                    data = ex.Errors
+                });
+            }
+            catch (Exception ex)
+            {
+                // Unexpected runtime errors
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = 404,
+                    message = "Error processing client user master",
+                    data = new List<string> { ex.Message }
+                });
             }
         }
     }

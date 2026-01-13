@@ -10,19 +10,19 @@ namespace TracePca.Interface.SuperMaster
     public interface ExcelInformationInterfaces
     {
         //UploadEmployeeMasters
-        Task<List<string>> UploadEmployeeDetailsAsync(int compId, IFormFile file);
+        //Task<List<string>> UploadEmployeeDetailsAsync(int compId, IFormFile file);
 
         //SaveEmployeeMaster
         Task<List<int[]>> SuperMasterSaveEmployeeDetailsAsync(int CompId, List<SuperMasterSaveEmployeeMasterDto> employees);
 
-        //UploadClientDetails
-        Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file);
+        ////UploadClientDetails
+        //Task<List<string>> UploadClientDetailsAsync(int compId, IFormFile file);
 
         //SaveClientDetails
         Task<List<int[]>> SuperMasterSaveCustomerDetailsAsync(int CompId, List<SuperMasterSaveCustomerDto> customers);
 
-        //UploadClientUser
-        Task<List<string>> UploadClientUserAsync(int compId, IFormFile file);
+        ////UploadClientUser
+        //Task<List<string>> UploadClientUserAsync(int compId, IFormFile file);
 
         //SaveClientUser
         Task<List<int[]>> SuperMasterSaveClientUserAsync(int CompId, List<SaveClientUserDto> clientUser);
@@ -44,5 +44,11 @@ namespace TracePca.Interface.SuperMaster
         Task<List<string>> UploadAuditTypeAndCheckpointsAsync(int compId, int userId, IFormFile file);
 
         Task<List<string>> UploadTaskAndSubTasksAsync(int compId, int userId, IFormFile file);
+
+        //ChangedUploadEmployeeMasters
+        Task<List<string>> UploadEmployeeDetailsAsync(int compId, IFormFile file);
+
+        //ChangedUploadClientUser
+        Task<List<string>> UploadClientUsersAsync(int compId, IFormFile file);
     }
 }

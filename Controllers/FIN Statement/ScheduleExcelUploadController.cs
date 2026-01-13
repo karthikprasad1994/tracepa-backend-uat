@@ -476,7 +476,7 @@ namespace TracePca.Controllers.FIN_Statement
  int userId,
  string ipAddress)
         {
-            const int batchSize = 1000;
+            const int batchSize = 4000;
             var validRows = request.Rows.Where(r => !string.IsNullOrEmpty(r.Account)).ToList();
             var batches = validRows.Batch(batchSize);
 
@@ -495,20 +495,10 @@ namespace TracePca.Controllers.FIN_Statement
             // Cache existing accounts and identify missing ones
             foreach (var row in validRows)
             {
-           if (row.JE_Type == "Bill Payment (Check)")
-                {
-                    string hi = "0";
-                }
                 if (string.IsNullOrWhiteSpace(row.Account)) continue;
 
-                var account = row.Account?.Trim();
-
-                if (string.IsNullOrEmpty(account))
-                    continue;
-
-                if (existingAccountsCache.ContainsKey(account))
-                    continue;
-
+                var account = row.Account;
+                if (existingAccountsCache.ContainsKey(account)) continue;
 
                 var exists = await CheckAccountData(
                     connection, transaction, accessCodeId,
@@ -528,7 +518,6 @@ namespace TracePca.Controllers.FIN_Statement
                     var voucherId = await CheckVoucherType(connection, transaction, accessCodeId, "JE", row.JE_Type);
                     voucherTypesCache[row.JE_Type] = voucherId;
                 }
-               
             }
 
             // ===============================

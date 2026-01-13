@@ -27,9 +27,9 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         [HttpGet("GetAccountingRatios")]
-        public async Task<IActionResult> GetAccountingRatios(int yearId, int customerId, int branchId)
+        public async Task<IActionResult> GetAccountingRatios(int yearId, int customerId)
         {
-            if (yearId <= 0 || customerId <= 0 || branchId <= 0)
+            if (yearId <= 0 || customerId <= 0 )
             {
                 return BadRequest(new
                 {
@@ -41,7 +41,7 @@ namespace TracePca.Controllers.FIN_Statement
 
             try
             {
-                var result = await _ScheduleAccountingRatioService.LoadAccRatioAsync(yearId, customerId, branchId);
+                var result = await _ScheduleAccountingRatioService.LoadAccRatioAsync(yearId, customerId);
 
                 if (result == null || result == null)
                 {

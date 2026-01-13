@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TracePca.Interface.FIN_Statement;
+using TracePca.Service.Audit;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleReportDto;
 
@@ -474,41 +475,32 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //SaveFinancialStatement
-        [HttpPost("save")]
-        public async Task<IActionResult> SaveLoeTemplates([FromBody] SaveLoeTemplateRequestDto request)
+        [HttpPost("SaveOrUpdateEngagementPlan")]
+        public async Task<IActionResult> SaveOrUpdateFinancialStatement( [FromBody] SREngagementPlanDetailsDTO dto)
         {
             try
             {
-                if (request == null)
+                if (dto == null)
                 {
                     return BadRequest(new
                     {
                         StatusCode = 400,
-                        Message = "Request data is required."
+                        Message = "Invalid request data."
                     });
                 }
 
-                var result = await _ScheduleReportService.SaveLoeTemplatesAsync(
-                    request.LoeId,
-                    request.ReportTypeId,
-                    request.CompId,
-                    request.createdBy,
-                    request.ipAddress);
-
-                if (!result)
-                {
-                    return BadRequest(new
-                    {
-                        StatusCode = 400,
-                        Message = "Failed to save LOE templates."
-                    });
-                }
+                var loeId = await _ScheduleReportService.SaveOrUpdateFinancialStatementAsync(dto);
 
                 return Ok(new
                 {
                     StatusCode = 200,
-                    Message = "LOE templates saved successfully.",
-                    Data = result
+                    Message = dto.LOE_Id > 0
+                        ? "Engagement plan updated successfully."
+                        : "Engagement plan saved successfully.",
+                    Data = new
+                    {
+                        LOE_Id = loeId
+                    }
                 });
             }
             catch (Exception ex)
@@ -516,7 +508,7 @@ namespace TracePca.Controllers.FIN_Statement
                 return StatusCode(500, new
                 {
                     StatusCode = 500,
-                    Message = "An error occurred while saving LOE templates.",
+                    Message = "An error occurred while saving engagement plan data.",
                     Error = ex.Message
                 });
             }

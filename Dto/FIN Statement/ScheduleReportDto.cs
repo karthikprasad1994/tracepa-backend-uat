@@ -267,24 +267,33 @@ namespace TracePca.Dto.FIN_Statement
         }
 
         //SaveFinancialStatement
-        public class SaveLoeTemplateRequestDto
+        public class SREngagementPlanDetailsDTO
         {
-            public int LoeId { get; set; }
-            public int ReportTypeId { get; set; }
-            public int CompId { get; set; }
-            public int createdBy { get; set; }
-            public string ipAddress { get; set; }
+            public int? LOE_Id { get; set; }
+            public int LOE_YearId { get; set; }
+            public int LOE_CustomerId { get; set; }
+            public int LOE_ServiceTypeId { get; set; }
+            public string LOE_NatureOfService { get; set; }
+            public decimal LOE_Total { get; set; }
+            public string LOE_Name { get; set; }
+            public int LOE_Frequency { get; set; }
+            public int LOE_AuditFrameworkId { get; set; }
+            public int LOE_CrBy { get; set; }
+            public int? LOE_UpdatedBy { get; set; }
+            public string LOE_IPAddress { get; set; }
+            public int LOE_CompID { get; set; }
+            public int? LOET_Id { get; set; }
+            public string LOET_ScopeOfWork { get; set; }
+            public int LOET_Frequency { get; set; }
+            public decimal LOET_ProfessionalFees { get; set; }
+
+            // ---------- COLLECTIONS ----------
+            public List<EngagementTemplateDetailDTO> EngagementTemplateDetails { get; set; } = new();
+            public List<EngagementAdditionalFeeDTO> EngagementAdditionalFees { get; set; } = new();
         }
-        public class ReportContentDto
+        public class EngagementTemplateDetailDTO
         {
-            public int RCM_HeadingID { get; set; }
-            public string RCM_Heading { get; set; }
-            public string RCM_Description { get; set; }
-            public string RCM_FormName { get; set; }
-        }
-        public class LoeTemplateDetailDto
-        {
-            public int LTD_ID { get; set; }
+            public int? LTD_ID { get; set; }
             public int LTD_LOE_ID { get; set; }
             public int LTD_ReportTypeID { get; set; }
             public int LTD_HeadingID { get; set; }
@@ -292,11 +301,19 @@ namespace TracePca.Dto.FIN_Statement
             public string LTD_Decription { get; set; }
             public string LTD_FormName { get; set; }
             public int LTD_CrBy { get; set; }
-            public DateTime LTD_CrOn { get; set; }
             public string LTD_IPAddress { get; set; }
             public int LTD_CompID { get; set; }
-            public int? LTD_UpdatedBy { get; set; }
-            public DateTime? LTD_UpdatedOn { get; set; }
+        }
+        public class EngagementAdditionalFeeDTO
+        {
+            public int? LAF_ID { get; set; }
+            public int LAF_LOEID { get; set; }
+            public int LAF_OtherExpensesID { get; set; }
+            public decimal LAF_Charges { get; set; }
+            public string LAF_OtherExpensesName { get; set; }
+            public int LAF_CrBy { get; set; }
+            public string LAF_IPAddress { get; set; }
+            public int LAF_CompID { get; set; }
         }
     }
 }
