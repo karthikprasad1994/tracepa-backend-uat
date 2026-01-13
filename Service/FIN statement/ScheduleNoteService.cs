@@ -1722,6 +1722,7 @@ INSERT INTO ScheduleNote_First (
             SNT_CustId,
             SNT_Description, 
             SNT_CYear_Amount, 
+SNT_CYear_Shares,SNT_PYear_Shares,
             SNT_PYear_Amount
         FROM ScheduleNote_Third
         WHERE SNT_Category = @Category
