@@ -1444,74 +1444,74 @@ namespace TracePca.Service.DigitalFilling
                 //                     WHERE SAR_SA_ID = A.SA_ID AND SAR_AttchID <> 0 and SAR_EmailIds <> '') AS DistinctIds) D
                 //                     WHERE A.SA_CompID = @SA_CompID AND A.SA_IsArchived = 1 AND A.SA_ForCompleteAudit = 1";
 
-                string query = @"SELECT  
-    A.SA_ID,
-    A.SA_AuditNo,
-    A.SA_ScopeOfAudit,
-    A.SA_CustID,
-    A.SA_AuditTypeID,
-    A.SA_PartnerID,
-    A.SA_ReviewPartnerID,
-    A.SA_AttachID,
-    A.SA_CompID,
-    A.SA_StartDate,
-    A.SA_ExpCompDate,
-    CASE 
-        WHEN A.SA_AuditOpinionDate <= '1900-01-01' THEN NULL
-        ELSE A.SA_AuditOpinionDate 
-    END AS SA_AuditOpinionDate,
-    A.SA_ExpiryDate,
-    B.CUST_NAME,
-    B.CUST_CODE,
-    CMM.CMM_Code,
-    CMM.CMM_Desc,
-    A.SA_RetentionPeriod,
+                                    string query = @"SELECT  
+                                    A.SA_ID,
+                                    A.SA_AuditNo,
+                                    A.SA_ScopeOfAudit,
+                                    A.SA_CustID,
+                                    A.SA_AuditTypeID,
+                                    A.SA_PartnerID,
+                                    A.SA_ReviewPartnerID,
+                                    A.SA_AttachID,
+                                    A.SA_CompID,
+                                    A.SA_StartDate,
+                                    A.SA_ExpCompDate,
+                                    CASE 
+                                        WHEN A.SA_AuditOpinionDate <= '1900-01-01' THEN NULL
+                                        ELSE A.SA_AuditOpinionDate 
+                                    END AS SA_AuditOpinionDate,
+                                    A.SA_ExpiryDate, SA_ArchivedOn,
+                                    B.CUST_NAME,
+                                    B.CUST_CODE,
+                                    CMM.CMM_Code,
+                                    CMM.CMM_Desc,
+                                    A.SA_RetentionPeriod,
 	 
-    ISNULL(EC.AttachmentCount, 0) AS AttachmentCount,
+                                    ISNULL(EC.AttachmentCount, 0) AS AttachmentCount,
 	 
-    RH.SA_AttachmentID
+                                    RH.SA_AttachmentID
 
-FROM StandardAudit_Schedule A
-INNER JOIN SAD_CUSTOMER_MASTER B 
-    ON B.Cust_Id = A.SA_CustID
-INNER JOIN Content_Management_Master CMM 
-    ON CMM.CMM_ID = A.SA_AuditTypeID
+                                FROM StandardAudit_Schedule A
+                                INNER JOIN SAD_CUSTOMER_MASTER B 
+                                    ON B.Cust_Id = A.SA_CustID
+                                INNER JOIN Content_Management_Master CMM 
+                                    ON CMM.CMM_ID = A.SA_AuditTypeID
 	 
-OUTER APPLY
-(
-    SELECT COUNT(*) AS AttachmentCount
-    FROM edt_Cabinet CA
-    INNER JOIN edt_Cabinet SC 
-        ON CA.cbn_ID = SC.CBn_Parent
-    INNER JOIN edt_Folder F 
-        ON F.FOL_Cabinet = SC.CBn_ID
-    INNER JOIN edt_Page P 
-        ON P.pge_Cabinet = CA.CBN_ID
-       AND P.pge_Subcabinet = SC.CBN_ID
-       AND P.pge_Folder = F.FOL_FOLID
-    WHERE CA.cbn_AuditID = A.SA_ID
-) EC
+                                OUTER APPLY
+                                (
+                                    SELECT COUNT(*) AS AttachmentCount
+                                    FROM edt_Cabinet CA
+                                    INNER JOIN edt_Cabinet SC 
+                                        ON CA.cbn_ID = SC.CBn_Parent
+                                    INNER JOIN edt_Folder F 
+                                        ON F.FOL_Cabinet = SC.CBn_ID
+                                    INNER JOIN edt_Page P 
+                                        ON P.pge_Cabinet = CA.CBN_ID
+                                       AND P.pge_Subcabinet = SC.CBN_ID
+                                       AND P.pge_Folder = F.FOL_FOLID
+                                    WHERE CA.cbn_AuditID = A.SA_ID
+                                ) EC
  
-OUTER APPLY
-(
-    SELECT 
-        STRING_AGG(CAST(P.pge_BaseName AS VARCHAR), ',') AS SA_AttachmentID
-    FROM edt_Cabinet CA
-    INNER JOIN edt_Cabinet SC 
-        ON CA.cbn_ID = SC.CBn_Parent
-    INNER JOIN edt_Folder F 
-        ON F.FOL_Cabinet = SC.CBn_ID
-    INNER JOIN edt_Page P 
-        ON P.pge_Cabinet = CA.CBN_ID
-       AND P.pge_Subcabinet = SC.CBN_ID
-       AND P.pge_Folder = F.FOL_FOLID
-    WHERE CA.cbn_AuditID = A.SA_ID
-) RH
+                                OUTER APPLY
+                                (
+                                    SELECT 
+                                        STRING_AGG(CAST(P.pge_BaseName AS VARCHAR), ',') AS SA_AttachmentID
+                                    FROM edt_Cabinet CA
+                                    INNER JOIN edt_Cabinet SC 
+                                        ON CA.cbn_ID = SC.CBn_Parent
+                                    INNER JOIN edt_Folder F 
+                                        ON F.FOL_Cabinet = SC.CBn_ID
+                                    INNER JOIN edt_Page P 
+                                        ON P.pge_Cabinet = CA.CBN_ID
+                                       AND P.pge_Subcabinet = SC.CBN_ID
+                                       AND P.pge_Folder = F.FOL_FOLID
+                                    WHERE CA.cbn_AuditID = A.SA_ID
+                                ) RH
 
-WHERE 
-    A.SA_CompID = @SA_CompID
-    AND A.SA_IsArchived = 1
-    AND A.SA_ForCompleteAudit = 1;
+                                WHERE 
+                                    A.SA_CompID = @SA_CompID
+                                    AND A.SA_IsArchived = 1
+                                    AND A.SA_ForCompleteAudit = 1;
 ";
 
                 var result = await connection.QueryAsync<ArchiveDetailsDto>(query, new
