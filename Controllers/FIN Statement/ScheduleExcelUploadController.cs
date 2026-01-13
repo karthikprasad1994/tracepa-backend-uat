@@ -476,7 +476,7 @@ namespace TracePca.Controllers.FIN_Statement
  int userId,
  string ipAddress)
         {
-            const int batchSize = 1000;
+            const int batchSize = 4000;
             var validRows = request.Rows.Where(r => !string.IsNullOrEmpty(r.Account)).ToList();
             var batches = validRows.Batch(batchSize);
 
@@ -721,9 +721,8 @@ namespace TracePca.Controllers.FIN_Statement
                     }
 
                     // Get voucher type from cache
-                    var billType = !string.IsNullOrWhiteSpace(row.JE_Type) && voucherTypesCache.ContainsKey(row.JE_Type)
-                        ? voucherTypesCache[row.JE_Type]
-                        : 0;
+                    var billType = await CheckVoucherType(connection, transaction, accessCodeId, "JE", row.JE_Type);
+
 
                     // Create Journal Entry Master for new transaction date
                     if (transactionDate != DateTime.MinValue && transactionDate != new DateTime(1900, 1, 1))

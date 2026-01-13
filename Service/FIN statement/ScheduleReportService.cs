@@ -848,13 +848,15 @@ ORDER BY ud.ATBUD_Subheading";
                                     results.Add(new SummaryReportPnLRow
                                     {
                                         SrNo = (results.Count + 1).ToString(),
-                                        Name = "Total Expenditure",
+                                        Name = "Total",
                                         status = "1",
                                         HeaderSLNo = totalExpense == 0 ? "-" : totalExpense.ToString($"N{RoundOff}"),
                                         PrevYearTotal = totalPrevExpense == 0 ? "-" : totalPrevExpense.ToString($"N{RoundOff}")
                                     });
                                 }
                                 GtotalExpense += totalExpense; GtotalPrevExpense += totalPrevExpense;
+                                totalExpense = 0; totalPrevExpense = 0;
+
                                 // end sub head
                             }
                         }
@@ -904,19 +906,19 @@ GROUP BY AST_SubHeadingID, ASsH_Name, ASSH_Notes";
                                 }
                             }
                         }
-                    }
-                    fallback = totalIncome - GtotalExpense;
-                    fallbackPrev = totalPrevIncome - GtotalPrevExpense;
-                    totalExpense = 0; totalPrevExpense = 0;
-                    results.Add(new SummaryReportPnLRow
-                    {
-                        SrNo = (results.Count + 1).ToString(),
-                        Name = "Net Income",
-                        HeaderSLNo = fallback == 0 ? "-" : fallback.ToString($"N{RoundOff}"),
-                        PrevYearTotal = fallbackPrev == 0 ? "-" : fallbackPrev.ToString($"N{RoundOff}"),
-                        status = "1"
-                    });
+                    }                  
                 }
+                fallback = totalIncome - GtotalExpense;
+                fallbackPrev = totalPrevIncome - GtotalPrevExpense;
+                totalExpense = 0; totalPrevExpense = 0;
+                results.Add(new SummaryReportPnLRow
+                {
+                    SrNo = (results.Count + 1).ToString(),
+                    Name = "Net Income",
+                    HeaderSLNo = fallback == 0 ? "-" : fallback.ToString($"N{RoundOff}"),
+                    PrevYearTotal = fallbackPrev == 0 ? "-" : fallbackPrev.ToString($"N{RoundOff}"),
+                    status = "1"
+                });
             }
             return results;
         }
@@ -940,9 +942,23 @@ GROUP BY AST_SubHeadingID, ASsH_Name, ASSH_Notes";
             decimal totalIncome = 0, totalPrevIncome = 0;
             decimal totalExpense = 0, totalPrevExpense = 0;
 
-            // 🟩 INCOME HEADINGS
-            // Heading
-            results.Add(new SummaryReportBalanceSheetRow
+            var query = @"
+select CUST_ORGID as OrgId 
+from SAD_CUSTOMER_MASTER 
+where CUST_ID = @CompanyId and CUST_DELFLG = 'A'";
+            int AuditId = await connection.QueryFirstOrDefaultAsync<int>(query, new
+            {
+                CompanyId = p.CustID
+            });
+
+            if (AuditId == 1 || AuditId == 0)  //ICAI Audit
+            {
+
+            }
+
+                // 🟩 INCOME HEADINGS
+                // Heading
+                results.Add(new SummaryReportBalanceSheetRow
             {
                 SrNo = "",
                 Name = "EQUITY AND LIABILITIES",

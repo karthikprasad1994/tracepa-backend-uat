@@ -674,9 +674,6 @@ left join ACC_ScheduleTemplates on AST_Companytype=ud.atbud_custid and AST_Sched
                 if (dto == null)
                     throw new ArgumentNullException(nameof(dto), "Materiality data is required.");
 
-                if (dto.M_Id <= 0)
-                    throw new ArgumentException("Invalid Materiality Id.");
-
                 // 2️⃣ Get DB Name from Session
                 string dbName = _httpContextAccessor.HttpContext?
                     .Session.GetString("CustomerCode");
@@ -693,43 +690,88 @@ left join ACC_ScheduleTemplates on AST_Companytype=ud.atbud_custid and AST_Sched
                         $"Connection string not found for database '{dbName}'."
                     );
 
-                // 4️⃣ Create Connection
                 using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
 
-                // 5️⃣ SQL
-                var sql = @"
-            UPDATE MaterialityMaster
-            SET 
-                m_TypeEntId = @M_TypeEntId,
-                m_perc      = @M_Perc
-            WHERE m_id = @M_Id
+                // 4️⃣ Check if materiality exists for context
+                var existsSql = @"
+            SELECT COUNT(1)
+            FROM MaterialityMaster
+            WHERE M_branchid = @M_branchid
+              AND M_custid = @M_custid
+              AND M_compid = @M_compid
+              AND M_FinancialYearId = @M_FinancialYearId
         ";
 
-                // 6️⃣ Execute
-                var rowsAffected = await connection.ExecuteAsync(sql, dto);
+                var exists = await connection.ExecuteScalarAsync<int>(existsSql, new
+                {
+                    dto.M_branchid,
+                    dto.M_custid,
+                    dto.M_compid,
+                    dto.M_FinancialYearId
+                });
 
-                // 7️⃣ Handle no-row update
+                // 5️⃣ Insert default rows if NOT exists
+                if (exists == 0)
+                {
+                    var insertSql = @"
+                INSERT INTO MaterialityMaster
+                ( 
+                    M_Id,
+                    M_TypeEntId,
+                    M_BenchMark,
+                    M_perc,
+                    M_branchid,
+                    M_custid,
+                    M_compid,
+                    M_FinancialYearId
+                )
+                VALUES
+                (1,1, 'tournover', 0, @M_branchid, @M_custid, @M_compid, @M_FinancialYearId),
+                (2,1, 'performance materiality', 0, @M_branchid, @M_custid, @M_compid, @M_FinancialYearId),
+                (3,1, 'threshold', 0, @M_branchid, @M_custid, @M_compid, @M_FinancialYearId)
+            ";
+
+                    await connection.ExecuteAsync(insertSql, new
+                    {
+                        dto.M_branchid,
+                        dto.M_custid,
+                        dto.M_compid,
+                        dto.M_FinancialYearId
+                    });
+                }
+
+                // 6️⃣ Update materiality (STRICT WHERE)
+                var updateSql = @"
+            UPDATE MaterialityMaster
+            SET 
+                M_TypeEntId = @M_TypeEntId,
+                M_perc      = @M_Perc
+            WHERE M_Id = @M_Id
+              AND M_branchid = @M_branchid
+              AND M_custid = @M_custid
+              AND M_compid = @M_compid
+              AND M_FinancialYearId = @M_FinancialYearId
+        ";
+
+                var rowsAffected = await connection.ExecuteAsync(updateSql, dto);
+
                 if (rowsAffected == 0)
                     throw new KeyNotFoundException(
-                        $"No LedgerMateriality record found with M_Id = {dto.M_Id}."
+                        "No matching materiality record found for the given context."
                     );
 
                 return rowsAffected;
             }
             catch (SqlException ex)
             {
-                // 🔴 Database-specific errors
                 throw new Exception(
                     "A database error occurred while updating materiality.",
                     ex
                 );
             }
-            catch (Exception)
-            {
-                // 🔴 Let controller decide HTTP response
-                throw;
-            }
         }
+
 
 
     }

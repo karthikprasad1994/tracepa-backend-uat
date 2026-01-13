@@ -18,6 +18,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
@@ -27,6 +28,7 @@ using TracePca.Interface;
 using TracePca.Interface.Audit;
 using TracePca.Interface.Master;
 using TracePca.Service.DigitalFilling;
+using TracePca.Service.Master;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
@@ -2158,8 +2160,8 @@ namespace TracePca.Service.Audit
             {
                 var result = await connection.QueryFirstOrDefaultAsync<(string SubCabinet, string CustCode, string CustName, string YearName, string UserName, DateTime DocumentExpiryDate, int ReminderDay)>(
                     @"Select SA_AuditNo + ' - ' + CMM.CMM_Desc, CUST_CODE, CUST_NAME, YMS_ID, usr_FullName, ISNULL(SA_ExpiryDate, DATEADD(YEAR, 7, GETDATE())) AS SA_ExpiryDate, ISNULL(SA_RetentionPeriod, 7) AS SA_RetentionPeriod
-		            from StandardAudit_Schedule JOIN SAD_CUSTOMER_MASTER On CUST_ID=SA_CustID JOIN Year_Master On YMS_YEARID = SA_YearID Join Sad_Userdetails On Usr_Id = @UserId 
-		            JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA_AuditTypeID Where SA_ID= @AuditId;",
+		            from StandardAudit_Schedule LEFT JOIN SAD_CUSTOMER_MASTER On CUST_ID=SA_CustID LEFT JOIN Year_Master On YMS_YEARID = SA_YearID LEFT Join Sad_Userdetails On Usr_Id = @UserId 
+		            LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA_AuditTypeID Where SA_ID= @AuditId;",
                     new { CompId = compId, AuditId = auditId, UserId = userId });
 
                 String OrgName = result.CustName;
@@ -2282,7 +2284,7 @@ namespace TracePca.Service.Audit
 
                 // 7. Near End of the Audit
                 var nearingEndTypes =
-                "SELECT RTM_Id AS TypeId,1 As CheckReportType,'Near end of the Audit - ' + RTM_ReportTypeName AS TypeName," +
+                "SELECT RTM_Id AS TypeId,1 As CheckReportType,'Near End of the Audit - ' + RTM_ReportTypeName AS TypeName," +
                 " STUFF((SELECT DISTINCT ',' + CAST(SAR_AttchId AS VARCHAR) FROM StandardAudit_Audit_DRLLog_RemarksHistory" +
                 " WHERE SAR_SA_ID=" + auditId + " AND SAR_ReportType=RTM_Id AND SAR_AttchId>0 FOR XML PATH('')),1,1,'') AS AttachIds" +
                 " FROM SAD_ReportTypeMaster" +
@@ -2346,14 +2348,14 @@ namespace TracePca.Service.Audit
                 // 3. Beginning of the Audit Communication
                 var savedBeginningoftheAuditFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Beginning_ofthe_Audit_Report", "", "pdf", 3);
                 int beginningoftheAuditAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedBeginningoftheAuditFilePath, compId, userId);
-                var beginningoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Beginning of the Audit Report' AS TypeName, {beginningoftheAuditAttachmentId} AS AttachIds";
+                var beginningoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Beginning of the Audit - Report' AS TypeName, {beginningoftheAuditAttachmentId} AS AttachIds";
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, beginningoftheAudit);
                 //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Report", "Beginning_ofthe_Audit_Report.pdf", savedScheduleNotesFilePath);
 
                 // 4. During the Audit Requests
                 var savedDRLFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "DRL_Report", "", "pdf", 3);
                 int DRLAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedDRLFilePath, compId, userId);
-                var DRL = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Near End of the Audit Report' AS TypeName, {DRLAttachmentId} AS AttachIds";
+                var DRL = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'DRL - Report' AS TypeName, {DRLAttachmentId} AS AttachIds";
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, DRL);
                 //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Near end of the Audit Report", "DRL_Report.pdf", savedScheduleNotesFilePath);
 
@@ -2374,7 +2376,7 @@ namespace TracePca.Service.Audit
                 // 7. Near End of the Audit
                 var savedNearEndoftheAuditFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Near_End_ofthe_Audit_Report", "", "pdf", 3);
                 int nearEndoftheAuditAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedNearEndoftheAuditFilePath, compId, userId);
-                var nearEndoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Near End of the Audit Report' AS TypeName, {nearEndoftheAuditAttachmentId} AS AttachIds";
+                var nearEndoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Near End of the Audit - Report' AS TypeName, {nearEndoftheAuditAttachmentId} AS AttachIds";
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, nearEndoftheAudit);
                 //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Near end of the Audit Report", "Near_End_ofthe_Audit_Report.pdf", savedScheduleNotesFilePath);
 
@@ -2587,6 +2589,59 @@ namespace TracePca.Service.Audit
         {
             try
             {
+                var attachments = new List<AttachmentDetailsDTO>();
+                var query = @"SELECT A.ATCH_ID, A.ATCH_DOCID, A.ATCH_FNAME, A.ATCH_EXT, A.ATCH_DESC, A.ATCH_CREATEDBY, U.Usr_FullName AS ATCH_CREATEDBYNAME, A.ATCH_CREATEDON, A.ATCH_SIZE FROM edt_attachments A 
+                LEFT JOIN Sad_Userdetails U ON A.ATCH_CREATEDBY = U.Usr_ID AND A.ATCH_COMPID = U.Usr_CompId WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID = @AttachId AND A.ATCH_Status <> 'D' AND 
+                (@CheckReportType <= 0 OR A.ATCH_ReportType = @CheckReportType) ORDER BY A.ATCH_CREATEDON;";
+                attachments = (await connection.QueryAsync<AttachmentDetailsDTO>(query, new { CompId = compId, AttachId = attachId, CheckReportType = typeId })).ToList();
+
+                using var httpClient = new HttpClient();
+                foreach (var item in attachments)
+                {
+                    string fileName = $"{item.ATCH_FNAME}.{item.ATCH_EXT}";
+                    string destFilePath = System.IO.Path.Combine(folderPath, fileName);
+
+                    if (File.Exists(destFilePath))
+                        File.Delete(destFilePath);
+
+                    var file = await _driveService.GetFileByIdAsync(item.ATCH_DOCID, GetUserEmail());
+
+                    var downloadLink = file.WebContentLink;
+                    if (string.IsNullOrEmpty(downloadLink))
+                        return;
+
+                    using var response = await httpClient.GetAsync(downloadLink);
+                    response.EnsureSuccessStatusCode();
+
+                    await using (var fs = new FileStream(destFilePath, FileMode.Create, FileAccess.Write))
+                    {
+                        await response.Content.CopyToAsync(fs);
+                    }
+
+                    await connection.ExecuteAsync(@"UPDATE edt_attachments SET Atch_FolderId = @Atch_FolderId, Atch_Path = @Atch_Path WHERE ATCH_ID = @ATCH_ID AND Atch_DocID = @Atch_DocID",
+                        new
+                        {
+                            Atch_FolderId = folderId,
+                            Atch_Path = downloadLink,
+                            ATCH_ID = item.ATCH_ID,
+                            Atch_DocID = item.ATCH_DOCID
+                        });
+
+                    if (!shouldIndexFile)
+                        IndexingFileAsync(connection, cabinetId, subCabinetId, folderId, userId, compId, destFilePath, "FALSE");
+                     
+				}
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to Handle File Processing details.", ex);
+            }
+        }
+
+        public async Task HandleFileProcessingFromPhysicalPathAsync(SqlConnection connection, int compId, int userId, int cabinetId, int subCabinetId, int folderId, string module, string folderPath, object attachId, bool shouldIndexFile, int typeId)
+        {
+            try
+            {
                 string isBlobData = (await connection.ExecuteScalarAsync<string>(@"SELECT Sad_Config_Value FROM Sad_Config_Settings WHERE Sad_Config_Key = 'FilesInDB' AND Sad_CompID = @CompId", new { CompId = compId }));
 
                 var attachments = new List<AttachmentDetailsDTO>();
@@ -2638,20 +2693,20 @@ namespace TracePca.Service.Audit
                         }
 
 
-						await connection.ExecuteAsync(@"UPDATE edt_attachments SET Atch_FolderId = @Atch_FolderId, Atch_Path = @Atch_Path WHERE ATCH_ID = @ATCH_ID AND Atch_DocID = @Atch_DocID",
-							new
-							{
-								Atch_FolderId = folderId,
-								Atch_Path = savedFilePath,
-								ATCH_ID = item.ATCH_ID,
-								Atch_DocID = item.ATCH_DOCID
-							});
-					}
+                        await connection.ExecuteAsync(@"UPDATE edt_attachments SET Atch_FolderId = @Atch_FolderId, Atch_Path = @Atch_Path WHERE ATCH_ID = @ATCH_ID AND Atch_DocID = @Atch_DocID",
+                            new
+                            {
+                                Atch_FolderId = folderId,
+                                Atch_Path = savedFilePath,
+                                ATCH_ID = item.ATCH_ID,
+                                Atch_DocID = item.ATCH_DOCID
+                            });
+                    }
 
                     if (!shouldIndexFile)
                         IndexingFileAsync(connection, cabinetId, subCabinetId, folderId, userId, compId, destFilePath, isBlobData);
-                     
-				}
+
+                }
             }
             catch (Exception ex)
             {
@@ -2820,18 +2875,31 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                var query = @"UPDATE StandardAudit_Schedule SET SA_RetentionPeriod = @RetentionPeriod, SA_ExpiryDate = DATEADD(YEAR, @RetentionPeriod, @ExpiryDate), SA_ForCompleteAudit = @ForCompleteAudit, SA_IsArchived = 1 WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
+                var query = @"UPDATE StandardAudit_Schedule SET SA_RetentionPeriod = @RetentionPeriod, SA_ExpiryDate = DATEADD(YEAR, @RetentionPeriod, @ExpiryDate), SA_ForCompleteAudit = @ForCompleteAudit, SA_IsArchived = 1,
+                    SA_ArchivedBy = CASE WHEN SA_ArchivedBy IS NULL THEN @UserId ELSE SA_ArchivedBy END,
+                    SA_ArchivedOn = CASE WHEN SA_ArchivedOn IS NULL THEN GETDATE() ELSE SA_ArchivedOn END,
+                    SA_ArchivedUpdatedBy = CASE WHEN SA_ArchivedBy IS NOT NULL THEN @UserId ELSE SA_ArchivedUpdatedBy END,
+                    SA_ArchivedUpdatedOn = CASE WHEN SA_ArchivedBy IS NOT NULL THEN GETDATE() ELSE SA_ArchivedUpdatedOn END
+                    WHERE SA_ID = @AuditID AND SA_CompID = @ACID";
 
-                var parameters = new { RetentionPeriod = dto.SA_RetentionPeriod, ExpiryDate = dto.SA_ExpiryDate, ForCompleteAudit = dto.SA_ForCompleteAudit, AuditID = dto.SA_ID, ACID = dto.SA_CompID };
-                var rowsAffected = await connection.ExecuteAsync(query, parameters);
+                var parameters = new
+                {
+                    RetentionPeriod = dto.SA_RetentionPeriod,
+                    ExpiryDate = dto.SA_ExpiryDate,
+                    ForCompleteAudit = dto.SA_ForCompleteAudit,
+                    AuditID = dto.SA_ID,
+                    ACID = dto.SA_CompID,
+                    UserId = dto.SA_UserID
+                };
 
-                return rowsAffected;
+                return await connection.ExecuteAsync(query, parameters);
             }
             catch (Exception ex)
             {
                 throw new ApplicationException("An error occurred while updating the Archive data in the audit.", ex);
             }
         }
+
         List<int> ToIntList(string? value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -3667,7 +3735,8 @@ namespace TracePca.Service.Audit
             });
         }
 
-        public async Task<int> UploadAndSaveAttachmentFromPhysicalPathAsync(string physicalFilePath, int compId, int userId)
+        public async Task<int> UploadAndSaveAttachmentFromPhysicalPathAsync(
+    string physicalFilePath, int compId, int userId)
         {
             try
             {
@@ -3676,44 +3745,46 @@ namespace TracePca.Service.Audit
 
                 var fileInfo = new FileInfo(physicalFilePath);
 
-                FileStream stream = new FileStream(physicalFilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                IFormFile formFile = new FormFile(stream, 0, stream.Length, "file", fileInfo.Name)
+                int attachId;
+                int docId;
+
+                using (var stream = new FileStream(physicalFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    Headers = new HeaderDictionary(),
-                    ContentType = "application/octet-stream"
-                };
+                    IFormFile formFile = new FormFile(stream, 0, stream.Length, "file", fileInfo.Name)
+                    {
+                        Headers = new HeaderDictionary(),
+                        ContentType = "application/octet-stream"
+                    };
 
-                using var connection = new SqlConnection(_connectionString);
-                await connection.OpenAsync();
+                    using var connection = new SqlConnection(_connectionString);
+                    await connection.OpenAsync();
 
-                int attachId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = compId });
-                int docId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = compId });
+                    attachId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_ID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = compId });
 
-                string originalName = Path.GetFileNameWithoutExtension(fileInfo.Name) ?? "unknown";
-                string safeFileName = originalName.Replace("&", " and").Substring(0, Math.Min(95, originalName.Length));
+                    docId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = compId });
 
-                string fileExt = fileInfo.Extension.ToLower().Trim('.');
-                long fileSize = fileInfo.Length;
+                    dynamic uploadedFile =
+                        await _driveService.UploadFileToFolderAsync(
+                            formFile, "TracePA/Audit", GetUserEmail(), docId);
 
-                dynamic uploadedFile = await _driveService.UploadFileToFolderAsync(formFile, "TracePA/Audit", GetUserEmail(), docId);
+                    if (uploadedFile == null || uploadedFile.Status != "Success")
+                        throw new Exception(uploadedFile?.Message ?? "File upload failed.");
 
-                if (uploadedFile == null || uploadedFile.Status != "Success")
-                    throw new Exception(uploadedFile?.Message ?? "File upload failed.");
+                    await connection.ExecuteAsync(@"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
+                            ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID) VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);",
+                        new
+                        {
+                            AtchId = attachId,
+                            DocId = docId,
+                            FileName = Path.GetFileNameWithoutExtension(fileInfo.Name),
+                            FileExt = fileInfo.Extension.Trim('.'),
+                            CreatedBy = userId,
+                            Size = fileInfo.Length,
+                            CompId = compId
+                        });
+                }
 
-                var insertQuery = @"
-                    INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, ATCH_Status, ATCH_CompID, Atch_Vstatus,             ATCH_REPORTTYPE, ATCH_DRLID)
-                    VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);";
-
-                await connection.ExecuteAsync(insertQuery, new
-                {
-                    AtchId = attachId,
-                    DocId = docId,
-                    FileName = safeFileName,
-                    FileExt = fileExt,
-                    CreatedBy = userId,
-                    Size = fileSize,
-                    CompId = compId
-                });
+                File.Delete(physicalFilePath);
 
                 return attachId;
             }
