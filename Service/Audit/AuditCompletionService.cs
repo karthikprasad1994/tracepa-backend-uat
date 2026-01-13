@@ -2481,7 +2481,7 @@ namespace TracePca.Service.Audit
 
                 foreach (DataRow row in dt.Rows)
                 {
-                    bool folderExists = true;
+                    //bool folderExists = true;
                     int checkReportType = row["CheckReportType"] == DBNull.Value ? 0 : Convert.ToInt32(row["CheckReportType"]);
                     int typeId = checkReportType == 1 ? Convert.ToInt32(row["TypeId"]) : 0;
                     string folderName = row["TypeName"] == null ? "StandardAudit" : row["TypeName"]?.ToString() ?? "StandardAudit";
@@ -2493,7 +2493,7 @@ namespace TracePca.Service.Audit
                     int folderId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(FOL_FOLID, 0) FROM edt_folder WHERE FOL_NAME = @Name AND FOL_CABINET = @SubCabinetId AND FOL_CompID = @CompId", new { Name = folderName, SubCabinetId = subCabinetId, CompId = compId });
                     if (folderId == 0)
                     {
-                        folderExists = false;
+                        //folderExists = false;
 
                         folderId = await connection.ExecuteScalarAsync<int>(@"DECLARE @NewFolId INT = (SELECT ISNULL(MAX(FOL_FOLID), 0) + 1 FROM edt_folder);
                           INSERT INTO edt_folder (FOL_FOLID, FOL_NAME, FOL_NOTE, FOL_CABINET, FOL_CREATEDBY, FOL_CREATEDON, FOL_STATUS, FOL_DELFLAG, FOL_COMPID)
@@ -2514,7 +2514,7 @@ namespace TracePca.Service.Audit
                     {
                         if (attachId > 0)
                         {
-                            await HandleFileProcessingAsync(connection, compId, userId, cabinetId, subCabinetId, folderId, module, folderPath, attachId.ToString(), folderExists, typeId);
+                            await HandleFileProcessingAsync(connection, compId, userId, cabinetId, subCabinetId, folderId, module, folderPath, attachId.ToString(), false, typeId);
                         }
                     }
                 }
@@ -2600,23 +2600,27 @@ namespace TracePca.Service.Audit
                 {
                     string fileName = $"{item.ATCH_FNAME}.{item.ATCH_EXT}";
                     string destFilePath = System.IO.Path.Combine(folderPath, fileName);
-
+                    var downloadLink = "";
                     if (File.Exists(destFilePath))
                         File.Delete(destFilePath);
 
-                    var file = await _driveService.GetFileByIdAsync(item.ATCH_DOCID, GetUserEmail());
-
-                    var downloadLink = file.WebContentLink;
-                    if (string.IsNullOrEmpty(downloadLink))
-                        return;
-
-                    using var response = await httpClient.GetAsync(downloadLink);
-                    response.EnsureSuccessStatusCode();
-
-                    await using (var fs = new FileStream(destFilePath, FileMode.Create, FileAccess.Write))
+                    try
                     {
-                        await response.Content.CopyToAsync(fs);
+                        var file = await _driveService.GetFileByIdAsync(item.ATCH_DOCID, GetUserEmail());
+
+                        downloadLink = file.WebContentLink;
+                        if (string.IsNullOrEmpty(downloadLink))
+                            return;
+
+                        using var response = await httpClient.GetAsync(downloadLink);
+                        response.EnsureSuccessStatusCode();
+
+                        await using (var fs = new FileStream(destFilePath, FileMode.Create, FileAccess.Write))
+                        {
+                            await response.Content.CopyToAsync(fs);
+                        }
                     }
+                    catch { }
 
                     await connection.ExecuteAsync(@"UPDATE edt_attachments SET Atch_FolderId = @Atch_FolderId, Atch_Path = @Atch_Path WHERE ATCH_ID = @ATCH_ID AND Atch_DocID = @Atch_DocID",
                         new
@@ -3735,8 +3739,7 @@ namespace TracePca.Service.Audit
             });
         }
 
-        public async Task<int> UploadAndSaveAttachmentFromPhysicalPathAsync(
-    string physicalFilePath, int compId, int userId)
+        public async Task<int> UploadAndSaveAttachmentFromPhysicalPathAsync(string physicalFilePath, int compId, int userId)
         {
             try
             {
@@ -3763,9 +3766,7 @@ namespace TracePca.Service.Audit
 
                     docId = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(MAX(ATCH_DOCID), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_COMPID = @CompId", new { CompId = compId });
 
-                    dynamic uploadedFile =
-                        await _driveService.UploadFileToFolderAsync(
-                            formFile, "TracePA/Audit", GetUserEmail(), docId);
+                    dynamic uploadedFile = await _driveService.UploadFileToFolderAsync(formFile, "TracePA/Audit", GetUserEmail(), docId);
 
                     if (uploadedFile == null || uploadedFile.Status != "Success")
                         throw new Exception(uploadedFile?.Message ?? "File upload failed.");
