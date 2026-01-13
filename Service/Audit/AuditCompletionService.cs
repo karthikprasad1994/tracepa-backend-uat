@@ -2514,7 +2514,7 @@ namespace TracePca.Service.Audit
                     {
                         if (attachId > 0)
                         {
-                            await HandleFileProcessingAsync(connection, compId, userId, cabinetId, subCabinetId, folderId, module, folderPath, attachId.ToString(), "FALSE", typeId);
+                            await HandleFileProcessingAsync(connection, compId, userId, cabinetId, subCabinetId, folderId, module, folderPath, attachId.ToString(), false, typeId);
                         }
                     }
                 }
