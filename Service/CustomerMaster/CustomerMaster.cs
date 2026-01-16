@@ -73,8 +73,6 @@ ORDER BY CUST_ID";
             return customers;
         }
 
-
-
         public async Task<IEnumerable<ServicesDto>> GetServicesAsync(int companyId)
         {
             // ✅ Step 1: Get DB name from session
