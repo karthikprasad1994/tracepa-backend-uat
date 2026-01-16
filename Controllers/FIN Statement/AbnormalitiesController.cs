@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using DocumentFormat.OpenXml.Wordprocessing;
+using MailKit.Search;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
@@ -25,13 +27,17 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetAbnormalTransactions
         [HttpGet("Abnormal")]
-        public async Task<IActionResult> GetAbnormalTransactions([FromQuery] int iCustId, [FromQuery] int iBranchId, [FromQuery] int iYearID, [FromQuery] int iAbnormalType, [FromQuery] string sAmount)
+        public async Task<IActionResult> GetAbnormalTransactions([FromQuery] int iCustId, 
+            [FromQuery] int iBranchId, [FromQuery] int iYearID, [FromQuery] int iAbnormalType, [FromQuery] string sAmount,
+
+            [FromQuery] string? searchTerm, [FromQuery] int pageNumber, [FromQuery] int pageSize)
         {
             try
             {
-                var result = await _AbnormalitiesService.GetAbnormalTransactionsAsync(iCustId, iBranchId, iYearID, iAbnormalType, sAmount);
+                var result = await _AbnormalitiesService.GetAbnormalTransactionsAsync(iCustId, iBranchId, 
+                    iYearID, iAbnormalType, sAmount, searchTerm, pageNumber, pageSize);
 
-                if (result == null || !result.Any())
+                if (result == null)
                 {
                     return NotFound(new
                     {
@@ -101,6 +107,39 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+        [HttpGet("DownloadAbnormalTransactionsExcel")]
+        public async Task<IActionResult> DownloadAbnormalTransactionsExcel(
+    [FromQuery] int iCustId,
+    [FromQuery] int iBranchId,
+    [FromQuery] int iYearID,
+    [FromQuery] int iAbnormalType,
+    [FromQuery] decimal sAmount,
+    [FromQuery] string searchTerm = "")
+        {
+            try
+            {
+                var excelData = await _AbnormalitiesService.DownloadAbnormalTransactionsExcelAsync(
+                    iCustId,
+                    iBranchId,
+                    iYearID,
+                    iAbnormalType,
+                    sAmount,
+                    searchTerm);
+
+                var fileName = $"AbnormalTransactions_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+
+                return File(excelData,
+                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                           fileName);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error generating Excel file: {ex.Message}");
+            }
+        }
+
+
     }
 }
 

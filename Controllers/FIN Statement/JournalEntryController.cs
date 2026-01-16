@@ -418,38 +418,20 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //GetJETypeDropDownDetails
-        [HttpGet("GetJETypeDropDownDetails")]
-        public async Task<IActionResult> GetJETypeDropDownDetails([FromQuery] int compId, [FromQuery] int custId, [FromQuery] int yearId, [FromQuery] int BranchId, int jetype)
+        [HttpPost("get-je-dropdown-details")]
+        public async Task<IActionResult> GetJETypeDropDownDetails([FromBody] JETypeDropdownRequestDto request)
         {
             try
             {
-                var result = await _JournalEntryService.GetJETypeDropDownDetailsAsync(compId, custId, yearId, BranchId, jetype);
+                // Validate page size (prevent too large requests)
+                request.PageSize = Math.Min(request.PageSize, 100); // Max 100 records per page
 
-                if (result == null || !result.Any())
-                {
-                    return NotFound(new
-                    {
-                        statusCode = 404,
-                        message = "No journal entry information found.",
-                        data = (object)null
-                    });
-                }
-
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Journal entry information loaded successfully.",
-                    data = result
-                });
+                var result = await _JournalEntryService.GetJETypeDropDownDetailsAsync(request);
+                return Ok(result);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An error occurred while fetching journal entry information.",
-                    error = ex.Message
-                });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
 
