@@ -37,10 +37,7 @@ namespace TracePca.Service.SuperMaster
             _dbcontext = dbcontext;
             _httpContextAccessor = httpContextAccessor;
         }
-
-        //UploadEmployeeMasters
-  
-
+      
         //SaveEmployeeMaster
         public async Task<List<int[]>> SuperMasterSaveEmployeeDetailsAsync(int CompId, List<SuperMasterSaveEmployeeMasterDto> employees)
         {
@@ -153,7 +150,6 @@ namespace TracePca.Service.SuperMaster
                 throw;
             }
         }
-
 
         //SaveClientDetails
         public async Task<List<int[]>> SuperMasterSaveCustomerDetailsAsync(int CompId, List<SuperMasterSaveCustomerDto> customers)
@@ -396,8 +392,6 @@ namespace TracePca.Service.SuperMaster
             }
         }
 
-
-
         // SaveClientUser 
         public async Task<List<int[]>> SuperMasterSaveClientUserAsync(int CompId, List<SaveClientUserDto> clientUser)
         {
@@ -565,8 +559,8 @@ namespace TracePca.Service.SuperMaster
                 return new EmployeeMasterResult();
 
             var bytes = File.ReadAllBytes(filePath);
-            var fileName = "EmployeeMaster Template.xlsx";   // ✅ keep .xls
-            var contentType = "application/vnd.ms-excel"; // ✅ correct for .xls
+            var fileName = "EmployeeMaster Template.xlsx"; 
+            var contentType = "application/vnd.ms-excel"; 
 
             return new EmployeeMasterResult
             {
@@ -621,9 +615,9 @@ namespace TracePca.Service.SuperMaster
         {
             var templates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            { "Employee Master", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\EmployeeMaster Template.xlsx" },
-            { "Client Details", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\ClientDetails Template.xlsx" },
-            { "Client User", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\ClientUser Template.xlsx" },
+            { "Employee Master", @"C:\Users\SSD\Desktop\Current BackEnd\tracepa-corebackend\SampleExcels\EmployeeMaster Excel Format.xlsx" },
+            { "Client Details", @"C:\Users\SSD\Desktop\Current BackEnd\tracepa-corebackend\SampleExcels\ClientDetails Format.xlsx" },
+            { "Client User", @"C:\Users\SSD\Desktop\Current BackEnd\tracepa-corebackend\SampleExcels\ClientUser Format.xlsx" },
             { "Audit Type & Checkpoints", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\AuditChecklistMaster.xlsx" },
             { "Task & SubTasks", @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\SampleExcels\TaskMaster.xlsx" }
         };
