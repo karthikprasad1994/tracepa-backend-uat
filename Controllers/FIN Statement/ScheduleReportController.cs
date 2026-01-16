@@ -475,41 +475,74 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //SaveFinancialStatement
-        [HttpPost("SaveOrUpdateEngagementPlan")]
-        public async Task<IActionResult> SaveOrUpdateFinancialStatement( [FromBody] SREngagementPlanDetailsDTO dto)
+        //[HttpPost("SaveOrUpdateEngagementPlan")]
+        //public async Task<IActionResult> SaveOrUpdateFinancialStatement( [FromBody] SREngagementPlanDetailsDTO dto)
+        //{
+        //    try
+        //    {
+        //        if (dto == null)
+        //        {
+        //            return BadRequest(new
+        //            {
+        //                StatusCode = 400,
+        //                Message = "Invalid request data."
+        //            });
+        //        }
+
+        //        var loeId = await _ScheduleReportService.SaveOrUpdateFinancialStatementAsync(dto);
+
+        //        return Ok(new
+        //        {
+        //            StatusCode = 200,
+        //            Message = dto.LOE_Id > 0
+        //                ? "Engagement plan updated successfully."
+        //                : "Engagement plan saved successfully.",
+        //            Data = new
+        //            {
+        //                LOE_Id = loeId
+        //            }
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            StatusCode = 500,
+        //            Message = "An error occurred while saving engagement plan data.",
+        //            Error = ex.Message
+        //        });
+        //    }
+        //}
+        [HttpPost("SaveOrUpdateFinancialStatement")]
+        public async Task<IActionResult> SaveOrUpdateFinancialStatement([FromBody] FinancialStatementDTO dto)
         {
+            if (dto == null || dto.EngagementTemplateDetails == null || !dto.EngagementTemplateDetails.Any())
+            {
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "Invalid request data.",
+                    data = (object)null
+                });
+            }
+
             try
             {
-                if (dto == null)
-                {
-                    return BadRequest(new
-                    {
-                        StatusCode = 400,
-                        Message = "Invalid request data."
-                    });
-                }
-
-                var loeId = await _ScheduleReportService.SaveOrUpdateFinancialStatementAsync(dto);
-
+                bool result = await _ScheduleReportService.SaveOrUpdateFinancialStatementAsync(dto);
                 return Ok(new
                 {
-                    StatusCode = 200,
-                    Message = dto.LOE_Id > 0
-                        ? "Engagement plan updated successfully."
-                        : "Engagement plan saved successfully.",
-                    Data = new
-                    {
-                        LOE_Id = loeId
-                    }
+                    statusCode = 200,
+                    message = "Financial statement saved/updated successfully.",
+                    data = (object)null
                 });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new
                 {
-                    StatusCode = 500,
-                    Message = "An error occurred while saving engagement plan data.",
-                    Error = ex.Message
+                    statusCode = 500,
+                    message = "An error occurred while saving or updating financial statement.",
+                    error = ex.Message
                 });
             }
         }
