@@ -952,13 +952,9 @@ where CUST_ID = @CompanyId and CUST_DELFLG = 'A'";
             });
 
             if (AuditId == 1 || AuditId == 0)  //ICAI Audit
-            {
-
-            }
-
-                // 🟩 INCOME HEADINGS
-                // Heading
-                results.Add(new SummaryReportBalanceSheetRow
+            {         
+            // Heading
+            results.Add(new SummaryReportBalanceSheetRow
             {
                 SrNo = "",
                 Name = "EQUITY AND LIABILITIES",
@@ -1090,9 +1086,7 @@ ORDER BY ud.ATBUD_Subheading";
             {
                 SrNo = "",
                 status = "2"
-            });
-
-            // 🟥 EXPENSE HEADINGS
+            });     
 
             // Heading
             results.Add(new SummaryReportBalanceSheetRow
@@ -1216,6 +1210,267 @@ ORDER BY ud.ATBUD_Subheading";
                 PrevYearTotal = totalPrevExpense == 0 ? "-" : totalPrevExpense.ToString($"N{RoundOff}"),
                 status = "1"
             });
+        }
+            else
+            {                         
+                // Heading
+                results.Add(new SummaryReportBalanceSheetRow
+                {
+                    SrNo = "",
+                    Name = "Assets",
+                    HeaderSLNo = "",
+                    PrevYearTotal = "",
+                    status = "1"
+                });
+                var expenseHeadingSql = @"
+SELECT AST_HeadingID AS HeadingID, ASH_Name AS Name
+FROM ACC_ScheduleTemplates
+LEFT JOIN ACC_ScheduleHeading a ON a.ash_id = AST_HeadingID
+WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND a.ASH_Notes = 1
+GROUP BY AST_HeadingID, ASH_Name
+ORDER BY AST_HeadingID";
+
+                var expenseHeadings = await connection.QueryAsync<(int HeadingID, string Name)>(expenseHeadingSql, new { ScheduleTypeID, CustID = p.CustID });
+
+                foreach (var heading in expenseHeadings)
+                {
+                    var expenseBalanceSql = @"
+SELECT
+    ud.ATBUD_Headingid AS HeadingID,
+    h.ASH_Name AS Name,
+    h.ASH_Notes AS Notes,
+    ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal,
+    ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount), 0) AS DbTotal,
+    ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount), 0) AS PrevCrTotal,
+    ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount), 0) AS PrevDbTotal
+FROM Acc_TrailBalance_Upload_Details ud
+LEFT JOIN ACC_ScheduleHeading h ON h.ASH_ID = ud.ATBUD_Headingid AND h.ASH_Notes = 1
+LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid
+LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid
+WHERE ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_compid = @CompID AND ud.ATBUD_CustId = @CustID AND ud.ATBUD_Headingid = @HeadingID
+    AND EXISTS (SELECT 1 FROM ACC_ScheduleTemplates s WHERE s.AST_HeadingID = ud.ATBUD_Headingid AND s.AST_AccHeadId IN (1, 2))
+GROUP BY ud.ATBUD_Headingid, h.ASH_Name, h.ASH_Notes
+ORDER BY ud.ATBUD_Headingid";
+                    var headingBalance = await connection.QueryFirstOrDefaultAsync(expenseBalanceSql, new
+                    {
+                        YearID = p.YearID,
+                        PrevYearID = p.YearID - 1,
+                        CustID = p.CustID,
+                        BranchId = p.BranchId,
+                        ScheduleTypeID,
+                        HeadingID = heading.HeadingID,
+                        CompID = CompId
+                    });
+                    results.Add(new SummaryReportBalanceSheetRow
+                    {
+                        SrNo = (results.Count + 1).ToString(),
+                        Name = heading.Name,
+                        HeaderSLNo = "",
+                        PrevYearTotal = "",
+                        status = "1"
+                    });
+
+                    var subSql = @"
+SELECT AST_SubHeadingID AS SubHeadingID, ASsH_Name AS Name, ASSH_Notes AS Notes
+FROM ACC_ScheduleTemplates
+LEFT JOIN ACC_ScheduleSubHeading a ON a.ASSH_ID = AST_SubHeadingID
+WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND AST_AccHeadId = 1 AND AST_HeadingID = @HeadingID
+GROUP BY AST_SubHeadingID, ASsH_Name, ASSH_Notes";
+
+                    var subHeadings = await connection.QueryAsync<(int SubHeadingID, string Name, int Notes)>(subSql, new
+                    {
+                        ScheduleTypeID,
+                        CustID = p.CustID,
+                        HeadingID = heading.HeadingID
+                    });
+
+                    foreach (var sub in subHeadings)
+                    {
+                        var subBalSql = @"
+SELECT
+    ud.ATBUD_Subheading AS SubHeadingID,
+    ssh.ASSH_Name AS Name,
+    ssh.ASSH_Notes AS Notes,
+    ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal,
+    ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount), 0) AS DbTotal,
+    ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount), 0) AS PrevCrTotal,
+    ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount), 0) AS PrevDbTotal
+FROM Acc_TrailBalance_Upload_Details ud
+LEFT JOIN ACC_ScheduleSubHeading ssh ON ssh.ASSH_ID = ud.ATBUD_Subheading
+LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid AND d.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+WHERE ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and ud.ATBUD_Subheading = @SubHeadingID AND ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_CustId = @CustID
+GROUP BY ud.ATBUD_Subheading, ssh.ASSH_Name, ssh.ASSH_Notes
+ORDER BY ud.ATBUD_Subheading";
+
+                        var subBalance = await connection.QueryFirstOrDefaultAsync(subBalSql, new
+                        {
+                            YearID = p.YearID,
+                            PrevYearID = p.YearID - 1,
+                            CustID = p.CustID,
+                            BranchId = p.BranchId,
+                            ScheduleTypeID,
+                            SubHeadingID = sub.SubHeadingID
+                        });
+                        decimal subNet = (subBalance?.DbTotal ?? 0) - (subBalance?.CrTotal ?? 0);
+                        decimal subPrevNet = (subBalance?.PrevDbTotal ?? 0) - (subBalance?.PrevCrTotal ?? 0);
+                        totalExpense += subNet;
+                        totalPrevExpense += subPrevNet;
+                        results.Add(new SummaryReportBalanceSheetRow
+                        {
+                            SrNo = (results.Count + 1).ToString(),
+                            Name = sub.Name,
+                            HeaderSLNo = subNet == 0 ? "-" : subNet.ToString($"N{RoundOff}"),
+                            PrevYearTotal = subPrevNet == 0 ? "-" : subPrevNet.ToString($"N{RoundOff}"),
+                            Notes = sub.Notes != 0 ? sub.Notes.ToString() : "",
+                            status = "2"
+                        });
+                    }
+                }
+                results.Add(new SummaryReportBalanceSheetRow
+                {
+                    SrNo = (results.Count + 1).ToString(),
+                    Name = "Total",
+                    HeaderSLNo = totalExpense == 0 ? "-" : totalExpense.ToString($"N{RoundOff}"),
+                    PrevYearTotal = totalPrevExpense == 0 ? "-" : totalPrevExpense.ToString($"N{RoundOff}"),
+                    status = "1"
+                });
+                results.Add(new SummaryReportBalanceSheetRow
+                {
+                    SrNo = "",
+                    status = "2"
+                });
+                // Heading
+                results.Add(new SummaryReportBalanceSheetRow
+                {
+                    SrNo = "",
+                    Name = "EQUITY AND LIABILITIES",
+                    HeaderSLNo = "",
+                    PrevYearTotal = "",
+                    status = "1"
+                });
+
+                var incomeHeadingSql = @"
+SELECT AST_HeadingID AS HeadingID, ASH_Name AS Name
+FROM ACC_ScheduleTemplates
+LEFT JOIN ACC_ScheduleHeading a ON a.ash_id = AST_HeadingID
+WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND a.ASH_Notes = 2
+GROUP BY AST_HeadingID, ASH_Name
+ORDER BY AST_HeadingID";
+
+                var incomeHeadings = await connection.QueryAsync<(int HeadingID, string Name)>(incomeHeadingSql, new { ScheduleTypeID, CustID = p.CustID });
+
+                foreach (var heading in incomeHeadings)
+                {
+                    var headingBalanceSql = @"
+SELECT  ud.ATBUD_Headingid AS HeadingID,
+    h.ASH_Name AS Name,
+    ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal,
+    ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount), 0) AS DbTotal,
+    ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount), 0) AS PrevCrTotal,
+    ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount), 0) AS PrevDbTotal,
+    h.ASH_Notes
+FROM Acc_TrailBalance_Upload_Details ud
+LEFT JOIN ACC_ScheduleHeading h ON h.ASH_ID = ud.ATBUD_Headingid AND h.ASH_Notes = 2
+LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description
+    AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND d.ATBU_Branchid = ud.Atbud_Branchnameid  AND d.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description
+    AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND e.ATBU_Branchid = ud.Atbud_Branchnameid AND e.ATBU_Branchid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+WHERE  ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and   ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_compid = @CompID AND ud.ATBUD_CustId = @CustID AND ud.ATBUD_Headingid = @HeadingID
+    AND EXISTS (SELECT 1 FROM ACC_ScheduleTemplates s WHERE s.AST_HeadingID = ud.ATBUD_Headingid AND s.AST_AccHeadId IN (1, 2))
+GROUP BY ud.ATBUD_Headingid, h.ASH_Name, h.ASH_Notes
+ORDER BY ud.ATBUD_Headingid";
+
+                    var headingBalance = await connection.QueryFirstOrDefaultAsync(headingBalanceSql, new
+                    {
+                        YearID = p.YearID,
+                        PrevYearID = p.YearID - 1,
+                        CustID = p.CustID,
+                        BranchId = p.BranchId,
+                        ScheduleTypeID,
+                        HeadingID = heading.HeadingID,
+                        CompID = CompId
+                    });
+
+                    results.Add(new SummaryReportBalanceSheetRow
+                    {
+                        SrNo = (results.Count + 1).ToString(),
+                        Name = heading.Name,
+                        HeaderSLNo = "",
+                        PrevYearTotal = "",
+                        status = "1"
+                    });
+
+                    var incomeSubSql = @"
+SELECT AST_SubHeadingID AS SubHeadingID, ASsH_Name AS Name, ASSH_Notes AS Notes
+FROM ACC_ScheduleTemplates
+LEFT JOIN ACC_ScheduleSubHeading a ON a.ASSH_ID = AST_SubHeadingID
+WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND AST_AccHeadId = 2 AND AST_HeadingID = @HeadingID
+GROUP BY AST_SubHeadingID, ASsH_Name, ASSH_Notes";
+
+                    var incomeSubHeadings = await connection.QueryAsync<(int SubHeadingID, string Name, int Notes)>(incomeSubSql, new
+                    {
+                        ScheduleTypeID,
+                        CustID = p.CustID,
+                        HeadingID = heading.HeadingID
+                    });
+                    if (incomeSubHeadings != null)
+                    {
+                        foreach (var sub in incomeSubHeadings)
+                        {
+                            var subBalSql = @"
+SELECT
+    ud.ATBUD_Subheading AS SubHeadingID,
+    sh.ASSH_Name AS Name,
+    sh.ASSH_Notes AS Notes,
+    ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal,
+    ISNULL(SUM(d.ATBU_Closing_TotalDebit_Amount), 0) AS DbTotal,
+    ISNULL(SUM(e.ATBU_Closing_TotalCredit_Amount), 0) AS PrevCrTotal,
+    ISNULL(SUM(e.ATBU_Closing_TotalDebit_Amount), 0) AS PrevDbTotal
+FROM Acc_TrailBalance_Upload_Details ud
+LEFT JOIN ACC_ScheduleSubHeading sh ON sh.ASSH_ID = ud.ATBUD_Subheading
+LEFT JOIN Acc_TrailBalance_Upload d ON d.ATBU_Description = ud.ATBUD_Description AND d.ATBU_YEARId = @YearID AND d.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @YearID AND d.ATBU_Branchid = ud.Atbud_Branchnameid
+LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description AND e.ATBU_YEARId = @PrevYearID AND e.ATBU_CustId = @CustID AND ud.ATBUD_YEARId = @PrevYearID AND e.ATBU_Branchid = ud.Atbud_Branchnameid
+WHERE ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_Subheading = @SubHeadingID AND ud.ATBUD_CustId = @CustID
+GROUP BY ud.ATBUD_Subheading, sh.ASSH_Name, sh.ASSH_Notes
+ORDER BY ud.ATBUD_Subheading";
+                            var subBalance = await connection.QueryFirstOrDefaultAsync(subBalSql, new
+                            {
+                                YearID = p.YearID,
+                                PrevYearID = p.YearID - 1,
+                                CustID = p.CustID,
+                                BranchId = p.BranchId,
+                                ScheduleTypeID,
+                                SubHeadingID = sub.SubHeadingID
+                            });
+
+                            decimal subNet = (subBalance?.CrTotal ?? 0) - (subBalance?.DbTotal ?? 0);
+                            decimal subPrevNet = (subBalance?.PrevCrTotal ?? 0) - (subBalance?.PrevDbTotal ?? 0);
+                            totalIncome += subNet;
+                            totalPrevIncome += subPrevNet;
+
+                            results.Add(new SummaryReportBalanceSheetRow
+                            {
+                                SrNo = (results.Count + 1).ToString(),
+                                Name = sub.Name,
+                                HeaderSLNo = subNet == 0 ? "-" : subNet.ToString($"N{RoundOff}"),
+                                PrevYearTotal = subPrevNet == 0 ? "-" : subPrevNet.ToString($"N{RoundOff}"),
+                                Notes = sub.Notes != 0 ? sub.Notes.ToString() : "",
+                                status = "2"
+                            });
+                        }
+                    }
+                }
+                results.Add(new SummaryReportBalanceSheetRow
+                {
+                    SrNo = (results.Count + 1).ToString(),
+                    Name = "Total ",
+                    HeaderSLNo = totalIncome == 0 ? "-" : totalIncome.ToString($"N{RoundOff}"),
+                    PrevYearTotal = totalPrevIncome == 0 ? "-" : totalPrevIncome.ToString($"N{RoundOff}"),
+                    status = "1"
+                });
+            }
+
             return results;
         }
 

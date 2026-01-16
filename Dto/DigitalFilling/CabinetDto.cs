@@ -1,4 +1,5 @@
-﻿using Org.BouncyCastle.Bcpg;
+﻿using Microsoft.VisualBasic;
+using Org.BouncyCastle.Bcpg;
 using Org.BouncyCastle.Bcpg.OpenPgp;
 using System.Text.Json.Serialization;
 using TracePca.Dto.Audit;
@@ -114,7 +115,10 @@ namespace TracePca.Dto.DigitalFilling
 		public DateTime SA_ExpCompDate { get; set; }
 		public DateTime SA_AuditOpinionDate { get; set; }
 		public DateTime SA_ExpiryDate { get; set; }
-		public string CUST_NAME { get; set; }
+
+		public DateTime SA_ArchivedOn { get; set; }
+
+        public string CUST_NAME { get; set; }
 		public string CUST_CODE { get; set; }
 		public string cmm_Code { get; set; }
 		public string cmm_Desc { get; set; }

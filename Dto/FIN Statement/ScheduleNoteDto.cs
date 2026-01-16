@@ -487,6 +487,10 @@
             public string SNT_Description { get; set; }  // Description
             public decimal SNT_CYear_Amount { get; set; } // Current Year Amount
             public decimal SNT_PYear_Amount { get; set; } // Previous Year Amount
+
+            public decimal SNT_CYear_Shares { get; set; }
+            public decimal SNT_PYear_Shares { get; set; }
+
             public int SNT_YEARId { get; set; }
         }
 
