@@ -384,5 +384,29 @@ namespace TracePca.Dto.FIN_Statement
             public int FailedCount { get; set; }
             public List<string> Errors { get; set; } = new List<string>();
         }
+        public class JETypeDropdownRequestDto
+        {
+            public int CompId { get; set; }
+            public int CustId { get; set; }
+            public int YearId { get; set; }
+            public int BranchId { get; set; }
+            public int JEType { get; set; }
+            public int PageNumber { get; set; } = 1;
+            public int PageSize { get; set; } = 50;
+            public string SearchText { get; set; } = string.Empty;
+            public string SortColumn { get; set; } = "Acc_JE_ID";
+            public bool SortAscending { get; set; } = true;
+        }
+
+        public class PaginatedResponse<T>
+        {
+            public IEnumerable<T> Data { get; set; }
+            public int CurrentPage { get; set; }
+            public int PageSize { get; set; }
+            public int TotalCount { get; set; }
+            public int TotalPages { get; set; }
+            public bool HasPrevious => CurrentPage > 1;
+            public bool HasNext => CurrentPage < TotalPages;
+        }
     }
 }
