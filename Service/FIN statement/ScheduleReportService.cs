@@ -3532,8 +3532,165 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
             return null;
         }
 
-        //SaveFinancialStatement
-        public async Task<int> SaveOrUpdateFinancialStatementAsync(SREngagementPlanDetailsDTO dto)
+        ////SaveFinancialStatement
+        //public async Task<int> SaveOrUpdateFinancialStatementAsync(SREngagementPlanDetailsDTO dto)
+        //{
+        //    // Step 1: Get DB name
+        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //    if (string.IsNullOrEmpty(dbName))
+        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //    // Step 2: Get connection string
+        //    var connectionString = _configuration.GetConnectionString(dbName);
+
+        //    using var connection = new SqlConnection(connectionString);
+        //    await connection.OpenAsync();
+
+        //    // ✅ FIX 1: Create transaction
+        //    using var transaction = connection.BeginTransaction();
+
+        //    try
+        //    {
+        //        // Step 3: Get Audit Framework ID
+        //        var reportTypeId = dto.EngagementTemplateDetails?.FirstOrDefault()?.LTD_ReportTypeID;
+
+        //        dto.LOE_AuditFrameworkId =
+        //            await connection.QueryFirstOrDefaultAsync<int>(
+        //                @"SELECT RTM_AuditFrameworkId 
+        //              FROM SAD_ReportTypeMaster 
+        //              WHERE RTM_ID = @ReportTypeID",
+        //                new { ReportTypeID = reportTypeId },
+        //                transaction);
+
+        //        bool isUpdate = dto.LOE_Id > 0;
+        //        // UPDATE LOE
+        //        if (isUpdate)
+        //        {
+        //            await connection.ExecuteAsync(
+        //                @"UPDATE SAD_CUST_LOE 
+        //              SET LOE_AuditFrameworkId = @LOE_AuditFrameworkId,
+        //                  LOE_NatureOfService = @LOE_NatureOfService,
+        //                  LOE_Total = @LOE_Total,
+        //                  LOE_Frequency = @LOE_Frequency,
+        //                  LOE_UpdatedBy = @LOE_UpdatedBy,
+        //                  LOE_UpdatedOn = GETDATE(),
+        //                  LOE_IPAddress = @LOE_IPAddress
+        //              WHERE LOE_Id = @LOE_Id;",
+        //                dto,
+        //                transaction);
+
+        //            await connection.ExecuteAsync(
+        //                @"DELETE FROM LOE_Template_Details 
+        //              WHERE LTD_FormName = 'LOE' AND LTD_LOE_ID = @LOE_Id;",
+        //                dto,
+        //                transaction);
+
+        //            await connection.ExecuteAsync(
+        //                @"DELETE FROM LOE_AdditionalFees 
+        //              WHERE LAF_LOEID = @LOE_Id;",
+        //                dto,
+        //                transaction);
+        //        }
+        //        // INSERT LOE
+        //        else
+        //        {
+        //            dto.LOE_Name = await GenerateLOENameAsync(
+        //                dto.LOE_CompID,
+        //                dto.LOE_YearId,
+        //                dto.LOE_CustomerId,
+        //                connection,
+        //                transaction);
+
+        //            dto.LOE_Id = await connection.ExecuteScalarAsync<int>(
+        //                @"DECLARE @NewId INT;
+        //              SELECT @NewId = ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE;
+
+        //              INSERT INTO SAD_CUST_LOE
+        //              (LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId,
+        //               LOE_NatureOfService, LOE_CrBy, LOE_CrOn,
+        //               LOE_Total, LOE_Name, LOE_Frequency,
+        //               LOE_STATUS, LOE_Delflag, LOE_IPAddress,
+        //               LOE_CompID, LOE_AuditFrameworkId)
+        //              VALUES
+        //              (@NewId, @LOE_YearId, @LOE_CustomerId, @LOE_ServiceTypeId,
+        //               @LOE_NatureOfService, @LOE_CrBy, GETDATE(),
+        //               @LOE_Total, @LOE_Name, @LOE_Frequency,
+        //               'C', 'A', @LOE_IPAddress,
+        //               @LOE_CompID, @LOE_AuditFrameworkId);
+
+        //              SELECT @NewId;",
+        //                dto,
+        //                transaction);
+        //        }
+        //        // INSERT TEMPLATE DETAILS
+        //        foreach (var item in dto.EngagementTemplateDetails)
+        //        {
+        //            item.LTD_LOE_ID = dto.LOE_Id ?? 0;
+
+        //            await connection.ExecuteAsync(
+        //                @"DECLARE @NewId INT;
+        //              SELECT @NewId = ISNULL(MAX(LTD_ID), 0) + 1 FROM LOE_Template_Details;
+
+        //              INSERT INTO LOE_Template_Details
+        //              (LTD_ID, LTD_LOE_ID, LTD_ReportTypeID,
+        //               LTD_HeadingID, LTD_Heading, LTD_Decription,
+        //               LTD_FormName, LTD_CrBy, LTD_CrOn,
+        //               LTD_IPAddress, LTD_CompID)
+        //              VALUES
+        //              (@NewId, @LTD_LOE_ID, @LTD_ReportTypeID,
+        //               @LTD_HeadingID, @LTD_Heading, @LTD_Decription,
+        //               @LTD_FormName, @LTD_CrBy, GETDATE(),
+        //               @LTD_IPAddress, @LTD_CompID);",
+        //                item,
+        //                transaction);
+        //        }
+        //        // INSERT ADDITIONAL FEES
+        //        foreach (var fee in dto.EngagementAdditionalFees)
+        //        {
+        //            fee.LAF_LOEID = dto.LOE_Id ?? 0;
+
+        //            await connection.ExecuteAsync(
+        //                @"DECLARE @NewId INT;
+        //              SELECT @NewId = ISNULL(MAX(LAF_ID), 0) + 1 FROM LOE_AdditionalFees;
+
+        //              INSERT INTO LOE_AdditionalFees
+        //              (LAF_ID, LAF_LOEID, LAF_OtherExpensesID,
+        //               LAF_Charges, LAF_OtherExpensesName,
+        //               LAF_Delflag, LAF_STATUS, LAF_CrBy,
+        //               LAF_CrOn, LAF_IPAddress, LAF_CompID)
+        //              VALUES
+        //              (@NewId, @LAF_LOEID, @LAF_OtherExpensesID,
+        //               @LAF_Charges, @LAF_OtherExpensesName,
+        //               'A', 'A', @LAF_CrBy,
+        //               GETDATE(), @LAF_IPAddress, @LAF_CompID);",
+        //                fee,
+        //                transaction);
+        //        }
+
+        //        await transaction.CommitAsync();
+        //        return dto.LOE_Id ?? 0;
+        //    }
+        //    catch
+        //    {
+        //        await transaction.RollbackAsync();
+        //        throw;
+        //    }
+        //}
+        //private async Task<string> GenerateLOENameAsync(
+        //    int compId,
+        //    int yearId,
+        //    int customerId,
+        //    SqlConnection connection,
+        //    SqlTransaction transaction)
+        //{
+        //    return await connection.ExecuteScalarAsync<string>(
+        //        @"SELECT 'LOE-' + CAST(@CustomerId AS VARCHAR) + '-' + CAST(@YearId AS VARCHAR);",
+        //        new { CustomerId = customerId, YearId = yearId },
+        //        transaction);
+        //}
+
+        public async Task<bool> SaveOrUpdateFinancialStatementAsync(FinancialStatementDTO dto)
         {
             // Step 1: Get DB name
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -3547,129 +3704,104 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            // ✅ FIX 1: Create transaction
             using var transaction = connection.BeginTransaction();
 
             try
             {
-                // Step 3: Get Audit Framework ID
-                var reportTypeId = dto.EngagementTemplateDetails?.FirstOrDefault()?.LTD_ReportTypeID;
+                int reportTypeId = dto.EngagementTemplateDetails
+                                      .FirstOrDefault()?.LTD_ReportTypeID ?? 0;
 
-                dto.LOE_AuditFrameworkId =
-                    await connection.QueryFirstOrDefaultAsync<int>(
-                        @"SELECT RTM_AuditFrameworkId 
-                      FROM SAD_ReportTypeMaster 
-                      WHERE RTM_ID = @ReportTypeID",
-                        new { ReportTypeID = reportTypeId },
-                        transaction);
+                var reportTypeExists = await connection.ExecuteScalarAsync<int>(
+                    @"SELECT COUNT(*) 
+              FROM SAD_ReportTypeMaster 
+              WHERE RTM_ID = @RTM_ID",
+                    new { RTM_ID = reportTypeId },
+                    transaction);
 
-                bool isUpdate = dto.LOE_Id > 0;
-                // UPDATE LOE
-                if (isUpdate)
-                {
-                    await connection.ExecuteAsync(
-                        @"UPDATE SAD_CUST_LOE 
-                      SET LOE_AuditFrameworkId = @LOE_AuditFrameworkId,
-                          LOE_NatureOfService = @LOE_NatureOfService,
-                          LOE_Total = @LOE_Total,
-                          LOE_Frequency = @LOE_Frequency,
-                          LOE_UpdatedBy = @LOE_UpdatedBy,
-                          LOE_UpdatedOn = GETDATE(),
-                          LOE_IPAddress = @LOE_IPAddress
-                      WHERE LOE_Id = @LOE_Id;",
-                        dto,
-                        transaction);
+                if (reportTypeExists == 0)
+                    throw new Exception("Invalid Report Type.");
 
-                    await connection.ExecuteAsync(
-                        @"DELETE FROM LOE_Template_Details 
-                      WHERE LTD_FormName = 'LOE' AND LTD_LOE_ID = @LOE_Id;",
-                        dto,
-                        transaction);
-
-                    await connection.ExecuteAsync(
-                        @"DELETE FROM LOE_AdditionalFees 
-                      WHERE LAF_LOEID = @LOE_Id;",
-                        dto,
-                        transaction);
-                }
-                // INSERT LOE
-                else
-                {
-                    dto.LOE_Name = await GenerateLOENameAsync(
-                        dto.LOE_CompID,
-                        dto.LOE_YearId,
-                        dto.LOE_CustomerId,
-                        connection,
-                        transaction);
-
-                    dto.LOE_Id = await connection.ExecuteScalarAsync<int>(
-                        @"DECLARE @NewId INT;
-                      SELECT @NewId = ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE;
-
-                      INSERT INTO SAD_CUST_LOE
-                      (LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId,
-                       LOE_NatureOfService, LOE_CrBy, LOE_CrOn,
-                       LOE_Total, LOE_Name, LOE_Frequency,
-                       LOE_STATUS, LOE_Delflag, LOE_IPAddress,
-                       LOE_CompID, LOE_AuditFrameworkId)
-                      VALUES
-                      (@NewId, @LOE_YearId, @LOE_CustomerId, @LOE_ServiceTypeId,
-                       @LOE_NatureOfService, @LOE_CrBy, GETDATE(),
-                       @LOE_Total, @LOE_Name, @LOE_Frequency,
-                       'C', 'A', @LOE_IPAddress,
-                       @LOE_CompID, @LOE_AuditFrameworkId);
-
-                      SELECT @NewId;",
-                        dto,
-                        transaction);
-                }
-                // INSERT TEMPLATE DETAILS
+                
                 foreach (var item in dto.EngagementTemplateDetails)
                 {
-                    item.LTD_LOE_ID = dto.LOE_Id ?? 0;
-
                     await connection.ExecuteAsync(
-                        @"DECLARE @NewId INT;
-                      SELECT @NewId = ISNULL(MAX(LTD_ID), 0) + 1 FROM LOE_Template_Details;
-
-                      INSERT INTO LOE_Template_Details
-                      (LTD_ID, LTD_LOE_ID, LTD_ReportTypeID,
-                       LTD_HeadingID, LTD_Heading, LTD_Decription,
-                       LTD_FormName, LTD_CrBy, LTD_CrOn,
-                       LTD_IPAddress, LTD_CompID)
-                      VALUES
-                      (@NewId, @LTD_LOE_ID, @LTD_ReportTypeID,
-                       @LTD_HeadingID, @LTD_Heading, @LTD_Decription,
-                       @LTD_FormName, @LTD_CrBy, GETDATE(),
-                       @LTD_IPAddress, @LTD_CompID);",
-                        item,
+                        @"UPDATE SAD_ReportContentMaster
+                  SET RCM_Description = @Description,
+                      RCM_UpdatedBy = @UpdatedBy,
+                      RCM_UpdatedOn = GETDATE(),
+                      RCM_IPAddress = @IPAddress
+                  WHERE RCM_ID = @HeadingID
+                    AND RCM_ReportId = @ReportTypeId;",
+                        new
+                        {
+                            Description = item.LTD_Decription,
+                            UpdatedBy = item.LTD_CrBy,
+                            IPAddress = item.LTD_IPAddress,
+                            HeadingID = item.LTD_HeadingID,
+                            ReportTypeId = reportTypeId
+                        },
                         transaction);
                 }
-                // INSERT ADDITIONAL FEES
-                foreach (var fee in dto.EngagementAdditionalFees)
-                {
-                    fee.LAF_LOEID = dto.LOE_Id ?? 0;
 
+              
+                await connection.ExecuteAsync(
+                    @"DELETE FROM LOE_Template_Details
+              WHERE LTD_ReportTypeID = @ReportTypeId
+                AND LTD_FormName = 'LOE';",
+                    new { ReportTypeId = reportTypeId },
+                    transaction);
+
+              
+                foreach (var item in dto.EngagementTemplateDetails)
+                {
                     await connection.ExecuteAsync(
                         @"DECLARE @NewId INT;
-                      SELECT @NewId = ISNULL(MAX(LAF_ID), 0) + 1 FROM LOE_AdditionalFees;
+                  SELECT @NewId = ISNULL(MAX(LTD_ID), 0) + 1 
+                  FROM LOE_Template_Details;
 
-                      INSERT INTO LOE_AdditionalFees
-                      (LAF_ID, LAF_LOEID, LAF_OtherExpensesID,
-                       LAF_Charges, LAF_OtherExpensesName,
-                       LAF_Delflag, LAF_STATUS, LAF_CrBy,
-                       LAF_CrOn, LAF_IPAddress, LAF_CompID)
-                      VALUES
-                      (@NewId, @LAF_LOEID, @LAF_OtherExpensesID,
-                       @LAF_Charges, @LAF_OtherExpensesName,
-                       'A', 'A', @LAF_CrBy,
-                       GETDATE(), @LAF_IPAddress, @LAF_CompID);",
-                        fee,
+                  INSERT INTO LOE_Template_Details
+                  (
+                      LTD_ID,
+                      LTD_LOE_ID,
+                      LTD_ReportTypeID,
+                      LTD_HeadingID,
+                      LTD_Heading,
+                      LTD_Decription,
+                      LTD_FormName,
+                      LTD_CrBy,
+                      LTD_CrOn,
+                      LTD_IPAddress,
+                      LTD_CompID
+                  )
+                  VALUES
+                  (
+                      @NewId,
+                      0,
+                      @ReportTypeId,
+                      @HeadingID,
+                      @Heading,
+                      @Description,
+                      'LOE',
+                      @CreatedBy,
+                      GETDATE(),
+                      @IPAddress,
+                      @CompID
+                  );",
+                        new
+                        {
+                            ReportTypeId = item.LTD_ReportTypeID,
+                            HeadingID = item.LTD_HeadingID,
+                            Heading = item.LTD_Heading,
+                            Description = item.LTD_Decription,
+                            CreatedBy = item.LTD_CrBy,
+                            IPAddress = item.LTD_IPAddress,
+                            CompID = item.LTD_CompID
+                        },
                         transaction);
                 }
 
                 await transaction.CommitAsync();
-                return dto.LOE_Id ?? 0;
+                return true;
             }
             catch
             {
@@ -3677,18 +3809,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 throw;
             }
         }
-        private async Task<string> GenerateLOENameAsync(
-            int compId,
-            int yearId,
-            int customerId,
-            SqlConnection connection,
-            SqlTransaction transaction)
-        {
-            return await connection.ExecuteScalarAsync<string>(
-                @"SELECT 'LOE-' + CAST(@CustomerId AS VARCHAR) + '-' + CAST(@YearId AS VARCHAR);",
-                new { CustomerId = customerId, YearId = yearId },
-                transaction);
-        }
+
     }
 }
 
