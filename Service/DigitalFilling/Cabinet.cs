@@ -1559,7 +1559,7 @@ namespace TracePca.Service.DigitalFilling
 
 
                 string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
-                				SELECT B.FOL_Name AS FolderName, A.Atch_FName AS FileName, A.Atch_DocID,
+                				SELECT B.FOL_Name AS FolderName, A.Atch_FName AS FileName, A.Atch_DocID as atch_ID,
                                 (SELECT TOP 1 UserEmail FROM UserDriveTokens ORDER BY Id DESC) AS UserEmail
                 				FROM edt_Attachments A JOIN ( SELECT DISTINCT TRY_CAST(value AS INT) AS Atch_DocID
                 				FROM STRING_SPLIT(@ids, ',') WHERE TRY_CAST(value AS INT) IS NOT NULL
