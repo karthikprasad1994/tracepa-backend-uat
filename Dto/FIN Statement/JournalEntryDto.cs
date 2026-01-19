@@ -24,6 +24,16 @@ namespace TracePca.Dto.FIN_Statement
             public string acc_JE_QuarterId { get; set; }
             public string comments { get; set; }
         }
+        public class PaginatedResult<T>
+        {
+            public IEnumerable<T> Data { get; set; }
+            public int CurrentPage { get; set; }
+            public int PageSize { get; set; }
+            public int TotalCount { get; set; }
+            public int TotalPages { get; set; }
+            public bool HasPreviousPage { get; set; }
+            public bool HasNextPage { get; set; }
+        }
 
         //GetExistingJournalVouchers
         public class JournalEntryVoucherDto
