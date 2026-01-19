@@ -263,7 +263,6 @@ namespace TracePca.Service.Audit
                 throw new ApplicationException("An error occurred while generating LOE name", ex);
             }
         }
-
         public async Task<int> SaveOrUpdateEngagementPlanDataAsync(EngagementPlanDetailsDTO dto)
         {
             using var connection = new SqlConnection(_connectionString);

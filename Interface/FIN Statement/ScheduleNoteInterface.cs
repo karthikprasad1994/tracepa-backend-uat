@@ -10,7 +10,13 @@ namespace TracePca.Interface.FIN_Statement
         Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CustomerId, int SubHeadingId);
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
-        Task<int[]> SaveSubHeadindNotesAsync(SubHeadingNotesDto dto);
+        //Task<int[]> SaveSubHeadindNotesAsync(SubHeadingNotesDto dto);
+
+        //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
+        Task<List<SubheadingDto>> SaveSubheadingWithNotesAsync(List<SubheadingDto> subheadingDtos);
+
+        //LoadGrid(Notes For SubHeading)
+        Task<List<SubheadingNoteLoadDto>> LoadSubheadingNotesAsync(int compId, int yearId, int custId);
 
         //GetBranch(Notes For Ledger)
         Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId);

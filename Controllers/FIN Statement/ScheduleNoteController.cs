@@ -68,51 +68,126 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
-        [HttpPost("SaveOrUpdateScheduleFormatHeading")]
-        public async Task<IActionResult> aveSubHeadindNotes([FromBody] SubHeadingNotesDto dto)
+        //[HttpPost("SaveOrUpdateScheduleFormatHeading")]
+        //public async Task<IActionResult> aveSubHeadindNotes([FromBody] SubHeadingNotesDto dto)
+        //{
+        //    if (dto == null)
+        //    {
+        //        return BadRequest(new
+        //        {
+        //            Status = 400,
+        //            Message = "Invalid input: DTO is null",
+        //            Data = (object)null
+        //        });
+        //    }
+        //    try
+        //    {
+        //        bool isUpdate = dto.ASHN_ID > 0;
+
+        //        var result = await _ScheduleNoteService.SaveSubHeadindNotesAsync(dto);
+
+        //        string successMessage = isUpdate
+        //            ? "Schedule Heading successfully updated."
+        //            : "Schedule Heading successfully created.";
+
+        //        return Ok(new
+        //        {
+        //            Status = 200,
+        //            Message = successMessage,
+        //            Data = new
+        //            {
+        //                UpdateOrSave = result[0],
+        //                Oper = result[1],
+        //                IsUpdate = isUpdate
+        //            }
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            Status = 500,
+        //            Message = "An error occurred while processing your request.",
+        //            Error = ex.Message,
+        //            InnerException = ex.InnerException?.Message
+        //        });
+        //    }
+        //}
+
+        //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
+        [HttpPost("SaveSubheadingWithNotes")]
+        public async Task<IActionResult> SaveSubheadingWithNotes([FromBody] List<SubheadingDto> subheadingDtos)
         {
-            if (dto == null)
-            {
-                return BadRequest(new
-                {
-                    Status = 400,
-                    Message = "Invalid input: DTO is null",
-                    Data = (object)null
-                });
-            }
             try
             {
-                bool isUpdate = dto.ASHN_ID > 0;
+                if (subheadingDtos == null || subheadingDtos.Count == 0)
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "No subheading data provided.",
+                        data = (object)null
+                    });
+                }
 
-                var result = await _ScheduleNoteService.SaveSubHeadindNotesAsync(dto);
+                // Call service to save subheadings + notes
+                var savedSubheadings = await _ScheduleNoteService.SaveSubheadingWithNotesAsync(subheadingDtos);
 
-                string successMessage = isUpdate
-                    ? "Schedule Heading successfully updated."
-                    : "Schedule Heading successfully created.";
-
+                // Return response in your desired format
                 return Ok(new
                 {
-                    Status = 200,
-                    Message = successMessage,
-                    Data = new
-                    {
-                        UpdateOrSave = result[0],
-                        Oper = result[1],
-                        IsUpdate = isUpdate
-                    }
+                    statusCode = 200,
+                    message = "Subheadings saved successfully.",
+                    data = savedSubheadings
                 });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new
                 {
-                    Status = 500,
-                    Message = "An error occurred while processing your request.",
-                    Error = ex.Message,
-                    InnerException = ex.InnerException?.Message
+                    statusCode = 500,
+                    message = "An error occurred while saving subheadings with notes.",
+                    error = ex.Message
                 });
             }
         }
+
+        //LoadGrid(Notes For SubHeading)
+        [HttpGet("LoadSubheadingNotes")]
+        public async Task<IActionResult> LoadSubheadingNotes([FromQuery] int compId, [FromQuery] int yearId, [FromQuery] int custId)
+        {
+            try
+            {
+                var notes = await _ScheduleNoteService.LoadSubheadingNotesAsync(compId, yearId, custId);
+
+                if (notes == null || notes.Count == 0)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "No subheading notes found for the specified company and year.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Subheading notes loaded successfully.",
+                    data = notes
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while loading subheading notes.",
+                    error = ex.Message
+                });
+            }
+        }
+
 
         //GetBranch(Notes For Ledger)
         [HttpGet("GetBranchNameNotesForLedger")]

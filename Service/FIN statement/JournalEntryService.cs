@@ -1455,7 +1455,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt ,ATBU_Closing_TotalCredit_Amount= '0.00'
                                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1466,7 +1466,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt
+                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt ,ATBU_Closing_TotalDebit_Amount= '0.00'
                                            WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1484,7 +1484,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt
+                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt ,ATBU_Closing_TotalDebit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1495,7 +1495,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt ,ATBU_Closing_TotalCredit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1513,7 +1513,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt ,ATBU_Closing_TotalCredit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1524,7 +1524,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt
+                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt ,ATBU_Closing_TotalDebit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1546,7 +1546,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt ,ATBU_Closing_TotalDebit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1557,7 +1557,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt
+                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt ,ATBU_Closing_TotalCredit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1575,7 +1575,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt
+                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt ,ATBU_Closing_TotalCredit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1586,7 +1586,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt ,ATBU_Closing_TotalDebit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1604,7 +1604,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt ,ATBU_Closing_TotalDebit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1615,7 +1615,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt
+                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt ,ATBU_Closing_TotalCredit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
