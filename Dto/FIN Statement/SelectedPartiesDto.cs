@@ -34,6 +34,8 @@
             public int Status { get; set; }
             public string JeType { get; set; }
 
+            public int ajtb_Masid { get; set; }
+
         }
 
         //UpdateJESeqReferenceNum

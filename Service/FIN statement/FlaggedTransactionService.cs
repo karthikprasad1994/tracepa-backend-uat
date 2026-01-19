@@ -67,13 +67,13 @@ namespace TracePca.Service.FIN_statement
             AJTB_AEStatus,
             AJTB_DescName,
             AJTB_Debit,
-            AJTB_Credit
+            AJTB_Credit,Ajtb_Masid
         FROM Acc_JETransactions_Details
         WHERE AJTB_CompID = @CompId
               AND AJTB_CustId = @CustId
               AND AJTB_BranchId = @BranchId
               AND AJTB_YearID = @YearId
-              AND AJTB_AEStatus = 'E'";
+              AND AJTB_AEStatus = 'E' and AJTB_Status <> 'D'";
 
             return await connection.QueryAsync<GetGetAbnormalEntriesSeqReferenceNumDto>(query, new { CompId = CompId, CustId = CustId, BranchId = BranchId, YearId = YearId });
         }
@@ -105,7 +105,7 @@ namespace TracePca.Service.FIN_statement
               AND AJTB_CustId = @CustId
               AND AJTB_BranchId = @BranchId
               AND AJTB_YearID = @YearId
-              AND AJTB_SeqReferenceNum = 1";
+              AND AJTB_SeqReferenceNum = 1 and AJTB_Status <> 'D'";
 
             return await connection.QueryAsync<GetSelectedPartiesSeqReferenceNumDto>(query, new { CompId = CompId, CustId = CustId, BranchId = BranchId, YearId = YearId });
         }
@@ -137,7 +137,7 @@ namespace TracePca.Service.FIN_statement
        AND AJTB_CustId = @CustId
        AND AJTB_BranchId = @BranchId
        AND AJTB_YearID = @YearId
-       AND AJTB_SyStatus = 'Sy'";
+       AND AJTB_SyStatus = 'Sy' and AJTB_Status <> 'D'";
 
             return await connection.QueryAsync<GetSystemSamplingStatusDto>(query, new { CompId = CompId, CustId = CustId, BranchId = BranchId, YearId = YearId });
         }
@@ -169,7 +169,7 @@ namespace TracePca.Service.FIN_statement
        AND AJTB_CustId = @CustId
        AND AJTB_BranchId = @BranchId
        AND AJTB_YearID = @YearId
-       AND AJTB_SfStatus = 'Sf'";
+       AND AJTB_SfStatus = 'Sf' and AJTB_Status <> 'D'";
 
             return await connection.QueryAsync<GetStatifiedSampingStatusDto>(query, new { CompId = CompId, CustId = CustId, BranchId = BranchId, YearId = YearId });
         }

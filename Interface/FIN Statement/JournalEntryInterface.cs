@@ -9,7 +9,10 @@ namespace TracePca.Interface.FIN_Statement
     {
 
         //GetJournalEntryInformation
-        Task<IEnumerable<JournalEntryInformationDto>> GetJournalEntryInformationAsync(int CompId, int UserId, string Status, int CustId, int YearId, int BranchId, string DateFormat, int DurationId);
+        Task<PaginatedResult<JournalEntryInformationDto>> GetJournalEntryInformationAsync(
+          int CompId, int UserId, string Status, int CustId, int YearId, int BranchId,
+          string DateFormat, int DurationId, int pageNumber = 1, int pageSize = 10,
+          string searchText = "", string sortBy = "Id", string sortOrder = "ASC");
 
         //GetExistingJournalVouchers
         Task<IEnumerable<JournalEntryVoucherDto>> LoadExistingVoucherNosAsync(int compId, int yearId, int partyId, int branchId);
@@ -27,8 +30,7 @@ namespace TracePca.Interface.FIN_Statement
         Task<int[]> SaveJournalEntryWithTransactionsAsync(List<SaveJournalEntryWithTransactionsDto> dtos);
 
         //SaveGeneralLedger
-        Task<int[]> SaveGeneralLedgerAsync(int CompId, List<GeneralLedgerDto> dtos);
-
+        Task<object> SaveGeneralLedgerAsync(int CompId, List<GeneralLedgerDto> dtos);
         //ActivateJE
         Task<int> ActivateJournalEntriesAsync(ActivateRequestDto dto);
 
