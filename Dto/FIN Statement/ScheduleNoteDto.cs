@@ -11,21 +11,68 @@
         }
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
-        public class SubHeadingNotesDto
+        //public class SubHeadingNotesDto
+        //{
+        //    public int ASHN_ID { get; set; }
+        //    public int ASHN_SubHeadingId { get; set; }
+        //    public int ASHN_CustomerId { get; set; }
+        //    public string ASHN_Description { get; set; }
+        //    public string ASHN_DelFlag { get; set; }
+        //    public string ASHN_Status { get; set; }
+        //    public string ASHN_Operation { get; set; }
+        //    public int ASHN_CreatedBy { get; set; }
+        //    public DateTime ASHN_CreatedOn { get; set; }
+        //    public int ASHN_CompID { get; set; }
+        //    public int ASHN_YearID { get; set; }
+        //    public string ASHN_IPAddress { get; set; }
+        //}
+        // ===============================
+        // Master DTO for API input
+        // ===============================
+        // Input DTO for saving
+
+        //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
+        public class SubheadingNoteDto
         {
-            public int ASHN_ID { get; set; }
-            public int ASHN_SubHeadingId { get; set; }
-            public int ASHN_CustomerId { get; set; }
-            public string ASHN_Description { get; set; }
-            public string ASHN_DelFlag { get; set; }
-            public string ASHN_Status { get; set; }
-            public string ASHN_Operation { get; set; }
-            public int ASHN_CreatedBy { get; set; }
-            public DateTime ASHN_CreatedOn { get; set; }
-            public int ASHN_CompID { get; set; }
-            public int ASHN_YearID { get; set; }
-            public string ASHN_IPAddress { get; set; }
+            public int ashN_ID { get; set; }
+            public int ashN_SubHeadingId { get; set; }
+            public int ashN_CustomerId { get; set; }
+            public string ashN_Description { get; set; }
+            public string ashN_DelFlag { get; set; } // "N" by default
+            public string ashN_Status { get; set; } // "C" by default
+            public string ashN_Operation { get; set; } // "SAVE" or "UPDATE"
+            public int ashN_CreatedBy { get; set; }
+            public DateTime ashN_CreatedOn { get; set; } = DateTime.Now;
+            public int ashN_CompID { get; set; }
+            public int ashN_YearID { get; set; }
+            public string ashN_IPAddress { get; set; } = "127.0.0.1";
         }
+        public class SubheadingDto
+        {
+            public int assH_ID { get; set; }
+            public string assH_Name { get; set; }
+            public int assH_HeadingID { get; set; }
+            public int assH_CRBY { get; set; }
+            public int assH_UPDATEDBY { get; set; }
+            public string assH_IPAddress { get; set; } = "127.0.0.1";
+            public int assH_CompId { get; set; }
+            public int assH_YEARId { get; set; }
+            public int assH_Notes { get; set; } // optional: number of notes
+            public int assH_scheduletype { get; set; }
+            public int assH_Orgtype { get; set; }
+            public List<SubheadingNoteDto> notes { get; set; } = new();
+        }
+
+        //LoadGrid(Notes For SubHeading)
+        public class SubheadingNoteLoadDto
+        {
+            public int SubHeadingId { get; set; }      // maps to sh.ASSH_ID
+            public string SubHeadingName { get; set; } // maps to sh.ASSH_Name
+            public int NoteId { get; set; }            // maps to n.ASHN_ID
+            public string Description { get; set; }   // maps to n.ASHN_Description
+        }
+
+
 
         //GetBranch(Notes For Ledger)
         public class CustBranchDto

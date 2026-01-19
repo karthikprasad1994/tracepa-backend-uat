@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using TracePca.Dto.Audit;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.Audit;
 using TracePca.Service.FIN_statement;
@@ -513,38 +514,43 @@ namespace TracePca.Controllers.FIN_Statement
         //        });
         //    }
         //}
-        [HttpPost("SaveOrUpdateFinancialStatement")]
-        public async Task<IActionResult> SaveOrUpdateFinancialStatement([FromBody] FinancialStatementDTO dto)
-        {
-            if (dto == null || dto.EngagementTemplateDetails == null || !dto.EngagementTemplateDetails.Any())
-            {
-                return BadRequest(new
-                {
-                    statusCode = 400,
-                    message = "Invalid request data.",
-                    data = (object)null
-                });
-            }
 
-            try
-            {
-                bool result = await _ScheduleReportService.SaveOrUpdateFinancialStatementAsync(dto);
-                return Ok(new
-                {
-                    statusCode = 200,
-                    message = "Financial statement saved/updated successfully.",
-                    data = (object)null
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    statusCode = 500,
-                    message = "An error occurred while saving or updating financial statement.",
-                    error = ex.Message
-                });
-            }
-        }
+        //[HttpPost("save-or-update")]
+        //public async Task<IActionResult> SaveOrUpdateFinancialStatement([FromBody] FinancialStatementDTO dto)
+        //{
+        //    if (dto == null)
+        //    {
+        //        return BadRequest(new
+        //        {
+        //            status = 400,
+        //            message = "Invalid request data"
+        //        });
+        //    }
+
+        //    try
+        //    {
+        //        // Call the service to save or update LOE templates
+        //        int loeId = await _ScheduleReportService.SaveOrUpdateFinancialStatementAsync(dto);
+
+        //        return Ok(new
+        //        {
+        //            status = 200,
+        //            message = "Engagement plan saved successfully",
+        //            data = new
+        //            {
+        //                LOE_Id = loeId
+        //            }
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            status = 500,
+        //            message = "Internal server error",
+        //            details = ex.Message
+        //        });
+        //    }
+        //}
     }
 }

@@ -1121,8 +1121,6 @@ WHERE ATBUD_Custid = @CustId
             };
         }
 
-
-
         //DownloadUploadableExcelAndTemplate
         public FileDownloadResult GetExcelTemplate()
         {
