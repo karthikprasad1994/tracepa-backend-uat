@@ -1188,7 +1188,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt ,ATBU_Closing_TotalCredit_Amount= '0.00'
                                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1199,7 +1199,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt
+                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt ,ATBU_Closing_TotalDebit_Amount= '0.00'
                                            WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1217,7 +1217,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt
+                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt ,ATBU_Closing_TotalDebit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1228,7 +1228,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt ,ATBU_Closing_TotalCredit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1246,7 +1246,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt
+                    SET ATBU_Closing_TotalDebit_Amount = @DebitAmt ,ATBU_Closing_TotalCredit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1257,7 +1257,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt
+                    SET ATBU_Closing_TotalCredit_Amount = @DebitAmt ,ATBU_Closing_TotalDebit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1279,7 +1279,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt ,ATBU_Closing_TotalDebit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1290,7 +1290,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt
+                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt ,ATBU_Closing_TotalCredit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1308,7 +1308,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt
+                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt ,ATBU_Closing_TotalCredit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1319,7 +1319,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt ,ATBU_Closing_TotalDebit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1337,7 +1337,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt
+                    SET ATBU_Closing_TotalCredit_Amount = @CreditAmt ,ATBU_Closing_TotalDebit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1348,7 +1348,7 @@ WHERE ATBU_CustId = @CustId
                     {
                         updateSql = @"
                     UPDATE Acc_TrailBalance_Upload
-                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt
+                    SET ATBU_Closing_TotalDebit_Amount = @CreditAmt ,ATBU_Closing_TotalCredit_Amount= '0.00'
                     WHERE ATBU_CustId = @CustId
                       AND ATBU_CompID = @CompId
                       AND ATBU_QuarterId = @DurtnId
@@ -1621,7 +1621,7 @@ WHERE ATBU_CustId = @CustId
         }
 
         //GetJETypeDropDownDetails
-        public async Task<IEnumerable<JETypeDropDownDetailsDto>> GetJETypeDropDownDetailsAsync(int compId, int custId, int yearId, int BranchId, int jetype)
+        public async Task<PaginatedResponse<JETypeDropDownDetailsDto>> GetJETypeDropDownDetailsAsync(JETypeDropdownRequestDto request)
         {
             // Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1635,49 +1635,125 @@ WHERE ATBU_CustId = @CustId
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            // Step 3: SQL base query
-            var sql = @"
-    SELECT 
-        je.Acc_JE_ID, 
-        je.Acc_JE_TransactionNo, 
-        je.acc_JE_BranchId, 
-        je.Acc_JE_BillDate AS BillDate,
-        cmm.cmm_Desc AS BillType, 
-        je.Acc_JE_Party, 
-        je.Acc_JE_Status, 
-        je.Acc_JE_Comnments, 
-        je.acc_JE_QuarterId,
-     scm.CUST_NAME,
-     ajtb.AJTB_Credit,
-     ajtb.AJTB_Debit,
-     ajtb.AJTB_DescName,je.Acc_JE_BillNo
-    FROM Acc_JE_Master je
-    LEFT JOIN Content_Management_Master cmm 
-        ON cmm.cmm_id = je.Acc_JE_BillType
-        AND cmm.cmm_category = 'JE'
-    LEFT JOIN SAD_Customer_master scm
-        ON scm.CUST_ID = je.Acc_JE_Party
-    LEFT JOIN Acc_JETransactions_Details ajtb
-        ON ajtb.Ajtb_Masid = je.Acc_JE_ID
-    WHERE je.Acc_JE_Party = @custId 
-      AND je.Acc_JE_CompID = @compId 
-      AND je.Acc_JE_YearId = @yearId
-      AND je.Acc_JE_BranchId = @BranchId 
-";
+            // Step 3: Build dynamic WHERE conditions
+            var whereConditions = new List<string>
+    {
+        "je.Acc_JE_Party = @custId",
+        "je.Acc_JE_CompID = @compId",
+        "je.Acc_JE_YearId = @yearId",
+        "je.Acc_JE_BranchId = @BranchId"
+    };
 
-            // Step 4: Add conditional filter
-            if (jetype > 0)
+            var parameters = new DynamicParameters();
+            parameters.Add("@compId", request.CompId);
+            parameters.Add("@custId", request.CustId);
+            parameters.Add("@yearId", request.YearId);
+            parameters.Add("@BranchId", request.BranchId);
+
+            if (request.JEType > 0)
             {
-                sql += " AND je.Acc_JE_BillType = @jetype ";
+                whereConditions.Add("je.Acc_JE_BillType = @jetype");
+                parameters.Add("@jetype", request.JEType);
             }
-            sql += " ORDER BY je.Acc_JE_ID ASC";
 
-            // Step 5: Execute
-            var result = await connection.QueryAsync<JETypeDropDownDetailsDto>(
-                sql,
-                new { compId, custId, yearId, BranchId, jetype }
-            );
-            return result.ToList();
+            // Add search functionality
+            if (!string.IsNullOrWhiteSpace(request.SearchText))
+            {
+                whereConditions.Add(@"
+            (je.Acc_JE_TransactionNo LIKE '%' + @searchText + '%' OR
+             je.Acc_JE_BillNo LIKE '%' + @searchText + '%' OR
+             scm.CUST_NAME LIKE '%' + @searchText + '%' OR
+             ajtb.AJTB_DescName LIKE '%' + @searchText + '%' OR
+             je.Acc_JE_Comnments LIKE '%' + @searchText + '%')
+        ");
+                parameters.Add("@searchText", request.SearchText);
+            }
+
+            string whereClause = whereConditions.Any() ? "WHERE " + string.Join(" AND ", whereConditions) : "";
+
+            // Step 4: Build base query for data
+            var dataQuery = $@"
+        SELECT 
+            je.Acc_JE_ID, 
+            je.Acc_JE_TransactionNo, 
+            je.acc_JE_BranchId, 
+            je.Acc_JE_BillDate AS BillDate,
+            cmm.cmm_Desc AS BillType, 
+            je.Acc_JE_Party, 
+            je.Acc_JE_Status, 
+            je.Acc_JE_Comnments, 
+            je.acc_JE_QuarterId,
+            scm.CUST_NAME,
+            ajtb.AJTB_Credit,
+            ajtb.AJTB_Debit,
+            ajtb.AJTB_DescName,
+            je.Acc_JE_BillNo
+        FROM Acc_JE_Master je
+        LEFT JOIN Content_Management_Master cmm 
+            ON cmm.cmm_id = je.Acc_JE_BillType
+            AND cmm.cmm_category = 'JE'
+        LEFT JOIN SAD_Customer_master scm
+            ON scm.CUST_ID = je.Acc_JE_Party
+        LEFT JOIN Acc_JETransactions_Details ajtb
+            ON ajtb.Ajtb_Masid = je.Acc_JE_ID
+        {whereClause}
+        ORDER BY {GetSortColumn(request.SortColumn)} {(request.SortAscending ? "ASC" : "DESC")}
+        OFFSET @offset ROWS 
+        FETCH NEXT @pageSize ROWS ONLY";
+
+            // Step 5: Build count query
+            var countQuery = $@"
+        SELECT COUNT(*)
+        FROM Acc_JE_Master je
+        LEFT JOIN Content_Management_Master cmm 
+            ON cmm.cmm_id = je.Acc_JE_BillType
+            AND cmm.cmm_category = 'JE'
+        LEFT JOIN SAD_Customer_master scm
+            ON scm.CUST_ID = je.Acc_JE_Party
+        LEFT JOIN Acc_JETransactions_Details ajtb
+            ON ajtb.Ajtb_Masid = je.Acc_JE_ID
+        {whereClause}";
+
+            // Step 6: Add pagination parameters
+            int offset = (request.PageNumber - 1) * request.PageSize;
+            parameters.Add("@offset", offset);
+            parameters.Add("@pageSize", request.PageSize);
+
+            // Step 7: Execute queries in parallel for better performance
+            var dataTask = connection.QueryAsync<JETypeDropDownDetailsDto>(dataQuery, parameters);
+            var countTask = connection.ExecuteScalarAsync<int>(countQuery, parameters);
+
+            await Task.WhenAll(dataTask, countTask);
+
+            var data = await dataTask;
+            var totalCount = await countTask;
+
+            // Step 8: Return paginated response
+            return new PaginatedResponse<JETypeDropDownDetailsDto>
+            {
+                Data = data,
+                CurrentPage = request.PageNumber,
+                PageSize = request.PageSize,
+                TotalCount = totalCount,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize)
+            };
+        }
+
+        // Helper method to validate sort columns
+        private string GetSortColumn(string sortColumn)
+        {
+            var allowedColumns = new HashSet<string>
+    {
+        "Acc_JE_ID",
+        "Acc_JE_TransactionNo",
+        "BillDate",
+        "CUST_NAME",
+        "Acc_JE_BillNo",
+        "AJTB_Credit",
+        "AJTB_Debit"
+    };
+
+            return allowedColumns.Contains(sortColumn) ? sortColumn : "Acc_JE_ID";
         }
 
         //SaveJEType

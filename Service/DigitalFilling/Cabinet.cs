@@ -1559,13 +1559,13 @@ namespace TracePca.Service.DigitalFilling
 
 
                 string query = @"DECLARE @ids NVARCHAR(MAX) = @AttachIDs;
-                				SELECT B.FOL_Name AS FolderName, A.Atch_FName AS FileName, A.atch_ID,
+                				SELECT B.FOL_Name AS FolderName, A.Atch_FName AS FileName, A.Atch_DocID as atch_ID,
                                 (SELECT TOP 1 UserEmail FROM UserDriveTokens ORDER BY Id DESC) AS UserEmail
-                				FROM edt_Attachments A JOIN ( SELECT DISTINCT TRY_CAST(value AS INT) AS Atch_ID
+                				FROM edt_Attachments A JOIN ( SELECT DISTINCT TRY_CAST(value AS INT) AS Atch_DocID
                 				FROM STRING_SPLIT(@ids, ',') WHERE TRY_CAST(value AS INT) IS NOT NULL
-                				) S ON A.ATCH_DocID = S.Atch_ID
+                				) S ON A.ATCH_DocID = S.Atch_DocID
                 				LEFT JOIN edt_Folder B ON A.Atch_FolderId = B.FOL_FolID
-                                left join UserDriveItemsNumeric E on E.docid = A.Atch_ID 
+                                left join UserDriveItemsNumeric E on E.docid = A.Atch_DocID 
                                 WHERE A.Atch_FName <> ''  AND A.Atch_Ext <> '';";
 
                 var result = await connection.QueryAsync<ArchivedDocumentFileDto>(query, new { AttachIDs = sAttachID });
