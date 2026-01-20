@@ -49,7 +49,7 @@ namespace TracePca.Service.FIN_statement
         AJTB_Credit, AJTB_SyStatus,
         ROW_NUMBER() OVER (ORDER BY AJTB_ID) AS RowNum,CAST(AJTB_CreatedOn as date) as TransDate
     FROM Acc_JETransactions_Details
-    WHERE AJTB_CustId = @iCustId and ajtb_yearid=@iYearId )
+    WHERE AJTB_CustId = @iCustId and ajtb_yearid=@iYearId and AJTB_Status <> 'D')
 SELECT TOP (@SampleSize) *
 FROM OrderedTransactions
 WHERE RowNum BETWEEN @FromRow AND @ToRow

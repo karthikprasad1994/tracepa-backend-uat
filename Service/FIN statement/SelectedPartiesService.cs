@@ -129,7 +129,7 @@ namespace TracePca.Service.FIN_statement
             TBU.ATBU_Description,
             TBU.ATBU_ID,
             JED.AJTB_SeqReferenceNum as status,
-			c.cmm_Desc as JeType
+			c.cmm_Desc as JeType,JED.ajtb_Masid
 
         FROM Acc_JETransactions_Details AS JED
         LEFT JOIN Acc_TrailBalance_Upload AS TBU
@@ -141,7 +141,7 @@ LEFT JOIN Acc_JE_Master AS JE   ON JE.ACC_JE_ID = JED.ajtb_masid
             TBU.ATBU_DELFLG = 'S'
             AND JED.AJTB_CustId = @CustId
             AND JED.AJTB_YearId = @YearId
-            AND JED.AJTB_BranchId = @BranchId
+            AND JED.AJTB_BranchId = @BranchId AND JED.AJTB_Status <> 'D'
         ORDER BY       JED.AJTB_DescName;";
 
             // ✅ Step 4: Execute query with parameters
