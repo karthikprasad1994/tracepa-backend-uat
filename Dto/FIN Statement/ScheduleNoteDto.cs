@@ -6,8 +6,8 @@
         //GetSubHeadingname(Notes For SubHeading)
         public class SubHeadingNoteDto
         {
-            public int ASHN_ID { get; set; }
-            public string Description { get; set; }
+            public int ASSH_ID { get; set; }
+            public string ASSH_Name { get; set; }
         }
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
