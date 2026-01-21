@@ -30,7 +30,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetSubHeadingname(Notes For SubHeading)
-        public async Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CustomerId, int SubHeadingId)
+        public async Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CompId, int CustId)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -45,18 +45,19 @@ namespace TracePca.Service.FIN_statement
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             var query = @"
-SELECT 
-    ASHN_Description AS Description,
-    ASHN_ID 
-FROM ACC_SubHeadingNoteDesc 
-LEFT JOIN ACC_ScheduleSubHeading a ON a.ASSH_ID = ASHN_SubHeadingId 
-WHERE ASHN_CustomerId = @CustomerId 
-  AND ASHN_SubHeadingId = @SubHeadingId";
+            SELECT
+              ASSH_ID AS ASSH_ID,
+              ASSH_Name AS ASSH_Name
+            FROM ACC_ScheduleSubHeading 
+            WHERE Assh_Orgtype = @CustId
+               AND ASSH_CompId = @CompId
+               AND ASSH_YEARId = @YearId";
+
 
             return await connection.QueryAsync<SubHeadingNoteDto>(query, new
             {
-                CustomerId = CustomerId,
-                SubHeadingId = SubHeadingId
+                CompId = CompId,
+                CustId = CustId
             });
         }
 

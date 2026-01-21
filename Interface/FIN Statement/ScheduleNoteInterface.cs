@@ -7,7 +7,7 @@ namespace TracePca.Interface.FIN_Statement
     {
 
         //GetSubHeadingname(Notes For SubHeading)
-        Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CustomerId, int SubHeadingId);
+        Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CompId, int CustId);
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
         //Task<int[]> SaveSubHeadindNotesAsync(SubHeadingNotesDto dto);

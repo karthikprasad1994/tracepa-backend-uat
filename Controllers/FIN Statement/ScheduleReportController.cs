@@ -552,5 +552,42 @@ namespace TracePca.Controllers.FIN_Statement
         //        });
         //    }
         //}
+
+        //[HttpPost("save-or-update")]
+        //public async Task<IActionResult> SaveOrUpdateLOE([FromBody] SaveLOEDto dto)
+        //{
+        //    if (dto == null)
+        //    {
+        //        return BadRequest(new
+        //        {
+        //            status = 400,
+        //            message = "Invalid request data"
+        //        });
+        //    }
+
+        //    try
+        //    {
+        //        int loeId = await _ScheduleReportService.SaveOrUpdateLOEAsync(dto);
+
+        //        return Ok(new
+        //        {
+        //            status = 200,
+        //            message = "Engagement plan saved successfully",
+        //            data = new
+        //            {
+        //                LOE_Id = loeId
+        //            }
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            status = 500,
+        //            message = "Internal server error",
+        //            details = ex.Message
+        //        });
+        //    }
+        //}
     }
 }
