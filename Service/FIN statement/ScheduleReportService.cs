@@ -3788,199 +3788,217 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
 
 
 
-        //public async Task<int> SaveOrUpdateLOEAsync(SaveLOEDto dto)
-        //{
-        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        public async Task<int> SaveOrUpdateLOEAsync(SaveLOEDto dto)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-        //    if (string.IsNullOrEmpty(dbName))
-        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-        //    var connectionString = _configuration.GetConnectionString(dbName);
+            var connectionString = _configuration.GetConnectionString(dbName);
 
-        //    using var connection = new SqlConnection(connectionString);
-        //    await connection.OpenAsync();
-        //    using var transaction = connection.BeginTransaction();
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
 
-        //    const string REPORT_NAME = "Report on the standalone Financial Statements";
+            const string REPORT_NAME = "Report on the standalone Financial Statements";
 
-        //    try
-        //    {
-        //        // STEP 1: Identify Report Type (fetch RTM_Id)
-        //        int reportTypeId = await connection.QueryFirstOrDefaultAsync<int>(
-        //            @"SELECT RTM_Id
-        //      FROM SAD_ReportTypeMaster
-        //      WHERE RTM_ReportName = @ReportName
-        //        AND RTM_Delflag = 'A'",
-        //            new { ReportName = REPORT_NAME },
-        //            transaction
-        //        );
+            try
+            {
+                // STEP 1: Get Report Type ID
+                int reportTypeId = await connection.QueryFirstOrDefaultAsync<int>(
+                    @"SELECT RTM_Id
+              FROM SAD_ReportTypeMaster
+              WHERE RTM_ReportName = @ReportName
+                AND RTM_Delflag = 'A'",
+                    new { ReportName = REPORT_NAME },
+                    transaction);
 
-        //        if (reportTypeId == 0)
-        //            throw new Exception("Report Type not found in SAD_ReportTypeMaster");
+                if (reportTypeId == 0)
+                    throw new Exception("Report Type not found in SAD_ReportTypeMaster");
 
-        //        int loeId;
+                // STEP 2: Check if LOE exists
+                int loeId = await connection.QueryFirstOrDefaultAsync<int>(
+                    @"SELECT LOE_Id
+              FROM SAD_CUST_LOE
+              WHERE LOE_CustomerId = @CustomerId
+                AND LOE_ServiceTypeId = @ReportTypeId
+                AND LOE_Delflag = 'A'",
+                    new
+                    {
+                        CustomerId = dto.LOE_CustomerId,
+                        ReportTypeId = reportTypeId
+                    },
+                    transaction);
 
-        //        // =========================================================
-        //        // STEP 2: Check if LOE exists for Customer + Report Type
-        //        // =========================================================
-        //        loeId = await connection.QueryFirstOrDefaultAsync<int>(
-        //            @"SELECT LOE_Id
-        //      FROM SAD_CUST_LOE
-        //      WHERE LOE_CustomerId = @CustomerId
-        //        AND LOE_ServiceTypeId = @ReportTypeId
-        //        AND LOE_Delflag = 'A'",
-        //            new { CustomerId = customerId, ReportTypeId = dto.RTM_Id },
-        //            transaction
-        //        );
+                // STEP 3: Create LOE if not exists
+                if (loeId == 0)
+                {
+                    loeId = await connection.ExecuteScalarAsync<int>(
+                        @"DECLARE @NewId INT;
+                  SELECT @NewId = ISNULL(MAX(LOE_Id),0) + 1 FROM SAD_CUST_LOE;
 
-        //        // =========================================================
-        //        // STEP 3: Create LOE if not exists
-        //        // =========================================================
-        //        if (loeId == 0)
-        //        {
-        //            loeId = await connection.ExecuteScalarAsync<int>(
-        //                @"DECLARE @NewLOEId INT;
-        //          SELECT @NewLOEId = ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE;
+                  INSERT INTO SAD_CUST_LOE
+                  (
+                      LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId,
+                      LOE_STATUS, LOE_Delflag, LOE_CrBy, LOE_CrOn,
+                      LOE_IPAddress, LOE_CompID
+                  )
+                  VALUES
+                  (
+                      @NewId, @YearId, @CustomerId, @ReportTypeId,
+                      'C','A',@CrBy,GETDATE(),@IP,@CompId
+                  );
 
-        //          INSERT INTO SAD_CUST_LOE
-        //          ( LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId, LOE_STATUS,
-        //              LOE_Delflag, LOE_CrBy, LOE_CrOn, LOE_IPAddress, LOE_CompID)
-        //          VALUES
-        //          (@NewLOEId, @YearId, @CustomerId, @ReportTypeId,'C',
-        //              'A', @CreatedBy, GETDATE(), @IPAddress, @CompId);
+                  SELECT @NewId;",
+                        new
+                        {
+                            YearId = dto.LOE_YearId,
+                            CustomerId = dto.LOE_CustomerId,
+                            ReportTypeId = reportTypeId,
+                            CrBy = dto.LOE_CrBy,
+                            IP = dto.LOE_IPAddress,
+                            CompId = dto.LOE_CompID
+                        },
+                        transaction);
+                }
 
-        //          SELECT @NewLOEId;",
-        //                new
-        //                {
-        //                    YearId = yearId,
-        //                    CustomerId = customerId,
-        //                    ReportTypeId = reportTypeId,
-        //                    CreatedBy = createdBy,
-        //                    IPAddress = ipAddress,
-        //                    CompId = compId
-        //                },
-        //                transaction
-        //            );
-        //        }
-        //        // STEP 4: Ensure headings exist in SAD_ReportContentMaster
-        //        foreach (var item in inputHeadings)
-        //        {
-        //            int rcmId = await connection.QueryFirstOrDefaultAsync<int>(
-        //                @"SELECT RCM_Id
-        //          FROM SAD_ReportContentMaster
-        //          WHERE RCM_ReportName = @ReportName
-        //            AND RCM_Heading = @Heading
-        //            AND RCM_Delflag = 'A'",
-        //                new { ReportName = REPORT_NAME, Heading = item.Heading },
-        //                transaction
-        //            );
+                // STEP 4: Ensure headings exist in SAD_ReportContentMaster
+                foreach (var h in dto.EngagementHeadingDetails)
+                {
+                    int rcmId = await connection.QueryFirstOrDefaultAsync<int>(
+                        @"SELECT RCM_Id
+                  FROM SAD_ReportContentMaster
+                  WHERE RCM_ReportName = @ReportName
+                    AND RCM_Heading = @Heading
+                    AND RCM_Delflag = 'A'",
+                        new
+                        {
+                            ReportName = REPORT_NAME,
+                            Heading = h.RCM_Heading
+                        },
+                        transaction);
 
-        //            if (rcmId == 0)
-        //            {
-        //                await connection.ExecuteAsync(
-        //                    @"DECLARE @NewRCMId INT;
-        //              SELECT @NewRCMId = ISNULL(MAX(RCM_Id), 0) + 1 FROM SAD_ReportContentMaster;
+                    if (rcmId == 0)
+                    {
+                        await connection.ExecuteAsync(
+                            @"DECLARE @NewId INT;
+                      SELECT @NewId = ISNULL(MAX(RCM_Id),0) + 1 FROM SAD_ReportContentMaster;
 
-        //              INSERT INTO SAD_ReportContentMaster
-        //              (
-        //                  RCM_Id,
-        //                  RCM_ReportName,
-        //                  RCM_Heading,
-        //                  RCM_Description,
-        //                  RCM_Delflag,
-        //                  RCM_CrBy,
-        //                  RCM_CrOn
-        //              )
-        //              VALUES
-        //              (
-        //                  @NewRCMId,
-        //                  @ReportName,
-        //                  @Heading,
-        //                  @Description,
-        //                  'A',
-        //                  @CreatedBy,
-        //                  GETDATE()
-        //              );",
-        //                    new
-        //                    {
-        //                        ReportName = REPORT_NAME,
-        //                        Heading = item.Heading,
-        //                        Description = item.Description,
-        //                        CreatedBy = createdBy
-        //                    },
-        //                    transaction
-        //                );
-        //            }
-        //        }
-        //        // STEP 6: Fetch existing LOE_Template_Details
-        //        var existingTemplateIds = (await connection.QueryAsync<int>(
-        //            @"SELECT LTD_HeadingID
-        //      FROM LOE_Template_Details
-        //      WHERE LTD_LOE_ID = @LOEId
-        //        AND LTD_ReportTypeID = @ReportTypeId",
-        //            new { LOEId = loeId, ReportTypeId = reportTypeId },
-        //            transaction
-        //        )).ToHashSet();
-        //        // STEP 7: Insert only missing LOE_Template_Details
-        //        foreach (var template in masterTemplates)
-        //        {
-        //            if (existingTemplateIds.Contains((int)template.RCM_Id))
-        //                continue;
+                      INSERT INTO SAD_ReportContentMaster
+                      (
+                          RCM_Id, RCM_ReportName, RCM_Heading,
+                          RCM_Description, RCM_Delflag,
+                          RCM_CrBy, RCM_CrOn
+                      )
+                      VALUES
+                      (
+                          @NewId, @ReportName, @Heading,
+                          @Description, 'A',
+                          @CrBy, GETDATE()
+                      );",
+                            new
+                            {
+                                ReportName = REPORT_NAME,
+                                Heading = h.RCM_Heading,
+                                Description = h.RCM_Description,
+                                CrBy = dto.LOE_CrBy
+                            },
+                            transaction);
+                    }
+                }
 
-        //            await connection.ExecuteAsync(
-        //                @"DECLARE @NewLTDId INT;
-        //          SELECT @NewLTDId = ISNULL(MAX(LTD_ID), 0) + 1 FROM LOE_Template_Details;
+                // STEP 5: Fetch MASTER templates
+                var masterTemplates = (await connection.QueryAsync<dynamic>(
+                    @"SELECT RCM_Id, RCM_Heading, RCM_Description
+              FROM SAD_ReportContentMaster
+              WHERE RCM_ReportName = @ReportName
+                AND RCM_Delflag = 'A'",
+                    new { ReportName = REPORT_NAME },
+                    transaction)).ToList();
 
-        //          INSERT INTO LOE_Template_Details
-        //          (
-        //              LTD_ID,
-        //              LTD_LOE_ID,
-        //              LTD_ReportTypeID,
-        //              LTD_HeadingID,
-        //              LTD_Heading,
-        //              LTD_Decription,
-        //              LTD_FormName,
-        //              LTD_CrBy,
-        //              LTD_CrOn,
-        //              LTD_IPAddress,
-        //              LTD_CompID
-        //          )
-        //          VALUES
-        //          (
-        //              @NewLTDId,
-        //              @LOEId,
-        //              @ReportTypeId,
-        //              @HeadingId,
-        //              @Heading,
-        //              @Description,
-        //              'LOE',
-        //              @CreatedBy,
-        //              GETDATE(),
-        //              @IPAddress,
-        //              @CompId
-        //          );",
-        //                new
-        //                {
-        //                    LOEId = loeId,
-        //                    ReportTypeId = reportTypeId,
-        //                    HeadingId = (int)template.RCM_Id,
-        //                    Heading = (string)template.RCM_Heading,
-        //                    Description = (string)template.RCM_Description,
-        //                    CreatedBy = createdBy,
-        //                    IPAddress = ipAddress,
-        //                    CompId = compId
-        //                },
-        //                transaction
-        //            );
-        //        }
-        //        await transaction.CommitAsync();
-        //        return loeId;
-        //    }
-        //    catch
-        //    {
-        //        await transaction.RollbackAsync();
-        //        throw;
-        //    }
+                // STEP 6: Fetch existing LOE templates
+                var existingTemplates = (await connection.QueryAsync<dynamic>(
+                    @"SELECT LTD_ID, LTD_HeadingID, LTD_Decription
+              FROM LOE_Template_Details
+              WHERE LTD_LOE_ID = @LOEId
+                AND LTD_ReportTypeID = @ReportTypeId",
+                    new { LOEId = loeId, ReportTypeId = reportTypeId },
+                    transaction)).ToList();
+
+                var existingMap = existingTemplates.ToDictionary(
+                    x => (int)x.LTD_HeadingID,
+                    x => new { LTD_ID = (int)x.LTD_ID, Description = (string)x.LTD_Decription });
+
+                // STEP 7 + UPDATE RULE
+                foreach (var m in masterTemplates)
+                {
+                    int headingId = (int)m.RCM_Id;
+                    string masterDesc = (string)m.RCM_Description;
+
+                    if (!existingMap.ContainsKey(headingId))
+                    {
+                        await connection.ExecuteAsync(
+                            @"DECLARE @NewId INT;
+                      SELECT @NewId = ISNULL(MAX(LTD_ID),0) + 1 FROM LOE_Template_Details;
+
+                      INSERT INTO LOE_Template_Details
+                      (
+                          LTD_ID, LTD_LOE_ID, LTD_ReportTypeID,
+                          LTD_HeadingID, LTD_Heading, LTD_Decription,
+                          LTD_FormName, LTD_CrBy, LTD_CrOn,
+                          LTD_IPAddress, LTD_CompID
+                      )
+                      VALUES
+                      (
+                          @NewId, @LOEId, @ReportTypeId,
+                          @HeadingId, @Heading, @Description,
+                          'LOE', @CrBy, GETDATE(),
+                          @IP, @CompId
+                      );",
+                            new
+                            {
+                                LOEId = loeId,
+                                ReportTypeId = reportTypeId,
+                                HeadingId = headingId,
+                                Heading = (string)m.RCM_Heading,
+                                Description = masterDesc,
+                                CrBy = dto.LOE_CrBy,
+                                IP = dto.LOE_IPAddress,
+                                CompId = dto.LOE_CompID
+                            },
+                            transaction);
+                    }
+                    else
+                    {
+                        var existing = existingMap[headingId];
+
+                        if (existing.Description != masterDesc)
+                        {
+                            await connection.ExecuteAsync(
+                                @"UPDATE LOE_Template_Details
+                          SET LTD_Decription = @Description,
+                              LTD_UpdatedBy = @UpdatedBy,
+                              LTD_UpdatedOn = GETDATE()
+                          WHERE LTD_ID = @LTDId",
+                                new
+                                {
+                                    Description = masterDesc,
+                                    UpdatedBy = dto.LOE_CrBy,
+                                    LTDId = existing.LTD_ID
+                                },
+                                transaction);
+                        }
+                    }
+                }
+                await transaction.CommitAsync();
+                return loeId;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
     }
 }

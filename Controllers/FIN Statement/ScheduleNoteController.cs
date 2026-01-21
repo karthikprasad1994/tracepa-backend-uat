@@ -116,29 +116,27 @@ namespace TracePca.Controllers.FIN_Statement
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
         [HttpPost("SaveSubheadingWithNotes")]
-        public async Task<IActionResult> SaveSubheadingWithNotes([FromBody] List<SubheadingDto> subheadingDtos)
+        public async Task<IActionResult> SaveSubHeadingNotes( [FromBody] List<SaveSubheadingDto> subheadingDtos)
         {
             try
             {
-                if (subheadingDtos == null || subheadingDtos.Count == 0)
+                if (subheadingDtos == null || !subheadingDtos.Any())
                 {
                     return BadRequest(new
                     {
                         statusCode = 400,
-                        message = "No subheading data provided.",
+                        message = "No data provided.",
                         data = (object)null
                     });
                 }
 
-                // Call service to save subheadings + notes
-                var savedSubheadings = await _ScheduleNoteService.SaveSubheadingWithNotesAsync(subheadingDtos);
+                var result = await _ScheduleNoteService.SaveNotesUsingExistingSubHeadingAsync(subheadingDtos);
 
-                // Return response in your desired format
                 return Ok(new
                 {
                     statusCode = 200,
-                    message = "Subheadings saved successfully.",
-                    data = savedSubheadings
+                    message = "SubHeading notes saved successfully.",
+                    data = result
                 });
             }
             catch (Exception ex)
@@ -146,12 +144,11 @@ namespace TracePca.Controllers.FIN_Statement
                 return StatusCode(500, new
                 {
                     statusCode = 500,
-                    message = "An error occurred while saving subheadings with notes.",
+                    message = "An error occurred while saving subheading notes.",
                     error = ex.Message
                 });
             }
         }
-
         //LoadGrid(Notes For SubHeading)
         [HttpGet("LoadSubheadingNotes")]
         public async Task<IActionResult> LoadSubheadingNotes([FromQuery] int compId, [FromQuery] int yearId, [FromQuery] int custId)

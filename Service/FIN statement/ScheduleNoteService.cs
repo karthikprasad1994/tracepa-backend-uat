@@ -132,15 +132,14 @@ namespace TracePca.Service.FIN_statement
 
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
-        public async Task<List<SubheadingDto>> SaveSubheadingWithNotesAsync(List<SubheadingDto> subheadingDtos)
+        public async Task<List<SaveSubheadingDto>> SaveNotesUsingExistingSubHeadingAsync( List<SaveSubheadingDto> subheadingDtos)
         {
-            // ✅ Step 1: Get DB name from session
+            // 1️⃣ Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+                throw new Exception("CustomerCode is missing in session.");
 
-            // ✅ Step 2: Get connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
@@ -151,76 +150,78 @@ namespace TracePca.Service.FIN_statement
             {
                 foreach (var subheading in subheadingDtos)
                 {
-                    // -------------------------------
-                    // 1️⃣ Save or Update Subheading
-                    // -------------------------------
-                    using (var cmdSub = new SqlCommand("spACC_ScheduleSubHeading", connection, transaction))
+                    if (subheading.assH_ID <= 0)
                     {
-                        cmdSub.CommandType = CommandType.StoredProcedure;
+                        string fetchSubHeadingSql = @"
+                    SELECT ASSH_ID
+                    FROM ACC_ScheduleSubHeading
+                    WHERE ASSH_Name = @Name
+                      AND ASSH_HeadingID = @HeadingID
+                      AND ASSH_CompId = @CompId
+                      AND ASSH_YEARId = @YearId
+                      AND ASSH_DELFLG = 'N'";
 
-                        cmdSub.Parameters.AddWithValue("@ASSH_ID", subheading.assH_ID);
-                        cmdSub.Parameters.AddWithValue("@ASSH_Name", subheading.assH_Name);
-                        cmdSub.Parameters.AddWithValue("@ASSH_HeadingID", subheading.assH_HeadingID);
-                        cmdSub.Parameters.AddWithValue("@ASSH_DELFLG", "N");
-                        cmdSub.Parameters.AddWithValue("@ASSH_CRBY", subheading.assH_CRBY);
-                        cmdSub.Parameters.AddWithValue("@ASSH_STATUS", "C");
-                        cmdSub.Parameters.AddWithValue("@ASSH_UPDATEDBY", subheading.assH_UPDATEDBY);
-                        cmdSub.Parameters.AddWithValue("@ASSH_IPAddress", subheading.assH_IPAddress ?? "127.0.0.1");
-                        cmdSub.Parameters.AddWithValue("@ASSH_CompId", subheading.assH_CompId);
-                        cmdSub.Parameters.AddWithValue("@ASSH_YEARId", subheading.assH_YEARId);
-                        cmdSub.Parameters.AddWithValue("@ASSH_Notes", subheading.assH_Notes);
-                        cmdSub.Parameters.AddWithValue("@ASSH_scheduletype", subheading.assH_scheduletype);
-                        cmdSub.Parameters.AddWithValue("@ASSH_Orgtype", subheading.assH_Orgtype);
+                        subheading.assH_ID = await connection.ExecuteScalarAsync<int>(
+                            fetchSubHeadingSql,
+                            new
+                            {
+                                Name = subheading.assH_Name,
+                                HeadingID = subheading.assH_HeadingID,
+                                CompId = subheading.assH_CompId,
+                                YearId = subheading.assH_YEARId
+                            },
+                            transaction
+                        );
 
-                        var sub_iUpdateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                        var sub_iOper = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
-
-                        cmdSub.Parameters.Add(sub_iUpdateOrSave);
-                        cmdSub.Parameters.Add(sub_iOper);
-
-                        await cmdSub.ExecuteNonQueryAsync();
-
-                        // Get the subheading ID (existing or newly created)
-                        int savedSubheadingId = Convert.ToInt32(sub_iOper.Value);
-                        subheading.assH_ID = savedSubheadingId;
+                        if (subheading.assH_ID <= 0)
+                            throw new Exception($"SubHeading not found: {subheading.assH_Name}");
                     }
 
-                    // -------------------------------
-                    // 2️⃣ Save or Update Notes
-                    // -------------------------------
                     foreach (var note in subheading.notes)
                     {
-                        using var cmdNote = new SqlCommand("spACC_SubHeadingNoteDesc", connection, transaction);
+                        using var cmdNote = new SqlCommand(
+                            "spACC_SubHeadingNoteDesc",
+                            connection,
+                            transaction);
+
                         cmdNote.CommandType = CommandType.StoredProcedure;
 
                         cmdNote.Parameters.AddWithValue("@ASHN_ID", note.ashN_ID);
-                        cmdNote.Parameters.AddWithValue("@ASHN_SubHeadingId", subheading.assH_ID);
+                        cmdNote.Parameters.AddWithValue("@ASHN_SubHeadingId", subheading.assH_ID); // 🔑 KEY POINT
                         cmdNote.Parameters.AddWithValue("@ASHN_CustomerId", note.ashN_CustomerId);
                         cmdNote.Parameters.AddWithValue("@ASHN_Description", note.ashN_Description ?? string.Empty);
                         cmdNote.Parameters.AddWithValue("@ASHN_DelFlag", note.ashN_DelFlag ?? "N");
                         cmdNote.Parameters.AddWithValue("@ASHN_Status", note.ashN_Status ?? "C");
                         cmdNote.Parameters.AddWithValue("@ASHN_Operation", note.ashN_Operation ?? "SAVE");
                         cmdNote.Parameters.AddWithValue("@ASHN_CreatedBy", note.ashN_CreatedBy);
-                        cmdNote.Parameters.AddWithValue("@ASHN_CreatedOn", note.ashN_CreatedOn == default ? DateTime.Now : note.ashN_CreatedOn);
+                        cmdNote.Parameters.AddWithValue("@ASHN_CreatedOn",
+                            note.ashN_CreatedOn == default ? DateTime.Now : note.ashN_CreatedOn);
                         cmdNote.Parameters.AddWithValue("@ASHN_CompID", note.ashN_CompID);
                         cmdNote.Parameters.AddWithValue("@ASHN_YearID", note.ashN_YearID);
                         cmdNote.Parameters.AddWithValue("@ASHN_IPAddress", note.ashN_IPAddress ?? "127.0.0.1");
 
-                        var note_iUpdateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                        var note_iOper = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        var iUpdateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
+                        {
+                            Direction = ParameterDirection.Output
+                        };
 
-                        cmdNote.Parameters.Add(note_iUpdateOrSave);
-                        cmdNote.Parameters.Add(note_iOper);
+                        var iOper = new SqlParameter("@iOper", SqlDbType.Int)
+                        {
+                            Direction = ParameterDirection.Output
+                        };
+
+                        cmdNote.Parameters.Add(iUpdateOrSave);
+                        cmdNote.Parameters.Add(iOper);
 
                         await cmdNote.ExecuteNonQueryAsync();
 
-                        // Update note ID after save
-                        note.ashN_ID = Convert.ToInt32(note_iOper.Value);
+                        // Update note ID
+                        note.ashN_ID = Convert.ToInt32(iOper.Value);
                     }
                 }
 
                 transaction.Commit();
-                return subheadingDtos; // Return updated nested JSON
+                return subheadingDtos;
             }
             catch
             {

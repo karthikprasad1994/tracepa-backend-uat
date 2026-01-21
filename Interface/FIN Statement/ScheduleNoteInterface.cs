@@ -13,7 +13,7 @@ namespace TracePca.Interface.FIN_Statement
         //Task<int[]> SaveSubHeadindNotesAsync(SubHeadingNotesDto dto);
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
-        Task<List<SubheadingDto>> SaveSubheadingWithNotesAsync(List<SubheadingDto> subheadingDtos);
+        Task<List<SaveSubheadingDto>> SaveNotesUsingExistingSubHeadingAsync(List<SaveSubheadingDto> subheadingDtos);
 
         //LoadGrid(Notes For SubHeading)
         Task<List<SubheadingNoteLoadDto>> LoadSubheadingNotesAsync(int compId, int yearId, int custId);
