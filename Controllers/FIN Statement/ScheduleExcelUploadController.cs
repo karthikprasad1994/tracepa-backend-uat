@@ -372,7 +372,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         [HttpPost("upload-je-transactions")]
         public async Task<ActionResult<ApiResponse<string>>> UploadJournalEntries(
-            [FromBody] JournalEntryUploadRequest request)
+       [FromBody] JournalEntryUploadRequest request)
         {
             try
             {
@@ -411,12 +411,27 @@ namespace TracePca.Controllers.FIN_Statement
                 using var connection = new SqlConnection(connectionString);
                 await connection.OpenAsync();
 
-                // Fast validation
-                var validationResult = await ValidateUploadData(request, connection, null, accessCodeId);
+                /* ----------------------------------------------------
+                 * 1️⃣ FAST HEADER / MASTER VALIDATION
+                 * ---------------------------------------------------- */
+                var validationResult = await ValidateUploadData(
+                    request, connection, null, accessCodeId);
+
                 if (!validationResult.Success)
                     return BadRequest(validationResult);
 
-                // Process in transaction
+                /* ----------------------------------------------------
+                 * 2️⃣ ROW-LEVEL PRE VALIDATION (NEW)
+                 * ---------------------------------------------------- */
+                var preValidationResult = await PreValidateRows(
+                    connection, null, request, accessCodeId, userId, ipAddress);
+
+                if (!preValidationResult.Success)
+                    return BadRequest(preValidationResult);
+
+                /* ----------------------------------------------------
+                 * 3️⃣ TRANSACTIONAL INSERT
+                 * ---------------------------------------------------- */
                 using var transaction = connection.BeginTransaction();
                 try
                 {
@@ -458,6 +473,7 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
 
         private async Task<ApiResponse<string>> ProcessJournalEntriesOptimized(
             SqlConnection connection,
@@ -589,6 +605,70 @@ namespace TracePca.Controllers.FIN_Statement
             }
 
             return result;
+        }
+        private async Task<int> CheckVoucherType(SqlConnection connection, SqlTransaction transaction, int compId, string type, string description)
+        {
+            var sql = "SELECT cmm_ID FROM Content_Management_Master WHERE CMM_CompID = @CompID AND cmm_Category = @Category AND cmm_Delflag = 'A' AND cmm_Desc = @Description ORDER BY cmm_Desc ASC";
+
+            using var command = new SqlCommand(sql, connection, transaction);
+            command.Parameters.AddWithValue("@CompID", compId);
+            command.Parameters.AddWithValue("@Category", type);
+            command.Parameters.AddWithValue("@Description", description);
+
+            var result = await command.ExecuteScalarAsync();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        private async Task<ApiResponse<string>> PreValidateRows(SqlConnection connection, SqlTransaction transaction, JournalEntryUploadRequest request, int accessCodeId, int userId, string ipAddress)
+        {
+            var iErrorLine = 1;
+
+            // ✅ OPTIMIZATION: Pre-load voucher types in batch
+            var distinctVoucherTypes = request.Rows
+                .Where(row => !string.IsNullOrEmpty(row.JE_Type))
+                .Select(row => row.JE_Type)
+                .Distinct()
+                .ToList();
+
+            var voucherTypes = new Dictionary<string, int>();
+            foreach (var voucherType in distinctVoucherTypes)
+            {
+                var voucherId = await CheckVoucherType(connection, transaction, accessCodeId, "JE", voucherType);
+                voucherTypes[voucherType] = voucherId;
+            }
+
+            // Validate each row
+            foreach (var row in request.Rows)
+            {
+                if (string.IsNullOrEmpty(row.JE_Type))
+                {
+                    if (!string.IsNullOrEmpty(row.Account))
+                    {
+                        return new ApiResponse<string> { Success = false, Message = $"JE Type cannot be blank - Line No: {iErrorLine}" };
+                    }
+                }
+                else if (!voucherTypes.ContainsKey(row.JE_Type) || voucherTypes[row.JE_Type] == 0)
+                {
+                    return new ApiResponse<string> { Success = false, Message = $"Create JE Type {row.JE_Type} in the General Master" };
+                }
+
+                if (string.IsNullOrEmpty(row.Account))
+                {
+                    if (row.Debit.HasValue || row.Credit.HasValue)
+                    {
+                        return new ApiResponse<string> { Success = false, Message = $"Account cannot be blank - Line No: {iErrorLine}" };
+                    }
+                }
+
+                // Validate date format
+                if (!string.IsNullOrEmpty(row.Transaction_Date) && !IsValidDate(row.Transaction_Date))
+                {
+                    return new ApiResponse<string> { Success = false, Message = $"Invalid Date Format (Enter Transaction Date in dd/MM/yyyy format) - Line No: {iErrorLine}" };
+                }
+
+                iErrorLine++;
+            }
+
+            return new ApiResponse<string> { Success = true };
         }
         private async Task<int> GetIdFromNameAsync(SqlConnection conn, SqlTransaction tran, string table, string column, string name, int orgType)
         {

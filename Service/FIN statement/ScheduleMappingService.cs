@@ -803,72 +803,58 @@ WHERE ATBUD_Custid = @CustId
                     inputList.Add(surplusRecord);
                 }
 
-                // Create Opening Stock record if it doesn't exist
-                if (openingStockRecord == null)
+                // Create Opening Stock record for next year with Closing Stock amounts
+                var first = inputList.First();
+                openingStockRecord = new FreezeNextYearTrialBalanceDto
                 {
-                    var first = inputList.First();
+                    AtbU_CODE = "Opening Stock",
+                    AtbU_Description = "Opening Stock",
+                    AtbU_CustId = first.AtbU_CustId,
+                    AtbU_YEARId = first.AtbU_YEARId,
+                    AtbU_Closing_Debit_Amount = closingStockDebit, // Current year's closing stock
+                    AtbU_Closing_Credit_Amount = closingStockCredit, // Current year's closing stock
+                    AtbU_DELFLG = "A",
+                    AtbU_CRBY = first.AtbU_CRBY,
+                    AtbU_STATUS = "A",
+                    AtbU_UPDATEDBY = first.AtbU_UPDATEDBY,
+                    AtbU_IPAddress = first.AtbU_IPAddress,
+                    AtbU_CompId = first.AtbU_CompId,
+                    AtbU_Branchid = first.AtbU_Branchid,
+                    AtbU_QuarterId = first.AtbU_QuarterId,
 
-                    // Schedule Type = 3 (Stock)
-                    int scheduleType = 3;
+                    AtbuD_CODE = "Opening Stock",
+                    AtbuD_Description = "Opening Stock",
+                    AtbuD_CustId = first.AtbuD_CustId,
+                    AtbuD_SChedule_Type = 3, // Schedule Type 3 for Stock
+                    AtbuD_Branchid = first.AtbuD_Branchid,
+                    AtbuD_QuarterId = first.AtbuD_QuarterId,
+                    AtbuD_Company_Type = first.AtbuD_Company_Type,
 
-                    // 🔹 Resolve hierarchy correctly
-                    var headingId = await GetScheduleIdAsync(scheduleType, first.AtbuD_CustId, 1, 3);
-                    var subHeadingId = headingId.HasValue
-                        ? await GetScheduleIdAsync(scheduleType, first.AtbuD_CustId, 2, headingId.Value)
-                        : null;
+                    // Get the hierarchy IDs for Stock (Schedule Type 3)
+                    AtbuD_Headingid = await GetScheduleIdAsync(3, first.AtbuD_CustId, 1, 3) ?? 0,
+                    AtbuD_Subheading = 0,
+                    AtbuD_itemid = 0,
+                    AtbuD_SubItemid = 0,
 
-                    //var itemId = subHeadingId.HasValue
-                    //    ? await GetScheduleIdAsync(scheduleType, first.AtbuD_CustId,         -+  3, subHeadingId.Value)
-                    //    : null;
+                    AtbuD_DELFLG = "A",
+                    AtbuD_CRBY = first.AtbuD_CRBY,
+                    AtbuD_UPDATEDBY = first.AtbuD_UPDATEDBY,
+                    AtbuD_STATUS = "A",
+                    AtbuD_Progress = "",
+                    AtbuD_IPAddress = first.AtbuD_IPAddress,
+                    AtbuD_CompId = first.AtbuD_CompId,
 
-                    //var subItemId = itemId.HasValue
-                    //    ? await GetScheduleIdAsync(scheduleType, first.AtbuD_CustId, 4, itemId.Value)
-                    //    : null;
+                    HeadingName = "Opening Stock"
+                };
 
-                    openingStockRecord = new FreezeNextYearTrialBalanceDto
-                    {
-                        AtbU_CODE = "Opening Stock",
-                        AtbU_Description = "Opening Stock",
-                        AtbU_CustId = first.AtbU_CustId,
-                        AtbU_YEARId = first.AtbU_YEARId,
-                        AtbU_Closing_Debit_Amount = 0,
-                        AtbU_Closing_Credit_Amount = 0,
-                        AtbU_DELFLG = "A",
-                        AtbU_CRBY = first.AtbU_CRBY,
-                        AtbU_STATUS = "A",
-                        AtbU_UPDATEDBY = first.AtbU_UPDATEDBY,
-                        AtbU_IPAddress = first.AtbU_IPAddress,
-                        AtbU_CompId = first.AtbU_CompId,
-                        AtbU_Branchid = first.AtbU_Branchid,
-                        AtbU_QuarterId = first.AtbU_QuarterId,
+                // Check if Opening Stock already exists in inputList, if not add it
+                bool openingStockExists = inputList.Any(r =>
+                    r.AtbU_Description?.Trim().Equals("Opening Stock", StringComparison.OrdinalIgnoreCase) == true);
 
-                        AtbuD_CODE = "Opening Stock",
-                        AtbuD_Description = "Opening Stock",
-                        AtbuD_CustId = first.AtbuD_CustId,
-                        AtbuD_SChedule_Type = scheduleType,
-                        AtbuD_Branchid = first.AtbuD_Branchid,
-                        AtbuD_QuarterId = first.AtbuD_QuarterId,
-                        AtbuD_Company_Type = first.AtbuD_Company_Type,
-
-                        AtbuD_Headingid = headingId ?? 0,
-                        AtbuD_Subheading = subHeadingId ?? 0,
-                        AtbuD_itemid = 0,
-                        AtbuD_SubItemid = 0,
-
-                        AtbuD_DELFLG = "A",
-                        AtbuD_CRBY = first.AtbuD_CRBY,
-                        AtbuD_UPDATEDBY = first.AtbuD_UPDATEDBY,
-                        AtbuD_STATUS = "A",
-                        AtbuD_Progress = "",
-                        AtbuD_IPAddress = first.AtbuD_IPAddress,
-                        AtbuD_CompId = first.AtbuD_CompId,
-
-                        HeadingName = "Opening Stock"
-                    };
-
+                if (!openingStockExists)
+                {
                     inputList.Add(openingStockRecord);
                 }
-
 
                 foreach (var record in inputList)
                 {
@@ -954,15 +940,15 @@ WHERE ATBUD_Custid = @CustId
                             atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount + netIncomeClosingDebit);
                             atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount + netIncomeClosingCredit);
                         }
-                        // For Opening Stock record, add the Closing Stock amounts to opening balances
+                        // For Opening Stock record, use the collected Closing Stock amounts
                         else if (isOpeningStockRecord)
                         {
-                            atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount + closingStockDebit);
-                            atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount + closingStockCredit);
+                            atbuParams.Add("@ATBU_Opening_Debit_Amount", closingStockDebit);
+                            atbuParams.Add("@ATBU_Opening_Credit_Amount", closingStockCredit);
                             atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
                             atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
-                            atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount + closingStockDebit);
-                            atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount + closingStockCredit);
+                            atbuParams.Add("@ATBU_Closing_Debit_Amount", closingStockDebit);
+                            atbuParams.Add("@ATBU_Closing_Credit_Amount", closingStockCredit);
                         }
                         else
                         {
@@ -976,6 +962,7 @@ WHERE ATBUD_Custid = @CustId
                     }
                     else
                     {
+                        // For non-schedule type 4 records, set all amounts to 0
                         atbuParams.Add("@ATBU_Opening_Debit_Amount", 0);
                         atbuParams.Add("@ATBU_Opening_Credit_Amount", 0);
                         atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
@@ -983,14 +970,15 @@ WHERE ATBUD_Custid = @CustId
                         atbuParams.Add("@ATBU_Closing_Debit_Amount", 0);
                         atbuParams.Add("@ATBU_Closing_Credit_Amount", 0);
 
+                        // Except for Opening Stock - carry forward Closing Stock amounts
                         if (isOpeningStockRecord)
                         {
-                            atbuParams.Add("@ATBU_Opening_Debit_Amount", record.AtbU_Closing_Debit_Amount + closingStockDebit);
-                            atbuParams.Add("@ATBU_Opening_Credit_Amount", record.AtbU_Closing_Credit_Amount + closingStockCredit);
+                            atbuParams.Add("@ATBU_Opening_Debit_Amount", closingStockDebit);
+                            atbuParams.Add("@ATBU_Opening_Credit_Amount", closingStockCredit);
                             atbuParams.Add("@ATBU_TR_Debit_Amount", 0);
                             atbuParams.Add("@ATBU_TR_Credit_Amount", 0);
-                            atbuParams.Add("@ATBU_Closing_Debit_Amount", record.AtbU_Closing_Debit_Amount + closingStockDebit);
-                            atbuParams.Add("@ATBU_Closing_Credit_Amount", record.AtbU_Closing_Credit_Amount + closingStockCredit);
+                            atbuParams.Add("@ATBU_Closing_Debit_Amount", closingStockDebit);
+                            atbuParams.Add("@ATBU_Closing_Credit_Amount", closingStockCredit);
                         }
                     }
 
