@@ -26,10 +26,12 @@ using TracePca.Data;
 using TracePca.Dto.Audit;
 using TracePca.Interface;
 using TracePca.Interface.Audit;
+using TracePca.Interface.FIN_Statement;
 using TracePca.Interface.Master;
 using TracePca.Service.DigitalFilling;
 using TracePca.Service.Master;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+using static TracePca.Dto.FIN_Statement.ScheduleReportDto;
 using Body = DocumentFormat.OpenXml.Wordprocessing.Body;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
 using Colors = QuestPDF.Helpers.Colors;
@@ -50,11 +52,12 @@ namespace TracePca.Service.Audit
         private readonly AuditAndDashboardInterface _auditAndDashboardInterface;
         private readonly EmailInterface _emailInterface;
         private readonly IGoogleDriveService _driveService;
+        private readonly ScheduleReportInterface _scheduleReportInterface;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly string _connectionString;
 
         public AuditCompletionService(IConfiguration configuration, EngagementPlanInterface engagementPlanInterface, AuditSummaryInterface auditSummaryInterface, AuditAndDashboardInterface auditAndDashboardInterface,
-            EmailInterface emailinterface, IGoogleDriveService driveService, IHttpContextAccessor httpContextAccessor)
+            EmailInterface emailinterface, IGoogleDriveService driveService, ScheduleReportInterface scheduleReportInterface, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _engagementPlanInterface = engagementPlanInterface ?? throw new ArgumentNullException(nameof(engagementPlanInterface));
@@ -63,6 +66,7 @@ namespace TracePca.Service.Audit
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
             _emailInterface = emailinterface ?? throw new ArgumentNullException(nameof(emailinterface));
             _driveService = driveService ?? throw new ArgumentNullException(nameof(driveService));
+            _scheduleReportInterface = scheduleReportInterface ?? throw new ArgumentNullException(nameof(scheduleReportInterface));
             _connectionString = GetConnectionStringFromSession();
         }
 
@@ -2158,11 +2162,13 @@ namespace TracePca.Service.Audit
 
             try
             {
-                var result = await connection.QueryFirstOrDefaultAsync<(string SubCabinet, string CustCode, string CustName, string YearName, string UserName, DateTime DocumentExpiryDate, int ReminderDay)>(
-                    @"Select SA_AuditNo + ' - ' + CMM.CMM_Desc, CUST_CODE, CUST_NAME, YMS_ID, usr_FullName, ISNULL(SA_ExpiryDate, DATEADD(YEAR, 7, GETDATE())) AS SA_ExpiryDate, ISNULL(SA_RetentionPeriod, 7) AS SA_RetentionPeriod
+                var result = await connection.QueryFirstOrDefaultAsync<(string SubCabinet, string CustCode, int CustId, string CustName, int YearId, string YearName, string UserName, DateTime DocumentExpiryDate, int ReminderDay)>(
+                    @"Select SA_AuditNo + ' - ' + CMM.CMM_Desc, CUST_CODE, CUST_ID, CUST_NAME, YMS_YEARID, YMS_ID, usr_FullName, ISNULL(SA_ExpiryDate, DATEADD(YEAR, 7, GETDATE())) AS SA_ExpiryDate, ISNULL(SA_RetentionPeriod, 7) AS SA_RetentionPeriod
 		            from StandardAudit_Schedule LEFT JOIN SAD_CUSTOMER_MASTER On CUST_ID=SA_CustID LEFT JOIN Year_Master On YMS_YEARID = SA_YearID LEFT Join Sad_Userdetails On Usr_Id = @UserId 
 		            LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA_AuditTypeID Where SA_ID= @AuditId;",
                     new { CompId = compId, AuditId = auditId, UserId = userId });
+
+                string companyName = await connection.ExecuteScalarAsync<string>(@"SELECT ISNULL(STUFF((SELECT ',' + CAST(Company_name AS VARCHAR(20)) FROM Trace_CompanyDetails WHERE Company_CompID = @CompId FOR XML PATH(''), TYPE).value('.', 'VARCHAR(MAX)'), 1, 1, ''),'');", new { CompId = compId });
 
                 String OrgName = result.CustName;
                 String Cabinet = result.CustName + "_" + result.YearName;
@@ -2346,14 +2352,14 @@ namespace TracePca.Service.Audit
                 //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Schedule Report", "Audit_Schedule_Report.pdf", savedAuditScheduleFilePath);
 
                 // 3. Beginning of the Audit Communication
-                var savedBeginningoftheAuditFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Beginning_ofthe_Audit_Report", "", "pdf", 3);
+                var savedBeginningoftheAuditFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId,"", result.CustName, "Beginning_ofthe_Audit_Report", "Beginning of the Audit Communication", "pdf", 1, result.YearId, null);
                 int beginningoftheAuditAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedBeginningoftheAuditFilePath, compId, userId);
                 var beginningoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Beginning of the Audit - Report' AS TypeName, {beginningoftheAuditAttachmentId} AS AttachIds";
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, beginningoftheAudit);
                 //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Report", "Beginning_ofthe_Audit_Report.pdf", savedScheduleNotesFilePath);
 
                 // 4. During the Audit Requests
-                var savedDRLFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "DRL_Report", "", "pdf", 3);
+                var savedDRLFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, companyName, result.CustName, "DRL_Report", "During the Audit Requests", "pdf", 2, result.YearId, null);
                 int DRLAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedDRLFilePath, compId, userId);
                 var DRL = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'DRL - Report' AS TypeName, {DRLAttachmentId} AS AttachIds";
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, DRL);
@@ -2374,7 +2380,7 @@ namespace TracePca.Service.Audit
                 //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Conduct Audit Checkpoint Report", "ConductAudit_Checkpoint_Report.pdf", savedACCheckpointFilePath);
 
                 // 7. Near End of the Audit
-                var savedNearEndoftheAuditFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Near_End_ofthe_Audit_Report", "", "pdf", 3);
+                var savedNearEndoftheAuditFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, companyName, result.CustName, "Near_End_ofthe_Audit_Report", "Near End of the Audit", "pdf", 3, result.YearId, null);
                 int nearEndoftheAuditAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedNearEndoftheAuditFilePath, compId, userId);
                 var nearEndoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Near End of the Audit - Report' AS TypeName, {nearEndoftheAuditAttachmentId} AS AttachIds";
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, nearEndoftheAudit);
@@ -2394,48 +2400,64 @@ namespace TracePca.Service.Audit
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "StandardAudit", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, auditCompletion);
                 //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Completion", "Audit_Completion_Report.pdf", savedAuditCompletionFilePath);
 
-                // 9. Account Finalisation Report
-                var savedSummaryPLReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Summary_PL_Report", "Summary Report - P&L", "pdf", 0);
-                int summaryPLAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedSummaryPLReportFilePath, compId, userId);
-                var summaryPL = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {summaryPLAttachmentId} AS AttachIds";
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, summaryPL);
-                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Summary_PL_Report.pdf", savedSummaryPLReportFilePath);
 
-                var savedSummaryBalanceSheetReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Summary_BalanceSheet_Report", "Summary Report - Balance Sheet", "pdf", 0);
-                int summaryBalanceSheetAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedSummaryBalanceSheetReportFilePath, compId, userId);
-                var summaryBalanceSheet = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {summaryBalanceSheetAttachmentId} AS AttachIds";
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, summaryBalanceSheet);
-                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Summary_BalanceSheet_Report.pdf", savedSummaryBalanceSheetReportFilePath);
+                string branchIds = await connection.ExecuteScalarAsync<string>(@"SELECT ISNULL(STUFF((SELECT ',' + CAST(L2.Mas_Id AS VARCHAR(20)) FROM SAD_CUST_LOCATION L2 
+                    WHERE L2.Mas_CustID = SA.SA_CustID AND L2.Mas_CompID = SA.SA_CompID FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, ''), '0') FROM StandardAudit_Schedule SA 
+                    WHERE SA.SA_ID = @AuditId AND SA.SA_CompID = @CompId;", new { AuditId = auditId, CompId = compId });
 
-                var savedDetailedPLReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Detailed_PL_Report", "Detailed Report - P&L", "pdf", 0);
-                int detailedPLAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedDetailedPLReportFilePath, compId, userId);
-                var detailedPL = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {detailedPLAttachmentId} AS AttachIds";
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, detailedPL);
-                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Detailed_PL_Report.pdf", savedDetailedPLReportFilePath);
+                if (branchIds != "0")
+                {
+                    // 9. Account Finalisation Report
+                    var summaryPLData = await _scheduleReportInterface.GetReportSummaryPnLAsync(compId, new SummaryReportPnL { YearID = result.YearId, CustID = result.CustId, BranchId = branchIds });
+                    var summaryPLCommon = summaryPLData.Select(x => new CommonReportRowDto { SrNo = x.SrNo, Particular = x.Name, Notes = x.Notes, CurrentYearAmount = x.HeaderSLNo, PreviousYearAmount = x.PrevYearTotal, Status = x.status }).ToList();
+                    var savedSummaryPLReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, companyName, result.CustName, "Summary_PL_Report", "STATEMENT OF PROFIT AND LOSS FOR THE YEAR ENDED 31/03/20" + result.YearId.ToString(), "pdf", 4, result.YearId, summaryPLCommon);
+                    int summaryPLAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedSummaryPLReportFilePath, compId, userId);
+                    var summaryPL = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {summaryPLAttachmentId} AS AttachIds";
+                    await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, summaryPL);
+                    //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Summary_PL_Report.pdf", savedSummaryPLReportFilePath);
 
-                var savedDetailedBalanceSheetReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Detailed_Report_BalanceSheet_Report", "Detailed Report - Balance sheet", "pdf", 0);
-                int detailedBalanceSheetAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedDetailedBalanceSheetReportFilePath, compId, userId);
-                var detailedBalanceSheet = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {detailedBalanceSheetAttachmentId} AS AttachIds";
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, detailedBalanceSheet);
-                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Detailed_Report_BalanceSheet_Report.pdf", savedDetailedBalanceSheetReportFilePath);
+                    var summaryBalanceSheetData = await _scheduleReportInterface.GetReportSummaryBalanceSheetAsync(compId, new SummaryReportBalanceSheet { YearID = result.YearId, CustID = result.CustId, BranchId = branchIds });
+                    var summaryBalanceCommon = summaryBalanceSheetData.Select(x => new CommonReportRowDto { SrNo = x.SrNo, Particular = x.Name, Notes = x.Notes, CurrentYearAmount = x.HeaderSLNo, PreviousYearAmount = x.PrevYearTotal, Status = x.status }).ToList();
+                    var savedSummaryBalanceSheetReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, companyName, result.CustName, "Summary_BalanceSheet_Report", "BALANCE SHEET AS AT 31/03/20" + result.YearId.ToString(), "pdf", 5, result.YearId, summaryBalanceCommon);
+                    int summaryBalanceSheetAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedSummaryBalanceSheetReportFilePath, compId, userId);
+                    var summaryBalanceSheet = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {summaryBalanceSheetAttachmentId} AS AttachIds";
+                    await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, summaryBalanceSheet);
+                    //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Summary_BalanceSheet_Report.pdf", savedSummaryBalanceSheetReportFilePath);
 
-                var savedAccountingRatioFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Accounting_Ratio_Report", "Accounting Ratio", "pdf", 0);
-                int accountingRatioAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedAccountingRatioFilePath, compId, userId);
-                var accountingRatio = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {accountingRatioAttachmentId} AS AttachIds";
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, accountingRatio);
-                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Accounting_Ratio_Report.pdf", savedAccountingRatioFilePath);
+                    var detailedPLData = await _scheduleReportInterface.GetDetailedReportPandLAsync(compId, new DetailedReportPandL { YearID = result.YearId, CustID = result.CustId, BranchId = branchIds });
+                    var detailedPLCommon = detailedPLData.Select(x => new CommonReportRowDto { SrNo = x.SrNo, Particular = x.Name, Notes = x.Notes, CurrentYearAmount = x.HeaderSLNo, PreviousYearAmount = x.PrevYearTotal, Status = x.Status }).ToList();
+                    var savedDetailedPLReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, companyName, result.CustName, "Detailed_PL_Report", "STATEMENT OF PROFIT AND LOSS FOR THE YEAR ENDED 31/03/20" + result.YearId.ToString(), "pdf", 6, result.YearId, detailedPLCommon);
+                    int detailedPLAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedDetailedPLReportFilePath, compId, userId);
+                    var detailedPL = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {detailedPLAttachmentId} AS AttachIds";
+                    await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, detailedPL);
+                    //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Detailed_PL_Report.pdf", savedDetailedPLReportFilePath);
 
-                var savedCashflowFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "Cashflow_Report", "Cashflow", "pdf", 0);
-                int cashflowAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedCashflowFilePath, compId, userId);
-                var cashflow = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {cashflowAttachmentId} AS AttachIds";
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, cashflow);
-                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Cashflow_Report.pdf", savedCashflowFilePath);
+                    var detailedBalanceSheetData = await _scheduleReportInterface.GetDetailedReportBalanceSheetAsync(compId, new DetailedReportBalanceSheet { YearID = result.YearId, CustID = result.CustId, BranchId = branchIds });
+                    var detailedBalanceCommon = detailedBalanceSheetData.Select(x => new CommonReportRowDto { SrNo = x.SrNo, Particular = x.Name, Notes = x.Notes, CurrentYearAmount = x.HeaderSLNo, PreviousYearAmount = x.PrevYearTotal, Status = x.Status }).ToList();
+                    var savedDetailedBalanceSheetReportFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, companyName, result.CustName, "Detailed_Report_BalanceSheet_Report", "BALANCE SHEET AS AT 31/03/20" + result.YearId.ToString(), "pdf", 7, result.YearId, detailedBalanceCommon);
+                    int detailedBalanceSheetAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedDetailedBalanceSheetReportFilePath, compId, userId);
+                    var detailedBalanceSheet = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {detailedBalanceSheetAttachmentId} AS AttachIds";
+                    await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, detailedBalanceSheet);
+                    //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Detailed_Report_BalanceSheet_Report.pdf", savedDetailedBalanceSheetReportFilePath);
 
-                var savedScheduleNotesFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "ScheduleNotes_Report", "ScheduleNotes", "pdf", 0);
-                int scheduleNotesAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedScheduleNotesFilePath, compId, userId);
-                var scheduleNotes = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {scheduleNotesAttachmentId} AS AttachIds";
-                await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, scheduleNotes);
-                //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "ScheduleNotes_Report.pdf", savedScheduleNotesFilePath);
+                    var savedAccountingRatioFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, companyName, result.CustName, "Accounting_Ratio_Report", "Accounting Ratio", "pdf", 8, result.YearId, null);
+                    int accountingRatioAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedAccountingRatioFilePath, compId, userId);
+                    var accountingRatio = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {accountingRatioAttachmentId} AS AttachIds";
+                    await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, accountingRatio);
+                    //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Accounting_Ratio_Report.pdf", savedAccountingRatioFilePath);
+
+                    var savedCashflowFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, companyName, result.CustName, "Cashflow_Report", "Cashflow", "pdf", 9, result.YearId, null);
+                    int cashflowAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedCashflowFilePath, compId, userId);
+                    var cashflow = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {cashflowAttachmentId} AS AttachIds";
+                    await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, cashflow);
+                    //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "Cashflow_Report.pdf", savedCashflowFilePath);
+
+                    var savedScheduleNotesFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, companyName, result.CustName, "ScheduleNotes_Report", "ScheduleNotes", "pdf", 10, result.YearId, null);
+                    int scheduleNotesAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedScheduleNotesFilePath, compId, userId);
+                    var scheduleNotes = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Account Finalisation Reports' AS TypeName, {scheduleNotesAttachmentId} AS AttachIds";
+                    await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "AccountFinalisation", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, scheduleNotes);
+                    //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Account Finalisation Reports", "ScheduleNotes_Report.pdf", savedScheduleNotesFilePath)
+                }
 
                 string cleanedPath = downloadDirectoryPath.TrimEnd('\\');
                 string zipFilePath = cleanedPath + ".zip";
@@ -3420,7 +3442,7 @@ namespace TracePca.Service.Audit
             });
         }
 
-        public async Task<string> GenerateTempReportAndGetTempPathAsync(int compId, int auditId, string name, string reportHeading, string format, int reportId)
+        public async Task<string> GenerateTempReportAndGetTempPathAsync(int compId, int auditId, string companyName, string custName, string name, string reportHeading, string format, int reportId, int yearId, IEnumerable<CommonReportRowDto> data)
         {
             try
             {
@@ -3437,6 +3459,8 @@ namespace TracePca.Service.Audit
                         fileBytes = await GenerateTempDRLPdfAsync(compId, auditId, reportHeading);
                     else if (reportId == 3)
                         fileBytes = await GenerateTempNearAuditPdfAsync(compId, auditId, reportHeading);
+                    else if (reportId > 3 && reportId < 11)
+                        fileBytes = await GenerateTempSummaryAndDetailsReportPdfAsync(data, companyName, custName, yearId, reportHeading);
                     else
                         fileBytes = await GenerateTempPdfAsync(compId, auditId, reportHeading);
                     contentType = "application/pdf";
@@ -3733,6 +3757,79 @@ namespace TracePca.Service.Audit
                         });
                     });
                 });
+                using var ms = new MemoryStream();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
+            });
+        }
+
+        private async Task<byte[]> GenerateTempSummaryAndDetailsReportPdfAsync(IEnumerable<CommonReportRowDto> data, string companyName, string custName, int yearId, string reportHeading)
+        {
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            return await Task.Run(() =>
+            {
+                var document = QuestPDF.Fluent.Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(30);
+                        page.PageColor(Colors.White);
+                        page.DefaultTextStyle(x => x.FontSize(10));
+
+                        page.Content().Column(column =>
+                        {
+                            column.Item().AlignCenter().Text(custName).FontSize(16).Bold();
+                            column.Item().PaddingBottom(5);
+                            column.Item().AlignCenter().Text(reportHeading).FontSize(12);
+                            column.Item().PaddingBottom(10);
+
+                            column.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(columns =>
+                                {
+                                    columns.RelativeColumn(3f);
+                                    columns.RelativeColumn(1f);
+                                    columns.RelativeColumn(1.3f);
+                                    columns.RelativeColumn(1.3f);
+                                });
+
+                                table.Header(header =>
+                                {
+                                    header.Cell().Element(HeaderStyle).Text("Particulars");
+                                    header.Cell().Element(HeaderStyle).AlignCenter().Text("Notes");
+                                    header.Cell().Element(HeaderStyle).AlignRight().Text($"31/03/20{yearId}");
+                                    header.Cell().Element(HeaderStyle).AlignRight().Text($"31/03/20{yearId - 1}");
+                                });
+
+                                foreach (var row in data.Where(x => x != null && !string.IsNullOrEmpty(x.Status)))
+                                {
+                                    bool isHeader = row.Status == "1";
+                                    if (isHeader)
+                                        table.Cell().Element(CellStyle).PaddingLeft(12).Text(row.Particular ?? "").Bold();
+                                    else
+                                        table.Cell().Element(CellStyle).PaddingLeft(0).Text(row.Particular ?? "");
+
+                                    table.Cell().Element(CellStyle).AlignCenter().Text(row.Notes ?? "");
+                                    table.Cell().Element(CellStyle).AlignRight().Text(row.CurrentYearAmount ?? "");
+                                    table.Cell().Element(CellStyle).AlignRight().Text(row.PreviousYearAmount ?? "");
+                                }
+                                column.Item().PaddingBottom(15);
+                                column.Item().AlignLeft().Text("As per our Report of even date");
+                                column.Item().PaddingBottom(15);
+                                column.Item().AlignLeft().Text(companyName).Bold();
+                                column.Item().AlignLeft().Text("Chartered Accountants");
+                                column.Item().PaddingBottom(15);
+                                column.Item().AlignLeft().Text(text => { text.Span("Place: ").Bold(); text.Span("Bangalore"); });
+                                static IContainer HeaderStyle(IContainer c) => c.Border(0.5f).Background(Colors.Grey.Lighten3).Padding(4).DefaultTextStyle(x => x.Bold());
+                                static IContainer CellStyle(IContainer c) => c.Border(0.5f).PaddingVertical(3).PaddingHorizontal(4);
+                            });
+                        });
+                    });
+                });
+
                 using var ms = new MemoryStream();
                 document.GeneratePdf(ms);
                 return ms.ToArray();
