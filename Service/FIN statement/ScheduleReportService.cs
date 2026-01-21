@@ -3809,7 +3809,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 int reportTypeId = await connection.QueryFirstOrDefaultAsync<int>(
                     @"SELECT RTM_Id
               FROM SAD_ReportTypeMaster
-              WHERE RTM_ReportName = @ReportName
+              WHERE RTM_ReportTypeName = @ReportName
                 AND RTM_Delflag = 'A'",
                     new { ReportName = REPORT_NAME },
                     transaction);
@@ -3887,18 +3887,19 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
 
                       INSERT INTO SAD_ReportContentMaster
                       (
-                          RCM_Id, RCM_ReportName, RCM_Heading,
+                          RCM_Id, RCM_ReportId, RCM_ReportName, RCM_Heading,
                           RCM_Description, RCM_Delflag,
                           RCM_CrBy, RCM_CrOn
                       )
                       VALUES
                       (
-                          @NewId, @ReportName, @Heading,
+                          @NewId, @ReportTypeId, @ReportName, @Heading,
                           @Description, 'A',
                           @CrBy, GETDATE()
                       );",
                             new
                             {
+                                ReportTypeId = reportTypeId,
                                 ReportName = REPORT_NAME,
                                 Heading = h.RCM_Heading,
                                 Description = h.RCM_Description,
@@ -3953,7 +3954,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                       (
                           @NewId, @LOEId, @ReportTypeId,
                           @HeadingId, @Heading, @Description,
-                          'LOE', @CrBy, GETDATE(),
+                          'Schedule Report', @CrBy, GETDATE(),
                           @IP, @CompId
                       );",
                             new

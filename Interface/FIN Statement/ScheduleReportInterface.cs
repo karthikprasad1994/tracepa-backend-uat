@@ -47,7 +47,7 @@ namespace TracePca.Interface.FIN_Statement
         //SaveFinancialStatement
         //Task<int> SaveOrUpdateFinancialStatementAsync(SREngagementPlanDetailsDTO dto);
         //Task<int> SaveOrUpdateFinancialStatementAsync(FinancialStatementDTO dto);
-        //Task<int> SaveOrUpdateLOEAsync(SaveLOEDto dto);
+        Task<int> SaveOrUpdateLOEAsync(SaveLOEDto dto);
     }
 }
                          

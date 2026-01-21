@@ -61,76 +61,6 @@ namespace TracePca.Service.FIN_statement
         }
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
-        //public async Task<int[]> SaveSubHeadindNotesAsync(SubHeadingNotesDto dto)
-        //{
-        //    // ✅ Step 1: Get DB name from session
-        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
-        //    if (string.IsNullOrEmpty(dbName))
-        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
-
-        //    // ✅ Step 2: Get the connection string
-        //    var connectionString = _configuration.GetConnectionString(dbName);
-
-        //    // ✅ Step 3: Use SqlConnection
-        //    using var connection = new SqlConnection(connectionString);
-        //    await connection.OpenAsync();
-        //    {
-        //        using (var transaction = connection.BeginTransaction())
-        //        {
-        //            try
-        //            {
-        //                using (var cmd = new SqlCommand("spACC_SubHeadingNoteDesc", connection, transaction))
-        //                {
-        //                    cmd.CommandType = CommandType.StoredProcedure;
-
-        //                    cmd.Parameters.AddWithValue("@ASHN_ID", dto.ASHN_ID);
-        //                    cmd.Parameters.AddWithValue("@ASHN_SubHeadingId", dto.ASHN_SubHeadingId);
-        //                    cmd.Parameters.AddWithValue("@ASHN_CustomerId", dto.ASHN_CustomerId);
-        //                    cmd.Parameters.AddWithValue("@ASHN_Description", dto.ASHN_Description ?? string.Empty);
-        //                    cmd.Parameters.AddWithValue("@ASHN_DelFlag", dto.ASHN_DelFlag ?? "A");
-        //                    cmd.Parameters.AddWithValue("@ASHN_Status", dto.ASHN_Status ?? "W");
-        //                    cmd.Parameters.AddWithValue("@ASHN_Operation", dto.ASHN_Operation ?? "S");
-        //                    cmd.Parameters.AddWithValue("@ASHN_CreatedBy", dto.ASHN_CreatedBy);
-        //                    cmd.Parameters.AddWithValue("@ASHN_CreatedOn", dto.ASHN_CreatedOn);
-        //                    cmd.Parameters.AddWithValue("@ASHN_CompID", dto.ASHN_CompID);
-        //                    cmd.Parameters.AddWithValue("@ASHN_YearID", dto.ASHN_YearID);
-        //                    cmd.Parameters.AddWithValue("@ASHN_IPAddress", dto.ASHN_IPAddress ?? string.Empty);
-
-        //                    var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
-        //                    {
-        //                        Direction = ParameterDirection.Output
-        //                    };
-        //                    var operParam = new SqlParameter("@iOper", SqlDbType.Int)
-        //                    {
-        //                        Direction = ParameterDirection.Output
-        //                    };
-
-        //                    cmd.Parameters.Add(updateOrSaveParam);
-        //                    cmd.Parameters.Add(operParam);
-
-        //                    await cmd.ExecuteNonQueryAsync();
-
-        //                    transaction.Commit();
-
-        //                    return new int[]
-        //                    {
-        //                (int)(updateOrSaveParam.Value ?? 0),
-        //                (int)(operParam.Value ?? 0)
-        //                    };
-        //                }
-        //            }
-        //            catch (Exception)
-        //            {
-        //                transaction.Rollback();
-        //                throw;
-        //            }
-        //        }
-        //    }
-        //}
-
-
-        //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
         public async Task<List<SaveSubheadingDto>> SaveNotesUsingExistingSubHeadingAsync( List<SaveSubheadingDto> subheadingDtos)
         {
             // 1️⃣ Get DB name from session
@@ -262,6 +192,33 @@ namespace TracePca.Service.FIN_statement
             return notes.ToList();
         }
 
+        //DeleteSubHeadingNoteDescriptions
+        public async Task<int> DeleteSubHeadingDescriptionAsync(int compId, int ashnId)
+        {
+            // ✅ Step 1: Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // ✅ Step 3: Hard delete description
+            var deleteQuery = @"
+        DELETE FROM ACC_SubHeadingNoteDesc
+        WHERE ASHN_CompID = @ASHN_CompID
+         AND ASHN_ID = @ASHN_ID";
+
+            var affectedRows = await connection.ExecuteAsync(
+                deleteQuery,
+                new { ASHN_CompID = compId, ASHN_ID = ashnId});
+
+            return affectedRows; 
+        }
 
         //GetBranch(Notes For Ledger)
         public async Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId)

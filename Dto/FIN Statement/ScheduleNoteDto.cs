@@ -11,27 +11,6 @@
         }
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
-        //public class SubHeadingNotesDto
-        //{
-        //    public int ASHN_ID { get; set; }
-        //    public int ASHN_SubHeadingId { get; set; }
-        //    public int ASHN_CustomerId { get; set; }
-        //    public string ASHN_Description { get; set; }
-        //    public string ASHN_DelFlag { get; set; }
-        //    public string ASHN_Status { get; set; }
-        //    public string ASHN_Operation { get; set; }
-        //    public int ASHN_CreatedBy { get; set; }
-        //    public DateTime ASHN_CreatedOn { get; set; }
-        //    public int ASHN_CompID { get; set; }
-        //    public int ASHN_YearID { get; set; }
-        //    public string ASHN_IPAddress { get; set; }
-        //}
-        // ===============================
-        // Master DTO for API input
-        // ===============================
-        // Input DTO for saving
-
-        //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
         public class SaveSubheadingDto
         {
             public int assH_ID { get; set; }            
@@ -65,6 +44,14 @@
             public int NoteId { get; set; }           
             public string Description { get; set; }   
         }
+
+        //DeleteSubHeadingNoteDescriptions
+        public class DeleteSubHeadingDescriptionDto
+        {
+            public int ASHN_CompID { get; set; }
+            public int ASHN_ID { get; set; }
+        }
+
 
         //GetBranch(Notes For Ledger)
         public class CustBranchDto

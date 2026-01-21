@@ -66,54 +66,7 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
-
-        //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
-        //[HttpPost("SaveOrUpdateScheduleFormatHeading")]
-        //public async Task<IActionResult> aveSubHeadindNotes([FromBody] SubHeadingNotesDto dto)
-        //{
-        //    if (dto == null)
-        //    {
-        //        return BadRequest(new
-        //        {
-        //            Status = 400,
-        //            Message = "Invalid input: DTO is null",
-        //            Data = (object)null
-        //        });
-        //    }
-        //    try
-        //    {
-        //        bool isUpdate = dto.ASHN_ID > 0;
-
-        //        var result = await _ScheduleNoteService.SaveSubHeadindNotesAsync(dto);
-
-        //        string successMessage = isUpdate
-        //            ? "Schedule Heading successfully updated."
-        //            : "Schedule Heading successfully created.";
-
-        //        return Ok(new
-        //        {
-        //            Status = 200,
-        //            Message = successMessage,
-        //            Data = new
-        //            {
-        //                UpdateOrSave = result[0],
-        //                Oper = result[1],
-        //                IsUpdate = isUpdate
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            Status = 500,
-        //            Message = "An error occurred while processing your request.",
-        //            Error = ex.Message,
-        //            InnerException = ex.InnerException?.Message
-        //        });
-        //    }
-        //}
-
+       
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
         [HttpPost("SaveSubheadingWithNotes")]
         public async Task<IActionResult> SaveSubHeadingNotes( [FromBody] List<SaveSubheadingDto> subheadingDtos)
@@ -185,6 +138,56 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
+        //DeleteSubHeadingNoteDescriptions
+        [HttpDelete("DeleteSubHeadingDescription")]
+        public async Task<IActionResult> DeleteSubHeadingDescription(
+       [FromBody] DeleteSubHeadingDescriptionDto dto)
+        {
+            try
+            {
+                if (dto == null || dto.ASHN_ID <= 0 || dto.ASHN_CompID <= 0)
+                {
+                    return BadRequest(new
+                    {
+                        statusCode = 400,
+                        message = "Invalid delete request data.",
+                        data = (object)null
+                    });
+                }
+
+                var affectedRows = await _ScheduleNoteService
+                    .DeleteSubHeadingDescriptionAsync(dto.ASHN_CompID, dto.ASHN_ID);
+
+                if (affectedRows == 0)
+                {
+                    return NotFound(new
+                    {
+                        statusCode = 404,
+                        message = "Description not found or already deleted.",
+                        data = (object)null
+                    });
+                }
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    message = "Description deleted successfully.",
+                    data = new
+                    {
+                        rowsAffected = affectedRows
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    statusCode = 500,
+                    message = "An error occurred while deleting the description.",
+                    error = ex.Message
+                });
+            }
+        }
 
         //GetBranch(Notes For Ledger)
         [HttpGet("GetBranchNameNotesForLedger")]
