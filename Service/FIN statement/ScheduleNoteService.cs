@@ -50,8 +50,7 @@ namespace TracePca.Service.FIN_statement
               ASSH_Name AS ASSH_Name
             FROM ACC_ScheduleSubHeading 
             WHERE Assh_Orgtype = @CustId
-               AND ASSH_CompId = @CompId
-               AND ASSH_YEARId = @YearId";
+               AND ASSH_CompId = @CompId";
 
 
             return await connection.QueryAsync<SubHeadingNoteDto>(query, new
