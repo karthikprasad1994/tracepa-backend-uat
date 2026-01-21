@@ -30,7 +30,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetSubHeadingname(Notes For SubHeading)
-        public async Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CompId, int CustId, int YearId)
+        public async Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CompId, int CustId)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -57,8 +57,7 @@ namespace TracePca.Service.FIN_statement
             return await connection.QueryAsync<SubHeadingNoteDto>(query, new
             {
                 CompId = CompId,
-                CustId = CustId,
-                YearId = YearId
+                CustId = CustId
             });
         }
 

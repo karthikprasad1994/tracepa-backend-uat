@@ -33,11 +33,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetSubHeadingname(Notes For SubHeading)
         [HttpGet("SubHeading-NotesForSubHeading")]
-        public async Task<IActionResult> GetSubHeadingNotes(int CompId, int CustId, int YearId)
+        public async Task<IActionResult> GetSubHeadingNotes(int CompId, int CustId)
         {
             try
             {
-                var notes = await _ScheduleNoteService.GetSubHeadingDetailsAsync(CompId, CustId, YearId);
+                var notes = await _ScheduleNoteService.GetSubHeadingDetailsAsync(CompId, CustId);
 
                 if (notes == null || !notes.Any())
                 {

@@ -3538,17 +3538,17 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         //    // Step 1: Get DB name
         //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-        //    if (string.IsNullOrEmpty(dbName))
-        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
+        //        if (string.IsNullOrEmpty(dbName))
+        //            throw new Exception("CustomerCode is missing in session. Please log in again.");
 
         //    // Step 2: Get connection string
         //    var connectionString = _configuration.GetConnectionString(dbName);
 
-        //    using var connection = new SqlConnection(connectionString);
-        //    await connection.OpenAsync();
+        //        using var connection = new SqlConnection(connectionString);
+        //await connection.OpenAsync();
 
-        //    // ✅ FIX 1: Create transaction
-        //    using var transaction = connection.BeginTransaction();
+        //        // ✅ FIX 1: Create transaction
+        //        using var transaction = connection.BeginTransaction();
 
         //    try
         //    {
@@ -3785,6 +3785,203 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         //        throw new ApplicationException("An error occurred while saving or updating the engagement plan data", ex);
         //    }
         //}
+
+
+
+        //public async Task<int> SaveOrUpdateLOEAsync(SaveLOEDto dto)
+        //{
+        //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //    if (string.IsNullOrEmpty(dbName))
+        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //    var connectionString = _configuration.GetConnectionString(dbName);
+
+        //    using var connection = new SqlConnection(connectionString);
+        //    await connection.OpenAsync();
+        //    using var transaction = connection.BeginTransaction();
+
+        //    const string REPORT_NAME = "Report on the standalone Financial Statements";
+
+        //    try
+        //    {
+        //        // STEP 1: Identify Report Type (fetch RTM_Id)
+        //        int reportTypeId = await connection.QueryFirstOrDefaultAsync<int>(
+        //            @"SELECT RTM_Id
+        //      FROM SAD_ReportTypeMaster
+        //      WHERE RTM_ReportName = @ReportName
+        //        AND RTM_Delflag = 'A'",
+        //            new { ReportName = REPORT_NAME },
+        //            transaction
+        //        );
+
+        //        if (reportTypeId == 0)
+        //            throw new Exception("Report Type not found in SAD_ReportTypeMaster");
+
+        //        int loeId;
+
+        //        // =========================================================
+        //        // STEP 2: Check if LOE exists for Customer + Report Type
+        //        // =========================================================
+        //        loeId = await connection.QueryFirstOrDefaultAsync<int>(
+        //            @"SELECT LOE_Id
+        //      FROM SAD_CUST_LOE
+        //      WHERE LOE_CustomerId = @CustomerId
+        //        AND LOE_ServiceTypeId = @ReportTypeId
+        //        AND LOE_Delflag = 'A'",
+        //            new { CustomerId = customerId, ReportTypeId = dto.RTM_Id },
+        //            transaction
+        //        );
+
+        //        // =========================================================
+        //        // STEP 3: Create LOE if not exists
+        //        // =========================================================
+        //        if (loeId == 0)
+        //        {
+        //            loeId = await connection.ExecuteScalarAsync<int>(
+        //                @"DECLARE @NewLOEId INT;
+        //          SELECT @NewLOEId = ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE;
+
+        //          INSERT INTO SAD_CUST_LOE
+        //          ( LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId, LOE_STATUS,
+        //              LOE_Delflag, LOE_CrBy, LOE_CrOn, LOE_IPAddress, LOE_CompID)
+        //          VALUES
+        //          (@NewLOEId, @YearId, @CustomerId, @ReportTypeId,'C',
+        //              'A', @CreatedBy, GETDATE(), @IPAddress, @CompId);
+
+        //          SELECT @NewLOEId;",
+        //                new
+        //                {
+        //                    YearId = yearId,
+        //                    CustomerId = customerId,
+        //                    ReportTypeId = reportTypeId,
+        //                    CreatedBy = createdBy,
+        //                    IPAddress = ipAddress,
+        //                    CompId = compId
+        //                },
+        //                transaction
+        //            );
+        //        }
+        //        // STEP 4: Ensure headings exist in SAD_ReportContentMaster
+        //        foreach (var item in inputHeadings)
+        //        {
+        //            int rcmId = await connection.QueryFirstOrDefaultAsync<int>(
+        //                @"SELECT RCM_Id
+        //          FROM SAD_ReportContentMaster
+        //          WHERE RCM_ReportName = @ReportName
+        //            AND RCM_Heading = @Heading
+        //            AND RCM_Delflag = 'A'",
+        //                new { ReportName = REPORT_NAME, Heading = item.Heading },
+        //                transaction
+        //            );
+
+        //            if (rcmId == 0)
+        //            {
+        //                await connection.ExecuteAsync(
+        //                    @"DECLARE @NewRCMId INT;
+        //              SELECT @NewRCMId = ISNULL(MAX(RCM_Id), 0) + 1 FROM SAD_ReportContentMaster;
+
+        //              INSERT INTO SAD_ReportContentMaster
+        //              (
+        //                  RCM_Id,
+        //                  RCM_ReportName,
+        //                  RCM_Heading,
+        //                  RCM_Description,
+        //                  RCM_Delflag,
+        //                  RCM_CrBy,
+        //                  RCM_CrOn
+        //              )
+        //              VALUES
+        //              (
+        //                  @NewRCMId,
+        //                  @ReportName,
+        //                  @Heading,
+        //                  @Description,
+        //                  'A',
+        //                  @CreatedBy,
+        //                  GETDATE()
+        //              );",
+        //                    new
+        //                    {
+        //                        ReportName = REPORT_NAME,
+        //                        Heading = item.Heading,
+        //                        Description = item.Description,
+        //                        CreatedBy = createdBy
+        //                    },
+        //                    transaction
+        //                );
+        //            }
+        //        }
+        //        // STEP 6: Fetch existing LOE_Template_Details
+        //        var existingTemplateIds = (await connection.QueryAsync<int>(
+        //            @"SELECT LTD_HeadingID
+        //      FROM LOE_Template_Details
+        //      WHERE LTD_LOE_ID = @LOEId
+        //        AND LTD_ReportTypeID = @ReportTypeId",
+        //            new { LOEId = loeId, ReportTypeId = reportTypeId },
+        //            transaction
+        //        )).ToHashSet();
+        //        // STEP 7: Insert only missing LOE_Template_Details
+        //        foreach (var template in masterTemplates)
+        //        {
+        //            if (existingTemplateIds.Contains((int)template.RCM_Id))
+        //                continue;
+
+        //            await connection.ExecuteAsync(
+        //                @"DECLARE @NewLTDId INT;
+        //          SELECT @NewLTDId = ISNULL(MAX(LTD_ID), 0) + 1 FROM LOE_Template_Details;
+
+        //          INSERT INTO LOE_Template_Details
+        //          (
+        //              LTD_ID,
+        //              LTD_LOE_ID,
+        //              LTD_ReportTypeID,
+        //              LTD_HeadingID,
+        //              LTD_Heading,
+        //              LTD_Decription,
+        //              LTD_FormName,
+        //              LTD_CrBy,
+        //              LTD_CrOn,
+        //              LTD_IPAddress,
+        //              LTD_CompID
+        //          )
+        //          VALUES
+        //          (
+        //              @NewLTDId,
+        //              @LOEId,
+        //              @ReportTypeId,
+        //              @HeadingId,
+        //              @Heading,
+        //              @Description,
+        //              'LOE',
+        //              @CreatedBy,
+        //              GETDATE(),
+        //              @IPAddress,
+        //              @CompId
+        //          );",
+        //                new
+        //                {
+        //                    LOEId = loeId,
+        //                    ReportTypeId = reportTypeId,
+        //                    HeadingId = (int)template.RCM_Id,
+        //                    Heading = (string)template.RCM_Heading,
+        //                    Description = (string)template.RCM_Description,
+        //                    CreatedBy = createdBy,
+        //                    IPAddress = ipAddress,
+        //                    CompId = compId
+        //                },
+        //                transaction
+        //            );
+        //        }
+        //        await transaction.CommitAsync();
+        //        return loeId;
+        //    }
+        //    catch
+        //    {
+        //        await transaction.RollbackAsync();
+        //        throw;
+        //    }
+        }
     }
 }
 

@@ -346,5 +346,47 @@ namespace TracePca.Dto.FIN_Statement
         //    public int ashN_YearID { get; set; }
         //    public string ashN_IPAddress { get; set; }
         //}
+
+        public class SaveLOEDto
+        {
+            public int LOE_Id { get; set; }
+            public int LOE_YearId { get; set; }
+            public int LOE_CustomerId { get; set; }
+            public int LOE_ServiceTypeId { get; set; }
+            public int LOE_FunctionId { get; set; }
+            public string LOE_NatureOfService { get; set; }
+            public decimal LOE_Total { get; set; }
+            public int LOE_CrBy { get; set; }
+            public string LOE_IPAddress { get; set; }
+            public int LOE_CompID { get; set; }
+
+            public List<ReportContentInsertDto> EngagementHeadingDetails { get; set; }
+            public List<LOETemplateDetailDto> EngagementTemplateDetails { get; set; }
+        }
+        public class ReportContentInsertDto
+        {
+            public int RCM_Id { get; set; }
+            public string RCM_ReportName { get; set; }
+            public string RCM_Heading { get; set; }
+            public string RCM_Description { get; set; }
+            public int RCM_CrBy { get; set; }
+            public string RCM_IPAddress { get; set; }
+            public int RCM_CompID { get; set; }
+            public int LTD_LOE_ID { get; internal set; }
+        }
+        public class LOETemplateDetailDto
+        {
+            public int LTD_ID { get; set; }
+            public int LTD_LOE_ID { get; set; }
+            public int LTD_ReportTypeID { get; set; }
+            public int LTD_HeadingID { get; set; }
+            public string LTD_Heading { get; set; }
+            public string LTD_Decription { get; set; }
+            public string LTD_FormName { get; set; }
+            public int LTD_CrBy { get; set; }
+            public string LTD_IPAddress { get; set; }
+            public int LTD_CompID { get; set; }
+        }
+
     }
 }
