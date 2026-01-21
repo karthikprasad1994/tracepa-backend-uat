@@ -26,4 +26,15 @@ namespace TracePca.Dto.Master
         public string IpAddress { get; set; }
         public int YearId { get; set; }
     }
+
+    public class ReportTemplateSortOrderSaveDTO
+    {
+        public int TEM_Yearid { get; set; }
+        public int TEM_FunctionId { get; set; }
+        public string TEM_ContentId { get; set; }
+        public string TEM_SortOrder { get; set; }
+        public int UserId { get; set; }
+        public int CompId { get; set; }
+        public string IpAddress { get; set; }
+    }
 }
