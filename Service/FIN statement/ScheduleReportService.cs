@@ -4001,6 +4001,50 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 throw;
             }
         }
+        public async Task<bool> IsNetIncomeZeroAsync(
+    int yearId,
+    int custId,
+    int branchId, int duration)
+        {
+            string dbName = _httpContextAccessor.HttpContext?
+                .Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode missing in session");
+
+            string connectionString =
+                _configuration.GetConnectionString(dbName);
+
+            const string query = @"
+            SELECT 
+                ISNULL(ATBU_Closing_TotalDebit_Amount, 0),
+                ISNULL(ATBU_Closing_TotalCredit_Amount, 0)
+            FROM Acc_TrailBalance_Upload
+            WHERE ATBU_YEARId = @YearId
+              AND ATBU_Custid = @CustId
+              AND Atbu_Branchid = @BranchId and ATBU_QuarterId = @duration 
+              AND ATBU_Description = 'Net Income'";
+
+            using var connection = new SqlConnection(connectionString);
+            using var command = new SqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@YearId", yearId);
+            command.Parameters.AddWithValue("@CustId", custId);
+            command.Parameters.AddWithValue("@BranchId", branchId);
+            command.Parameters.AddWithValue("@duration", duration);
+
+            await connection.OpenAsync();
+
+            using var reader = await command.ExecuteReaderAsync();
+
+            if (!await reader.ReadAsync())
+                return true; // no record → treat as zero
+
+            decimal debit = reader.GetDecimal(0);
+            decimal credit = reader.GetDecimal(1);
+
+            return debit == 0 && credit == 0;
+        }
     }
 }
 
