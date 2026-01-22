@@ -27,11 +27,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetSelectedParties
         [HttpGet("GetTrailBalance")]
-        public async Task<IActionResult> GetTrailBalance([FromQuery] int custId, [FromQuery] int financialYearId, [FromQuery] int branchId)
+        public async Task<IActionResult> GetTrailBalance([FromQuery] int custId, [FromQuery] int financialYearId, [FromQuery] int branchId, [FromQuery] int id, [FromQuery] int pkid)
         {
             try
             {
-                var result = await _SelectedPartiesService.GetTrailBalanceAsync(custId, financialYearId, branchId);
+                var result = await _SelectedPartiesService.GetTrailBalanceAsync(custId, financialYearId, branchId,id, pkid);
 
                 if (result == null || !result.Any())
                 {
