@@ -388,5 +388,15 @@ namespace TracePca.Dto.FIN_Statement
             public int LTD_CompID { get; set; }
         }
 
+        public class CommonReportRowDto
+        {
+            public string SrNo { get; set; }
+            public string Particular { get; set; }
+            public string? Notes { get; set; }
+            public string? CurrentYearAmount { get; set; }
+            public string? PreviousYearAmount { get; set; }
+            public string Status { get; set; }
+        }
+
     }
 }

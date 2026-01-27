@@ -372,7 +372,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         [HttpPost("upload-je-transactions")]
         public async Task<ActionResult<ApiResponse<string>>> UploadJournalEntries(
-            [FromBody] JournalEntryUploadRequest request)
+       [FromBody] JournalEntryUploadRequest request)
         {
             try
             {
@@ -411,12 +411,27 @@ namespace TracePca.Controllers.FIN_Statement
                 using var connection = new SqlConnection(connectionString);
                 await connection.OpenAsync();
 
-                // Fast validation
-                var validationResult = await ValidateUploadData(request, connection, null, accessCodeId);
+                /* ----------------------------------------------------
+                 * 1️⃣ FAST HEADER / MASTER VALIDATION
+                 * ---------------------------------------------------- */
+                var validationResult = await ValidateUploadData(
+                    request, connection, null, accessCodeId);
+
                 if (!validationResult.Success)
                     return BadRequest(validationResult);
 
-                // Process in transaction
+                /* ----------------------------------------------------
+                 * 2️⃣ ROW-LEVEL PRE VALIDATION (NEW)
+                 * ---------------------------------------------------- */
+                var preValidationResult = await PreValidateRows(
+                    connection, null, request, accessCodeId, userId, ipAddress);
+
+                if (!preValidationResult.Success)
+                    return BadRequest(preValidationResult);
+
+                /* ----------------------------------------------------
+                 * 3️⃣ TRANSACTIONAL INSERT
+                 * ---------------------------------------------------- */
                 using var transaction = connection.BeginTransaction();
                 try
                 {
@@ -458,6 +473,7 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
 
         private async Task<ApiResponse<string>> ProcessJournalEntriesOptimized(
             SqlConnection connection,
@@ -589,6 +605,70 @@ namespace TracePca.Controllers.FIN_Statement
             }
 
             return result;
+        }
+        private async Task<int> CheckVoucherType(SqlConnection connection, SqlTransaction transaction, int compId, string type, string description)
+        {
+            var sql = "SELECT cmm_ID FROM Content_Management_Master WHERE CMM_CompID = @CompID AND cmm_Category = @Category AND cmm_Delflag = 'A' AND cmm_Desc = @Description ORDER BY cmm_Desc ASC";
+
+            using var command = new SqlCommand(sql, connection, transaction);
+            command.Parameters.AddWithValue("@CompID", compId);
+            command.Parameters.AddWithValue("@Category", type);
+            command.Parameters.AddWithValue("@Description", description);
+
+            var result = await command.ExecuteScalarAsync();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        private async Task<ApiResponse<string>> PreValidateRows(SqlConnection connection, SqlTransaction transaction, JournalEntryUploadRequest request, int accessCodeId, int userId, string ipAddress)
+        {
+            var iErrorLine = 1;
+
+            // ✅ OPTIMIZATION: Pre-load voucher types in batch
+            var distinctVoucherTypes = request.Rows
+                .Where(row => !string.IsNullOrEmpty(row.JE_Type))
+                .Select(row => row.JE_Type)
+                .Distinct()
+                .ToList();
+
+            var voucherTypes = new Dictionary<string, int>();
+            foreach (var voucherType in distinctVoucherTypes)
+            {
+                var voucherId = await CheckVoucherType(connection, transaction, accessCodeId, "JE", voucherType);
+                voucherTypes[voucherType] = voucherId;
+            }
+
+            // Validate each row
+            foreach (var row in request.Rows)
+            {
+                if (string.IsNullOrEmpty(row.JE_Type))
+                {
+                    if (!string.IsNullOrEmpty(row.Account))
+                    {
+                        return new ApiResponse<string> { Success = false, Message = $"JE Type cannot be blank - Line No: {iErrorLine}" };
+                    }
+                }
+                else if (!voucherTypes.ContainsKey(row.JE_Type) || voucherTypes[row.JE_Type] == 0)
+                {
+                    return new ApiResponse<string> { Success = false, Message = $"Create JE Type {row.JE_Type} in the General Master" };
+                }
+
+                if (string.IsNullOrEmpty(row.Account))
+                {
+                    if (row.Debit.HasValue || row.Credit.HasValue)
+                    {
+                        return new ApiResponse<string> { Success = false, Message = $"Account cannot be blank - Line No: {iErrorLine}" };
+                    }
+                }
+
+                // Validate date format
+                if (!string.IsNullOrEmpty(row.Transaction_Date) && !IsValidDate(row.Transaction_Date))
+                {
+                    return new ApiResponse<string> { Success = false, Message = $"Invalid Date Format (Enter Transaction Date in dd/MM/yyyy format) - Line No: {iErrorLine}" };
+                }
+
+                iErrorLine++;
+            }
+
+            return new ApiResponse<string> { Success = true };
         }
         private async Task<int> GetIdFromNameAsync(SqlConnection conn, SqlTransaction tran, string table, string column, string name, int orgType)
         {
@@ -1270,116 +1350,264 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         private async Task BatchUpdateJeDet(
-          SqlConnection connection,
-          SqlTransaction transaction,
-          List<(int CompId, int YearId, int AccountId, int CustId, int BranchId,
-              decimal Debit, decimal Credit, int DurationId)> updates)
+      SqlConnection connection,
+      SqlTransaction transaction,
+      List<(int CompId, int YearId, int AccountId, int CustId, int BranchId,
+          decimal Debit, decimal Credit, int DurationId)> updates)
         {
             if (updates.Count == 0)
                 return;
 
-            // Group by account using a dictionary instead of anonymous types
-            var updateDict = new Dictionary<(int, int, int, int, int), (decimal, decimal)>();
+            // We need to preserve the old logic for each account
+            // First, we need to read current balances for all accounts
+            var accountKeys = updates.Select(u =>
+                (u.AccountId, u.CustId, u.CompId, u.DurationId, u.BranchId))
+                .Distinct()
+                .ToList();
 
+            // Read current balances for all affected accounts
+            var currentBalances = await ReadCurrentBalances(
+                connection, transaction, accountKeys);
+
+            // Apply the old UpdateJeDet logic for each update
             foreach (var update in updates)
             {
-                var key = (update.AccountId, update.CustId, update.CompId, update.DurationId, update.BranchId);
+                var key = (update.AccountId, update.CustId, update.CompId,
+                    update.DurationId, update.BranchId);
 
-                if (!updateDict.TryGetValue(key, out var current))
+                if (!currentBalances.TryGetValue(key, out var currentBalance))
                 {
-                    current = (0, 0);
+                    // Initialize if not found (though this shouldn't happen)
+                    currentBalance = (0m, 0m);
                 }
 
-                updateDict[key] = (current.Item1 + update.Debit, current.Item2 + update.Credit);
+                // Apply the old logic - This is the critical part!
+                var newBalance = ApplyOldUpdateJeDetLogic(
+                    currentBalance,
+                    update.Debit,
+                    update.Credit,
+                    update.Debit > 0 ? 0 : 1); // Determine transId based on which amount is non-zero
+
+                currentBalances[key] = newBalance;
             }
 
-            // Convert to a list of tuples for processing
-            var aggregatedList = new List<(int AccountId, int CustId, int CompId, int DurationId, int BranchId,
-                decimal TotalDebit, decimal TotalCredit)>();
-
-            foreach (var kvp in updateDict)
-            {
-                aggregatedList.Add((
-                    kvp.Key.Item1,  // AccountId
-                    kvp.Key.Item2,  // CustId
-                    kvp.Key.Item3,  // CompId
-                    kvp.Key.Item4,  // DurationId
-                    kvp.Key.Item5,  // BranchId
-                    kvp.Value.Item1, // TotalDebit
-                    kvp.Value.Item2  // TotalCredit
-                ));
-            }
-
-            // Process in batches to avoid parameter limit
-            // Each update uses 7 parameters, limit is 2100, so max 2100/7 = 300 per batch
-            const int batchSize = 200; // Using 200 for safety margin
-
-            for (int i = 0; i < aggregatedList.Count; i += batchSize)
-            {
-                var batch = aggregatedList.Skip(i).Take(batchSize).ToList();
-                await ExecuteBatchUpdateTuples(connection, transaction, batch);
-            }
+            // Now update all accounts with their new balances
+            await ExecuteBatchUpdatesWithOldLogic(connection, transaction, currentBalances);
         }
 
-        private async Task ExecuteBatchUpdateTuples(
-            SqlConnection connection,
-            SqlTransaction transaction,
-            List<(int AccountId, int CustId, int CompId, int DurationId, int BranchId,
-                decimal TotalDebit, decimal TotalCredit)> batch)
+        private async Task<Dictionary<(int, int, int, int, int), (decimal, decimal)>>
+         ReadCurrentBalances(
+             SqlConnection connection,
+             SqlTransaction transaction,
+             List<(int AccountId, int CustId, int CompId, int DurationId, int BranchId)> accountKeys)
         {
-            if (batch.Count == 0)
-                return;
+            var balances = new Dictionary<(int, int, int, int, int), (decimal, decimal)>();
 
-            // Build dynamic SQL for the batch
-            var sqlBuilder = new StringBuilder();
-            var parameters = new List<SqlParameter>();
-            int paramIndex = 0;
+            if (accountKeys == null || accountKeys.Count == 0)
+                return balances;
 
-            foreach (var update in batch)
+            // Build TVP DataTable
+            var table = new DataTable();
+            table.Columns.Add("AccountId", typeof(int));
+            table.Columns.Add("CustId", typeof(int));
+            table.Columns.Add("CompId", typeof(int));
+            table.Columns.Add("QuarterId", typeof(int));
+            table.Columns.Add("BranchId", typeof(int));
+
+            foreach (var k in accountKeys)
+                table.Rows.Add(k.AccountId, k.CustId, k.CompId, k.DurationId, k.BranchId);
+
+            try
             {
-                // Create unique parameter names
-                string idParam = $"@id{paramIndex}";
-                string custIdParam = $"@cust{paramIndex}";
-                string compIdParam = $"@comp{paramIndex}";
-                string quarterIdParam = $"@quarter{paramIndex}";
-                string branchIdParam = $"@branch{paramIndex}";
-                string debitParam = $"@debit{paramIndex}";
-                string creditParam = $"@credit{paramIndex}";
+                using var cmd = new SqlCommand("dbo.GetCurrentBalances", connection, transaction);
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandTimeout = 120;
 
-                // Add parameters
-                parameters.Add(new SqlParameter(idParam, update.AccountId));
-                parameters.Add(new SqlParameter(custIdParam, update.CustId));
-                parameters.Add(new SqlParameter(compIdParam, update.CompId));
-                parameters.Add(new SqlParameter(quarterIdParam, update.DurationId));
-                parameters.Add(new SqlParameter(branchIdParam, update.BranchId));
-                parameters.Add(new SqlParameter(debitParam, update.TotalDebit));
-                parameters.Add(new SqlParameter(creditParam, update.TotalCredit));
+                var tvpParam = cmd.Parameters.AddWithValue("@AccountKeys", table);
+                tvpParam.SqlDbType = SqlDbType.Structured;
+                tvpParam.TypeName = "dbo.AccountKeyType";
 
-                // Build branch condition
-                string branchCondition = update.BranchId != 0
-                    ? $" AND ATBU_Branchid = {branchIdParam}"
-                    : "";
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var key = (
+                        reader.GetInt32(0), // AccountId
+                        reader.GetInt32(1), // CustId
+                        reader.GetInt32(2), // CompId
+                        reader.GetInt32(3), // QuarterId
+                        reader.GetInt32(4)  // BranchId
+                    );
 
-                // Add UPDATE statement
-                sqlBuilder.AppendLine($@"
-            UPDATE Acc_TrailBalance_Upload 
-            SET ATBU_Closing_TotalDebit_Amount = ISNULL(ATBU_Closing_TotalDebit_Amount, 0) + {debitParam},
-                ATBU_Closing_TotalCredit_Amount = ISNULL(ATBU_Closing_TotalCredit_Amount, 0) + {creditParam}
-            WHERE ATBU_ID = {idParam} 
-              AND ATBU_CustId = {custIdParam} 
-              AND ATBU_CompID = {compIdParam} 
-              AND ATBU_QuarterId = {quarterIdParam}
-              {branchCondition};");
-
-                paramIndex++;
+                    balances[key] = (
+                        reader.GetDecimal(5), // Debit
+                        reader.GetDecimal(6)  // Credit
+                    );
+                }
+            }
+            catch (SqlException ex)
+            {
+                throw new Exception("SQL error while reading current balances using TVP.", ex);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Unexpected error while reading current balances.", ex);
             }
 
-            // Execute the batch
-            if (sqlBuilder.Length > 0)
+            return balances;
+        }
+
+
+
+        private (decimal newDebit, decimal newCredit) ApplyOldUpdateJeDetLogic(
+            (decimal currentDebit, decimal currentCredit) current,
+            decimal debitChange,
+            decimal creditChange,
+            int transId) // 0 for debit, 1 for credit
+        {
+            decimal newDebit = current.currentDebit;
+            decimal newCredit = current.currentCredit;
+
+            if (transId == 0) // Debit transaction
             {
-                using var cmd = new SqlCommand(sqlBuilder.ToString(), connection, transaction);
-                cmd.Parameters.AddRange(parameters.ToArray());
-                await cmd.ExecuteNonQueryAsync();
+                if (current.currentDebit != 0)
+                {
+                    // Add to existing debit
+                    decimal tempDebit = current.currentDebit + debitChange;
+                    if (tempDebit >= 0)
+                    {
+                        newDebit = tempDebit;
+                    }
+                    else
+                    {
+                        newCredit = Math.Abs(tempDebit);
+                        newDebit = 0;
+                    }
+                }
+                else if (current.currentCredit != 0)
+                {
+                    // Subtract from credit
+                    decimal tempCredit = current.currentCredit - debitChange;
+                    if (tempCredit >= 0)
+                    {
+                        newCredit = tempCredit;
+                    }
+                    else
+                    {
+                        newDebit = Math.Abs(tempCredit);
+                        newCredit = 0;
+                    }
+                }
+                else
+                {
+                    // Start new debit
+                    newDebit = debitChange;
+                }
+            }
+            else // Credit transaction
+            {
+                if (current.currentCredit != 0)
+                {
+                    // Add to existing credit
+                    decimal tempCredit = current.currentCredit + creditChange;
+                    if (tempCredit >= 0)
+                    {
+                        newCredit = tempCredit;
+                    }
+                    else
+                    {
+                        newDebit = Math.Abs(tempCredit);
+                        newCredit = 0;
+                    }
+                }
+                else if (current.currentDebit != 0)
+                {
+                    // Subtract from debit
+                    decimal tempDebit = current.currentDebit - creditChange;
+                    if (tempDebit >= 0)
+                    {
+                        newDebit = tempDebit;
+                    }
+                    else
+                    {
+                        newCredit = Math.Abs(tempDebit);
+                        newDebit = 0;
+                    }
+                }
+                else
+                {
+                    // Start new credit
+                    newCredit = creditChange;
+                }
+            }
+
+            return (newDebit, newCredit);
+        }
+
+        private async Task ExecuteBatchUpdatesWithOldLogic(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            Dictionary<(int AccountId, int CustId, int CompId, int DurationId, int BranchId),
+                (decimal Debit, decimal Credit)> balances)
+        {
+            const int batchSize = 200;
+            var balanceList = balances.ToList();
+
+            for (int i = 0; i < balanceList.Count; i += batchSize)
+            {
+                var batch = balanceList.Skip(i).Take(batchSize).ToList();
+
+                var sqlBuilder = new StringBuilder();
+                var parameters = new List<SqlParameter>();
+                int paramIndex = 0;
+
+                foreach (var kvp in batch)
+                {
+                    var key = kvp.Key;
+                    var balance = kvp.Value;
+
+                    // Create unique parameter names
+                    string idParam = $"@id{paramIndex}";
+                    string custIdParam = $"@cust{paramIndex}";
+                    string compIdParam = $"@comp{paramIndex}";
+                    string quarterIdParam = $"@quarter{paramIndex}";
+                    string branchIdParam = $"@branch{paramIndex}";
+                    string debitParam = $"@debit{paramIndex}";
+                    string creditParam = $"@credit{paramIndex}";
+
+                    // Add parameters
+                    parameters.Add(new SqlParameter(idParam, key.AccountId));
+                    parameters.Add(new SqlParameter(custIdParam, key.CustId));
+                    parameters.Add(new SqlParameter(compIdParam, key.CompId));
+                    parameters.Add(new SqlParameter(quarterIdParam, key.DurationId));
+                    parameters.Add(new SqlParameter(branchIdParam, key.BranchId));
+                    parameters.Add(new SqlParameter(debitParam, balance.Debit));
+                    parameters.Add(new SqlParameter(creditParam, balance.Credit));
+
+                    // Build branch condition
+                    string branchCondition = key.BranchId != 0
+                        ? $" AND ATBU_Branchid = {branchIdParam}"
+                        : "";
+
+                    // Add UPDATE statement
+                    sqlBuilder.AppendLine($@"
+                UPDATE Acc_TrailBalance_Upload 
+                SET ATBU_Closing_TotalDebit_Amount = {debitParam},
+                    ATBU_Closing_TotalCredit_Amount = {creditParam}
+                WHERE ATBU_ID = {idParam} 
+                  AND ATBU_CustId = {custIdParam} 
+                  AND ATBU_CompID = {compIdParam} 
+                  AND ATBU_QuarterId = {quarterIdParam}
+                  {branchCondition};");
+
+                    paramIndex++;
+                }
+
+                if (sqlBuilder.Length > 0)
+                {
+                    using var cmd = new SqlCommand(sqlBuilder.ToString(), connection, transaction);
+                    cmd.Parameters.AddRange(parameters.ToArray());
+                    await cmd.ExecuteNonQueryAsync();
+                }
             }
         }
         // Add this helper method to get all bill types at once

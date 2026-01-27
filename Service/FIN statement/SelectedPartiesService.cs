@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using System.Data.SqlClient;
 using TracePca.Data;
 using TracePca.Interface.FIN_Statement;
+using static OpenAI.ObjectModels.SharedModels.IOpenAiModels;
 using static TracePca.Dto.FIN_Statement.SelectedPartiesDto;
 
 namespace TracePca.Service.FIN_statement
@@ -22,32 +23,74 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetSelectedParties
-        public async Task<IEnumerable<LoadTrailBalanceDto>> GetTrailBalanceAsync(int custId, int financialYearId, int branchId)
+        public async Task<IEnumerable<LoadTrailBalanceDto>> GetTrailBalanceAsync(
+        int custId,
+        int financialYearId,
+        int branchId,
+        int id,
+        int pkid)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
-            // ✅ Step 2: Get connection string
+
+            // ✅ Step 2: Connection
             var connectionString = _configuration.GetConnectionString(dbName);
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
+
+            // ✅ Step 3: Base Query
             var query = @"
-        SELECT ATBU_Description,ATBU_ID,
-            ATBU_Closing_TotalDebit_Amount, 
-            ATBU_Closing_TotalCredit_Amount, ATBU_Delflg    
-            FROM Acc_TrailBalance_Upload
-        WHERE ATBU_CustId = @CustId
-          AND ATBU_YEARId = @FinancialYearId
-          AND ATBU_Branchid = @BranchId
-        ORDER BY ATBU_Id DESC";
+SELECT DISTINCT
+    ATBU.ATBU_Description,
+    ATBU.ATBU_ID,
+    ATBU.ATBU_Closing_TotalDebit_Amount,
+    ATBU.ATBU_Closing_TotalCredit_Amount,
+    ATBU.ATBU_Delflg
+FROM Acc_TrailBalance_Upload ATBU
+LEFT JOIN Acc_TrailBalance_Upload_Details ATBUD
+    ON ATBUD.ATBUD_Description = ATBU.ATBU_Description
+   AND ATBUD.ATBUD_YEARId = @FinancialYearId
+   AND ATBUD.ATBUD_Custid = @CustId
+   AND ATBUD.Atbud_Branchnameid = @BranchId
+WHERE ATBU.ATBU_CustId = @CustId
+  AND ATBU.ATBU_YEARId = @FinancialYearId
+  AND ATBU.ATBU_Branchid = @BranchId
+";
+
+            // ✅ Step 4: Dynamic conditions (LIKE YOU WANT)
+            if (id == 4)
+            {
+                query += " AND ATBUD.ATBUD_SubItemId = @PkId";
+            }
+            else if (id == 3)
+            {
+                query += " AND ATBUD.ATBUD_itemid = @PkId";
+            }
+            else if (id == 2)
+            {
+                query += " AND ATBUD.ATBUD_Subheading = @PkId";
+            }
+            else if (id == 1)
+            {
+                query += " AND ATBUD.ATBUD_Headingid = @PkId";
+            }
+
+            // ✅ Step 5: Order once
+            query += " ORDER BY ATBU.ATBU_ID DESC";
+
             return await connection.QueryAsync<LoadTrailBalanceDto>(query, new
             {
                 CustId = custId,
                 FinancialYearId = financialYearId,
-                BranchId = branchId
+                BranchId = branchId,
+                PkId = pkid
             });
         }
+
+
+
 
         //UpdateSelectedPartiesStatus
         public async Task<int> UpdateTrailBalanceStatusAsync(List<UpdateTrailBalanceStatusDto> dtoList)
@@ -142,7 +185,7 @@ LEFT JOIN Acc_JE_Master AS JE   ON JE.ACC_JE_ID = JED.ajtb_masid
             AND JED.AJTB_CustId = @CustId
             AND JED.AJTB_YearId = @YearId
             AND JED.AJTB_BranchId = @BranchId AND JED.AJTB_Status <> 'D'
-        ORDER BY       JED.AJTB_DescName;";
+        ORDER BY       JED.AJTB_CreatedOn;";
 
             // ✅ Step 4: Execute query with parameters
             return await connection.QueryAsync<JournalEntryWithTrailBalanceDto>(query, new

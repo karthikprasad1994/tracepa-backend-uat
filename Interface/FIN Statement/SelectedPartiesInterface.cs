@@ -6,7 +6,7 @@ namespace TracePca.Interface.FIN_Statement
     {
 
         //GetSelectedParties
-        Task<IEnumerable<LoadTrailBalanceDto>> GetTrailBalanceAsync(int custId, int financialYearId, int branchId);
+        Task<IEnumerable<LoadTrailBalanceDto>> GetTrailBalanceAsync(int custId, int financialYearId, int branchId, int id, int pkid);
 
         //UpdateSelectedPartiesStatus
         Task<int> UpdateTrailBalanceStatusAsync(List<UpdateTrailBalanceStatusDto> dtoList);

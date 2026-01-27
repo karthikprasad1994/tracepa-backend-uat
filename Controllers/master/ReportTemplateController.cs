@@ -50,5 +50,19 @@ namespace TracePca.Controllers.Master
                 return StatusCode(500, new { success = false, message = "An error occurred while saving/updating report content: " + ex.Message });
             }
         }
+
+        [HttpPost("SaveReportSortOrder")]
+        public async Task<IActionResult> SaveReportSortOrder([FromBody] ReportTemplateSortOrderSaveDTO dto)
+        {
+            try
+            {
+                var (success, message) = await _reportTemplateService.SaveOrUpdateReportTemplateSortOrderAsync(dto);
+                return Ok(new { statusCode = 200, success, message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "An error occurred while saving/updating report content sort order: " + ex.Message });
+            }
+        }
     }
 }

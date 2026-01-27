@@ -588,5 +588,17 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
+        [HttpGet("net-income-zero")]
+        public async Task<ActionResult<bool>> IsNetIncomeZero(
+      int yearId,
+      int custId,
+      int branchId, int duration)
+        {
+            bool result = await _ScheduleReportService
+                .IsNetIncomeZeroAsync(yearId, custId, branchId, duration);
+
+            return Ok(result);
+        }
     }
 }
