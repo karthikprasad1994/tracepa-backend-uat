@@ -541,20 +541,23 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         private async Task<Dictionary<string, int>> BulkFetchAccounts(
-            SqlConnection connection,
-            SqlTransaction transaction,
-            List<string> accounts,
-            int compId,
-            int customerId,
-            int yearId,
-            int branchId,
-            int durationId)
+          SqlConnection connection,
+          SqlTransaction transaction,
+          List<string> accounts,
+          int compId,
+          int customerId,
+          int yearId,
+          int branchId,
+          int durationId)
         {
             var result = new Dictionary<string, int>();
 
-            // Process in batches to avoid parameter limits
+            // ✅ Batch size to avoid SQL parameter limit
             const int batchSize = 1000;
+
             var batches = accounts
+                .Where(a => !string.IsNullOrWhiteSpace(a))
+                .Select(a => a.Trim())              // ✅ TRIM input
                 .Select((acc, index) => new { acc, index })
                 .GroupBy(x => x.index / batchSize)
                 .Select(g => g.Select(x => x.acc).ToList())
@@ -562,7 +565,6 @@ namespace TracePca.Controllers.FIN_Statement
 
             foreach (var batch in batches)
             {
-                // Build parameterized query for this batch
                 var parameters = new List<SqlParameter>();
                 var paramNames = new List<string>();
 
@@ -570,27 +572,33 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     var paramName = $"@Acc{i}";
                     paramNames.Add(paramName);
+
                     parameters.Add(new SqlParameter(paramName, batch[i]));
                 }
 
                 var sql = $@"
-            SELECT ATBU_Description, ATBU_ID 
-            FROM Acc_TrailBalance_Upload 
-            WHERE ATBU_Description IN ({string.Join(",", paramNames)})
-              AND ATBU_CustId = @CustId 
-              AND ATBU_Branchid = @BranchId 
-              AND ATBU_CompId = @CompId 
-              AND ATBU_YEARId = @YearId
-              AND ATBU_QuarterId = @QuarterId";
+SELECT
+    LTRIM(RTRIM(ATBU_Description)) AS ATBU_Description,
+    ATBU_ID
+FROM Acc_TrailBalance_Upload
+WHERE LTRIM(RTRIM(ATBU_Description))
+      COLLATE SQL_Latin1_General_CP1_CI_AS   -- ✅ Case-insensitive
+      IN ({string.Join(",", paramNames)})
+  AND ATBU_CustId = @CustId
+  AND ATBU_Branchid = @BranchId
+  AND ATBU_CompId = @CompId
+  AND ATBU_YEARId = @YearId
+  AND ATBU_QuarterId = @QuarterId";
 
                 using var command = new SqlCommand(sql, connection, transaction);
 
-                // Add batch parameters
+                // ✅ Add account parameters
                 foreach (var param in parameters)
                 {
                     command.Parameters.Add(param);
                 }
 
+                // ✅ Other parameters
                 command.Parameters.AddWithValue("@CustId", customerId);
                 command.Parameters.AddWithValue("@BranchId", branchId);
                 command.Parameters.AddWithValue("@CompId", compId);
@@ -606,6 +614,7 @@ namespace TracePca.Controllers.FIN_Statement
 
             return result;
         }
+
         private async Task<int> CheckVoucherType(SqlConnection connection, SqlTransaction transaction, int compId, string type, string description)
         {
             var sql = "SELECT cmm_ID FROM Content_Management_Master WHERE CMM_CompID = @CompID AND cmm_Category = @Category AND cmm_Delflag = 'A' AND cmm_Desc = @Description ORDER BY cmm_Desc ASC";

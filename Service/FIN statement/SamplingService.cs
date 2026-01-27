@@ -30,32 +30,66 @@ namespace TracePca.Service.FIN_statement
          int nthPosition,
          int fromRow,
          int toRow,
-         int sampleSize)
+         int sampleSize,
+         int type,
+         int pkId)
         {
-            // Step 1: Get DB name from session
+            // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // Step 2: Get connection string
+            // ✅ Step 2: Connection
             var connectionString = _configuration.GetConnectionString(dbName);
-
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
+            // ✅ Step 3: Base query
             var query = @"
-;WITH OrderedTransactions AS (
-    SELECT AJTB_ID,AJTB_DescName,AJTB_Debit,
-        AJTB_Credit, AJTB_SyStatus,
-        ROW_NUMBER() OVER (ORDER BY AJTB_ID) AS RowNum,CAST(AJTB_CreatedOn as date) as TransDate
-    FROM Acc_JETransactions_Details
-    WHERE AJTB_CustId = @iCustId and ajtb_yearid=@iYearId and AJTB_Status <> 'D')
+;WITH OrderedTransactions AS
+(
+    SELECT 
+        AJTB_ID,
+        AJTB_DescName,
+        AJTB_Debit,
+        AJTB_Credit,
+        AJTB_SyStatus,
+        CAST(AJTB_CreatedOn AS DATE) AS TransDate,
+        ROW_NUMBER() OVER (ORDER BY AJTB_ID) AS RowNum
+    FROM Acc_JETransactions_Details jt
+    LEFT JOIN Acc_TrailBalance_Upload_Details a
+        ON a.ATBUD_Description = jt.AJTB_DescName
+        AND a.ATBUD_CustId = @iCustId
+        AND a.ATBUD_Branchnameid = @iBranchId
+        AND a.ATBUD_YEARId = @iYearId
+    WHERE 
+        jt.AJTB_CustId = @iCustId
+        AND jt.AJTB_YearId = @iYearId
+        AND jt.AJTB_Status <> 'D'
+";
+
+            // ✅ Step 4: Dynamic filter based on type
+            if (type == 4)
+                query += " AND a.ATBUD_SubItemId = @PkId ";
+            else if (type == 3)
+                query += " AND a.ATBUD_ItemId = @PkId ";
+            else if (type == 2)
+                query += " AND a.ATBUD_Subheading = @PkId ";
+            else if (type == 1)
+                query += " AND a.ATBUD_HeadingId = @PkId ";
+
+            // ✅ Step 5: Close CTE + final select
+            query += @"
+)
 SELECT TOP (@SampleSize) *
 FROM OrderedTransactions
-WHERE RowNum BETWEEN @FromRow AND @ToRow
-  AND ((RowNum - @FromRow) % @NthPosition = 0)
-ORDER BY RowNum;";
+WHERE 
+    RowNum BETWEEN @FromRow AND @ToRow
+    AND ((RowNum - @FromRow) % @NthPosition = 0)
+ORDER BY RowNum;
+";
 
+            // ✅ Step 6: Parameters
             var parameters = new
             {
                 iCustId = custId,
@@ -65,51 +99,119 @@ ORDER BY RowNum;";
                 NthPosition = nthPosition,
                 FromRow = fromRow,
                 ToRow = toRow,
-                SampleSize = sampleSize
+                SampleSize = sampleSize,
+                PkId = pkId
             };
 
             return await connection.QueryAsync<SystemstemSamplingDTO>(query, parameters);
         }
 
+
         //GetStatifiedSamping
         public async Task<IEnumerable<StratifiedSamplingDTO>> GetStratifiedSamplingAsync(
-    int compId, int custId, int branchId, int yearId, decimal percentage)
+           int compId,
+           int custId,
+           int branchId,
+           int yearId,
+           decimal percentage,
+           int type,
+           int pkId)
         {
-            // Step 1: Get DB name from session
+            // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
-            // Step 2: Get connection string
+
+            // ✅ Step 2: Connection
             var connectionString = _configuration.GetConnectionString(dbName);
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            // Step 3: SQL Logic for Stratified Sampling
+
+            // ✅ Step 3: Base SQL
             var query = @"
 DECLARE @TotalRows INT;
-SELECT @TotalRows = COUNT(*) 
-FROM Acc_JETransactions_Details 
-WHERE AJTB_CustId = @iCustId AND AJTB_YearId = @iYearId;
+
+SELECT @TotalRows = COUNT(*)
+FROM Acc_JETransactions_Details jt
+LEFT JOIN Acc_TrailBalance_Upload_Details a
+    ON a.ATBUD_Description = jt.AJTB_DescName
+    AND a.ATBUD_CustId = @iCustId
+    AND a.ATBUD_Branchnameid = @iBranchId
+    AND a.ATBUD_YEARId = @iYearId
+WHERE 
+    jt.AJTB_CustId = @iCustId
+    AND jt.AJTB_YearId = @iYearId
+    AND jt.AJTB_Status <> 'D'
+";
+
+            // ✅ Dynamic hierarchy filter (COUNT)
+            if (type == 4)
+                query += " AND a.ATBUD_SubItemId = @PkId ";
+            else if (type == 3)
+                query += " AND a.ATBUD_ItemId = @PkId ";
+            else if (type == 2)
+                query += " AND a.ATBUD_SubHeadingId = @PkId ";
+            else if (type == 1)
+                query += " AND a.ATBUD_HeadingId = @PkId ";
+
+            // ✅ Continue SQL
+            query += @"
 DECLARE @SampleCount INT = CEILING(@TotalRows * (@Percentage / 100.0));
-;WITH OrderedTransactions AS (
-    SELECT AJTB_ID,AJTB_DescName,AJTB_Debit,AJTB_Credit,
-        CAST(AJTB_CreatedOn AS date) AS TransDate, AJTB_SfStatus,
-        ROW_NUMBER() OVER (ORDER BY AJTB_ID) AS RowNum
-    FROM Acc_JETransactions_Details
-    WHERE AJTB_CustId = @iCustId 
-      AND AJTB_YearId = @iYearId)
+
+;WITH OrderedTransactions AS
+(
+    SELECT 
+        jt.AJTB_ID,
+        jt.AJTB_DescName,
+        jt.AJTB_Debit,
+        jt.AJTB_Credit,
+        CAST(jt.AJTB_CreatedOn AS DATE) AS TransDate,
+        jt.AJTB_SfStatus,
+        ROW_NUMBER() OVER (ORDER BY jt.AJTB_ID) AS RowNum
+    FROM Acc_JETransactions_Details jt
+    LEFT JOIN Acc_TrailBalance_Upload_Details a
+        ON a.ATBUD_Description = jt.AJTB_DescName
+        AND a.ATBUD_CustId = @iCustId
+        AND a.ATBUD_Branchnameid = @iBranchId
+        AND a.ATBUD_YEARId = @iYearId
+    WHERE 
+        jt.AJTB_CustId = @iCustId
+        AND jt.AJTB_YearId = @iYearId
+        AND jt.AJTB_Status <> 'D'
+";
+
+            // ✅ Dynamic hierarchy filter (CTE)
+            if (type == 4)
+                query += " AND a.ATBUD_SubItemId = @PkId ";
+            else if (type == 3)
+                query += " AND a.ATBUD_ItemId = @PkId ";
+            else if (type == 2)
+                query += " AND a.ATBUD_SubHeadingId = @PkId ";
+            else if (type == 1)
+                query += " AND a.ATBUD_HeadingId = @PkId ";
+
+            // ✅ Final select
+            query += @"
+)
 SELECT TOP (@SampleCount) *
 FROM OrderedTransactions
-ORDER BY NEWID(); ";
+ORDER BY NEWID();
+";
+
+            // ✅ Parameters
             var parameters = new
             {
                 iCustId = custId,
                 iCompId = compId,
                 iBranchId = branchId,
                 iYearId = yearId,
-                Percentage = percentage
+                Percentage = percentage,
+                PkId = pkId
             };
+
             return await connection.QueryAsync<StratifiedSamplingDTO>(query, parameters);
         }
+
 
         //UpdateSystemSamplingStatus
         public async Task<int> UpdateSystemSamplingStatusAsync(List<UpdateSystemSamplingStatusDto> dtoList)
