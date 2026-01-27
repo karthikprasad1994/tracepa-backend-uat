@@ -4,10 +4,10 @@ namespace TracePca.Interface.FIN_Statement
     public interface SamplingInterface
     {
         //GetSystemSampling
-        Task<IEnumerable<SystemstemSamplingDTO>> GetSystemSamplingAsync(int compId, int custId, int branchId, int yearId, int nthPosition, int fromrow, int toRow, int sampleSize);
+        Task<IEnumerable<SystemstemSamplingDTO>> GetSystemSamplingAsync(int compId, int custId, int branchId, int yearId, int nthPosition, int fromrow, int toRow, int sampleSize, int type,int pkId);
 
         //GetStatifiedSamping
-        Task<IEnumerable<StratifiedSamplingDTO>> GetStratifiedSamplingAsync(int compId, int custId, int branchId, int yearId, decimal percentage);
+        Task<IEnumerable<StratifiedSamplingDTO>> GetStratifiedSamplingAsync(int compId, int custId, int branchId, int yearId, decimal percentage,int type,int pkId);
 
         //UpdateSystemSamplingStatus
         Task<int> UpdateSystemSamplingStatusAsync(List<UpdateSystemSamplingStatusDto> dtoList);
