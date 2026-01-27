@@ -52,7 +52,6 @@
             public int ASHN_ID { get; set; }
         }
 
-
         //GetBranch(Notes For Ledger)
         public class CustBranchDto
         {
