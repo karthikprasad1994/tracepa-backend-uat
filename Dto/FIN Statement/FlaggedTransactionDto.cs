@@ -24,6 +24,7 @@
             public string AJTB_DescName { get; set; }
             public decimal AJTB_Debit { get; set; }
             public decimal AJTB_Credit { get; set; }
+            public int Ajtb_Masid { get; set; }
         }
 
         //GetSelectedPartiesSeqReferenceNum

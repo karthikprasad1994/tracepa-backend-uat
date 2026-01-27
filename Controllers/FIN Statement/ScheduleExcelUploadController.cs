@@ -11,6 +11,10 @@ using static TracePca.Service.FIN_statement.ScheduleMappingService;
 
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Globalization;
+using System.Text;
+using System.Xml.Linq;
+using Microsoft.Identity.Client;
+using System.Collections.Generic;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -366,39 +370,29 @@ namespace TracePca.Controllers.FIN_Statement
 
 
 
-
-
-
-
         [HttpPost("upload-je-transactions")]
         public async Task<ActionResult<ApiResponse<string>>> UploadJournalEntries(
-      [FromBody] JournalEntryUploadRequest request)
+       [FromBody] JournalEntryUploadRequest request)
         {
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
-            if (string.IsNullOrEmpty(dbName))
-                return BadRequest(new ApiResponse<string>
-                {
-                    Success = false,
-                    Message = "CustomerCode is missing in session. Please log in again."
-                });
-
-            var connectionString = _configuration.GetConnectionString(dbName);
-
-            SqlConnection connection = null;
-            SqlTransaction transaction = null;
-
             try
             {
-                connection = new SqlConnection(connectionString);
-                await connection.OpenAsync();
+                string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+                if (string.IsNullOrEmpty(dbName))
+                    return BadRequest(new ApiResponse<string>
+                    {
+                        Success = false,
+                        Message = "CustomerCode is missing in session. Please log in again."
+                    });
+
+                var connectionString = _configuration.GetConnectionString(dbName);
 
                 // Headers
                 var accessCodeId = int.Parse(Request.Headers["AccessCodeID"].FirstOrDefault() ?? "1");
                 var userId = int.Parse(Request.Headers["UserID"].FirstOrDefault() ?? "0");
                 var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
 
-                // Validation
+                // Basic validation
                 if (request.CustomerId <= 0)
                     return BadRequest(new ApiResponse<string> { Success = false, Message = "Select Client" });
 
@@ -412,42 +406,65 @@ namespace TracePca.Controllers.FIN_Statement
                     return BadRequest(new ApiResponse<string> { Success = false, Message = "Select Duration" });
 
                 if (request.Rows == null || request.Rows.Count == 0)
-                    return BadRequest(new ApiResponse<string> { Success = false, Message = "Please select the Load Button" });
+                    return BadRequest(new ApiResponse<string> { Success = false, Message = "No data to upload" });
 
-                // ✅ PRE-VALIDATION (NO TRANSACTION)
-                var validationResult = await PreValidateRows(
-                    connection, null, request, accessCodeId, userId, ipAddress);
+                using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                /* ----------------------------------------------------
+                 * 1️⃣ FAST HEADER / MASTER VALIDATION
+                 * ---------------------------------------------------- */
+                var validationResult = await ValidateUploadData(
+                    request, connection, null, accessCodeId);
 
                 if (!validationResult.Success)
                     return BadRequest(validationResult);
 
-                // ✅ START TRANSACTION ONLY FOR DB WRITE
-                transaction = connection.BeginTransaction();
+                /* ----------------------------------------------------
+                 * 2️⃣ ROW-LEVEL PRE VALIDATION (NEW)
+                 * ---------------------------------------------------- */
+                var preValidationResult = await PreValidateRows(
+                    connection, null, request, accessCodeId, userId, ipAddress);
 
-                //await BulkCreateMissingAccounts(
-                //    connection, transaction, request, accessCodeId, userId, ipAddress);
+                if (!preValidationResult.Success)
+                    return BadRequest(preValidationResult);
 
-                var processResult = await BulkCreateAndProcessTransactions(connection, transaction, request, accessCodeId, userId, ipAddress);
+                /* ----------------------------------------------------
+                 * 3️⃣ TRANSACTIONAL INSERT
+                 * ---------------------------------------------------- */
+                using var transaction = connection.BeginTransaction();
+                try
+                {
+                    var processResult = await ProcessJournalEntriesOptimized(
+                        connection, transaction, request, accessCodeId, userId, ipAddress);
 
-                if (!processResult.Success)
+                    if (!processResult.Success)
+                    {
+                        transaction.Rollback();
+                        return BadRequest(processResult);
+                    }
+
+                    transaction.Commit();
+
+                    return Ok(new ApiResponse<string>
+                    {
+                        Success = true,
+                        Message = $"Successfully uploaded {request.Rows.Count} records"
+                    });
+                }
+                catch (Exception ex)
                 {
                     transaction.Rollback();
-                    return BadRequest(processResult);
+                    return StatusCode(500, new ApiResponse<string>
+                    {
+                        Success = false,
+                        Message = "Upload failed",
+                        Error = ex.Message
+                    });
                 }
-
-                transaction.Commit(); // ✅ RELEASE LOCKS IMMEDIATELY
-
-                return Ok(new ApiResponse<string>
-                {
-                    Success = true,
-                    Message = "Successfully Uploaded"
-                });
             }
             catch (Exception ex)
             {
-                if (transaction != null)
-                    transaction.Rollback();
-
                 return StatusCode(500, new ApiResponse<string>
                 {
                     Success = false,
@@ -455,413 +472,161 @@ namespace TracePca.Controllers.FIN_Statement
                     Error = ex.Message
                 });
             }
-            finally
-            {
-                // ✅ FORCE KILL CONNECTION
-                if (transaction != null)
-                    transaction.Dispose();
-
-                if (connection != null)
-                {
-                    await connection.CloseAsync();
-                    await connection.DisposeAsync();
-                }
-            }
         }
-        private async Task<ApiResponse<string>> BulkCreateAndProcessTransactions(
- SqlConnection connection,
- SqlTransaction transaction,
- JournalEntryUploadRequest request,
- int accessCodeId,
- int userId,
- string ipAddress)
+
+
+        private async Task<ApiResponse<string>> ProcessJournalEntriesOptimized(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            JournalEntryUploadRequest request,
+            int accessCodeId,
+            int userId,
+            string ipAddress)
         {
-            const int batchSize = 4000;
-            var validRows = request.Rows.Where(r => !string.IsNullOrEmpty(r.Account)).ToList();
-            var batches = validRows.Batch(batchSize);
+            // Step 1: Filter and prepare data
+            var validRows = request.Rows
+                .Where(r => !string.IsNullOrWhiteSpace(r.Account))
+                .ToList();
 
-            var transactionNo = "0";
-            var iErrorLine = 1;
-            int MasId = 0;
-            DateTime currentTransactionDate = DateTime.MinValue;
-
-            // ===============================
-            // STEP 1: PRE-CACHE ALL DATA
-            // ===============================
-            var accountsToCreate = new List<string>();
-            var existingAccountsCache = new Dictionary<string, int>();
-            var voucherTypesCache = new Dictionary<string, int>();
-
-            // Cache existing accounts and identify missing ones
-            foreach (var row in validRows)
+            if (!validRows.Any())
             {
-                if (string.IsNullOrWhiteSpace(row.Account)) continue;
+                return new ApiResponse<string> { Success = true, Message = "No valid rows to process" };
+            }
 
-                var account = row.Account;
-                if (existingAccountsCache.ContainsKey(account)) continue;
+            // Step 2: Bulk fetch existing accounts
+            var distinctAccounts = validRows
+                .Select(r => r.Account.Trim())
+                .Distinct()
+                .ToList();
 
-                var exists = await CheckAccountData(
-                    connection, transaction, accessCodeId,
-                    request.CustomerId, account,
-                    request.FinancialYearId,
-                    request.BranchId,
-                    request.DurationId);
+            var existingAccounts = await BulkFetchAccounts(
+                connection, transaction, distinctAccounts, accessCodeId,
+                request.CustomerId, request.FinancialYearId, request.BranchId, request.DurationId);
 
-                existingAccountsCache[account] = exists;
+            // Step 3: Create missing accounts
+            var missingAccounts = distinctAccounts
+                .Where(acc => !existingAccounts.ContainsKey(acc))
+                .ToList();
 
-                if (exists == 0)
-                    accountsToCreate.Add(account);
+            if (missingAccounts.Any())
+            {
+                await CreateMissingAccounts(
+          connection: connection,
+          transaction: transaction,
+          missingAccounts: missingAccounts,
+          accessCodeId: accessCodeId,
+          request: request,
+          validRows: validRows, // ✅ Pass the validRows parameter
+          userId: userId,
+          ipAddress: ipAddress
+      );
 
-                // Cache voucher types
-                if (!string.IsNullOrWhiteSpace(row.JE_Type) && !voucherTypesCache.ContainsKey(row.JE_Type))
+                // Re-fetch newly created accounts
+                var newAccounts = await BulkFetchAccounts(
+                    connection, transaction, missingAccounts, accessCodeId,
+                    request.CustomerId, request.FinancialYearId, request.BranchId, request.DurationId);
+
+                foreach (var kvp in newAccounts)
                 {
-                    var voucherId = await CheckVoucherType(connection, transaction, accessCodeId, "JE", row.JE_Type);
-                    voucherTypesCache[row.JE_Type] = voucherId;
+                    existingAccounts[kvp.Key] = kvp.Value;
                 }
             }
 
-            // ===============================
-            // STEP 2: CREATE MISSING ACCOUNTS
-            // ===============================
-            if (accountsToCreate.Any())
-            {
-                int maxCount = await GetDescMaxId(
-                    connection, transaction,
-                    accessCodeId, request.CustomerId, "",
-                    request.FinancialYearId,
-                    request.BranchId,
-                    request.DurationId);
+            // Step 4: Process transactions using SqlBulkCopy
+            var success = await ProcessTransactionsWithBulkCopy(
+                connection, transaction, validRows, existingAccounts,
+                request, accessCodeId, userId, ipAddress);
 
-                // Determine if we need schedule mappings
-                bool hasPurchase = validRows.Any(r =>
-                    r.JE_Type?.Equals("Purchase", StringComparison.OrdinalIgnoreCase) == true);
-                bool hasSales = validRows.Any(r =>
-                    r.JE_Type?.Equals("Sales", StringComparison.OrdinalIgnoreCase) == true);
+            return new ApiResponse<string> { Success = success };
+        }
 
-                // Pre-calculate schedule mappings
-                int pHeadingId = 0, pSubHeadingId = 0, pItemId = 0, pScheduleType = 0;
-                int sHeadingId = 0, sSubHeadingId = 0, sItemId = 0, sScheduleType = 0;
+        private async Task<Dictionary<string, int>> BulkFetchAccounts(
+          SqlConnection connection,
+          SqlTransaction transaction,
+          List<string> accounts,
+          int compId,
+          int customerId,
+          int yearId,
+          int branchId,
+          int durationId)
+        {
+            var result = new Dictionary<string, int>();
 
-                if (hasPurchase)
-                {
-                    pItemId = await GetIdFromNameAsync(
-                        connection, transaction,
-                        "ACC_ScheduleItems", "ASI_ID",
-                        "Others - Trade Payables",
-                        request.CustomerId);
+            // ✅ Batch size to avoid SQL parameter limit
+            const int batchSize = 1000;
 
-                    var dt = await GetScheduleIDs(connection, transaction, pItemId, request.CustomerId, 3);
-                    if (dt.Rows.Count > 0)
-                    {
-                        pHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
-                        pSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
-                        pItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
-                    }
+            var batches = accounts
+                .Where(a => !string.IsNullOrWhiteSpace(a))
+                .Select(a => a.Trim())              // ✅ TRIM input
+                .Select((acc, index) => new { acc, index })
+                .GroupBy(x => x.index / batchSize)
+                .Select(g => g.Select(x => x.acc).ToList())
+                .ToList();
 
-                    pScheduleType = await GetScheduleTypeFromTemplateAsync(
-                        connection, transaction,
-                        0, pItemId, pSubHeadingId, pHeadingId, request.CustomerId);
-                }
-
-                if (hasSales)
-                {
-                    sItemId = await GetIdFromNameAsync(
-                        connection, transaction,
-                        "ACC_ScheduleItems", "ASI_ID",
-                        "Any others - Trade receivables",
-                        request.CustomerId);
-
-                    var dt = await GetScheduleIDs(connection, transaction, sItemId, request.CustomerId, 3);
-                    if (dt.Rows.Count > 0)
-                    {
-                        sHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
-                        sSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
-                        sItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
-                    }
-
-                    sScheduleType = await GetScheduleTypeFromTemplateAsync(
-                        connection, transaction,
-                        0, sItemId, sSubHeadingId, sHeadingId, request.CustomerId);
-                }
-
-                // Create missing accounts
-                foreach (var account in accountsToCreate)
-                {
-                    maxCount++;
-
-                    var uploadId = await SaveTrailBalanceExcelUpload(
-                        connection, transaction,
-                        new TrailBalanceUpload
-                        {
-                            ATBU_ID = 0,
-                            ATBU_CODE = "SCh00" + maxCount,
-                            ATBU_Description = account,
-                            ATBU_CustId = request.CustomerId,
-                            ATBU_Opening_Debit_Amount = 0,
-                            ATBU_Opening_Credit_Amount = 0,
-                            ATBU_TR_Debit_Amount = 0,
-                            ATBU_TR_Credit_Amount = 0,
-                            ATBU_Closing_Debit_Amount = 0,
-                            ATBU_Closing_Credit_Amount = 0,
-                            ATBU_DELFLG = "A",
-                            ATBU_CRBY = userId,
-                            ATBU_STATUS = "C",
-                            ATBU_UPDATEDBY = userId,
-                            ATBU_IPAddress = ipAddress,
-                            ATBU_CompId = accessCodeId,
-                            ATBU_YEARId = request.FinancialYearId,
-                            ATBU_Branchname = request.BranchId,
-                            ATBU_QuaterId = request.DurationId
-                        });
-
-                    bool isPurchaseAccount = validRows.Any(r =>
-                        r.Account == account &&
-                        r.JE_Type?.Equals("Purchase", StringComparison.OrdinalIgnoreCase) == true);
-
-                    bool isSalesAccount = validRows.Any(r =>
-                        r.Account == account &&
-                        r.JE_Type?.Equals("Sales", StringComparison.OrdinalIgnoreCase) == true);
-
-                    bool hasTransactionDate = validRows.Any(r =>
-                        r.Account == account &&
-                        !string.IsNullOrWhiteSpace(r.Transaction_Date));
-
-                    int headingId = 0;
-                    int subHeadingId = 0;
-                    int itemId = 0;
-                    int scheduleType = 0;
-
-                    if (hasTransactionDate)
-                    {
-                        if (isPurchaseAccount)
-                        {
-                            headingId = pHeadingId;
-                            subHeadingId = pSubHeadingId;
-                            itemId = pItemId;
-                            scheduleType = pScheduleType;
-                        }
-                        else if (isSalesAccount)
-                        {
-                            headingId = sHeadingId;
-                            subHeadingId = sSubHeadingId;
-                            itemId = sItemId;
-                            scheduleType = sScheduleType;
-                        }
-                    }
-
-                    await SaveTrailBalanceExcelUploadDetails(
-                        connection, transaction,
-                        new TrailBalanceUpload
-                        {
-                            ATBUD_ID = 0,
-                            ATBUD_Masid = uploadId,
-                            ATBUD_CODE = "SCh00" + maxCount,
-                            ATBUD_Description = account,
-                            ATBUD_CustId = request.CustomerId,
-                            ATBUD_SChedule_Type = scheduleType,
-                            ATBUD_Branchname = request.BranchId,
-                            ATBUD_iQuarterly = request.DurationId,
-                            ATBUD_Company_Type = request.CustomerId,
-                            ATBUD_Headingid = headingId,
-                            ATBUD_Subheading = subHeadingId,
-                            ATBUD_itemid = itemId,
-                            ATBUD_Subitemid = 0,
-                            ATBUD_DELFLG = "A",
-                            ATBUD_CRBY = userId,
-                            ATBUD_STATUS = "C",
-                            ATBUD_Progress = "Uploaded",
-                            ATBUD_UPDATEDBY = userId,
-                            ATBUD_IPAddress = ipAddress,
-                            ATBUD_CompId = accessCodeId,
-                            ATBUD_YEARId = request.FinancialYearId
-                        });
-
-                    // Get the actual account ID after creation
-                    var newAccountId = await CheckAccountData(
-                        connection, transaction, accessCodeId,
-                        request.CustomerId, account,
-                        request.FinancialYearId,
-                        request.BranchId,
-                        request.DurationId);
-
-                    existingAccountsCache[account] = newAccountId;
-                }
-            }
-
-            // ===============================
-            // STEP 3: PROCESS TRANSACTIONS
-            // ===============================
             foreach (var batch in batches)
             {
-                foreach (var row in batch)
+                var parameters = new List<SqlParameter>();
+                var paramNames = new List<string>();
+
+                for (int i = 0; i < batch.Count; i++)
                 {
-                    if (string.IsNullOrEmpty(row.Account)) continue;
+                    var paramName = $"@Acc{i}";
+                    paramNames.Add(paramName);
 
-                    // Parse transaction date
-                    DateTime transactionDate = DateTime.MinValue;
+                    parameters.Add(new SqlParameter(paramName, batch[i]));
+                }
 
-                    if (!string.IsNullOrEmpty(row.Transaction_Date))
-                    {
-                        transactionDate = ParseTransactionDate(row.Transaction_Date);
+                var sql = $@"
+SELECT
+    LTRIM(RTRIM(ATBU_Description)) AS ATBU_Description,
+    ATBU_ID
+FROM Acc_TrailBalance_Upload
+WHERE LTRIM(RTRIM(ATBU_Description))
+      COLLATE SQL_Latin1_General_CP1_CI_AS   -- ✅ Case-insensitive
+      IN ({string.Join(",", paramNames)})
+  AND ATBU_CustId = @CustId
+  AND ATBU_Branchid = @BranchId
+  AND ATBU_CompId = @CompId
+  AND ATBU_YEARId = @YearId
+  AND ATBU_QuarterId = @QuarterId";
 
-                        if (transactionDate == DateTime.MinValue)
-                        {
-                            return new ApiResponse<string> { Success = false, Message = $"Invalid Date Format - Line No: {iErrorLine}" };
-                        }
+                using var command = new SqlCommand(sql, connection, transaction);
 
-                        currentTransactionDate = transactionDate;
-                    }
+                // ✅ Add account parameters
+                foreach (var param in parameters)
+                {
+                    command.Parameters.Add(param);
+                }
 
+                // ✅ Other parameters
+                command.Parameters.AddWithValue("@CustId", customerId);
+                command.Parameters.AddWithValue("@BranchId", branchId);
+                command.Parameters.AddWithValue("@CompId", compId);
+                command.Parameters.AddWithValue("@YearId", yearId);
+                command.Parameters.AddWithValue("@QuarterId", durationId);
 
-                    // Get account ID from cache
-                    var accountId = existingAccountsCache[row.Account];
-                    if (accountId == 0)
-                    {
-                        return new ApiResponse<string> { Success = false, Message = $"Account not found: {row.Account} - Line No: {iErrorLine}" };
-                    }
-
-                    // Get voucher type from cache
-                    var billType = await CheckVoucherType(connection, transaction, accessCodeId, "JE", row.JE_Type);
-
-
-                    // Create Journal Entry Master for new transaction date
-                    if (transactionDate != DateTime.MinValue && transactionDate != new DateTime(1900, 1, 1))
-                    {
-                        transactionNo = await GenerateTransactionNo(
-                            connection, transaction, accessCodeId,
-                            request.FinancialYearId, request.CustomerId,
-                            request.DurationId, request.BranchId);
-
-                        MasId = await SaveJournalEntryMaster(connection, transaction, new JournalEntry
-                        {
-                            Acc_JE_ID = 0,
-                            AJTB_TranscNo = transactionNo,
-                            Acc_JE_Location = 3,
-                            Acc_JE_Party = request.CustomerId,
-                            Acc_JE_BillType = billType,
-                            Acc_JE_BillNo = row.Bill_No ?? "",
-                            Acc_JE_BillDate = transactionDate,
-                            Acc_JE_BillAmount = row.Debit ?? row.Credit ?? 0,
-                            Acc_JE_YearID = request.FinancialYearId,
-                            Acc_JE_Status = "A",
-                            Acc_JE_CreatedBy = userId,
-                            Acc_JE_Operation = "C",
-                            Acc_JE_IPAddress = ipAddress,
-                            Acc_JE_AdvanceNaration = row.Narration ?? "",
-                            Acc_JE_CompID = accessCodeId,
-                            Acc_JE_AdvanceAmount = 0.00m,
-                            Acc_JE_BalanceAmount = 0.00m,
-                            Acc_JE_NetAmount = 0.00m,
-                            Acc_JE_PaymentNarration = "",
-                            Acc_JE_ChequeNo = "",
-                            Acc_JE_ChequeDate = new DateTime(1900, 1, 1),
-                            Acc_JE_IFSCCode = "",
-                            Acc_JE_BankName = "",
-                            Acc_JE_BranchName = "",
-                            Acc_JE_BillCreatedDate = new DateTime(1900, 1, 1),
-                            acc_JE_BranchId = request.BranchId,
-                            Acc_JE_Comments = row.Comments ?? "",
-                            Acc_JE_Quarterly = request.DurationId
-                        });
-                    }
-                    if (!string.IsNullOrEmpty(row.Transaction_Date))
-                    {
-                        transactionDate = ParseTransactionDate(row.Transaction_Date);
-
-                        if (transactionDate == DateTime.MinValue)
-                        {
-                            return new ApiResponse<string> { Success = false, Message = $"Invalid Date Format - Line No: {iErrorLine}" };
-                        }
-
-                        currentTransactionDate = transactionDate;
-                    }
-                    else
-                    {
-                        transactionDate = currentTransactionDate;
-
-                        if (transactionDate == DateTime.MinValue)
-                        {
-                            return new ApiResponse<string> { Success = false, Message = $"No valid date found to carry forward - Line No: {iErrorLine}" };
-                        }
-                    }
-                    // Process Debit
-                    if (row.Debit.HasValue && row.Debit > 0)
-                    {
-                        await SaveTransactionDetails(connection, transaction, new JournalEntry
-                        {
-                            AJTB_ID = 0,
-                            AJTB_TranscNo = transactionNo,
-                            AJTB_CustId = request.CustomerId,
-                            AJTB_MAsID = MasId,
-                            AJTB_Deschead = accountId,
-                            AJTB_Desc = accountId,
-                            AJTB_DescName = row.Account,
-                            AJTB_Debit = (decimal)row.Debit.Value,
-                            AJTB_Credit = 0,
-                            AJTB_CreatedBy = userId,
-                            AJTB_UpdatedBy = userId,
-                            AJTB_Status = "A",
-                            AJTB_YearID = request.FinancialYearId,
-                            AJTB_CompID = accessCodeId,
-                            AJTB_IPAddress = ipAddress,
-                            AJTB_BillType = billType,
-                            AJTB_BranchId = request.BranchId,
-                            AJTB_QuarterId = request.DurationId,
-                            AJTB_CreatedOn = transactionDate
-                        });
-
-                        await UpdateJeDet(
-                            connection, transaction, accessCodeId,
-                            request.FinancialYearId, accountId,
-                            request.CustomerId, 0, (double)row.Debit.Value,
-                            request.BranchId, (double)row.Debit.Value, 0,
-                            request.DurationId);
-                    }
-
-                    // Process Credit
-                    if (row.Credit.HasValue && row.Credit > 0)
-                    {
-                        await SaveTransactionDetails(connection, transaction, new JournalEntry
-                        {
-                            AJTB_ID = 0,
-                            AJTB_TranscNo = transactionNo,
-                            AJTB_CustId = request.CustomerId,
-                            AJTB_MAsID = MasId,
-                            AJTB_Deschead = accountId,
-                            AJTB_Desc = accountId,
-                            AJTB_DescName = row.Account,
-                            AJTB_Debit = 0,
-                            AJTB_Credit = (decimal)row.Credit.Value,
-                            AJTB_CreatedBy = userId,
-                            AJTB_UpdatedBy = userId,
-                            AJTB_Status = "A",
-                            AJTB_YearID = request.FinancialYearId,
-                            AJTB_CompID = accessCodeId,
-                            AJTB_IPAddress = ipAddress,
-                            AJTB_BillType = billType,
-                            AJTB_BranchId = request.BranchId,
-                            AJTB_QuarterId = request.DurationId,
-                            AJTB_CreatedOn = transactionDate
-                        });
-
-                        await UpdateJeDet(
-                            connection, transaction, accessCodeId,
-                            request.FinancialYearId, accountId,
-                            request.CustomerId, 1, (double)row.Credit.Value,
-                            request.BranchId, 0, (double)row.Credit.Value,
-                            request.DurationId);
-                    }
-
-                    iErrorLine++;
+                using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    result[reader.GetString(0)] = reader.GetInt32(1);
                 }
             }
 
-            return new ApiResponse<string> { Success = true };
+            return result;
         }
 
+        private async Task<int> CheckVoucherType(SqlConnection connection, SqlTransaction transaction, int compId, string type, string description)
+        {
+            var sql = "SELECT cmm_ID FROM Content_Management_Master WHERE CMM_CompID = @CompID AND cmm_Category = @Category AND cmm_Delflag = 'A' AND cmm_Desc = @Description ORDER BY cmm_Desc ASC";
 
-        #region Optimized Helper Methods
+            using var command = new SqlCommand(sql, connection, transaction);
+            command.Parameters.AddWithValue("@CompID", compId);
+            command.Parameters.AddWithValue("@Category", type);
+            command.Parameters.AddWithValue("@Description", description);
 
+            var result = await command.ExecuteScalarAsync();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
         private async Task<ApiResponse<string>> PreValidateRows(SqlConnection connection, SqlTransaction transaction, JournalEntryUploadRequest request, int accessCodeId, int userId, string ipAddress)
         {
             var iErrorLine = 1;
@@ -1026,61 +791,69 @@ namespace TracePca.Controllers.FIN_Statement
             var result = await cmd.ExecuteScalarAsync();
             return Convert.ToInt32(result ?? 0);
         }
-        private async Task BulkCreateMissingAccounts(
-          SqlConnection connection,
-          SqlTransaction transaction,
-          JournalEntryUploadRequest request,
-          int accessCodeId,
-          int userId,
-          string ipAddress)
+        private async Task<int> ReserveAtbuIds(
+    SqlConnection connection,
+    SqlTransaction transaction)
         {
-            /* ===============================
-               STEP 1: FIND MISSING ACCOUNTS
-            =============================== */
-            var accountsToCreate = new List<string>();
-            var existingAccountsCache = new Dictionary<string, int>();
+            var cmd = new SqlCommand(@"
+        DECLARE @StartId INT;
 
-            foreach (var row in request.Rows.Where(r => !string.IsNullOrWhiteSpace(r.Account)))
-            {
-                if (existingAccountsCache.ContainsKey(row.Account))
-                    continue;
+        SELECT @StartId = ISNULL(MAX(ATBU_ID), 0) + 1
+        FROM Acc_TrailBalance_Upload WITH (TABLOCKX);
 
-                var exists = await CheckAccountData(
-                    connection, transaction, accessCodeId,
-                    request.CustomerId, row.Account,
-                    request.FinancialYearId,
-                    request.BranchId,
-                    request.DurationId);
+        SELECT @StartId;
+    ", connection, transaction);
 
-                existingAccountsCache[row.Account] = exists;
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        }
 
-                if (exists == 0)
-                    accountsToCreate.Add(row.Account);
-            }
+        private async Task<int> ReserveAtbudIds(
+            SqlConnection connection,
+            SqlTransaction transaction)
+        {
+            var cmd = new SqlCommand(@"
+        DECLARE @StartId INT;
 
-            if (!accountsToCreate.Any())
-                return;
+        SELECT @StartId = ISNULL(MAX(ATBUD_ID), 0) + 1
+        FROM Acc_TrailBalance_Upload_Details WITH (TABLOCKX);
 
-            int maxCount = await GetDescMaxId(
+        SELECT @StartId;
+    ", connection, transaction);
+
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        }
+
+        private async Task CreateMissingAccounts(
+         SqlConnection connection,
+         SqlTransaction transaction,
+         List<string> missingAccounts,
+         int accessCodeId,
+         JournalEntryUploadRequest request,
+         List<JournalEntryRow> validRows,
+         int userId,
+         string ipAddress)
+        {
+            // 1️⃣ Reserve ID blocks (SAFE)
+            int startAtbuId = await ReserveAtbuIds(connection, transaction);
+            int startAtbudId = await ReserveAtbudIds(connection, transaction);
+
+            int startCount = await GetAccountCount(
                 connection, transaction,
-                accessCodeId, request.CustomerId, "",
+                accessCodeId,
+                request.CustomerId,
                 request.FinancialYearId,
                 request.BranchId,
                 request.DurationId);
 
-            /* ===============================
-               STEP 2: CHECK JE TYPES EXISTENCE
-            =============================== */
-            bool hasPurchase = request.Rows.Any(r =>
+            // 2️⃣ Schedule detection
+            bool hasPurchase = validRows.Any(r =>
                 r.JE_Type?.Equals("Purchase", StringComparison.OrdinalIgnoreCase) == true);
 
-            bool hasSales = request.Rows.Any(r =>
+            bool hasSales = validRows.Any(r =>
                 r.JE_Type?.Equals("Sales", StringComparison.OrdinalIgnoreCase) == true);
 
-            /* ===============================
-               STEP 3: PREPARE PURCHASE MAPPING
-            =============================== */
             int pHeadingId = 0, pSubHeadingId = 0, pItemId = 0, pScheduleType = 0;
+            int sHeadingId = 0, sSubHeadingId = 0, sItemId = 0, sScheduleType = 0;
 
             if (hasPurchase)
             {
@@ -1103,11 +876,6 @@ namespace TracePca.Controllers.FIN_Statement
                     0, pItemId, pSubHeadingId, pHeadingId, request.CustomerId);
             }
 
-            /* ===============================
-               STEP 4: PREPARE SALES MAPPING
-            =============================== */
-            int sHeadingId = 0, sSubHeadingId = 0, sItemId = 0, sScheduleType = 0;
-
             if (hasSales)
             {
                 sItemId = await GetIdFromNameAsync(
@@ -1129,370 +897,178 @@ namespace TracePca.Controllers.FIN_Statement
                     0, sItemId, sSubHeadingId, sHeadingId, request.CustomerId);
             }
 
-            /* ===============================
-               STEP 5: SAVE ACCOUNTS
-               → PASS 0 IF NO TRANSACTION DATE
-            =============================== */
-            foreach (var account in accountsToCreate)
+            // 3️⃣ DataTables
+            var masterTable = new DataTable();
+            masterTable.Columns.Add("ATBU_ID", typeof(int));
+            masterTable.Columns.Add("ATBU_CODE", typeof(string));
+            masterTable.Columns.Add("ATBU_Description", typeof(string));
+            masterTable.Columns.Add("ATBU_CustId", typeof(int));
+            masterTable.Columns.Add("ATBU_Opening_Debit_Amount", typeof(decimal));
+            masterTable.Columns.Add("ATBU_Opening_Credit_Amount", typeof(decimal));
+            masterTable.Columns.Add("ATBU_TR_Debit_Amount", typeof(decimal));
+            masterTable.Columns.Add("ATBU_TR_Credit_Amount", typeof(decimal));
+            masterTable.Columns.Add("ATBU_Closing_Debit_Amount", typeof(decimal));
+            masterTable.Columns.Add("ATBU_Closing_Credit_Amount", typeof(decimal));
+            masterTable.Columns.Add("ATBU_DELFLG", typeof(string));
+            masterTable.Columns.Add("ATBU_CRBY", typeof(int));
+            masterTable.Columns.Add("ATBU_STATUS", typeof(string));
+            masterTable.Columns.Add("ATBU_UPDATEDBY", typeof(int));
+            masterTable.Columns.Add("ATBU_IPAddress", typeof(string));
+            masterTable.Columns.Add("ATBU_CompId", typeof(int));
+            masterTable.Columns.Add("ATBU_YEARId", typeof(int));
+            masterTable.Columns.Add("ATBU_Branchid", typeof(int));
+            masterTable.Columns.Add("ATBU_QuarterId", typeof(int));
+
+            var detailTable = new DataTable();
+
+            detailTable.Columns.Add("ATBUD_ID", typeof(int));
+            detailTable.Columns.Add("ATBUD_Masid", typeof(int));
+            detailTable.Columns.Add("ATBUD_CODE", typeof(string));
+            detailTable.Columns.Add("ATBUD_Description", typeof(string));
+            detailTable.Columns.Add("ATBUD_CustId", typeof(int));
+            detailTable.Columns.Add("ATBUD_SChedule_Type", typeof(int));
+            detailTable.Columns.Add("ATBUD_Company_Type", typeof(int));
+            detailTable.Columns.Add("ATBUD_Headingid", typeof(int));
+            detailTable.Columns.Add("ATBUD_Subheading", typeof(int));
+            detailTable.Columns.Add("ATBUD_itemid", typeof(int));
+            detailTable.Columns.Add("ATBUD_SubItemId", typeof(int));
+            detailTable.Columns.Add("ATBUD_DELFLG", typeof(string));
+            detailTable.Columns.Add("ATBUD_CRBY", typeof(int));
+            detailTable.Columns.Add("ATBUD_STATUS", typeof(string));
+            detailTable.Columns.Add("ATBUD_Progress", typeof(string));
+            detailTable.Columns.Add("ATBUD_UPDATEDBY", typeof(int));
+            detailTable.Columns.Add("ATBUD_IPAddress", typeof(string));
+            detailTable.Columns.Add("ATBUD_CompId", typeof(int));
+            detailTable.Columns.Add("ATBUD_YEARId", typeof(int));
+            detailTable.Columns.Add("Atbud_Branchnameid", typeof(int));
+            detailTable.Columns.Add("ATBUd_QuarterId", typeof(int));
+
+
+            // 4️⃣ Populate rows (SAFE INCREMENT)
+            for (int i = 0; i < missingAccounts.Count; i++)
             {
-                maxCount++;
+                int newAtbuId = startAtbuId + i;
+                int newAtbudId = startAtbudId + i;
 
-                var uploadId = await SaveTrailBalanceExcelUpload(
-                    connection, transaction,
-                    new TrailBalanceUpload
-                    {
-                        ATBU_ID = 0,
-                        ATBU_CODE = "SCh00" + maxCount,
-                        ATBU_Description = account,
-                        ATBU_CustId = request.CustomerId,
-                        ATBU_Opening_Debit_Amount = 0,
-                        ATBU_Opening_Credit_Amount = 0,
-                        ATBU_TR_Debit_Amount = 0,
-                        ATBU_TR_Credit_Amount = 0,
-                        ATBU_Closing_Debit_Amount = 0,
-                        ATBU_Closing_Credit_Amount = 0,
-                        ATBU_DELFLG = "A",
-                        ATBU_CRBY = userId,
-                        ATBU_STATUS = "C",
-                        ATBU_UPDATEDBY = userId,
-                        ATBU_IPAddress = ipAddress,
-                        ATBU_CompId = accessCodeId,
-                        ATBU_YEARId = request.FinancialYearId,
-                        ATBU_Branchname = request.BranchId,
-                        ATBU_QuaterId = request.DurationId
-                    });
+                string code = $"SCh00{startCount + i + 1}";
+                string account = missingAccounts[i];
 
-                bool isPurchaseAccount = request.Rows.Any(r =>
+                bool isPurchase = validRows.Any(r =>
                     r.Account == account &&
                     r.JE_Type?.Equals("Purchase", StringComparison.OrdinalIgnoreCase) == true);
 
-                bool isSalesAccount = request.Rows.Any(r =>
+                bool isSales = validRows.Any(r =>
                     r.Account == account &&
                     r.JE_Type?.Equals("Sales", StringComparison.OrdinalIgnoreCase) == true);
 
-                // 🔑 NEW CHECK → Transaction Date exists for this account
-                bool hasTransactionDate = request.Rows.Any(r =>
-                    r.Account == account &&
-                    !string.IsNullOrWhiteSpace(r.Transaction_Date));
+                int headingId = isPurchase ? pHeadingId : isSales ? sHeadingId : 0;
+                int subHeadingId = isPurchase ? pSubHeadingId : isSales ? sSubHeadingId : 0;
+                int itemId = isPurchase ? pItemId : isSales ? sItemId : 0;
+                int scheduleType = isPurchase ? pScheduleType : isSales ? sScheduleType : 0;
 
-                // DEFAULT TO 0
-                int headingId = 0;
-                int subHeadingId = 0;
-                int itemId = 0;
-                int scheduleType = 0;
+                masterTable.Rows.Add(
+                    newAtbuId, code, account, request.CustomerId,
+                    0m, 0m, 0m, 0m, 0m, 0m,
+                    "A", userId, "C", userId, ipAddress,
+                    accessCodeId, request.FinancialYearId,
+                    request.BranchId, request.DurationId);
 
-                if (hasTransactionDate)
-                {
-                    if (isPurchaseAccount)
-                    {
-                        headingId = pHeadingId;
-                        subHeadingId = pSubHeadingId;
-                        itemId = pItemId;
-                        scheduleType = pScheduleType;
-                    }
-                    else if (isSalesAccount)
-                    {
-                        headingId = sHeadingId;
-                        subHeadingId = sSubHeadingId;
-                        itemId = sItemId;
-                        scheduleType = sScheduleType;
-                    }
-                }
+                detailTable.Rows.Add(
+    newAtbudId,          // ATBUD_ID
+    newAtbuId,           // ATBUD_Masid
+    code,                // ATBUD_CODE
+    account,             // ATBUD_Description
+    request.CustomerId,  // ATBUD_CustId
+    scheduleType,        // ATBUD_SChedule_Type
+    request.CustomerId,  // ATBUD_Company_Type
+    headingId,           // ATBUD_Headingid
+    subHeadingId,        // ATBUD_Subheading
+    itemId,              // ATBUD_itemid
+    0,                   // ATBUD_SubItemId
+    "A",                 // ATBUD_DELFLG
+    userId,              // ATBUD_CRBY
+    "C",                 // ATBUD_STATUS
+    "Uploaded",          // ATBUD_Progress
+    userId,              // ATBUD_UPDATEDBY
+    ipAddress,           // ATBUD_IPAddress
+    accessCodeId,        // ATBUD_CompId
+    request.FinancialYearId, // ATBUD_YEARId
+    request.BranchId,    // Atbud_Branchnameid
+    request.DurationId   // ATBUd_QuarterId
+);
 
-                await SaveTrailBalanceExcelUploadDetails(
-                    connection, transaction,
-                    new TrailBalanceUpload
-                    {
-                        ATBUD_ID = 0,
-                        ATBUD_Masid = uploadId,
-                        ATBUD_CODE = "SCh00" + maxCount,
-                        ATBUD_Description = account,
-                        ATBUD_CustId = request.CustomerId,
-                        ATBUD_SChedule_Type = scheduleType,
-                        ATBUD_Branchname = request.BranchId,
-                        ATBUD_iQuarterly = request.DurationId,
-                        ATBUD_Company_Type = request.CustomerId,
-                        ATBUD_Headingid = headingId,      // ✅ 0 if no date
-                        ATBUD_Subheading = subHeadingId,  // ✅ 0 if no date
-                        ATBUD_itemid = itemId,            // ✅ 0 if no date
-                        ATBUD_Subitemid = 0,
-                        ATBUD_DELFLG = "A",
-                        ATBUD_CRBY = userId,
-                        ATBUD_STATUS = "C",
-                        ATBUD_Progress = "Uploaded",
-                        ATBUD_UPDATEDBY = userId,
-                        ATBUD_IPAddress = ipAddress,
-                        ATBUD_CompId = accessCodeId,
-                        ATBUD_YEARId = request.FinancialYearId
-                    });
             }
-        }
 
-
-
-        private async Task<ApiResponse<string>> ProcessTransactionsInBatches(SqlConnection connection, SqlTransaction transaction, JournalEntryUploadRequest request, int accessCodeId, int userId, string ipAddress)
-        {
-            const int batchSize = 1000; // Process 1000 records at a time
-            var validRows = request.Rows.Where(r => !string.IsNullOrEmpty(r.Account)).ToList();
-            var batches = validRows.Batch(batchSize);
-
-            var transactionNo = "0";
-            var iErrorLine = 1;
-            int MasId = 0;
-
-            // ✅ ADDED: Variable to track the last valid transaction date
-            DateTime currentTransactionDate = DateTime.MinValue;
-
-            foreach (var batch in batches)
+            // 5️⃣ Bulk copy
+            using (var bulkMaster = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction))
             {
-                // ✅ OPTIMIZATION: Pre-load account IDs for this batch
-                var accountIds = new Dictionary<string, int>();
-                var accountsInBatch = batch.Where(r => !string.IsNullOrEmpty(r.Account)).Select(r => r.Account).Distinct();
+                bulkMaster.DestinationTableName = "Acc_TrailBalance_Upload";
+                foreach (DataColumn col in masterTable.Columns)
+                    bulkMaster.ColumnMappings.Add(col.ColumnName, col.ColumnName);
 
-                foreach (var account in accountsInBatch)
-                {
-                    var accountId = await CheckAccountData(connection, transaction, accessCodeId, request.CustomerId, account, request.FinancialYearId, request.BranchId, request.DurationId);
-                    accountIds[account] = accountId;
-                }
-
-                // ✅ OPTIMIZATION: Pre-load voucher types for this batch
-                var voucherTypes = new Dictionary<string, int>();
-                var voucherTypesInBatch = batch.Where(r => !string.IsNullOrEmpty(r.JE_Type)).Select(r => r.JE_Type).Distinct();
-
-                foreach (var voucherType in voucherTypesInBatch)
-                {
-                    var voucherId = await CheckVoucherType(connection, transaction, accessCodeId, "JE", voucherType);
-                    voucherTypes[voucherType] = voucherId;
-                }
-
-
-                // Process each row in the batch
-                foreach (var row in batch)
-                {
-                    if (string.IsNullOrEmpty(row.Account)) continue;
-
-                    // ✅ MODIFIED: Parse date only if it exists, otherwise use the last valid date
-                    DateTime transactionDate = DateTime.MinValue;
-
-                    if (!string.IsNullOrEmpty(row.Transaction_Date))
-                    {
-                        transactionDate = ParseTransactionDate(row.Transaction_Date);
-
-                        if (transactionDate == DateTime.MinValue)
-                        {
-                            return new ApiResponse<string> { Success = false, Message = $"Invalid Date Format - Line No: {iErrorLine}" };
-                        }
-
-                        // ✅ Update currentTransactionDate with the new valid date
-                        currentTransactionDate = transactionDate;
-                    }
-
-                    // Generate transaction number if needed
-                    var billType = voucherTypes.ContainsKey(row.JE_Type) ? voucherTypes[row.JE_Type] : 0;
-                    var accountId = accountIds[row.Account];
-                    int iJEID = 0;
-
-
-                    // Save Journal Entry Master if we have a valid date
-                    // ✅ MODIFIED: Only check for default date, not 1900-01-01
-                    if (transactionDate != DateTime.MinValue && transactionDate != new DateTime(1900, 1, 1))
-                    {
-                        transactionNo = await GenerateTransactionNo(connection, transaction, accessCodeId, request.FinancialYearId, request.CustomerId, request.DurationId, request.BranchId);
-
-                        iJEID = await SaveJournalEntryMaster(connection, transaction, new JournalEntry
-                        {
-                            Acc_JE_ID = 0,
-                            AJTB_TranscNo = transactionNo,
-                            Acc_JE_Location = 3,
-                            Acc_JE_Party = request.CustomerId,
-                            Acc_JE_BillType = billType,
-                            Acc_JE_BillNo = row.Bill_No ?? "",
-                            Acc_JE_BillDate = transactionDate,
-                            Acc_JE_BillAmount = row.Debit ?? row.Credit ?? 0,
-                            Acc_JE_YearID = request.FinancialYearId,
-                            Acc_JE_Status = "A",
-                            Acc_JE_CreatedBy = userId,
-                            Acc_JE_Operation = "C",
-                            Acc_JE_IPAddress = ipAddress,
-                            Acc_JE_AdvanceNaration = row.Narration ?? "",
-                            Acc_JE_CompID = accessCodeId,
-                            Acc_JE_AdvanceAmount = 0.00m,
-                            Acc_JE_BalanceAmount = 0.00m,
-                            Acc_JE_NetAmount = 0.00m,
-                            Acc_JE_PaymentNarration = "",
-                            Acc_JE_ChequeNo = "",
-                            Acc_JE_ChequeDate = new DateTime(1900, 1, 1),
-                            Acc_JE_IFSCCode = "",
-                            Acc_JE_BankName = "",
-                            Acc_JE_BranchName = "",
-                            Acc_JE_BillCreatedDate = new DateTime(1900, 1, 1),
-                            acc_JE_BranchId = request.BranchId,
-                            Acc_JE_Comments = row.Comments ?? "",
-                            Acc_JE_Quarterly = request.DurationId
-                        });
-                        MasId = iJEID;
-                    }
-                    if (!string.IsNullOrEmpty(row.Transaction_Date))
-                    {
-                        transactionDate = ParseTransactionDate(row.Transaction_Date);
-
-                        if (transactionDate == DateTime.MinValue)
-                        {
-                            return new ApiResponse<string> { Success = false, Message = $"Invalid Date Format - Line No: {iErrorLine}" };
-                        }
-
-                        // ✅ Update currentTransactionDate with the new valid date
-                        currentTransactionDate = transactionDate;
-                    }
-                    else
-                    {
-                        // ✅ If no date provided, use the last valid transaction date
-                        transactionDate = currentTransactionDate;
-
-                        // Check if we have a valid date to carry forward
-                        if (transactionDate == DateTime.MinValue)
-                        {
-                            return new ApiResponse<string> { Success = false, Message = $"No valid date found to carry forward - Line No: {iErrorLine}" };
-                        }
-                    }
-                    // Process Debit
-                    if (row.Debit.HasValue && row.Debit > 0)
-                    {
-                        await SaveTransactionDetails(connection, transaction, new JournalEntry
-                        {
-                            AJTB_ID = 0,
-                            AJTB_TranscNo = transactionNo,
-                            AJTB_CustId = request.CustomerId,
-                            AJTB_MAsID = MasId,
-                            AJTB_Deschead = accountId,
-                            AJTB_Desc = accountId,
-                            AJTB_DescName = row.Account,
-                            AJTB_Debit = (decimal)row.Debit.Value,
-                            AJTB_Credit = 0,
-                            AJTB_CreatedBy = userId,
-                            AJTB_UpdatedBy = userId,
-                            AJTB_Status = "A",
-                            AJTB_YearID = request.FinancialYearId,
-                            AJTB_CompID = accessCodeId,
-                            AJTB_IPAddress = ipAddress,
-                            AJTB_BillType = billType,
-                            AJTB_BranchId = request.BranchId,
-                            AJTB_QuarterId = request.DurationId,
-                            AJTB_CreatedOn = transactionDate
-                        });
-
-                        await UpdateJeDet(connection, transaction, accessCodeId, request.FinancialYearId, accountId, request.CustomerId, 0, (double)row.Debit.Value, request.BranchId, (double)row.Debit.Value, 0, request.DurationId);
-                    }
-
-                    // Process Credit
-                    if (row.Credit.HasValue && row.Credit > 0)
-                    {
-                        await SaveTransactionDetails(connection, transaction, new JournalEntry
-                        {
-                            AJTB_ID = 0,
-                            AJTB_TranscNo = transactionNo,
-                            AJTB_CustId = request.CustomerId,
-                            AJTB_MAsID = MasId,
-                            AJTB_Deschead = accountId,
-                            AJTB_Desc = accountId,
-                            AJTB_DescName = row.Account,
-                            AJTB_Debit = 0,
-                            AJTB_Credit = (decimal)row.Credit.Value,
-                            AJTB_CreatedBy = userId,
-                            AJTB_UpdatedBy = userId,
-                            AJTB_Status = "A",
-                            AJTB_YearID = request.FinancialYearId,
-                            AJTB_CompID = accessCodeId,
-                            AJTB_IPAddress = ipAddress,
-                            AJTB_BillType = billType,
-                            AJTB_BranchId = request.BranchId,
-                            AJTB_QuarterId = request.DurationId,
-                            AJTB_CreatedOn = transactionDate
-                        });
-
-                        await UpdateJeDet(connection, transaction, accessCodeId, request.FinancialYearId, accountId, request.CustomerId, 1, (double)row.Credit.Value, request.BranchId, 0, (double)row.Credit.Value, request.DurationId);
-                    }
-
-                    iErrorLine++;
-                }
+                await bulkMaster.WriteToServerAsync(masterTable);
             }
 
-            return new ApiResponse<string> { Success = true };
+            using (var bulkDetail = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction))
+            {
+                bulkDetail.DestinationTableName = "Acc_TrailBalance_Upload_Details";
+                foreach (DataColumn col in detailTable.Columns)
+                    bulkDetail.ColumnMappings.Add(col.ColumnName, col.ColumnName);
+
+                await bulkDetail.WriteToServerAsync(detailTable);
+            }
         }
 
-        private bool IsValidDate(string dateString)
-        {
-            string[] dateFormats = {
-            "MM/dd/yyyy", "dd/MM/yyyy", "yyyy-MM-dd",
-            "dd-MM-yyyy", "MM-dd-yyyy", "dd.MM.yyyy",
-            "MMMM dd, yyyy", "dd MMMM yyyy", "yyyy/MM/dd",
-            "MMM dd, yyyy", "dd-MMM-yyyy", "yyyyMMdd"
-        };
 
-            return DateTime.TryParseExact(dateString, dateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+        private async Task<int> GetMaxDetailAccountId(
+    SqlConnection connection,
+    SqlTransaction transaction,
+    int compId,
+    int custId,
+    int yearId,
+    int branchId,
+    int quarterId)
+        {
+            var cmd = new SqlCommand(@"
+        SELECT ISNULL(MAX(ATBUD_ID), 0)
+        FROM Acc_TrailBalance_Upload_Details
+        WHERE ATBUD_CompId = @CompId ",
+                connection, transaction);
+
+            cmd.Parameters.AddWithValue("@CompId", compId);
+
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync());
         }
 
-        private DateTime ParseTransactionDate(string dateString)
+
+
+        private async Task<int> GetMaxAccountId(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            int compId,
+            int customerId,
+            int yearId,
+            int branchId,
+            int durationId)
         {
-            if (string.IsNullOrEmpty(dateString))
-                return new DateTime(1900, 1, 1);
-
-            string[] dateFormats = {
-            "MM/dd/yyyy", "dd/MM/yyyy", "yyyy-MM-dd",
-            "dd-MM-yyyy", "MM-dd-yyyy", "dd.MM.yyyy",
-            "MMMM dd, yyyy", "dd MMMM yyyy", "yyyy/MM/dd",
-            "MMM dd, yyyy", "dd-MMM-yyyy", "yyyyMMdd"
-        };
-
-            if (DateTime.TryParseExact(dateString, dateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var result))
-                return result;
-
-            return DateTime.MinValue;
-        }
-
-        #endregion
-
-        #region Database Helper Methods
-
-        private async Task<int> CheckVoucherType(SqlConnection connection, SqlTransaction transaction, int compId, string type, string description)
-        {
-            var sql = "SELECT cmm_ID FROM Content_Management_Master WHERE CMM_CompID = @CompID AND cmm_Category = @Category AND cmm_Delflag = 'A' AND cmm_Desc = @Description ORDER BY cmm_Desc ASC";
+            var sql = "SELECT ISNULL(MAX(ATBU_ID), 0) FROM Acc_TrailBalance_Upload WHERE ATBU_CustId = @CustId AND ATBU_CompId = @CompId";
 
             using var command = new SqlCommand(sql, connection, transaction);
-            command.Parameters.AddWithValue("@CompID", compId);
-            command.Parameters.AddWithValue("@Category", type);
-            command.Parameters.AddWithValue("@Description", description);
-
-            var result = await command.ExecuteScalarAsync();
-            return result != null ? Convert.ToInt32(result) : 0;
-        }
-
-        private async Task<int> CheckAccountData(SqlConnection connection, SqlTransaction transaction, int compId, int customerId, string description, int yearId, int branchId, int durationId)
-        {
-            var sql = "SELECT ISNULL(ATBU_ID, 0) AS ATBU_ID FROM Acc_TrailBalance_Upload WHERE ATBU_Description = @Description AND ATBU_CustId = @CustId AND ATBU_Branchid = @BranchId AND ATBU_CompId = @CompId AND ATBU_YEARId = @YearId";
-
-            if (durationId != 0)
-            {
-                sql += " AND ATBU_QuarterId = @QuarterId";
-            }
-
-            using var command = new SqlCommand(sql, connection, transaction);
-            command.Parameters.AddWithValue("@Description", description);
             command.Parameters.AddWithValue("@CustId", customerId);
-            command.Parameters.AddWithValue("@BranchId", branchId);
             command.Parameters.AddWithValue("@CompId", compId);
-            command.Parameters.AddWithValue("@YearId", yearId);
-
-            if (durationId != 0)
-            {
-                command.Parameters.AddWithValue("@QuarterId", durationId);
-            }
 
             var result = await command.ExecuteScalarAsync();
-            return result != null ? Convert.ToInt32(result) : 0;
+            return Convert.ToInt32(result);
         }
 
-        private async Task<int> GetDescMaxId(SqlConnection connection, SqlTransaction transaction, int compId, int customerId, string description, int yearId, int branchId, int durationId)
+        private async Task<int> GetAccountCount(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            int compId,
+            int customerId,
+            int yearId,
+            int branchId,
+            int durationId)
         {
             var sql = "SELECT COUNT(*) FROM Acc_TrailBalance_Upload WHERE ATBU_CustId = @CustId AND ATBU_CompId = @CompId AND ATBU_YEARId = @YearId AND ATBU_BranchId = @BranchId AND ATBU_QuarterId = @QuarterId";
 
@@ -1507,163 +1083,573 @@ namespace TracePca.Controllers.FIN_Statement
             return Convert.ToInt32(result);
         }
 
-        private async Task<int> SaveTrailBalanceExcelUpload(SqlConnection connection, SqlTransaction transaction, TrailBalanceUpload upload)
+        private async Task<bool> ProcessTransactionsWithBulkCopy(
+     SqlConnection connection,
+     SqlTransaction transaction,
+     List<JournalEntryRow> validRows,
+     Dictionary<string, int> accountIds,
+     JournalEntryUploadRequest request,
+     int accessCodeId,
+     int userId,
+     string ipAddress)
         {
-            using var command = new SqlCommand("spAcc_TrailBalance_Upload", connection, transaction);
-            command.CommandType = CommandType.StoredProcedure;
+            try
+            {
+                DateTime sqlMin = new DateTime(1753, 1, 1);
+                DateTime SafeDate(DateTime d) => d < sqlMin ? sqlMin : d;
 
-            command.Parameters.AddWithValue("@ATBU_ID", upload.ATBU_ID);
-            command.Parameters.AddWithValue("@ATBU_CODE", upload.ATBU_CODE);
-            command.Parameters.AddWithValue("@ATBU_Description", upload.ATBU_Description);
-            command.Parameters.AddWithValue("@ATBU_CustId", upload.ATBU_CustId);
-            command.Parameters.AddWithValue("@ATBU_Opening_Debit_Amount", upload.ATBU_Opening_Debit_Amount);
-            command.Parameters.AddWithValue("@ATBU_Opening_Credit_Amount", upload.ATBU_Opening_Credit_Amount);
-            command.Parameters.AddWithValue("@ATBU_TR_Debit_Amount", upload.ATBU_TR_Debit_Amount);
-            command.Parameters.AddWithValue("@ATBU_TR_Credit_Amount", upload.ATBU_TR_Credit_Amount);
-            command.Parameters.AddWithValue("@ATBU_Closing_Debit_Amount", upload.ATBU_Closing_Debit_Amount);
-            command.Parameters.AddWithValue("@ATBU_Closing_Credit_Amount", upload.ATBU_Closing_Credit_Amount);
-            command.Parameters.AddWithValue("@ATBU_DELFLG", upload.ATBU_DELFLG);
-            command.Parameters.AddWithValue("@ATBU_CRBY", upload.ATBU_CRBY);
-            command.Parameters.AddWithValue("@ATBU_STATUS", upload.ATBU_STATUS);
-            command.Parameters.AddWithValue("@ATBU_UPDATEDBY", upload.ATBU_UPDATEDBY);
-            command.Parameters.AddWithValue("@ATBU_IPAddress", upload.ATBU_IPAddress);
-            command.Parameters.AddWithValue("@ATBU_CompId", upload.ATBU_CompId);
-            command.Parameters.AddWithValue("@ATBU_YEARId", upload.ATBU_YEARId);
-            command.Parameters.AddWithValue("@ATBU_Branchid", upload.ATBU_Branchname);
-            command.Parameters.AddWithValue("@ATBU_QuarterId", upload.ATBU_QuaterId);
+                int maxJeId = await GetMaxJournalEntryId(
+                    connection, transaction,
+                    accessCodeId,
+                    request.FinancialYearId,
+                    request.BranchId,
+                    request.DurationId);
 
-            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            command.Parameters.Add(updateOrSaveParam);
-            command.Parameters.Add(operParam);
+                int maxAjtbId = await GetMaxJournalEntryDetailId(
+                    connection, transaction,
+                    accessCodeId,
+                    request.FinancialYearId,
+                    request.BranchId,
+                    request.DurationId);
 
-            await command.ExecuteNonQueryAsync();
+                // ================= BILL TYPE CACHE =================
+                var billTypeCache = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-            return (int)(operParam.Value ?? 0);
+                // Load all bill types upfront
+                var billTypes = await GetAllBillTypes(connection, transaction, accessCodeId);
+                foreach (var bt in billTypes)
+                {
+                    billTypeCache[bt.Name.Trim()] = bt.Id;
+                }
+
+                // ================= BUILD VOUCHERS =================
+                var voucherGroups = new List<VoucherGroup>();
+                VoucherGroup currentVoucher = null;
+
+                foreach (var row in validRows)
+                {
+                    DateTime? rowDate = null;
+                    if (!string.IsNullOrWhiteSpace(row.Transaction_Date))
+                        rowDate = ParseTransactionDate(row.Transaction_Date);
+
+                    if (IsNewVoucherStart(row))
+                    {
+                        if (currentVoucher?.Rows.Count > 0)
+                            voucherGroups.Add(currentVoucher);
+
+                        int billTypeId = 0;
+                        if (!string.IsNullOrWhiteSpace(row.JE_Type) &&
+                            billTypeCache.TryGetValue(row.JE_Type, out int cachedId))
+                        {
+                            billTypeId = cachedId;
+                        }
+                        else if (!string.IsNullOrWhiteSpace(row.JE_Type))
+                        {
+                            // Only query database if not in cache (should rarely happen)
+                            billTypeId = (int)await GetBillTypeId(connection, transaction, accessCodeId, row.JE_Type);
+                            billTypeCache[row.JE_Type] = billTypeId;
+                        }
+
+                        currentVoucher = new VoucherGroup
+                        {
+                            VoucherDate = rowDate,
+                            BillTypeId = billTypeId,
+                            BillNo = row.Bill_No?.Trim(),
+                            Rows = new List<VoucherRow>()
+                        };
+                    }
+
+                    currentVoucher.Rows.Add(new VoucherRow
+                    {
+                        OriginalRow = row,
+                        EffectiveDate = rowDate,
+                        HasOriginalDate = rowDate.HasValue
+                    });
+                }
+
+                if (currentVoucher?.Rows.Count > 0)
+                    voucherGroups.Add(currentVoucher);
+
+                // ================= MASTER TABLE =================
+                var vouchersWithDates = voucherGroups.Where(v => v.VoucherDate.HasValue).ToList();
+                var transactionNumbers = GenerateTransactionNumbers(vouchersWithDates.Count, request);
+
+                var masterData = new DataTable();
+                masterData.BeginLoadData();
+
+                masterData.Columns.Add("Acc_JE_ID", typeof(int));
+                masterData.Columns.Add("Acc_JE_TransactionNo", typeof(string));
+                masterData.Columns.Add("Acc_JE_Party", typeof(int));
+                masterData.Columns.Add("acc_JE_BranchId", typeof(int));
+                masterData.Columns.Add("Acc_JE_Location", typeof(int));
+                masterData.Columns.Add("Acc_JE_BillType", typeof(int));
+                masterData.Columns.Add("Acc_JE_BillNo", typeof(string));
+                masterData.Columns.Add("Acc_JE_BillDate", typeof(DateTime));
+                masterData.Columns.Add("Acc_JE_BillAmount", typeof(decimal));
+                masterData.Columns.Add("Acc_JE_CreatedBy", typeof(int));
+                masterData.Columns.Add("Acc_JE_YearID", typeof(int));
+                masterData.Columns.Add("Acc_JE_CompID", typeof(int));
+                masterData.Columns.Add("Acc_JE_Status", typeof(string));
+                masterData.Columns.Add("Acc_JE_Operation", typeof(string));
+                masterData.Columns.Add("Acc_JE_IPAddress", typeof(string));
+                masterData.Columns.Add("acc_JE_QuarterId", typeof(int));
+
+                var voucherMasterMap = new Dictionary<VoucherGroup, (string TransNo, int JeId, DateTime VoucherDate)>();
+                var jeDetUpdates = new List<(int CompId, int YearId, int AccountId, int CustId, int BranchId,
+                    decimal Debit, decimal Credit, int DurationId)>();
+
+                for (int i = 0; i < vouchersWithDates.Count; i++)
+                {
+                    var v = vouchersWithDates[i];
+                    int jeId = maxJeId + i + 1;
+                    string transNo = transactionNumbers[i];
+
+                    voucherMasterMap[v] = (transNo, jeId, v.VoucherDate.Value);
+
+                    decimal total = 0;
+                    foreach (var r in v.Rows)
+                        total += (r.OriginalRow.Debit ?? 0) + (r.OriginalRow.Credit ?? 0);
+
+                    masterData.Rows.Add(
+                        jeId,
+                        transNo,
+                        request.CustomerId,
+                        request.BranchId,
+                        3,
+                        v.BillTypeId,
+                        v.BillNo ?? "",
+                        SafeDate(v.VoucherDate.Value),
+                        total,
+                        userId,
+                        request.FinancialYearId,
+                        accessCodeId,
+                        "A",
+                        "C",
+                        ipAddress,
+                        request.DurationId
+                    );
+                }
+
+                masterData.EndLoadData();
+
+                using (var bulkMaster = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction))
+                {
+                    bulkMaster.DestinationTableName = "Acc_JE_Master";
+                    bulkMaster.BatchSize = 5000;
+                    bulkMaster.EnableStreaming = true;
+                    bulkMaster.BulkCopyTimeout = 0;
+
+                    foreach (DataColumn c in masterData.Columns)
+                        bulkMaster.ColumnMappings.Add(c.ColumnName, c.ColumnName);
+
+                    await bulkMaster.WriteToServerAsync(masterData);
+                }
+
+                // ================= DETAIL TABLE =================
+                var detailData = new DataTable();
+                detailData.BeginLoadData();
+
+                detailData.Columns.Add("AJTB_ID", typeof(int));
+                detailData.Columns.Add("AJTB_CustId", typeof(int));
+                detailData.Columns.Add("AJTB_BranchId", typeof(int));
+                detailData.Columns.Add("AJTB_Deschead", typeof(int));
+                detailData.Columns.Add("AJTB_Desc", typeof(int));
+                detailData.Columns.Add("AJTB_Debit", typeof(decimal));
+                detailData.Columns.Add("AJTB_Credit", typeof(decimal));
+                detailData.Columns.Add("AJTB_CreatedBy", typeof(int));
+                detailData.Columns.Add("AJTB_CreatedOn", typeof(DateTime));
+                detailData.Columns.Add("AJTB_Status", typeof(string));
+                detailData.Columns.Add("AJTB_IPAddress", typeof(string));
+                detailData.Columns.Add("AJTB_CompID", typeof(int));
+                detailData.Columns.Add("AJTB_YearID", typeof(int));
+                detailData.Columns.Add("AJTB_Operation", typeof(string));
+                detailData.Columns.Add("AJTB_TranscNo", typeof(string));
+                detailData.Columns.Add("Ajtb_Masid", typeof(int));
+                detailData.Columns.Add("AJTB_QuarterId", typeof(int));
+                detailData.Columns.Add("AJTB_BillType", typeof(int));
+                detailData.Columns.Add("AJTB_DescName", typeof(string));
+
+                int counter = 0;
+                (string TransNo, int JeId, DateTime VoucherDate) lastMasterInfo = default;
+
+                foreach (var voucher in voucherGroups)
+                {
+                    if (voucherMasterMap.TryGetValue(voucher, out var info))
+                        lastMasterInfo = info;
+
+                    foreach (var row in voucher.Rows)
+                    {
+                        if (string.IsNullOrWhiteSpace(row.OriginalRow.Account))
+                            continue;
+
+                        if (!accountIds.TryGetValue(row.OriginalRow.Account.Trim(), out int accId))
+                            continue;
+
+                        counter++;
+
+                        DateTime finalDate =
+                            row.EffectiveDate
+                            ?? (DateTime?)lastMasterInfo.VoucherDate
+                            ?? DateTime.Today;
+
+                        decimal debit = row.OriginalRow.Debit ?? 0;
+                        decimal credit = row.OriginalRow.Credit ?? 0;
+
+                        detailData.Rows.Add(
+                            maxAjtbId + counter,
+                            request.CustomerId,
+                            request.BranchId,
+                            accId,
+                            accId,
+                            debit,
+                            credit,
+                            userId,
+                            SafeDate(finalDate),
+                            "A",
+                            ipAddress,
+                            accessCodeId,
+                            request.FinancialYearId,
+                            "C",
+                            lastMasterInfo.TransNo,
+                            lastMasterInfo.JeId,
+                            request.DurationId,
+                            voucher.BillTypeId,
+                            row.OriginalRow.Account.Trim()
+                        );
+
+                        // Collect updates for batch processing instead of calling immediately
+                        jeDetUpdates.Add((
+                            accessCodeId,
+                            request.FinancialYearId,
+                            accId,
+                            request.CustomerId,
+                            request.BranchId,
+                            debit,
+                            credit,
+                            request.DurationId
+                        ));
+                    }
+                }
+
+                detailData.EndLoadData();
+
+                using (var bulkDetail = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction))
+                {
+                    bulkDetail.DestinationTableName = "Acc_JETransactions_Details";
+                    bulkDetail.BatchSize = 5000;
+                    bulkDetail.EnableStreaming = true;
+                    bulkDetail.BulkCopyTimeout = 0;
+
+                    foreach (DataColumn c in detailData.Columns)
+                        bulkDetail.ColumnMappings.Add(c.ColumnName, c.ColumnName);
+
+                    await bulkDetail.WriteToServerAsync(detailData);
+                }
+
+                // ================= BATCH PROCESS JE DET UPDATES =================
+                await BatchUpdateJeDet(connection, transaction, jeDetUpdates);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return false;
+            }
         }
 
-        private async Task<int> SaveTrailBalanceExcelUploadDetails(SqlConnection connection, SqlTransaction transaction, TrailBalanceUpload upload)
+        private async Task BatchUpdateJeDet(
+      SqlConnection connection,
+      SqlTransaction transaction,
+      List<(int CompId, int YearId, int AccountId, int CustId, int BranchId,
+          decimal Debit, decimal Credit, int DurationId)> updates)
         {
-            using var command = new SqlCommand("spAcc_TrailBalance_Upload_Details", connection, transaction);
-            command.CommandType = CommandType.StoredProcedure;
+            if (updates.Count == 0)
+                return;
 
-            command.Parameters.AddWithValue("@ATBUD_ID", upload.ATBUD_ID);
-            command.Parameters.AddWithValue("@ATBUD_Masid", upload.ATBUD_Masid);
-            command.Parameters.AddWithValue("@ATBUD_CODE", upload.ATBUD_CODE);
-            command.Parameters.AddWithValue("@ATBUD_Description", upload.ATBUD_Description);
-            command.Parameters.AddWithValue("@ATBUD_CustId", upload.ATBUD_CustId);
-            command.Parameters.AddWithValue("@ATBUD_SChedule_Type", upload.ATBUD_SChedule_Type);
-            command.Parameters.AddWithValue("@ATBUD_Branchid", upload.ATBUD_Branchname);
-            command.Parameters.AddWithValue("@ATBUD_QuarterId", upload.ATBUD_iQuarterly);
-            command.Parameters.AddWithValue("@ATBUD_Company_Type", upload.ATBUD_Company_Type);
-            command.Parameters.AddWithValue("@ATBUD_Headingid", upload.ATBUD_Headingid);
-            command.Parameters.AddWithValue("@ATBUD_Subheading", upload.ATBUD_Subheading);
-            command.Parameters.AddWithValue("@ATBUD_itemid", upload.ATBUD_itemid);
-            command.Parameters.AddWithValue("@ATBUD_Subitemid", upload.ATBUD_Subitemid);
-            command.Parameters.AddWithValue("@ATBUD_DELFLG", upload.ATBUD_DELFLG);
-            command.Parameters.AddWithValue("@ATBUD_CRBY", upload.ATBUD_CRBY);
-            command.Parameters.AddWithValue("@ATBUD_UPDATEDBY", upload.ATBUD_UPDATEDBY);
-            command.Parameters.AddWithValue("@ATBUD_STATUS", upload.ATBUD_STATUS);
-            command.Parameters.AddWithValue("@ATBUD_Progress", upload.ATBUD_Progress);
-            command.Parameters.AddWithValue("@ATBUD_IPAddress", upload.ATBUD_IPAddress);
-            command.Parameters.AddWithValue("@ATBUD_CompId", upload.ATBUD_CompId);
-            command.Parameters.AddWithValue("@ATBUD_YEARId", upload.ATBUD_YEARId);
+            // We need to preserve the old logic for each account
+            // First, we need to read current balances for all accounts
+            var accountKeys = updates.Select(u =>
+                (u.AccountId, u.CustId, u.CompId, u.DurationId, u.BranchId))
+                .Distinct()
+                .ToList();
 
-            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            command.Parameters.Add(updateOrSaveParam);
-            command.Parameters.Add(operParam);
+            // Read current balances for all affected accounts
+            var currentBalances = await ReadCurrentBalances(
+                connection, transaction, accountKeys);
 
-            await command.ExecuteNonQueryAsync();
+            // Apply the old UpdateJeDet logic for each update
+            foreach (var update in updates)
+            {
+                var key = (update.AccountId, update.CustId, update.CompId,
+                    update.DurationId, update.BranchId);
 
-            return (int)(operParam.Value ?? 0);
+                if (!currentBalances.TryGetValue(key, out var currentBalance))
+                {
+                    // Initialize if not found (though this shouldn't happen)
+                    currentBalance = (0m, 0m);
+                }
+
+                // Apply the old logic - This is the critical part!
+                var newBalance = ApplyOldUpdateJeDetLogic(
+                    currentBalance,
+                    update.Debit,
+                    update.Credit,
+                    update.Debit > 0 ? 0 : 1); // Determine transId based on which amount is non-zero
+
+                currentBalances[key] = newBalance;
+            }
+
+            // Now update all accounts with their new balances
+            await ExecuteBatchUpdatesWithOldLogic(connection, transaction, currentBalances);
         }
 
-        private async Task<int> SaveJournalEntryMaster(SqlConnection connection, SqlTransaction transaction, JournalEntry journalEntry)
+        private async Task<Dictionary<(int, int, int, int, int), (decimal, decimal)>>
+         ReadCurrentBalances(
+             SqlConnection connection,
+             SqlTransaction transaction,
+             List<(int AccountId, int CustId, int CompId, int DurationId, int BranchId)> accountKeys)
         {
-            using var command = new SqlCommand("spAcc_JE_Master", connection, transaction);
-            command.CommandType = CommandType.StoredProcedure;
+            var balances = new Dictionary<(int, int, int, int, int), (decimal, decimal)>();
 
-            command.Parameters.AddWithValue("@Acc_JE_ID", journalEntry.Acc_JE_ID);
-            command.Parameters.AddWithValue("@Acc_JE_TransactionNo", journalEntry.AJTB_TranscNo);
-            command.Parameters.AddWithValue("@Acc_JE_Party", journalEntry.Acc_JE_Party);
-            command.Parameters.AddWithValue("@Acc_JE_Location", journalEntry.Acc_JE_Location);
-            command.Parameters.AddWithValue("@Acc_JE_BillType", journalEntry.Acc_JE_BillType);
-            command.Parameters.AddWithValue("@Acc_JE_BillNo", journalEntry.Acc_JE_BillNo);
-            command.Parameters.AddWithValue("@Acc_JE_BillDate", journalEntry.Acc_JE_BillDate);
-            command.Parameters.AddWithValue("@Acc_JE_BillAmount", journalEntry.Acc_JE_BillAmount);
-            command.Parameters.AddWithValue("@Acc_JE_AdvanceAmount", journalEntry.Acc_JE_AdvanceAmount);
-            command.Parameters.AddWithValue("@Acc_JE_AdvanceNaration", journalEntry.Acc_JE_AdvanceNaration);
-            command.Parameters.AddWithValue("@Acc_JE_BalanceAmount", journalEntry.Acc_JE_BalanceAmount);
-            command.Parameters.AddWithValue("@Acc_JE_NetAmount", journalEntry.Acc_JE_NetAmount);
-            command.Parameters.AddWithValue("@Acc_JE_PaymentNarration", journalEntry.Acc_JE_PaymentNarration);
-            command.Parameters.AddWithValue("@Acc_JE_ChequeNo", journalEntry.Acc_JE_ChequeNo);
-            command.Parameters.AddWithValue("@Acc_JE_ChequeDate", journalEntry.Acc_JE_ChequeDate);
-            command.Parameters.AddWithValue("@Acc_JE_IFSCCode", journalEntry.Acc_JE_IFSCCode);
-            command.Parameters.AddWithValue("@Acc_JE_BankName", journalEntry.Acc_JE_BankName);
-            command.Parameters.AddWithValue("@Acc_JE_BranchName", journalEntry.Acc_JE_BranchName);
-            command.Parameters.AddWithValue("@Acc_JE_CreatedBy", journalEntry.Acc_JE_CreatedBy);
-            command.Parameters.AddWithValue("@Acc_JE_YearID", journalEntry.Acc_JE_YearID);
-            command.Parameters.AddWithValue("@Acc_JE_CompID", journalEntry.Acc_JE_CompID);
-            command.Parameters.AddWithValue("@Acc_JE_Status", journalEntry.Acc_JE_Status);
-            command.Parameters.AddWithValue("@Acc_JE_Operation", journalEntry.Acc_JE_Operation);
-            command.Parameters.AddWithValue("@Acc_JE_IPAddress", journalEntry.Acc_JE_IPAddress);
-            command.Parameters.AddWithValue("@Acc_JE_BillCreatedDate", journalEntry.Acc_JE_BillCreatedDate);
-            command.Parameters.AddWithValue("@acc_JE_BranchId", journalEntry.acc_JE_BranchId);
-            command.Parameters.AddWithValue("@Acc_JE_QuarterId", journalEntry.Acc_JE_Quarterly);
-            command.Parameters.AddWithValue("@Acc_JE_Comnments", journalEntry.Acc_JE_Comments);
+            if (accountKeys == null || accountKeys.Count == 0)
+                return balances;
 
-            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            command.Parameters.Add(updateOrSaveParam);
-            command.Parameters.Add(operParam);
+            // Build TVP DataTable
+            var table = new DataTable();
+            table.Columns.Add("AccountId", typeof(int));
+            table.Columns.Add("CustId", typeof(int));
+            table.Columns.Add("CompId", typeof(int));
+            table.Columns.Add("QuarterId", typeof(int));
+            table.Columns.Add("BranchId", typeof(int));
 
-            await command.ExecuteNonQueryAsync();
+            foreach (var k in accountKeys)
+                table.Rows.Add(k.AccountId, k.CustId, k.CompId, k.DurationId, k.BranchId);
 
-            return (int)(operParam.Value ?? 0);
+            try
+            {
+                using var cmd = new SqlCommand("dbo.GetCurrentBalances", connection, transaction);
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandTimeout = 120;
+
+                var tvpParam = cmd.Parameters.AddWithValue("@AccountKeys", table);
+                tvpParam.SqlDbType = SqlDbType.Structured;
+                tvpParam.TypeName = "dbo.AccountKeyType";
+
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var key = (
+                        reader.GetInt32(0), // AccountId
+                        reader.GetInt32(1), // CustId
+                        reader.GetInt32(2), // CompId
+                        reader.GetInt32(3), // QuarterId
+                        reader.GetInt32(4)  // BranchId
+                    );
+
+                    balances[key] = (
+                        reader.GetDecimal(5), // Debit
+                        reader.GetDecimal(6)  // Credit
+                    );
+                }
+            }
+            catch (SqlException ex)
+            {
+                throw new Exception("SQL error while reading current balances using TVP.", ex);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Unexpected error while reading current balances.", ex);
+            }
+
+            return balances;
         }
 
-        private async Task<int> SaveTransactionDetails(SqlConnection connection, SqlTransaction transaction, JournalEntry journalEntry)
+
+
+        private (decimal newDebit, decimal newCredit) ApplyOldUpdateJeDetLogic(
+            (decimal currentDebit, decimal currentCredit) current,
+            decimal debitChange,
+            decimal creditChange,
+            int transId) // 0 for debit, 1 for credit
         {
-            using var command = new SqlCommand("spAcc_JETransactions_Details", connection, transaction);
-            command.CommandType = CommandType.StoredProcedure;
+            decimal newDebit = current.currentDebit;
+            decimal newCredit = current.currentCredit;
 
-            command.Parameters.AddWithValue("@AJTB_ID", journalEntry.AJTB_ID);
-            command.Parameters.AddWithValue("@AJTB_MasID", journalEntry.AJTB_MAsID);
-            command.Parameters.AddWithValue("@AJTB_TranscNo", journalEntry.AJTB_TranscNo);
-            command.Parameters.AddWithValue("@AJTB_CustId", journalEntry.AJTB_CustId);
-            command.Parameters.AddWithValue("@AJTB_ScheduleTypeid", journalEntry.AJTB_ScheduleTypeid);
-            command.Parameters.AddWithValue("@AJTB_Deschead", journalEntry.AJTB_Deschead);
-            command.Parameters.AddWithValue("@AJTB_Desc", journalEntry.AJTB_Desc);
-            command.Parameters.AddWithValue("@AJTB_Debit", journalEntry.AJTB_Debit);
-            command.Parameters.AddWithValue("@AJTB_Credit", journalEntry.AJTB_Credit);
-            command.Parameters.AddWithValue("@AJTB_CreatedBy", journalEntry.AJTB_CreatedBy);
-            command.Parameters.AddWithValue("@AJTB_CreatedOn", journalEntry.AJTB_CreatedOn);
-            command.Parameters.AddWithValue("@AJTB_UpdatedBy", journalEntry.AJTB_UpdatedBy);
-            command.Parameters.AddWithValue("@AJTB_Status", journalEntry.AJTB_Status);
-            command.Parameters.AddWithValue("@AJTB_IPAddress", journalEntry.AJTB_IPAddress);
-            command.Parameters.AddWithValue("@AJTB_CompID", journalEntry.AJTB_CompID);
-            command.Parameters.AddWithValue("@AJTB_YearID", journalEntry.AJTB_YearID);
-            command.Parameters.AddWithValue("@AJTB_BillType", journalEntry.AJTB_BillType);
-            command.Parameters.AddWithValue("@AJTB_DescName", journalEntry.AJTB_DescName);
-            command.Parameters.AddWithValue("@AJTB_BranchId", journalEntry.AJTB_BranchId);
-            command.Parameters.AddWithValue("@AJTB_QuarterId", journalEntry.AJTB_QuarterId);
+            if (transId == 0) // Debit transaction
+            {
+                if (current.currentDebit != 0)
+                {
+                    // Add to existing debit
+                    decimal tempDebit = current.currentDebit + debitChange;
+                    if (tempDebit >= 0)
+                    {
+                        newDebit = tempDebit;
+                    }
+                    else
+                    {
+                        newCredit = Math.Abs(tempDebit);
+                        newDebit = 0;
+                    }
+                }
+                else if (current.currentCredit != 0)
+                {
+                    // Subtract from credit
+                    decimal tempCredit = current.currentCredit - debitChange;
+                    if (tempCredit >= 0)
+                    {
+                        newCredit = tempCredit;
+                    }
+                    else
+                    {
+                        newDebit = Math.Abs(tempCredit);
+                        newCredit = 0;
+                    }
+                }
+                else
+                {
+                    // Start new debit
+                    newDebit = debitChange;
+                }
+            }
+            else // Credit transaction
+            {
+                if (current.currentCredit != 0)
+                {
+                    // Add to existing credit
+                    decimal tempCredit = current.currentCredit + creditChange;
+                    if (tempCredit >= 0)
+                    {
+                        newCredit = tempCredit;
+                    }
+                    else
+                    {
+                        newDebit = Math.Abs(tempCredit);
+                        newCredit = 0;
+                    }
+                }
+                else if (current.currentDebit != 0)
+                {
+                    // Subtract from debit
+                    decimal tempDebit = current.currentDebit - creditChange;
+                    if (tempDebit >= 0)
+                    {
+                        newDebit = tempDebit;
+                    }
+                    else
+                    {
+                        newCredit = Math.Abs(tempDebit);
+                        newDebit = 0;
+                    }
+                }
+                else
+                {
+                    // Start new credit
+                    newCredit = creditChange;
+                }
+            }
 
-            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            command.Parameters.Add(updateOrSaveParam);
-            command.Parameters.Add(operParam);
-
-            await command.ExecuteNonQueryAsync();
-
-            return (int)(operParam.Value ?? 0);
+            return (newDebit, newCredit);
         }
 
+        private async Task ExecuteBatchUpdatesWithOldLogic(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            Dictionary<(int AccountId, int CustId, int CompId, int DurationId, int BranchId),
+                (decimal Debit, decimal Credit)> balances)
+        {
+            const int batchSize = 200;
+            var balanceList = balances.ToList();
+
+            for (int i = 0; i < balanceList.Count; i += batchSize)
+            {
+                var batch = balanceList.Skip(i).Take(batchSize).ToList();
+
+                var sqlBuilder = new StringBuilder();
+                var parameters = new List<SqlParameter>();
+                int paramIndex = 0;
+
+                foreach (var kvp in batch)
+                {
+                    var key = kvp.Key;
+                    var balance = kvp.Value;
+
+                    // Create unique parameter names
+                    string idParam = $"@id{paramIndex}";
+                    string custIdParam = $"@cust{paramIndex}";
+                    string compIdParam = $"@comp{paramIndex}";
+                    string quarterIdParam = $"@quarter{paramIndex}";
+                    string branchIdParam = $"@branch{paramIndex}";
+                    string debitParam = $"@debit{paramIndex}";
+                    string creditParam = $"@credit{paramIndex}";
+
+                    // Add parameters
+                    parameters.Add(new SqlParameter(idParam, key.AccountId));
+                    parameters.Add(new SqlParameter(custIdParam, key.CustId));
+                    parameters.Add(new SqlParameter(compIdParam, key.CompId));
+                    parameters.Add(new SqlParameter(quarterIdParam, key.DurationId));
+                    parameters.Add(new SqlParameter(branchIdParam, key.BranchId));
+                    parameters.Add(new SqlParameter(debitParam, balance.Debit));
+                    parameters.Add(new SqlParameter(creditParam, balance.Credit));
+
+                    // Build branch condition
+                    string branchCondition = key.BranchId != 0
+                        ? $" AND ATBU_Branchid = {branchIdParam}"
+                        : "";
+
+                    // Add UPDATE statement
+                    sqlBuilder.AppendLine($@"
+                UPDATE Acc_TrailBalance_Upload 
+                SET ATBU_Closing_TotalDebit_Amount = {debitParam},
+                    ATBU_Closing_TotalCredit_Amount = {creditParam}
+                WHERE ATBU_ID = {idParam} 
+                  AND ATBU_CustId = {custIdParam} 
+                  AND ATBU_CompID = {compIdParam} 
+                  AND ATBU_QuarterId = {quarterIdParam}
+                  {branchCondition};");
+
+                    paramIndex++;
+                }
+
+                if (sqlBuilder.Length > 0)
+                {
+                    using var cmd = new SqlCommand(sqlBuilder.ToString(), connection, transaction);
+                    cmd.Parameters.AddRange(parameters.ToArray());
+                    await cmd.ExecuteNonQueryAsync();
+                }
+            }
+        }
+        // Add this helper method to get all bill types at once
+        private async Task<List<(int Id, string Name)>> GetAllBillTypes(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            int accessCodeId)
+        {
+            var billTypes = new List<(int, string)>();
+            string sql = "SELECT cmm_ID, cmm_Desc FROM Content_Management_Master WHERE CMM_CompID = @CompId";
+
+            using var cmd = new SqlCommand(sql, connection, transaction);
+            cmd.Parameters.AddWithValue("@CompId", accessCodeId);
+ 
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                billTypes.Add((
+                    reader.GetInt32(0),
+                    reader.GetString(1)
+                ));
+            }
+
+            return billTypes;
+        }
+
+        // Keep the original UpdateJeDet method unchanged (for backward compatibility)
         private async Task UpdateJeDet(SqlConnection connection, SqlTransaction transaction, int compId, int yearId, int id, int custId, int transId, double transAmt, int branchId, double transDbAmt, double transCrAmt, int durationId)
         {
+            // Keep the original implementation unchanged
             var sql = @"SELECT * FROM Acc_TrailBalance_Upload 
-            WHERE ATBU_ID = @ID AND ATBU_CustId = @CustId 
-            AND ATBU_CompID = @CompId AND ATBU_QuarterId = @QuarterId";
+        WHERE ATBU_ID = @ID AND ATBU_CustId = @CustId 
+        AND ATBU_CompID = @CompId AND ATBU_QuarterId = @QuarterId";
 
             if (branchId != 0)
                 sql += " AND ATBU_Branchid = @BranchId";
@@ -1681,16 +1667,15 @@ namespace TracePca.Controllers.FIN_Statement
 
             if (await reader.ReadAsync())
             {
-                // ✅ Read first, store in variables
                 double currentDebit = reader["ATBU_Closing_TotalDebit_Amount"] != DBNull.Value ? Convert.ToDouble(reader["ATBU_Closing_TotalDebit_Amount"]) : 0;
                 double currentCredit = reader["ATBU_Closing_TotalCredit_Amount"] != DBNull.Value ? Convert.ToDouble(reader["ATBU_Closing_TotalCredit_Amount"]) : 0;
 
-                await reader.CloseAsync(); // ✅ Now it's safe to close
+                await reader.CloseAsync();
 
                 string updateSql;
                 double amount;
 
-                if (transId == 0) // Debit
+                if (transId == 0)
                 {
                     if (currentDebit != 0)
                     {
@@ -1723,7 +1708,7 @@ namespace TracePca.Controllers.FIN_Statement
                             : "UPDATE Acc_TrailBalance_Upload SET ATBU_Closing_TotalCredit_Amount = @Amount WHERE ATBU_ID = @ID AND ATBU_CustId = @CustId AND ATBU_CompID = @CompId";
                     }
                 }
-                else // Credit
+                else
                 {
                     if (currentCredit != 0)
                     {
@@ -1771,22 +1756,608 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
-        private async Task<string> GenerateTransactionNo(
-     SqlConnection connection,
-     SqlTransaction transaction,
-     int compId,
-     int yearId,
-     int party,
-     int durationId,
-     int branchId)
+
+        // Helper method to get BillTypeId from Content_Management_Master
+        private async Task<int?> GetBillTypeId(SqlConnection connection, SqlTransaction transaction, int compId, string jeType)
+        {
+            if (string.IsNullOrWhiteSpace(jeType))
+                return null;
+
+            string query = @"
+        SELECT cmm_ID
+        FROM Content_Management_Master
+        WHERE CMM_CompID = @CompID
+          AND cmm_Category = 'JE'
+          AND cmm_Delflag = 'A'
+          AND cmm_Desc = @JEType";
+
+            using var cmd = new SqlCommand(query, connection, transaction);
+            cmd.Parameters.AddWithValue("@CompID", compId);
+            cmd.Parameters.AddWithValue("@JEType", jeType);
+
+            var result = await cmd.ExecuteScalarAsync();
+            return result != null ? Convert.ToInt32(result) : (int?)null;
+        }
+
+
+        // ================= HELPER METHODS AND CLASSES =================
+
+        private bool IsNewVoucherStart(JournalEntryRow row)
+        {
+            // A new voucher starts when:
+
+            // 1. Row has both Vch Type and Vch No
+            if (!string.IsNullOrWhiteSpace(row.JE_Type) &&
+                !string.IsNullOrWhiteSpace(row.Bill_No))
+                return true;
+
+            // 2. Row has a date AND (debit or credit amount)
+            if (!string.IsNullOrWhiteSpace(row.Transaction_Date) &&
+                (row.Debit.HasValue || row.Credit.HasValue))
+                return true;
+
+            // 3. Row has account name AND (debit or credit amount)
+            if (!string.IsNullOrWhiteSpace(row.Account) &&
+                (row.Debit.HasValue || row.Credit.HasValue))
+                return true;
+
+            return false;
+        }
+
+ 
+        public class VoucherGroup
+        {
+            public DateTime? VoucherDate { get; set; }
+            public int BillTypeId { get; set; }
+            public string BillNo { get; set; }
+            public List<VoucherRow> Rows { get; set; }
+        }
+
+        public class VoucherRow
+        {
+            public JournalEntryRow OriginalRow { get; set; }
+            public DateTime? EffectiveDate { get; set; }
+            public bool HasOriginalDate { get; set; }
+        }
+
+
+        // Updated GetTransactionDateKey method
+        private string GetTransactionDateKey(JournalEntryRow row)
+        {
+            if (string.IsNullOrWhiteSpace(row.Transaction_Date))
+                return "NO_DATE";
+
+            var date = ParseTransactionDate(row.Transaction_Date);
+            return date.ToString("yyyyMMdd");
+        }
+
+        // Method to parse transaction date (handle different formats)
+        private DateTime ParseTransactionDate(string dateString)
+        {
+            if (string.IsNullOrWhiteSpace(dateString))
+                return DateTime.Today;
+
+            // Try parsing common formats
+            if (DateTime.TryParseExact(dateString, "dd-MMM-yy",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime result))
+                return result;
+
+            if (DateTime.TryParseExact(dateString, "dd/MM/yyyy",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out result))
+                return result;
+
+            if (DateTime.TryParse(dateString, out result))
+                return result;
+
+            return DateTime.Today;
+        }
+
+        // Helper class
+        //private class VoucherGroup
+        //{
+        //    public string VoucherKey { get; set; }
+        //    public List<JournalEntryRow> Rows { get; set; }
+        //    public DateTime? VoucherDate { get; set; }
+        //}
+
+
+        private async Task<int> GetMaxJournalEntryId(
+    SqlConnection con, SqlTransaction tx,
+    int compId, int yearId, int branchId, int quarterId)
+        {
+            var cmd = new SqlCommand(@"
+        SELECT ISNULL(MAX(Acc_JE_ID),0)
+        FROM Acc_JE_Master
+        WHERE Acc_JE_CompID=@CompId ",
+                con, tx);
+
+            cmd.Parameters.AddWithValue("@CompId", compId);
+
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        }
+
+        private async Task<int> GetMaxJournalEntryDetailId(
+            SqlConnection con, SqlTransaction tx,
+            int compId, int yearId, int branchId, int quarterId)
+        {
+            var cmd = new SqlCommand(@"
+        SELECT ISNULL(MAX(AJTB_ID),0)
+        FROM Acc_JETransactions_Details
+        WHERE AJTB_CompID=@CompId ",
+                con, tx);
+
+            cmd.Parameters.AddWithValue("@CompId", compId);
+
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        }
+
+
+
+        private List<string> GenerateTransactionNumbers(int count, JournalEntryUploadRequest request)
+        {
+            var result = new List<string>();
+
+            // Get last transaction number from database or start from 1
+            int startNumber = 1; // You should fetch this from DB
+            for (int i = 0; i < count; i++)
+            {
+                result.Add($"TR{startNumber + i:D3}");
+            }
+
+            return result;
+        }
+
+        //private string GetTransactionDateKey(JournalEntryRow row)
+        //{
+        //    if (string.IsNullOrWhiteSpace(row.Transaction_Date))
+        //        return "NO_DATE";
+
+        //    var date = ParseTransactionDate(row.Transaction_Date);
+        //    return date.ToString("yyyyMMdd");
+        //}
+
+        private async Task<ApiResponse<string>> ValidateUploadData(
+            JournalEntryUploadRequest request,
+            SqlConnection connection,
+            SqlTransaction transaction,
+            int accessCodeId)
+        {
+            // Basic validation
+            var errorLines = new List<int>();
+
+            for (int i = 0; i < request.Rows.Count; i++)
+            {
+                var row = request.Rows[i];
+
+                // Check if account is provided when amount exists
+                if (string.IsNullOrWhiteSpace(row.Account) && (row.Debit.HasValue || row.Credit.HasValue))
+                {
+                    errorLines.Add(i + 1);
+                    if (errorLines.Count >= 10) break;
+                }
+
+                // Validate date format
+                if (!string.IsNullOrWhiteSpace(row.Transaction_Date) && !IsValidDate(row.Transaction_Date))
+                {
+                    errorLines.Add(i + 1);
+                    if (errorLines.Count >= 10) break;
+                }
+            }
+
+            if (errorLines.Any())
+            {
+                return new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = $"Validation failed at lines: {string.Join(", ", errorLines)}"
+                };
+            }
+
+            return new ApiResponse<string> { Success = true };
+        }
+
+        // ✅ OPTIMIZED: Bulk voucher type checking
+        private async Task<Dictionary<string, int>> BulkCheckVoucherTypes(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            int compId,
+            string type,
+            List<string> descriptions)
+        {
+            if (!descriptions.Any()) return new Dictionary<string, int>();
+
+            var result = new Dictionary<string, int>();
+
+            using var command = new SqlCommand(@"
+        SELECT cmm_Desc, cmm_ID 
+        FROM Content_Management_Master 
+        WHERE CMM_CompID = @CompID 
+          AND cmm_Category = @Category 
+          AND cmm_Delflag = 'A'
+          AND cmm_Desc IN (" + string.Join(",", descriptions.Select((_, i) => $"@Desc{i}")) + ")",
+                connection, transaction);
+
+            command.Parameters.AddWithValue("@CompID", compId);
+            command.Parameters.AddWithValue("@Category", type);
+
+            for (int i = 0; i < descriptions.Count; i++)
+            {
+                command.Parameters.AddWithValue($"@Desc{i}", descriptions[i]);
+            }
+
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                result[reader.GetString(0)] = reader.GetInt32(1);
+            }
+
+            return result;
+        }
+
+        // ✅ OPTIMIZED: Bulk account creation using SQL Bulk Copy
+        private async Task BulkCreateAccounts(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            JournalEntryUploadRequest request,
+            List<string> accounts,
+            int accessCodeId,
+            int userId,
+            string ipAddress)
+        {
+            if (!accounts.Any()) return;
+
+            // Get current max count
+            var maxCount = await GetDescMaxId(
+                connection, transaction, accessCodeId, request.CustomerId,
+                request.FinancialYearId, request.BranchId, request.DurationId);
+
+            // Prepare data for bulk insert
+            var uploadData = new DataTable();
+            uploadData.Columns.Add("ATBU_ID", typeof(int));
+            uploadData.Columns.Add("ATBU_CODE", typeof(string));
+            uploadData.Columns.Add("ATBU_Description", typeof(string));
+            uploadData.Columns.Add("ATBU_CustId", typeof(int));
+            uploadData.Columns.Add("ATBU_Opening_Debit_Amount", typeof(decimal));
+            uploadData.Columns.Add("ATBU_Opening_Credit_Amount", typeof(decimal));
+            uploadData.Columns.Add("ATBU_TR_Debit_Amount", typeof(decimal));
+            uploadData.Columns.Add("ATBU_TR_Credit_Amount", typeof(decimal));
+            uploadData.Columns.Add("ATBU_Closing_Debit_Amount", typeof(decimal));
+            uploadData.Columns.Add("ATBU_Closing_Credit_Amount", typeof(decimal));
+            uploadData.Columns.Add("ATBU_DELFLG", typeof(string));
+            uploadData.Columns.Add("ATBU_CRBY", typeof(int));
+            uploadData.Columns.Add("ATBU_STATUS", typeof(string));
+            uploadData.Columns.Add("ATBU_UPDATEDBY", typeof(int));
+            uploadData.Columns.Add("ATBU_IPAddress", typeof(string));
+            uploadData.Columns.Add("ATBU_CompId", typeof(int));
+            uploadData.Columns.Add("ATBU_YEARId", typeof(int));
+            uploadData.Columns.Add("ATBU_Branchid", typeof(int));
+            uploadData.Columns.Add("ATBU_QuarterId", typeof(int));
+
+            foreach (var account in accounts)
+            {
+                maxCount++;
+                uploadData.Rows.Add(
+                    0, // ATBU_ID (auto-generated)
+                    "SCh00" + maxCount,
+                    account,
+                    request.CustomerId,
+                    0, 0, 0, 0, 0, 0, // Amounts
+                    "A", // DELFLG
+                    userId,
+                    "C", // STATUS
+                    userId,
+                    ipAddress,
+                    accessCodeId,
+                    request.FinancialYearId,
+                    request.BranchId,
+                    request.DurationId
+                );
+            }
+
+            // Use SqlBulkCopy for maximum performance
+            using var bulkCopy = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction);
+            bulkCopy.DestinationTableName = "Acc_TrailBalance_Upload";
+
+            // Map columns
+            for (int i = 0; i < uploadData.Columns.Count; i++)
+            {
+                bulkCopy.ColumnMappings.Add(uploadData.Columns[i].ColumnName, uploadData.Columns[i].ColumnName);
+            }
+
+            await bulkCopy.WriteToServerAsync(uploadData);
+        }
+
+        // ✅ OPTIMIZED: Bulk transaction insertion
+        private async Task BulkInsertTransactions(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            List<BulkTransactionData> transactions)
+        {
+            if (!transactions.Any()) return;
+
+            // Prepare DataTable for SqlBulkCopy
+            var masterData = new DataTable();
+            masterData.Columns.Add("Acc_JE_ID", typeof(int));
+            masterData.Columns.Add("Acc_JE_TransactionNo", typeof(string));
+            masterData.Columns.Add("Acc_JE_Party", typeof(int));
+            masterData.Columns.Add("Acc_JE_Location", typeof(int));
+            masterData.Columns.Add("Acc_JE_BillType", typeof(int));
+            masterData.Columns.Add("Acc_JE_BillNo", typeof(string));
+            masterData.Columns.Add("Acc_JE_BillDate", typeof(DateTime));
+            masterData.Columns.Add("Acc_JE_BillAmount", typeof(decimal));
+            masterData.Columns.Add("Acc_JE_CreatedBy", typeof(int));
+            masterData.Columns.Add("Acc_JE_YearID", typeof(int));
+            masterData.Columns.Add("Acc_JE_CompID", typeof(int));
+            masterData.Columns.Add("Acc_JE_Status", typeof(string));
+            masterData.Columns.Add("Acc_JE_Operation", typeof(string));
+            masterData.Columns.Add("Acc_JE_IPAddress", typeof(string));
+            masterData.Columns.Add("acc_JE_BranchId", typeof(int));
+            masterData.Columns.Add("Acc_JE_Quarterly", typeof(int));
+            masterData.Columns.Add("Acc_JE_Comments", typeof(string));
+
+            // Group by transaction number to avoid duplicates
+            var groupedTransactions = transactions
+                .GroupBy(t => t.TransactionNo)
+                .Select(g => g.First())
+                .ToList();
+
+            foreach (var trans in groupedTransactions)
+            {
+                masterData.Rows.Add(
+                    0, // Acc_JE_ID (auto)
+                    trans.TransactionNo,
+                    trans.CustomerId,
+                    3, // Location
+                    trans.JE_Type,
+                    trans.BillNo,
+                    trans.TransactionDate,
+                    Math.Max(trans.Debit, trans.Credit),
+                    trans.UserId,
+                    trans.FinancialYearId,
+                    trans.AccessCodeId,
+                    "A", // Status
+                    "C", // Operation
+                    trans.IpAddress,
+                    trans.BranchId,
+                    trans.DurationId,
+                    trans.Comments
+                );
+            }
+
+            // Bulk insert master records
+            using var bulkCopyMaster = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction);
+            bulkCopyMaster.DestinationTableName = "Acc_JE_Master";
+            await bulkCopyMaster.WriteToServerAsync(masterData);
+
+            // Now insert details
+            var detailData = new DataTable();
+            detailData.Columns.Add("AJTB_ID", typeof(int));
+            detailData.Columns.Add("AJTB_TranscNo", typeof(string));
+            detailData.Columns.Add("AJTB_CustId", typeof(int));
+            detailData.Columns.Add("AJTB_Desc", typeof(int));
+            detailData.Columns.Add("AJTB_DescName", typeof(string));
+            detailData.Columns.Add("AJTB_Debit", typeof(decimal));
+            detailData.Columns.Add("AJTB_Credit", typeof(decimal));
+            detailData.Columns.Add("AJTB_CreatedBy", typeof(int));
+            detailData.Columns.Add("AJTB_CreatedOn", typeof(DateTime));
+            detailData.Columns.Add("AJTB_Status", typeof(string));
+            detailData.Columns.Add("AJTB_IPAddress", typeof(string));
+            detailData.Columns.Add("AJTB_CompID", typeof(int));
+            detailData.Columns.Add("AJTB_YearID", typeof(int));
+            detailData.Columns.Add("AJTB_BillType", typeof(int));
+            detailData.Columns.Add("AJTB_BranchId", typeof(int));
+            detailData.Columns.Add("AJTB_QuarterId", typeof(int));
+
+            foreach (var trans in transactions)
+            {
+                detailData.Rows.Add(
+                    0, // AJTB_ID (auto)
+                    trans.TransactionNo,
+                    trans.CustomerId,
+                    trans.AccountId,
+                    trans.AccountName,
+                    trans.Debit,
+                    trans.Credit,
+                    trans.UserId,
+                    trans.TransactionDate,
+                    "A", // Status
+                    trans.IpAddress,
+                    trans.AccessCodeId,
+                    trans.FinancialYearId,
+                    trans.JE_Type,
+                    trans.BranchId,
+                    trans.DurationId
+                );
+            }
+
+            // Bulk insert detail records
+            using var bulkCopyDetail = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction);
+            bulkCopyDetail.DestinationTableName = "Acc_JETransactions_Details";
+            await bulkCopyDetail.WriteToServerAsync(detailData);
+        }
+
+        // ✅ OPTIMIZED: Bulk update account balances
+        private async Task BulkUpdateAccountBalances(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            List<BulkTransactionData> transactions)
+        {
+            // Group by account ID and calculate totals
+            var accountTotals = transactions
+                .GroupBy(t => t.AccountId)
+                .Select(g => new
+                {
+                    AccountId = g.Key,
+                    TotalDebit = g.Sum(x => x.Debit),
+                    TotalCredit = g.Sum(x => x.Credit)
+                })
+                .ToList();
+
+            // Use single UPDATE with CASE statement for all accounts
+            var updateSql = new StringBuilder();
+            updateSql.AppendLine("UPDATE Acc_TrailBalance_Upload SET");
+            updateSql.AppendLine("ATBU_Closing_TotalDebit_Amount = CASE ATBU_ID");
+
+            foreach (var total in accountTotals)
+            {
+                updateSql.AppendLine($"WHEN {total.AccountId} THEN ISNULL(ATBU_Closing_TotalDebit_Amount, 0) + {total.TotalDebit}");
+            }
+
+            updateSql.AppendLine("ELSE ATBU_Closing_TotalDebit_Amount END,");
+            updateSql.AppendLine("ATBU_Closing_TotalCredit_Amount = CASE ATBU_ID");
+
+            foreach (var total in accountTotals)
+            {
+                updateSql.AppendLine($"WHEN {total.AccountId} THEN ISNULL(ATBU_Closing_TotalCredit_Amount, 0) + {total.TotalCredit}");
+            }
+
+            updateSql.AppendLine("ELSE ATBU_Closing_TotalCredit_Amount END");
+            updateSql.AppendLine($"WHERE ATBU_ID IN ({string.Join(",", accountTotals.Select(a => a.AccountId))})");
+
+            using var command = new SqlCommand(updateSql.ToString(), connection, transaction);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        // ✅ OPTIMIZED: Fast validation
+        private async Task<ApiResponse<string>> PreValidateRowsFast(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            JournalEntryUploadRequest request,
+            int accessCodeId)
+        {
+            // Check for required fields
+            for (int i = 0; i < request.Rows.Count; i++)
+            {
+                var row = request.Rows[i];
+                if (string.IsNullOrEmpty(row.Account) && (row.Debit.HasValue || row.Credit.HasValue))
+                {
+                    return new ApiResponse<string> { Success = false, Message = $"Account cannot be blank - Line No: {i + 1}" };
+                }
+            }
+
+            // Date format validation
+            var invalidDates = request.Rows
+                .Where(r => !string.IsNullOrEmpty(r.Transaction_Date) && !IsValidDate(r.Transaction_Date))
+                .Select((r, i) => i + 1)
+                .ToList();
+
+            if (invalidDates.Any())
+            {
+                return new ApiResponse<string> { Success = false, Message = $"Invalid Date Format at lines: {string.Join(", ", invalidDates.Take(10))}" };
+            }
+
+            return new ApiResponse<string> { Success = true };
+        }
+        private bool IsValidDate(string dateString)
+        {
+            if (string.IsNullOrEmpty(dateString))
+                return false;
+
+            // Common date formats
+            string[] dateFormats = {
+        "MM/dd/yyyy", "dd/MM/yyyy", "yyyy-MM-dd",
+        "dd-MM-yyyy", "MM-dd-yyyy", "dd.MM.yyyy",
+        "yyyy/MM/dd", "MMM dd, yyyy", "dd-MMM-yyyy",
+        "yyyyMMdd", "M/d/yyyy", "d/M/yyyy",
+        "dd-MM-yy", "MM/dd/yy", "d-MMM-yy"
+    };
+
+            return DateTime.TryParseExact(dateString, dateFormats,
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+        }
+
+    //    private DateTime ParseTransactionDate(string dateString)
+    //    {
+    //        if (string.IsNullOrEmpty(dateString))
+    //            return DateTime.MinValue;
+
+    //        // First try exact formats
+    //        string[] dateFormats = {
+    //    "MM/dd/yyyy", "dd/MM/yyyy", "yyyy-MM-dd",
+    //    "dd-MM-yyyy", "MM-dd-yyyy", "dd.MM.yyyy",
+    //    "yyyy/MM/dd", "MMM dd, yyyy", "dd-MMM-yyyy",
+    //    "yyyyMMdd", "M/d/yyyy", "d/M/yyyy",
+    //    "dd-MM-yy", "MM/dd/yy", "d-MMM-yy",
+    //    "MMMM dd, yyyy", "dd MMMM yyyy"
+    //};
+
+    //        if (DateTime.TryParseExact(dateString, dateFormats,
+    //            CultureInfo.InvariantCulture, DateTimeStyles.None, out var result))
+    //        {
+    //            return result;
+    //        }
+
+    //        // Fallback to regular parse
+    //        if (DateTime.TryParse(dateString, out var fallbackResult))
+    //        {
+    //            return fallbackResult;
+    //        }
+
+    //        return DateTime.MinValue;
+    //    }
+
+    //    private DateTime ParseTransactionDate(string dateString, DateTime fallbackDate)
+    //    {
+    //        var parsedDate = ParseTransactionDate(dateString);
+    //        return parsedDate != DateTime.MinValue ? parsedDate : fallbackDate;
+    //    }
+        // Helper classes for bulk operations
+        private class BulkTransactionData
+        {
+            public string TransactionNo { get; set; }
+            public int CustomerId { get; set; }
+            public int AccountId { get; set; }
+            public string AccountName { get; set; }
+            public int JE_Type { get; set; }
+            public DateTime TransactionDate { get; set; }
+            public decimal Debit { get; set; }
+            public decimal Credit { get; set; }
+            public int BranchId { get; set; }
+            public int DurationId { get; set; }
+            public int FinancialYearId { get; set; }
+            public int AccessCodeId { get; set; }
+            public int UserId { get; set; }
+            public string IpAddress { get; set; }
+            public string Narration { get; set; }
+            public string Comments { get; set; }
+            public string BillNo { get; set; }
+        }
+
+        // Helper method to generate sequential transaction numbers
+        private string GenerateTransactionNo(string lastTransactionNo)
+        {
+            if (string.IsNullOrEmpty(lastTransactionNo) || !lastTransactionNo.StartsWith("TR"))
+            {
+                return "TR001";
+            }
+
+            var numberPart = lastTransactionNo.Substring(2);
+            if (int.TryParse(numberPart, out int number))
+            {
+                return $"TR{(number + 1):D3}";
+            }
+
+            return "TR001";
+        }
+
+        // Get last transaction number
+        private async Task<string> GetLastTransactionNo(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            int compId,
+            int yearId,
+            int party,
+            int durationId,
+            int branchId)
         {
             var sql = @"
-        SELECT ISNULL(COUNT(*), 0) + 1
+        SELECT TOP 1 Acc_JE_TransactionNo 
         FROM Acc_JE_Master
         WHERE Acc_JE_YearID = @YearId
           AND Acc_JE_Party = @Party
           AND Acc_JE_QuarterId = @QuarterId
-          AND acc_JE_BranchId = @BranchId";
+          AND acc_JE_BranchId = @BranchId
+        ORDER BY Acc_JE_ID DESC";
 
             using var command = new SqlCommand(sql, connection, transaction);
             command.Parameters.AddWithValue("@YearId", yearId);
@@ -1794,169 +2365,31 @@ namespace TracePca.Controllers.FIN_Statement
             command.Parameters.AddWithValue("@QuarterId", durationId);
             command.Parameters.AddWithValue("@BranchId", branchId);
 
-            int nextNo = Convert.ToInt32(await command.ExecuteScalarAsync());
-
-            // ✅ Pad with leading zeros → TR001, TR002, TR010
-            return $"TR{nextNo:D3}";
+            var result = await command.ExecuteScalarAsync();
+            return result?.ToString() ?? "TR000";
         }
 
-
-        #endregion
-    }
-
-    #region Supporting Classes
-
-    public class ApiResponse<T>
-    {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public T? Data { get; set; }
-        public string Error { get; set; } = string.Empty;
-    }
-
-    public class JournalEntryUploadRequest
-    {
-        public int CustomerId { get; set; }
-        public int FinancialYearId { get; set; }
-        public int BranchId { get; set; }
-        public int DurationId { get; set; }
-        public List<JournalEntryRow> Rows { get; set; } = new List<JournalEntryRow>();
-    }
-
-    public class JournalEntryRow
-    {
-        public string? JE_Type { get; set; }
-        public string? Account { get; set; }
-        public string? Transaction_Date { get; set; }
-        public string? Bill_No { get; set; }
-        public string? Narration { get; set; }
-        public string? Comments { get; set; }
-        public double? Debit { get; set; }
-        public double? Credit { get; set; }
-    }
-
-
-
-    public static class LinqExtensions
-    {
-        public static IEnumerable<IEnumerable<T>> Batch<T>(this IEnumerable<T> source, int batchSize)
+        // Optimized GetDescMaxId
+        private async Task<int> GetDescMaxId(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            int compId,
+            int customerId,
+            int yearId,
+            int branchId,
+            int durationId)
         {
-            var batch = new List<T>();
-            foreach (var item in source)
-            {
-                batch.Add(item);
-                if (batch.Count >= batchSize)
-                {
-                    yield return batch;
-                    batch = new List<T>();
-                }
-            }
-            if (batch.Any())
-                yield return batch;
+            var sql = "SELECT COUNT(*) FROM Acc_TrailBalance_Upload WHERE ATBU_CustId = @CustId AND ATBU_CompId = @CompId AND ATBU_YEARId = @YearId AND ATBU_BranchId = @BranchId AND ATBU_QuarterId = @QuarterId";
+
+            using var command = new SqlCommand(sql, connection, transaction);
+            command.Parameters.AddWithValue("@CustId", customerId);
+            command.Parameters.AddWithValue("@CompId", compId);
+            command.Parameters.AddWithValue("@YearId", yearId);
+            command.Parameters.AddWithValue("@BranchId", branchId);
+            command.Parameters.AddWithValue("@QuarterId", durationId);
+
+            var result = await command.ExecuteScalarAsync();
+            return Convert.ToInt32(result);
         }
-    }
-
-    // Supporting classes for the stored procedures
-    public class TrailBalanceUpload
-    {
-        public int ATBU_ID { get; set; }
-        public string ATBU_CODE { get; set; }
-        public string ATBU_Description { get; set; }
-        public int ATBU_CustId { get; set; }
-        public double ATBU_Opening_Debit_Amount { get; set; }
-        public double ATBU_Opening_Credit_Amount { get; set; }
-        public double ATBU_TR_Debit_Amount { get; set; }
-        public double ATBU_TR_Credit_Amount { get; set; }
-        public double ATBU_Closing_Debit_Amount { get; set; }
-        public double ATBU_Closing_Credit_Amount { get; set; }
-        public string ATBU_DELFLG { get; set; }
-        public int ATBU_CRBY { get; set; }
-        public string ATBU_STATUS { get; set; }
-        public int ATBU_UPDATEDBY { get; set; }
-        public string ATBU_IPAddress { get; set; }
-        public int ATBU_CompId { get; set; }
-        public int ATBU_YEARId { get; set; }
-        public int ATBU_Branchname { get; set; }
-        public int ATBU_QuaterId { get; set; }
-
-        // Details properties
-        public int ATBUD_ID { get; set; }
-        public int ATBUD_Masid { get; set; }
-        public string ATBUD_CODE { get; set; }
-        public string ATBUD_Description { get; set; }
-        public int ATBUD_CustId { get; set; }
-        public int ATBUD_SChedule_Type { get; set; }
-        public int ATBUD_Branchname { get; set; }
-        public int ATBUD_iQuarterly { get; set; }
-        public int ATBUD_Company_Type { get; set; }
-        public int ATBUD_Headingid { get; set; }
-        public int ATBUD_Subheading { get; set; }
-        public int ATBUD_itemid { get; set; }
-        public int ATBUD_Subitemid { get; set; }
-        public string ATBUD_DELFLG { get; set; }
-        public int ATBUD_CRBY { get; set; }
-        public int ATBUD_UPDATEDBY { get; set; }
-        public string ATBUD_STATUS { get; set; }
-        public string ATBUD_Progress { get; set; }
-        public string ATBUD_IPAddress { get; set; }
-        public int ATBUD_CompId { get; set; }
-        public int ATBUD_YEARId { get; set; }
-    }
-
-    public class JournalEntry
-    {
-        public int Acc_JE_ID { get; set; }
-        public string AJTB_TranscNo { get; set; }
-        public int Acc_JE_Party { get; set; }
-        public int Acc_JE_Location { get; set; }
-        public int Acc_JE_BillType { get; set; }
-        public string Acc_JE_BillNo { get; set; }
-        public DateTime Acc_JE_BillDate { get; set; }
-        public decimal Acc_JE_BillAmount { get; set; }
-        public decimal Acc_JE_AdvanceAmount { get; set; }
-        public string Acc_JE_AdvanceNaration { get; set; }
-        public decimal Acc_JE_BalanceAmount { get; set; }
-        public decimal Acc_JE_NetAmount { get; set; }
-        public string Acc_JE_PaymentNarration { get; set; }
-        public string Acc_JE_ChequeNo { get; set; }
-        public DateTime Acc_JE_ChequeDate { get; set; }
-        public string Acc_JE_IFSCCode { get; set; }
-        public string Acc_JE_BankName { get; set; }
-        public string Acc_JE_BranchName { get; set; }
-        public int Acc_JE_CreatedBy { get; set; }
-        public int Acc_JE_YearID { get; set; }
-        public int Acc_JE_CompID { get; set; }
-        public string Acc_JE_Status { get; set; }
-        public string Acc_JE_Operation { get; set; }
-        public string Acc_JE_IPAddress { get; set; }
-        public DateTime Acc_JE_BillCreatedDate { get; set; }
-        public int acc_JE_BranchId { get; set; }
-        public string Acc_JE_Comments { get; set; }
-        public int Acc_JE_Quarterly { get; set; }
-
-        // Transaction details properties
-        public int AJTB_ID { get; set; }
-        public int AJTB_MAsID { get; set; }
-        public int AJTB_CustId { get; set; }
-        public int AJTB_Deschead { get; set; }
-        public int AJTB_Desc { get; set; }
-        public string AJTB_DescName { get; set; }
-        public decimal AJTB_Debit { get; set; }
-        public decimal AJTB_Credit { get; set; }
-        public int AJTB_CreatedBy { get; set; }
-        public int AJTB_UpdatedBy { get; set; }
-        public string AJTB_Status { get; set; }
-        public int AJTB_YearID { get; set; }
-        public int AJTB_CompID { get; set; }
-        public int AJTB_BillType { get; set; }
-        public string AJTB_IPAddress { get; set; }
-        public int AJTB_BranchId { get; set; }
-        public int AJTB_QuarterId { get; set; }
-        public int AJTB_ScheduleTypeid { get; set; }
-        public DateTime AJTB_CreatedOn { get; set; }
     }
 }
-
-
-
-#endregion

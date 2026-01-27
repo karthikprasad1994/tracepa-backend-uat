@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Identity.Client;
+using TracePca.Dto.Audit;
 
 namespace TracePca.Dto.FIN_Statement
 {
@@ -315,31 +316,86 @@ namespace TracePca.Dto.FIN_Statement
         //    public string LAF_IPAddress { get; set; }
         //    public int LAF_CompID { get; set; }
         //}
-        public class FinancialStatementDTO
+        //public class FinancialStatementDTO
+        //{
+        //    public int assH_ID { get; set; }
+        //    public string assH_Name { get; set; }
+        //    public int assH_HeadingID { get; set; }
+        //    public int assH_CRBY { get; set; }
+        //    public int assH_UPDATEDBY { get; set; }
+        //    public string assH_IPAddress { get; set; }
+        //    public int assH_CompId { get; set; }
+        //    public int assH_YEARId { get; set; }
+        //    public int assH_Notes { get; set; }
+        //    public int assH_scheduletype { get; set; }
+        //    public int assH_Orgtype { get; set; }
+        //    public List<EngagementPlanNoteDTO> notes { get; set; }
+        //}
+        //public class EngagementPlanNoteDTO
+        //{
+        //    public int ashN_ID { get; set; }
+        //    public int ashN_SubHeadingId { get; set; }
+        //    public int ashN_CustomerId { get; set; }
+        //    public string ashN_Description { get; set; }
+        //    public string ashN_DelFlag { get; set; }
+        //    public string ashN_Status { get; set; }
+        //    public string ashN_Operation { get; set; }
+        //    public int ashN_CreatedBy { get; set; }
+        //    public DateTime ashN_CreatedOn { get; set; }
+        //    public int ashN_CompID { get; set; }
+        //    public int ashN_YearID { get; set; }
+        //    public string ashN_IPAddress { get; set; }
+        //}
+
+        public class SaveLOEDto
         {
             public int LOE_Id { get; set; }
-            public int LOE_AuditFrameworkId { get; set; }
             public int LOE_YearId { get; set; }
             public int LOE_CustomerId { get; set; }
             public int LOE_ServiceTypeId { get; set; }
+            public int LOE_FunctionId { get; set; }
             public string LOE_NatureOfService { get; set; }
             public decimal LOE_Total { get; set; }
-            public int LOE_Frequency { get; set; }
+            public int LOE_CrBy { get; set; }
+            public string LOE_IPAddress { get; set; }
             public int LOE_CompID { get; set; }
-            public List<EngagementTemplateDetailDTO> EngagementTemplateDetails { get; set; } = new List<EngagementTemplateDetailDTO>();
+
+            public List<ReportContentInsertDto> EngagementHeadingDetails { get; set; }
+            public List<LOETemplateDetailDto> EngagementTemplateDetails { get; set; }
         }
-        public class EngagementTemplateDetailDTO
+        public class ReportContentInsertDto
         {
-            public int LTD_ID { get; set; }                
-            public int LTD_LOE_ID { get; set; }           
-            public int LTD_ReportTypeID { get; set; }     
-            public int LTD_HeadingID { get; set; }         
-            public string LTD_Heading { get; set; }        
-            public string LTD_Decription { get; set; }   
-            public string LTD_FormName { get; set; }       
-            public int LTD_CrBy { get; set; }            
-            public string LTD_IPAddress { get; set; } 
-            public int LTD_CompID { get; set; }          
+            public int RCM_Id { get; set; }
+            public string RCM_ReportName { get; set; }
+            public string RCM_Heading { get; set; }
+            public string RCM_Description { get; set; }
+            public int RCM_CrBy { get; set; }
+            public string RCM_IPAddress { get; set; }
+            public int RCM_CompID { get; set; }
+            public int LTD_LOE_ID { get; internal set; }
+        }
+        public class LOETemplateDetailDto
+        {
+            public int LTD_ID { get; set; }
+            public int LTD_LOE_ID { get; set; }
+            public int LTD_ReportTypeID { get; set; }
+            public int LTD_HeadingID { get; set; }
+            public string LTD_Heading { get; set; }
+            public string LTD_Decription { get; set; }
+            public string LTD_FormName { get; set; }
+            public int LTD_CrBy { get; set; }
+            public string LTD_IPAddress { get; set; }
+            public int LTD_CompID { get; set; }
+        }
+
+        public class CommonReportRowDto
+        {
+            public string SrNo { get; set; }
+            public string Particular { get; set; }
+            public string? Notes { get; set; }
+            public string? CurrentYearAmount { get; set; }
+            public string? PreviousYearAmount { get; set; }
+            public string Status { get; set; }
         }
 
     }

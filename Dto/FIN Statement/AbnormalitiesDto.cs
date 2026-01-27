@@ -14,6 +14,7 @@
             public decimal AvgDebitAmtRatio { get; set; }
             public string AJTB_status { get; set; }
             public int ajtb_id { get; set; }
+            public int Ajtb_Masid { get; set; }
             public string AJTB_CreatedOn { get; set; }
             public string AJTB_TranscNo{ get; set; }
         }
@@ -24,6 +25,8 @@
             public int TotalCount { get; set; }
             public int PageNumber { get; set; }
             public int PageSize { get; set; }
+            public string SortColumn { get; set; }
+            public string SortDirection { get; set; }
             public int TotalPages { get; set; }
             public bool HasPreviousPage => PageNumber > 1;
             public bool HasNextPage => PageNumber < TotalPages;
@@ -34,5 +37,13 @@
             public int Id { get; set; }
             public string Status { get; set; }
         }
+        public class JeTransactionDetailDto
+        {
+            public int AJTB_ID { get; set; }
+            public string AJTB_DescName { get; set; }
+            public decimal AJTB_Debit { get; set; }
+            public decimal AJTB_Credit { get; set; }
+        }
+
     }
 }

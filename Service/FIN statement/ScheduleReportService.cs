@@ -906,7 +906,7 @@ GROUP BY AST_SubHeadingID, ASsH_Name, ASSH_Notes";
                                 }
                             }
                         }
-                    }                  
+                    }
                 }
                 fallback = totalIncome - GtotalExpense;
                 fallbackPrev = totalPrevIncome - GtotalPrevExpense;
@@ -952,18 +952,18 @@ where CUST_ID = @CompanyId and CUST_DELFLG = 'A'";
             });
 
             if (AuditId == 1 || AuditId == 0)  //ICAI Audit
-            {         
-            // Heading
-            results.Add(new SummaryReportBalanceSheetRow
             {
-                SrNo = "",
-                Name = "EQUITY AND LIABILITIES",
-                HeaderSLNo = "",
-                PrevYearTotal = "",
-                status = "1"
-            });
+                // Heading
+                results.Add(new SummaryReportBalanceSheetRow
+                {
+                    SrNo = "",
+                    Name = "EQUITY AND LIABILITIES",
+                    HeaderSLNo = "",
+                    PrevYearTotal = "",
+                    status = "1"
+                });
 
-            var incomeHeadingSql = @"
+                var incomeHeadingSql = @"
 SELECT AST_HeadingID AS HeadingID, ASH_Name AS Name
 FROM ACC_ScheduleTemplates
 LEFT JOIN ACC_ScheduleHeading a ON a.ash_id = AST_HeadingID
@@ -971,11 +971,11 @@ WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND a.AS
 GROUP BY AST_HeadingID, ASH_Name
 ORDER BY AST_HeadingID";
 
-            var incomeHeadings = await connection.QueryAsync<(int HeadingID, string Name)>(incomeHeadingSql, new { ScheduleTypeID, CustID = p.CustID });
+                var incomeHeadings = await connection.QueryAsync<(int HeadingID, string Name)>(incomeHeadingSql, new { ScheduleTypeID, CustID = p.CustID });
 
-            foreach (var heading in incomeHeadings)
-            {
-                var headingBalanceSql = @"
+                foreach (var heading in incomeHeadings)
+                {
+                    var headingBalanceSql = @"
 SELECT  ud.ATBUD_Headingid AS HeadingID,
     h.ASH_Name AS Name,
     ISNULL(SUM(d.ATBU_Closing_TotalCredit_Amount), 0) AS CrTotal,
@@ -994,44 +994,44 @@ WHERE  ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 GROUP BY ud.ATBUD_Headingid, h.ASH_Name, h.ASH_Notes
 ORDER BY ud.ATBUD_Headingid";
 
-                var headingBalance = await connection.QueryFirstOrDefaultAsync(headingBalanceSql, new
-                {
-                    YearID = p.YearID,
-                    PrevYearID = p.YearID - 1,
-                    CustID = p.CustID,
-                    BranchId = p.BranchId,
-                    ScheduleTypeID,
-                    HeadingID = heading.HeadingID,
-                    CompID = CompId
-                });
+                    var headingBalance = await connection.QueryFirstOrDefaultAsync(headingBalanceSql, new
+                    {
+                        YearID = p.YearID,
+                        PrevYearID = p.YearID - 1,
+                        CustID = p.CustID,
+                        BranchId = p.BranchId,
+                        ScheduleTypeID,
+                        HeadingID = heading.HeadingID,
+                        CompID = CompId
+                    });
 
-                results.Add(new SummaryReportBalanceSheetRow
-                {
-                    SrNo = (results.Count + 1).ToString(),
-                    Name = heading.Name,
-                    HeaderSLNo = "",
-                    PrevYearTotal = "",
-                    status = "1"
-                });
+                    results.Add(new SummaryReportBalanceSheetRow
+                    {
+                        SrNo = (results.Count + 1).ToString(),
+                        Name = heading.Name,
+                        HeaderSLNo = "",
+                        PrevYearTotal = "",
+                        status = "1"
+                    });
 
-                var incomeSubSql = @"
+                    var incomeSubSql = @"
 SELECT AST_SubHeadingID AS SubHeadingID, ASsH_Name AS Name, ASSH_Notes AS Notes
 FROM ACC_ScheduleTemplates
 LEFT JOIN ACC_ScheduleSubHeading a ON a.ASSH_ID = AST_SubHeadingID
 WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND AST_AccHeadId = 2 AND AST_HeadingID = @HeadingID
 GROUP BY AST_SubHeadingID, ASsH_Name, ASSH_Notes";
 
-                var incomeSubHeadings = await connection.QueryAsync<(int SubHeadingID, string Name, int Notes)>(incomeSubSql, new
-                {
-                    ScheduleTypeID,
-                    CustID = p.CustID,
-                    HeadingID = heading.HeadingID
-                });
-                if (incomeSubHeadings != null)
-                {
-                    foreach (var sub in incomeSubHeadings)
+                    var incomeSubHeadings = await connection.QueryAsync<(int SubHeadingID, string Name, int Notes)>(incomeSubSql, new
                     {
-                        var subBalSql = @"
+                        ScheduleTypeID,
+                        CustID = p.CustID,
+                        HeadingID = heading.HeadingID
+                    });
+                    if (incomeSubHeadings != null)
+                    {
+                        foreach (var sub in incomeSubHeadings)
+                        {
+                            var subBalSql = @"
 SELECT
     ud.ATBUD_Subheading AS SubHeadingID,
     sh.ASSH_Name AS Name,
@@ -1047,57 +1047,57 @@ LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description
 WHERE ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) and ud.ATBUD_Schedule_type = @ScheduleTypeID AND ud.ATBUD_Subheading = @SubHeadingID AND ud.ATBUD_CustId = @CustID
 GROUP BY ud.ATBUD_Subheading, sh.ASSH_Name, sh.ASSH_Notes
 ORDER BY ud.ATBUD_Subheading";
-                        var subBalance = await connection.QueryFirstOrDefaultAsync(subBalSql, new
-                        {
-                            YearID = p.YearID,
-                            PrevYearID = p.YearID - 1,
-                            CustID = p.CustID,
-                            BranchId = p.BranchId,
-                            ScheduleTypeID,
-                            SubHeadingID = sub.SubHeadingID
-                        });
+                            var subBalance = await connection.QueryFirstOrDefaultAsync(subBalSql, new
+                            {
+                                YearID = p.YearID,
+                                PrevYearID = p.YearID - 1,
+                                CustID = p.CustID,
+                                BranchId = p.BranchId,
+                                ScheduleTypeID,
+                                SubHeadingID = sub.SubHeadingID
+                            });
 
-                        decimal subNet = (subBalance?.CrTotal ?? 0) - (subBalance?.DbTotal ?? 0);
-                        decimal subPrevNet = (subBalance?.PrevCrTotal ?? 0) - (subBalance?.PrevDbTotal ?? 0);
-                        totalIncome += subNet;
-                        totalPrevIncome += subPrevNet;
+                            decimal subNet = (subBalance?.CrTotal ?? 0) - (subBalance?.DbTotal ?? 0);
+                            decimal subPrevNet = (subBalance?.PrevCrTotal ?? 0) - (subBalance?.PrevDbTotal ?? 0);
+                            totalIncome += subNet;
+                            totalPrevIncome += subPrevNet;
 
-                        results.Add(new SummaryReportBalanceSheetRow
-                        {
-                            SrNo = (results.Count + 1).ToString(),
-                            Name = sub.Name,
-                            HeaderSLNo = subNet == 0 ? "-" : subNet.ToString($"N{RoundOff}"),
-                            PrevYearTotal = subPrevNet == 0 ? "-" : subPrevNet.ToString($"N{RoundOff}"),
-                            Notes = sub.Notes != 0 ? sub.Notes.ToString() : "",
-                            status = "2"
-                        });
+                            results.Add(new SummaryReportBalanceSheetRow
+                            {
+                                SrNo = (results.Count + 1).ToString(),
+                                Name = sub.Name,
+                                HeaderSLNo = subNet == 0 ? "-" : subNet.ToString($"N{RoundOff}"),
+                                PrevYearTotal = subPrevNet == 0 ? "-" : subPrevNet.ToString($"N{RoundOff}"),
+                                Notes = sub.Notes != 0 ? sub.Notes.ToString() : "",
+                                status = "2"
+                            });
+                        }
                     }
                 }
-            }
-            results.Add(new SummaryReportBalanceSheetRow
-            {
-                SrNo = (results.Count + 1).ToString(),
-                Name = "Total ",
-                HeaderSLNo = totalIncome == 0 ? "-" : totalIncome.ToString($"N{RoundOff}"),
-                PrevYearTotal = totalPrevIncome == 0 ? "-" : totalPrevIncome.ToString($"N{RoundOff}"),
-                status = "1"
-            });
-            results.Add(new SummaryReportBalanceSheetRow
-            {
-                SrNo = "",
-                status = "2"
-            });     
+                results.Add(new SummaryReportBalanceSheetRow
+                {
+                    SrNo = (results.Count + 1).ToString(),
+                    Name = "Total ",
+                    HeaderSLNo = totalIncome == 0 ? "-" : totalIncome.ToString($"N{RoundOff}"),
+                    PrevYearTotal = totalPrevIncome == 0 ? "-" : totalPrevIncome.ToString($"N{RoundOff}"),
+                    status = "1"
+                });
+                results.Add(new SummaryReportBalanceSheetRow
+                {
+                    SrNo = "",
+                    status = "2"
+                });
 
-            // Heading
-            results.Add(new SummaryReportBalanceSheetRow
-            {
-                SrNo = "",
-                Name = "Assets",
-                HeaderSLNo = "",
-                PrevYearTotal = "",
-                status = "1"
-            });
-            var expenseHeadingSql = @"
+                // Heading
+                results.Add(new SummaryReportBalanceSheetRow
+                {
+                    SrNo = "",
+                    Name = "Assets",
+                    HeaderSLNo = "",
+                    PrevYearTotal = "",
+                    status = "1"
+                });
+                var expenseHeadingSql = @"
 SELECT AST_HeadingID AS HeadingID, ASH_Name AS Name
 FROM ACC_ScheduleTemplates
 LEFT JOIN ACC_ScheduleHeading a ON a.ash_id = AST_HeadingID
@@ -1105,11 +1105,11 @@ WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND a.AS
 GROUP BY AST_HeadingID, ASH_Name
 ORDER BY AST_HeadingID";
 
-            var expenseHeadings = await connection.QueryAsync<(int HeadingID, string Name)>(expenseHeadingSql, new { ScheduleTypeID, CustID = p.CustID });
+                var expenseHeadings = await connection.QueryAsync<(int HeadingID, string Name)>(expenseHeadingSql, new { ScheduleTypeID, CustID = p.CustID });
 
-            foreach (var heading in expenseHeadings)
-            {
-                var expenseBalanceSql = @"
+                foreach (var heading in expenseHeadings)
+                {
+                    var expenseBalanceSql = @"
 SELECT
     ud.ATBUD_Headingid AS HeadingID,
     h.ASH_Name AS Name,
@@ -1126,42 +1126,42 @@ WHERE ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) 
     AND EXISTS (SELECT 1 FROM ACC_ScheduleTemplates s WHERE s.AST_HeadingID = ud.ATBUD_Headingid AND s.AST_AccHeadId IN (1, 2))
 GROUP BY ud.ATBUD_Headingid, h.ASH_Name, h.ASH_Notes
 ORDER BY ud.ATBUD_Headingid";
-                var headingBalance = await connection.QueryFirstOrDefaultAsync(expenseBalanceSql, new
-                {
-                    YearID = p.YearID,
-                    PrevYearID = p.YearID - 1,
-                    CustID = p.CustID,
-                    BranchId = p.BranchId,
-                    ScheduleTypeID,
-                    HeadingID = heading.HeadingID,
-                    CompID = CompId
-                });
-                results.Add(new SummaryReportBalanceSheetRow
-                {
-                    SrNo = (results.Count + 1).ToString(),
-                    Name = heading.Name,
-                    HeaderSLNo = "",
-                    PrevYearTotal = "",
-                    status = "1"
-                });
+                    var headingBalance = await connection.QueryFirstOrDefaultAsync(expenseBalanceSql, new
+                    {
+                        YearID = p.YearID,
+                        PrevYearID = p.YearID - 1,
+                        CustID = p.CustID,
+                        BranchId = p.BranchId,
+                        ScheduleTypeID,
+                        HeadingID = heading.HeadingID,
+                        CompID = CompId
+                    });
+                    results.Add(new SummaryReportBalanceSheetRow
+                    {
+                        SrNo = (results.Count + 1).ToString(),
+                        Name = heading.Name,
+                        HeaderSLNo = "",
+                        PrevYearTotal = "",
+                        status = "1"
+                    });
 
-                var subSql = @"
+                    var subSql = @"
 SELECT AST_SubHeadingID AS SubHeadingID, ASsH_Name AS Name, ASSH_Notes AS Notes
 FROM ACC_ScheduleTemplates
 LEFT JOIN ACC_ScheduleSubHeading a ON a.ASSH_ID = AST_SubHeadingID
 WHERE AST_Schedule_type = @ScheduleTypeID AND AST_Companytype = @CustID AND AST_AccHeadId = 1 AND AST_HeadingID = @HeadingID
 GROUP BY AST_SubHeadingID, ASsH_Name, ASSH_Notes";
 
-                var subHeadings = await connection.QueryAsync<(int SubHeadingID, string Name, int Notes)>(subSql, new
-                {
-                    ScheduleTypeID,
-                    CustID = p.CustID,
-                    HeadingID = heading.HeadingID
-                });
+                    var subHeadings = await connection.QueryAsync<(int SubHeadingID, string Name, int Notes)>(subSql, new
+                    {
+                        ScheduleTypeID,
+                        CustID = p.CustID,
+                        HeadingID = heading.HeadingID
+                    });
 
-                foreach (var sub in subHeadings)
-                {
-                    var subBalSql = @"
+                    foreach (var sub in subHeadings)
+                    {
+                        var subBalSql = @"
 SELECT
     ud.ATBUD_Subheading AS SubHeadingID,
     ssh.ASSH_Name AS Name,
@@ -1178,41 +1178,41 @@ WHERE ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ',')) 
 GROUP BY ud.ATBUD_Subheading, ssh.ASSH_Name, ssh.ASSH_Notes
 ORDER BY ud.ATBUD_Subheading";
 
-                    var subBalance = await connection.QueryFirstOrDefaultAsync(subBalSql, new
-                    {
-                        YearID = p.YearID,
-                        PrevYearID = p.YearID - 1,
-                        CustID = p.CustID,
-                        BranchId = p.BranchId,
-                        ScheduleTypeID,
-                        SubHeadingID = sub.SubHeadingID
-                    });
-                    decimal subNet = (subBalance?.DbTotal ?? 0) - (subBalance?.CrTotal ?? 0);
-                    decimal subPrevNet = (subBalance?.PrevDbTotal ?? 0) - (subBalance?.PrevCrTotal ?? 0);
-                    totalExpense += subNet;
-                    totalPrevExpense += subPrevNet;
-                    results.Add(new SummaryReportBalanceSheetRow
-                    {
-                        SrNo = (results.Count + 1).ToString(),
-                        Name = sub.Name,
-                        HeaderSLNo = subNet == 0 ? "-" : subNet.ToString($"N{RoundOff}"),
-                        PrevYearTotal = subPrevNet == 0 ? "-" : subPrevNet.ToString($"N{RoundOff}"),
-                        Notes = sub.Notes != 0 ? sub.Notes.ToString() : "",
-                        status = "2"
-                    });
+                        var subBalance = await connection.QueryFirstOrDefaultAsync(subBalSql, new
+                        {
+                            YearID = p.YearID,
+                            PrevYearID = p.YearID - 1,
+                            CustID = p.CustID,
+                            BranchId = p.BranchId,
+                            ScheduleTypeID,
+                            SubHeadingID = sub.SubHeadingID
+                        });
+                        decimal subNet = (subBalance?.DbTotal ?? 0) - (subBalance?.CrTotal ?? 0);
+                        decimal subPrevNet = (subBalance?.PrevDbTotal ?? 0) - (subBalance?.PrevCrTotal ?? 0);
+                        totalExpense += subNet;
+                        totalPrevExpense += subPrevNet;
+                        results.Add(new SummaryReportBalanceSheetRow
+                        {
+                            SrNo = (results.Count + 1).ToString(),
+                            Name = sub.Name,
+                            HeaderSLNo = subNet == 0 ? "-" : subNet.ToString($"N{RoundOff}"),
+                            PrevYearTotal = subPrevNet == 0 ? "-" : subPrevNet.ToString($"N{RoundOff}"),
+                            Notes = sub.Notes != 0 ? sub.Notes.ToString() : "",
+                            status = "2"
+                        });
+                    }
                 }
+                results.Add(new SummaryReportBalanceSheetRow
+                {
+                    SrNo = (results.Count + 1).ToString(),
+                    Name = "Total",
+                    HeaderSLNo = totalExpense == 0 ? "-" : totalExpense.ToString($"N{RoundOff}"),
+                    PrevYearTotal = totalPrevExpense == 0 ? "-" : totalPrevExpense.ToString($"N{RoundOff}"),
+                    status = "1"
+                });
             }
-            results.Add(new SummaryReportBalanceSheetRow
-            {
-                SrNo = (results.Count + 1).ToString(),
-                Name = "Total",
-                HeaderSLNo = totalExpense == 0 ? "-" : totalExpense.ToString($"N{RoundOff}"),
-                PrevYearTotal = totalPrevExpense == 0 ? "-" : totalPrevExpense.ToString($"N{RoundOff}"),
-                status = "1"
-            });
-        }
             else
-            {                         
+            {
                 // Heading
                 results.Add(new SummaryReportBalanceSheetRow
                 {
@@ -3538,17 +3538,17 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         //    // Step 1: Get DB name
         //    string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-        //    if (string.IsNullOrEmpty(dbName))
-        //        throw new Exception("CustomerCode is missing in session. Please log in again.");
+        //        if (string.IsNullOrEmpty(dbName))
+        //            throw new Exception("CustomerCode is missing in session. Please log in again.");
 
         //    // Step 2: Get connection string
         //    var connectionString = _configuration.GetConnectionString(dbName);
 
-        //    using var connection = new SqlConnection(connectionString);
-        //    await connection.OpenAsync();
+        //        using var connection = new SqlConnection(connectionString);
+        //await connection.OpenAsync();
 
-        //    // ✅ FIX 1: Create transaction
-        //    using var transaction = connection.BeginTransaction();
+        //        // ✅ FIX 1: Create transaction
+        //        using var transaction = connection.BeginTransaction();
 
         //    try
         //    {
@@ -3690,118 +3690,348 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         //        transaction);
         //}
 
-        public async Task<bool> SaveOrUpdateFinancialStatementAsync(FinancialStatementDTO dto)
+        //public async Task<int> SaveOrUpdateFinancialStatementAsync(EngagementPlanDetailsDTO dto)
+        //{
+        //    using var connection = new SqlConnection(_connectionString);
+        //    await connection.OpenAsync();
+        //    using var transaction = connection.BeginTransaction();
+        //    try
+        //    {
+        //        var reportTypeId = dto.EngagementTemplateDetails?.FirstOrDefault()?.LTD_ReportTypeID;
+        //        dto.LOE_AuditFrameworkId = await connection.QueryFirstOrDefaultAsync<int>(@"SELECT RTM_AuditFrameworkId FROM SAD_ReportTypeMaster WHERE RTM_ID = @ReportTypeID", new { ReportTypeID = reportTypeId }, transaction);
+        //        bool isUpdate = dto.LOE_Id > 0;
+        //        if (isUpdate)
+        //        {
+        //            await connection.ExecuteAsync(
+        //                @"UPDATE SAD_CUST_LOE SET LOE_AuditFrameworkId = @LOE_AuditFrameworkId, LOE_NatureOfService = @LOE_NatureOfService, LOE_Total = @LOE_Total, LOE_Frequency = @LOE_Frequency, LOE_UpdatedBy = @LOE_UpdatedBy, LOE_UpdatedOn = GETDATE(),
+        //                  LOE_IPAddress = @LOE_IPAddress WHERE LOE_Id = @LOE_Id;", dto, transaction);
+
+        //            await connection.ExecuteAsync("DELETE FROM LOE_Template_Details WHERE LTD_FormName = 'LOE' And LTD_LOE_ID = @LOE_Id;", dto, transaction);
+        //            await connection.ExecuteAsync("DELETE FROM LOE_AdditionalFees WHERE LAF_LOEID = @LOE_Id;", dto, transaction);
+        //        }
+        //        else
+        //        {
+        //            dto.LOE_Name = await GenerateLOENameAsync(dto.LOE_CompID, dto.LOE_YearId, dto.LOE_CustomerId);
+        //            dto.LOE_Id = await connection.ExecuteScalarAsync<int>(
+        //                @"DECLARE @NewId INT; SELECT @NewId = ISNULL(MAX(LOE_Id), 0) + 1 FROM SAD_CUST_LOE;
+        //                  INSERT INTO SAD_CUST_LOE (LOE_Id, LOE_YearId, LOE_CustomerId, LOE_ServiceTypeId, LOE_NatureOfService, LOE_LocationIds, LOE_TimeSchedule, LOE_ReportDueDate, LOE_ProfessionalFees, LOE_OtherFees,
+        //                  LOE_ServiceTax, LOE_RembFilingFee, LOE_CrBy, LOE_CrOn, LOE_Total, LOE_Name, LOE_Frequency, LOE_FunctionId, LOE_SubFunctionId, LOE_STATUS, LOE_Delflag, LOE_IPAddress, LOE_CompID, LOE_AuditFrameworkId)
+        //                  VALUES (@NewId, @LOE_YearId, @LOE_CustomerId, @LOE_ServiceTypeId, @LOE_NatureOfService, '0', NULL, NULL, 0, 0, 0, 0,
+        //                  @LOE_CrBy, GETDATE(), @LOE_Total, @LOE_Name, @LOE_Frequency, @LOE_ServiceTypeId, 0, 'C', 'A', @LOE_IPAddress, @LOE_CompID, @LOE_AuditFrameworkId); 
+        //                  SELECT @NewId;", dto, transaction);
+        //        }
+
+        //        int existingTemplateCount = await connection.ExecuteScalarAsync<int>(@"SELECT COUNT(*) FROM LOE_Template WHERE LOET_LOEID = @LOE_Id;", new { dto.LOE_Id }, transaction);
+        //        if (existingTemplateCount > 0)
+        //        {
+        //            await connection.ExecuteAsync(
+        //                @"UPDATE LOE_Template SET LOET_CustomerId = @LOE_CustomerId, LOET_FunctionId = @LOE_ServiceTypeId, LOET_ScopeOfWork = @LOET_ScopeOfWork, LOET_Frequency = @LOET_Frequency,
+        //                  LOET_ProfessionalFees = @LOET_ProfessionalFees, LOET_UpdatedBy = @LOE_UpdatedBy, LOET_UpdatedOn = GETDATE(), LOET_IPAddress = @LOE_IPAddress,
+        //                  LOE_AttachID = @LOE_AttachID WHERE LOET_LOEID = @LOE_Id;",
+        //                new
+        //                {
+        //                    dto.LOE_Id,
+        //                    dto.LOE_CustomerId,
+        //                    dto.LOE_ServiceTypeId,
+        //                    dto.LOET_ScopeOfWork,
+        //                    dto.LOET_Frequency,
+        //                    dto.LOET_ProfessionalFees,
+        //                    dto.LOE_IPAddress,
+        //                    dto.LOE_CompID,
+        //                    dto.LOE_UpdatedBy,
+        //                    dto.LOE_AttachID
+        //                }, transaction);
+        //        }
+        //        else
+        //        {
+        //            dto.LOET_Id = await connection.ExecuteScalarAsync<int>(
+        //                @"DECLARE @TemplateId INT; SELECT @TemplateId = ISNULL(MAX(LOET_Id), 0) + 1 FROM LOE_Template;
+        //                  INSERT INTO LOE_Template (LOET_Id, LOET_LOEID, LOET_CustomerId, LOET_FunctionId, LOET_ScopeOfWork, LOET_Frequency, LOET_ProfessionalFees, LOET_Delflag, LOET_STATUS, 
+        //                  LOET_CrOn, LOET_CrBy, LOET_IPAddress, LOET_CompID, LOE_AttachID)
+        //                  VALUES ( @TemplateId, @LTD_LOE_ID, @LOE_CustomerId, @LOE_ServiceTypeId, @LOET_ScopeOfWork, @LOET_Frequency, @LOET_ProfessionalFees, 'A', 'C', GETDATE(), @LOE_CrBy, @LOE_IPAddress, @LOE_CompID, @LOE_AttachID);
+        //                  SELECT @TemplateId;",
+        //                new
+        //                {
+        //                    LTD_LOE_ID = dto.LOE_Id ?? 0,
+        //                    dto.LOE_CustomerId,
+        //                    dto.LOE_ServiceTypeId,
+        //                    dto.LOET_ScopeOfWork,
+        //                    dto.LOET_Frequency,
+        //                    dto.LOET_ProfessionalFees,
+        //                    dto.LOE_CrBy,
+        //                    dto.LOE_IPAddress,
+        //                    dto.LOE_CompID,
+        //                    dto.LOE_AttachID
+        //                },
+        //                transaction
+        //            );
+        //        }
+
+        //        foreach (var item in dto.EngagementTemplateDetails)
+        //        {
+        //            item.LTD_LOE_ID = dto.LOE_Id ?? 0;
+        //            await connection.ExecuteAsync(
+        //                @"DECLARE @NewTemplateDetailId INT; SELECT @NewTemplateDetailId = ISNULL(MAX(LTD_ID), 0) + 1 FROM LOE_Template_Details;
+        //                  INSERT INTO LOE_Template_Details (LTD_ID, LTD_LOE_ID, LTD_ReportTypeID, LTD_HeadingID, LTD_Heading, LTD_Decription, LTD_FormName, LTD_CrBy, LTD_CrOn, LTD_IPAddress, LTD_CompID)
+        //                  VALUES (@NewTemplateDetailId, @LTD_LOE_ID, @LTD_ReportTypeID, @LTD_HeadingID, @LTD_Heading, @LTD_Decription, @LTD_FormName, @LTD_CrBy, GETDATE(), @LTD_IPAddress, @LTD_CompID);",
+        //                item, transaction);
+        //        }
+        //        await transaction.CommitAsync();
+        //        return dto.LOE_Id ?? 0;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        await transaction.RollbackAsync();
+        //        throw new ApplicationException("An error occurred while saving or updating the engagement plan data", ex);
+        //    }
+        //}
+
+
+
+        public async Task<int> SaveOrUpdateLOEAsync(SaveLOEDto dto)
         {
-            // Step 1: Get DB name
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // Step 2: Get connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-
             using var transaction = connection.BeginTransaction();
+
+            const string REPORT_NAME = "Report on the standalone Financial Statements";
 
             try
             {
-                int reportTypeId = dto.EngagementTemplateDetails
-                                      .FirstOrDefault()?.LTD_ReportTypeID ?? 0;
-
-                var reportTypeExists = await connection.ExecuteScalarAsync<int>(
-                    @"SELECT COUNT(*) 
-              FROM SAD_ReportTypeMaster 
-              WHERE RTM_ID = @RTM_ID",
-                    new { RTM_ID = reportTypeId },
+                /* ---------------------------------------------------------
+                   STEP 1: GET REPORT TYPE ID
+                --------------------------------------------------------- */
+                int reportTypeId = await connection.QueryFirstOrDefaultAsync<int>(
+                    @"SELECT RTM_Id
+              FROM SAD_ReportTypeMaster
+              WHERE RTM_ReportTypeName = @ReportName
+                AND RTM_Delflag = 'A'",
+                    new { ReportName = REPORT_NAME },
                     transaction);
 
-                if (reportTypeExists == 0)
-                    throw new Exception("Invalid Report Type.");
+                if (reportTypeId == 0)
+                    throw new Exception("Report Type not found.");
 
-                
-                foreach (var item in dto.EngagementTemplateDetails)
-                {
-                    await connection.ExecuteAsync(
-                        @"UPDATE SAD_ReportContentMaster
-                  SET RCM_Description = @Description,
-                      RCM_UpdatedBy = @UpdatedBy,
-                      RCM_UpdatedOn = GETDATE(),
-                      RCM_IPAddress = @IPAddress
-                  WHERE RCM_ID = @HeadingID
-                    AND RCM_ReportId = @ReportTypeId;",
-                        new
-                        {
-                            Description = item.LTD_Decription,
-                            UpdatedBy = item.LTD_CrBy,
-                            IPAddress = item.LTD_IPAddress,
-                            HeadingID = item.LTD_HeadingID,
-                            ReportTypeId = reportTypeId
-                        },
-                        transaction);
-                }
-
-              
-                await connection.ExecuteAsync(
-                    @"DELETE FROM LOE_Template_Details
-              WHERE LTD_ReportTypeID = @ReportTypeId
-                AND LTD_FormName = 'LOE';",
-                    new { ReportTypeId = reportTypeId },
+                /* ---------------------------------------------------------
+                   STEP 2: GET OR CREATE LOE
+                --------------------------------------------------------- */
+                int loeId = await connection.QueryFirstOrDefaultAsync<int>(
+                    @"SELECT LOE_Id
+              FROM SAD_CUST_LOE
+              WHERE LOE_CustomerId = @CustomerId
+                AND LOE_ServiceTypeId = @ReportTypeId
+                AND LOE_Delflag = 'A'",
+                    new
+                    {
+                        CustomerId = dto.LOE_CustomerId,
+                        ReportTypeId = reportTypeId
+                    },
                     transaction);
 
-              
-                foreach (var item in dto.EngagementTemplateDetails)
+                if (loeId == 0)
                 {
-                    await connection.ExecuteAsync(
+                    loeId = await connection.ExecuteScalarAsync<int>(
                         @"DECLARE @NewId INT;
-                  SELECT @NewId = ISNULL(MAX(LTD_ID), 0) + 1 
-                  FROM LOE_Template_Details;
+                  SELECT @NewId = ISNULL(MAX(LOE_Id),0) + 1 FROM SAD_CUST_LOE;
 
-                  INSERT INTO LOE_Template_Details
+                  INSERT INTO SAD_CUST_LOE
                   (
-                      LTD_ID,
-                      LTD_LOE_ID,
-                      LTD_ReportTypeID,
-                      LTD_HeadingID,
-                      LTD_Heading,
-                      LTD_Decription,
-                      LTD_FormName,
-                      LTD_CrBy,
-                      LTD_CrOn,
-                      LTD_IPAddress,
-                      LTD_CompID
+                      LOE_Id, LOE_YearId, LOE_CustomerId,
+                      LOE_ServiceTypeId, LOE_FunctionId,
+                      LOE_STATUS, LOE_Delflag,
+                      LOE_CrBy, LOE_CrOn,
+                      LOE_IPAddress, LOE_CompID
                   )
                   VALUES
                   (
-                      @NewId,
-                      0,
-                      @ReportTypeId,
-                      @HeadingID,
-                      @Heading,
-                      @Description,
-                      'LOE',
-                      @CreatedBy,
-                      GETDATE(),
-                      @IPAddress,
-                      @CompID
-                  );",
+                      @NewId, @YearId, @CustomerId,
+                      @ReportTypeId, @FunctionId,
+                      'C','A',@CrBy,GETDATE(),
+                      @IP,@CompId
+                  );
+
+                  SELECT @NewId;",
                         new
                         {
-                            ReportTypeId = item.LTD_ReportTypeID,
-                            HeadingID = item.LTD_HeadingID,
-                            Heading = item.LTD_Heading,
-                            Description = item.LTD_Decription,
-                            CreatedBy = item.LTD_CrBy,
-                            IPAddress = item.LTD_IPAddress,
-                            CompID = item.LTD_CompID
+                            YearId = dto.LOE_YearId,
+                            CustomerId = dto.LOE_CustomerId,
+                            ReportTypeId = reportTypeId,
+                            FunctionId = dto.LOE_FunctionId,
+                            CrBy = dto.LOE_CrBy,
+                            IP = dto.LOE_IPAddress,
+                            CompId = dto.LOE_CompID
                         },
                         transaction);
                 }
 
+                /* ---------------------------------------------------------
+                   STEP 3: ENSURE MASTER HEADINGS EXIST (INSERT ONLY)
+                --------------------------------------------------------- */
+                foreach (var h in dto.EngagementHeadingDetails)
+                {
+                    int rcmId = await connection.QueryFirstOrDefaultAsync<int>(
+                        @"SELECT RCM_Id
+                  FROM SAD_ReportContentMaster
+                  WHERE RCM_ReportName = @ReportName
+                    AND RCM_Heading = @Heading
+                    AND RCM_Delflag = 'A'",
+                        new
+                        {
+                            ReportName = REPORT_NAME,
+                            Heading = h.RCM_Heading
+                        },
+                        transaction);
+
+                    if (rcmId == 0)
+                    {
+                        await connection.ExecuteAsync(
+                            @"DECLARE @NewId INT;
+                      SELECT @NewId = ISNULL(MAX(RCM_Id),0) + 1
+                      FROM SAD_ReportContentMaster;
+
+                      INSERT INTO SAD_ReportContentMaster
+                      (
+                          RCM_Id, RCM_ReportId, RCM_ReportName,
+                          RCM_Heading, RCM_Description,
+                          RCM_Delflag, RCM_CrBy, RCM_CrOn
+                      )
+                      VALUES
+                      (
+                          @NewId, @ReportTypeId, @ReportName,
+                          @Heading, @Description,
+                          'A', @CrBy, GETDATE()
+                      );",
+                            new
+                            {
+                                ReportTypeId = reportTypeId,
+                                ReportName = REPORT_NAME,
+                                Heading = h.RCM_Heading,
+                                Description = h.RCM_Description,
+                                CrBy = dto.LOE_CrBy
+                            },
+                            transaction);
+                    }
+                }
+
+                /* ---------------------------------------------------------
+                   STEP 4: FETCH MASTER HEADINGS
+                --------------------------------------------------------- */
+                var masterTemplates = (await connection.QueryAsync<dynamic>(
+                    @"SELECT RCM_Id, RCM_Heading, RCM_Description
+              FROM SAD_ReportContentMaster
+              WHERE RCM_ReportName = @ReportName
+                AND RCM_Delflag = 'A'",
+                    new { ReportName = REPORT_NAME },
+                    transaction)).ToList();
+
+                /* ---------------------------------------------------------
+                   STEP 5: FETCH EXISTING LOE TEMPLATES
+                --------------------------------------------------------- */
+                var existingTemplates = (await connection.QueryAsync<dynamic>(
+                    @"SELECT LTD_ID, LTD_HeadingID, LTD_Decription
+              FROM LOE_Template_Details
+              WHERE LTD_LOE_ID = @LOEId
+                AND LTD_ReportTypeID = @ReportTypeId",
+                    new { LOEId = loeId, ReportTypeId = reportTypeId },
+                    transaction)).ToList();
+
+                var existingMap = existingTemplates.ToDictionary(
+                    x => (int)x.LTD_HeadingID,
+                    x => new
+                    {
+                        LTD_ID = (int)x.LTD_ID,
+                        Description = (string)x.LTD_Decription
+                    });
+
+                /* ---------------------------------------------------------
+                   STEP 6: MAP UI INPUT DESCRIPTIONS
+                --------------------------------------------------------- */
+                var inputMap = dto.EngagementTemplateDetails
+                    .Where(x => !string.IsNullOrWhiteSpace(x.LTD_Heading))
+                    .ToDictionary(
+                       x => x.LTD_Heading.Trim(),
+                       x => x.LTD_Decription ?? string.Empty
+                    );
+
+
+                /* ---------------------------------------------------------
+                   STEP 7: INSERT / UPDATE LOE TEMPLATE DETAILS
+                --------------------------------------------------------- */
+                foreach (var m in masterTemplates)
+                {
+                    int headingId = (int)m.RCM_Id;
+                    string headingName = (string)m.RCM_Heading;
+
+                    string newDescription =
+                        inputMap.ContainsKey(headingName)
+                            ? inputMap[headingName]
+                            : (string)m.RCM_Description;
+
+                    if (!existingMap.ContainsKey(headingId))
+                    {
+                        await connection.ExecuteAsync(
+                            @"DECLARE @NewId INT;
+                      SELECT @NewId = ISNULL(MAX(LTD_ID),0) + 1
+                      FROM LOE_Template_Details;
+
+                      INSERT INTO LOE_Template_Details
+                      (
+                          LTD_ID, LTD_LOE_ID, LTD_ReportTypeID,
+                          LTD_HeadingID, LTD_Heading, LTD_Decription,
+                          LTD_FormName, LTD_CrBy, LTD_CrOn,
+                          LTD_IPAddress, LTD_CompID
+                      )
+                      VALUES
+                      (
+                          @NewId, @LOEId, @ReportTypeId,
+                          @HeadingId, @Heading, @Description,
+                          'Schedule Report', @CrBy, GETDATE(),
+                          @IP, @CompId
+                      );",
+                            new
+                            {
+                                LOEId = loeId,
+                                ReportTypeId = reportTypeId,
+                                HeadingId = headingId,
+                                Heading = headingName,
+                                Description = newDescription,
+                                CrBy = dto.LOE_CrBy,
+                                IP = dto.LOE_IPAddress,
+                                CompId = dto.LOE_CompID
+                            },
+                            transaction);
+                    }
+                    else
+                    {
+                        var existing = existingMap[headingId];
+
+                        if (!string.Equals(existing.Description, newDescription, StringComparison.Ordinal))
+                        {
+                            await connection.ExecuteAsync(
+                                @"UPDATE LOE_Template_Details
+                          SET LTD_Decription = @Description,
+                              LTD_UpdatedBy = @UpdatedBy,
+                              LTD_UpdatedOn = GETDATE()
+                          WHERE LTD_ID = @LTDId",
+                                new
+                                {
+                                    Description = newDescription,
+                                    UpdatedBy = dto.LOE_CrBy,
+                                    LTDId = existing.LTD_ID
+                                },
+                                transaction);
+                        }
+                    }
+                }
                 await transaction.CommitAsync();
-                return true;
+                return loeId;
             }
             catch
             {
@@ -3809,7 +4039,51 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
                 throw;
             }
         }
+        public async Task<bool> IsNetIncomeZeroAsync(
+    int yearId,
+    int custId,
+    int branchId, int duration)
+        {
+            string dbName = _httpContextAccessor.HttpContext?
+                .Session.GetString("CustomerCode");
 
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode missing in session");
+
+            string connectionString =
+                _configuration.GetConnectionString(dbName);
+
+            const string query = @"
+            SELECT 
+                ISNULL(ATBU_Closing_TotalDebit_Amount, 0),
+                ISNULL(ATBU_Closing_TotalCredit_Amount, 0)
+            FROM Acc_TrailBalance_Upload
+            WHERE ATBU_YEARId = @YearId
+              AND ATBU_Custid = @CustId
+              AND Atbu_Branchid = @BranchId and ATBU_QuarterId = @duration 
+              AND ATBU_Description = 'Net Income'";
+
+            using var connection = new SqlConnection(connectionString);
+            using var command = new SqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@YearId", yearId);
+            command.Parameters.AddWithValue("@CustId", custId);
+            command.Parameters.AddWithValue("@BranchId", branchId);
+            command.Parameters.AddWithValue("@duration", duration);
+
+            await connection.OpenAsync();
+
+            using var reader = await command.ExecuteReaderAsync();
+
+            if (!await reader.ReadAsync())
+                return true; // no record → treat as zero
+
+            decimal debit = reader.GetDecimal(0);
+            decimal credit = reader.GetDecimal(1);
+
+            return debit == 0 && credit == 0;
+        }
     }
 }
+
 

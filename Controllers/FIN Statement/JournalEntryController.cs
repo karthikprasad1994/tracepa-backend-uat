@@ -19,36 +19,96 @@ namespace TracePca.Controllers.FIN_Statement
             _JournalEntryInterface = JournalEntryInterface;
             _JournalEntryService = JournalEntryInterface;
         }
-        
+
         //GetJournalEntryInformation
         [HttpGet("GetJournalEntryInformation")]
-        public async Task<IActionResult> GetJournalEntryInformation([FromQuery] int CompId,
+        public async Task<IActionResult> GetJournalEntryInformation(
+        [FromQuery] int CompId,
         [FromQuery] int UserId,
         [FromQuery] string Status,
         [FromQuery] int CustId,
         [FromQuery] int YearId,
         [FromQuery] int BranchId,
         [FromQuery] string DateFormat,
-        [FromQuery] int DurationId)
+        [FromQuery] int DurationId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string searchText = "", // ✅ Added search parameter
+        [FromQuery] string sortBy = "Id", // ✅ Added sort field parameter
+        [FromQuery] string sortOrder = "ASC") // ✅ Added sort order parameter
         {
             try
             {
-                var result = await _JournalEntryService.GetJournalEntryInformationAsync(CompId, UserId, Status, CustId, YearId, BranchId, DateFormat, DurationId);
+                // Validate pagination parameters
+                if (page < 1)
+                {
+                    return BadRequest(new
+                    {
+                        status = 400,
+                        message = "Page number must be greater than 0.",
+                        data = (object)null
+                    });
+                }
+
+                if (pageSize < 1 || pageSize > 100)
+                {
+                    return BadRequest(new
+                    {
+                        status = 400,
+                        message = "Page size must be between 1 and 100.",
+                        data = (object)null
+                    });
+                }
+
+                // Validate sort parameters
+                var validSortColumns = new[] { "Id", "TransactionNo", "BillDate", "BillType", "Status", "Debit", "Credit" };
+                if (!validSortColumns.Contains(sortBy, StringComparer.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new
+                    {
+                        status = 400,
+                        message = $"Invalid sort column. Valid columns are: {string.Join(", ", validSortColumns)}",
+                        data = (object)null
+                    });
+                }
+
+                sortOrder = sortOrder.ToUpper() == "DESC" ? "DESC" : "ASC";
+
+                var result = await _JournalEntryService.GetJournalEntryInformationAsync(
+                    CompId, UserId, Status, CustId, YearId, BranchId,
+                    DateFormat, DurationId, page, pageSize, searchText, sortBy, sortOrder);
 
                 return Ok(new
                 {
                     status = 200,
-                    message = result.Any() ? "Journal entries retrieved successfully." : "No journal entries found.",
-                    data = result
+                    message = result.Data.Any() ? "Journal entries retrieved successfully." : "No journal entries found.",
+                    data = new
+                    {
+                        entries = result.Data,
+                        pagination = new
+                        {
+                            currentPage = result.CurrentPage,
+                            pageSize = result.PageSize,
+                            totalCount = result.TotalCount,
+                            totalPages = result.TotalPages,
+                            hasPreviousPage = result.HasPreviousPage,
+                            hasNextPage = result.HasNextPage
+                        }
+                    }
                 });
             }
             catch (Exception ex)
             {
+                // Log the exception here if you have logging configured
+                // _logger.LogError(ex, "Error retrieving journal entries");
+
                 return StatusCode(500, new
                 {
                     status = 500,
                     message = "An error occurred while retrieving journal entries.",
                     error = ex.Message
+                    // In production, you might want to hide the full exception message:
+                    // error = "Internal server error. Please contact administrator."
                 });
             }
         }
@@ -248,22 +308,68 @@ namespace TracePca.Controllers.FIN_Statement
         {
             try
             {
-                var result = await _JournalEntryService.SaveGeneralLedgerAsync(CompId, dtos);
-
-                if (result == null || result.Length == 0)
+                if (dtos == null || dtos.Count == 0)
                 {
                     return BadRequest(new
                     {
                         statusCode = 400,
-                        message = "Failed to upload General Ledger."
+                        message = "No data provided for upload."
                     });
                 }
 
-                return Ok(new
+                var result = await _JournalEntryService.SaveGeneralLedgerAsync(CompId, dtos);
+
+                // Check the result type
+                if (result is object dynamicResult)
                 {
-                    statusCode = 200,
-                    message = "General Ledger uploaded successfully.",
-                    data = result
+                    var status = dynamicResult.GetType().GetProperty("Status")?.GetValue(dynamicResult)?.ToString();
+                    var message = dynamicResult.GetType().GetProperty("Message")?.GetValue(dynamicResult)?.ToString();
+
+                    if (status == "PartialSuccess")
+                    {
+                        return Ok(new
+                        {
+                            statusCode = 200,
+                            message = message,
+                            data = dynamicResult
+                        });
+                    }
+                    else if (status == "Failed")
+                    {
+                        return BadRequest(new
+                        {
+                            statusCode = 400,
+                            message = message,
+                            data = dynamicResult
+                        });
+                    }
+                    else if (status == "Error")
+                    {
+                        return StatusCode(500, new
+                        {
+                            statusCode = 500,
+                            message = message,
+                            error = dynamicResult.GetType().GetProperty("Error")?.GetValue(dynamicResult),
+                            data = dynamicResult
+                        });
+                    }
+                }
+
+                // Fallback for legacy return type (int[])
+                if (result is int[] intArray && intArray.Length > 0)
+                {
+                    return Ok(new
+                    {
+                        statusCode = 200,
+                        message = "General Ledger uploaded successfully.",
+                        data = new { updateOrSave = intArray[0], operationId = intArray[1] }
+                    });
+                }
+
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    message = "Failed to upload General Ledger. Invalid response from service."
                 });
             }
             catch (Exception ex)
@@ -272,7 +378,8 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     statusCode = 500,
                     message = "An error occurred while uploading General Ledger.",
-                    error = ex.Message
+                    error = ex.Message,
+                    stackTrace = ex.StackTrace
                 });
             }
         }

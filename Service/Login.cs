@@ -1610,11 +1610,17 @@ new { UserId = userId });
                 string? ymsId = null;
                 int? ymsYearId = null;
 
-                using (var yearConnection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                using (var yearConnection = new SqlConnection(customerDbConnection))
                 {
                     await yearConnection.OpenAsync();
-                    const string query = @"SELECT YMS_ID, YMS_YEARID FROM Year_Master WHERE YMS_Default = 1";
-                    var yearResult = await yearConnection.QueryFirstOrDefaultAsync<YearDto>(query);
+
+                    const string query = @"
+        SELECT YMS_ID, YMS_YEARID
+        FROM Year_Master
+        WHERE YMS_Default = 1";
+
+                    var yearResult = await yearConnection
+                        .QueryFirstOrDefaultAsync<YearDto>(query);
 
                     if (yearResult != null)
                     {
@@ -1622,6 +1628,7 @@ new { UserId = userId });
                         ymsYearId = yearResult.YMS_YEARID;
                     }
                 }
+
 
                 string clientIp = httpContext?.Request?.Headers["X-Forwarded-For"].FirstOrDefault()
                     ?? httpContext?.Connection?.RemoteIpAddress?.ToString();

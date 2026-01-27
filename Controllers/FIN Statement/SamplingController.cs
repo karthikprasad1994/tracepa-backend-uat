@@ -28,11 +28,11 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetSystemSampling
         [HttpGet("GetSystemSampling")]
-        public async Task<IActionResult> GetSystemSampling(int compId, int custId, int branchId, int yearId, int nthPosition, int fromRow, int toRow, int sampleSize)
+        public async Task<IActionResult> GetSystemSampling(int compId, int custId, int branchId, int yearId, int nthPosition, int fromRow, int toRow, int sampleSize, int type, int pkId)
         {
             try
             {
-                var result = await _SamplingService.GetSystemSamplingAsync(compId, custId, branchId, yearId, nthPosition, fromRow, toRow, sampleSize);
+                var result = await _SamplingService.GetSystemSamplingAsync(compId, custId, branchId, yearId, nthPosition, fromRow, toRow, sampleSize, type, pkId);
 
                 if (result == null)
                 {
@@ -67,11 +67,11 @@ namespace TracePca.Controllers.FIN_Statement
         int custId,
         int branchId,
         int yearId,
-        decimal percentage)
+        decimal percentage, int type, int pkId)
         {
             try
             {
-                var result = await _SamplingService.GetStratifiedSamplingAsync(compId, custId, branchId, yearId, percentage);
+                var result = await _SamplingService.GetStratifiedSamplingAsync(compId, custId, branchId, yearId, percentage,type,pkId);
 
                 if (result == null || !result.Any())
                 {

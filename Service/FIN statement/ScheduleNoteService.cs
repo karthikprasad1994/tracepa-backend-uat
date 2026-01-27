@@ -30,7 +30,7 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetSubHeadingname(Notes For SubHeading)
-        public async Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CustomerId, int SubHeadingId)
+        public async Task<IEnumerable<SubHeadingNoteDto>> GetSubHeadingDetailsAsync(int CompId, int CustId)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -45,23 +45,155 @@ namespace TracePca.Service.FIN_statement
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             var query = @"
-SELECT 
-    ASHN_Description AS Description,
-    ASHN_ID 
-FROM ACC_SubHeadingNoteDesc 
-LEFT JOIN ACC_ScheduleSubHeading a ON a.ASSH_ID = ASHN_SubHeadingId 
-WHERE ASHN_CustomerId = @CustomerId 
-  AND ASHN_SubHeadingId = @SubHeadingId";
+            SELECT
+              ASSH_ID AS ASSH_ID,
+              ASSH_Name AS ASSH_Name
+            FROM ACC_ScheduleSubHeading 
+            WHERE Assh_Orgtype = @CustId
+               AND ASSH_CompId = @CompId";
+
 
             return await connection.QueryAsync<SubHeadingNoteDto>(query, new
             {
-                CustomerId = CustomerId,
-                SubHeadingId = SubHeadingId
+                CompId = CompId,
+                CustId = CustId
             });
         }
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
-        public async Task<int[]> SaveSubHeadindNotesAsync(SubHeadingNotesDto dto)
+        public async Task<List<SaveSubheadingDto>> SaveNotesUsingExistingSubHeadingAsync( List<SaveSubheadingDto> subheadingDtos)
+        {
+            // 1️⃣ Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                foreach (var subheading in subheadingDtos)
+                {
+                    if (subheading.assH_ID <= 0)
+                    {
+                        string fetchSubHeadingSql = @"
+                    SELECT ASSH_ID
+                    FROM ACC_ScheduleSubHeading
+                    WHERE ASSH_Name = @Name
+                      AND ASSH_HeadingID = @HeadingID
+                      AND ASSH_CompId = @CompId
+                      AND ASSH_YEARId = @YearId
+                      AND ASSH_DELFLG = 'N'";
+
+                        subheading.assH_ID = await connection.ExecuteScalarAsync<int>(
+                            fetchSubHeadingSql,
+                            new
+                            {
+                                Name = subheading.assH_Name,
+                                HeadingID = subheading.assH_HeadingID,
+                                CompId = subheading.assH_CompId,
+                                YearId = subheading.assH_YEARId
+                            },
+                            transaction
+                        );
+
+                        if (subheading.assH_ID <= 0)
+                            throw new Exception($"SubHeading not found: {subheading.assH_Name}");
+                    }
+
+                    foreach (var note in subheading.notes)
+                    {
+                        using var cmdNote = new SqlCommand(
+                            "spACC_SubHeadingNoteDesc",
+                            connection,
+                            transaction);
+
+                        cmdNote.CommandType = CommandType.StoredProcedure;
+
+                        cmdNote.Parameters.AddWithValue("@ASHN_ID", note.ashN_ID);
+                        cmdNote.Parameters.AddWithValue("@ASHN_SubHeadingId", subheading.assH_ID); // 🔑 KEY POINT
+                        cmdNote.Parameters.AddWithValue("@ASHN_CustomerId", note.ashN_CustomerId);
+                        cmdNote.Parameters.AddWithValue("@ASHN_Description", note.ashN_Description ?? string.Empty);
+                        cmdNote.Parameters.AddWithValue("@ASHN_DelFlag", note.ashN_DelFlag ?? "N");
+                        cmdNote.Parameters.AddWithValue("@ASHN_Status", note.ashN_Status ?? "C");
+                        cmdNote.Parameters.AddWithValue("@ASHN_Operation", note.ashN_Operation ?? "SAVE");
+                        cmdNote.Parameters.AddWithValue("@ASHN_CreatedBy", note.ashN_CreatedBy);
+                        cmdNote.Parameters.AddWithValue("@ASHN_CreatedOn",
+                            note.ashN_CreatedOn == default ? DateTime.Now : note.ashN_CreatedOn);
+                        cmdNote.Parameters.AddWithValue("@ASHN_CompID", note.ashN_CompID);
+                        cmdNote.Parameters.AddWithValue("@ASHN_YearID", note.ashN_YearID);
+                        cmdNote.Parameters.AddWithValue("@ASHN_IPAddress", note.ashN_IPAddress ?? "127.0.0.1");
+
+                        var iUpdateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
+                        {
+                            Direction = ParameterDirection.Output
+                        };
+
+                        var iOper = new SqlParameter("@iOper", SqlDbType.Int)
+                        {
+                            Direction = ParameterDirection.Output
+                        };
+
+                        cmdNote.Parameters.Add(iUpdateOrSave);
+                        cmdNote.Parameters.Add(iOper);
+
+                        await cmdNote.ExecuteNonQueryAsync();
+
+                        // Update note ID
+                        note.ashN_ID = Convert.ToInt32(iOper.Value);
+                    }
+                }
+
+                transaction.Commit();
+                return subheadingDtos;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
+        //LoadGrid(Notes For SubHeading)
+        public async Task<List<SubheadingNoteLoadDto>> LoadSubheadingNotesAsync(int compId, int yearId, int custId)
+        {
+            // Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            string sql = @"
+        SELECT 
+            sh.ASSH_ID AS SubHeadingId,
+            sh.ASSH_Name AS SubHeadingName,
+            n.ASHN_ID AS NoteId,
+            n.ASHN_Description AS Description
+        FROM ACC_SubHeadingNoteDesc n
+        INNER JOIN ACC_ScheduleSubHeading sh
+            ON n.ASHN_SubHeadingId = sh.ASSH_ID
+        WHERE n.ASHN_CompID = @CompId
+          AND n.ASHN_YearID = @YearId
+          AND n.ASHN_CustomerId = @CustId
+        ORDER BY sh.ASSH_Name, n.ASHN_ID";
+
+            var notes = await connection.QueryAsync<SubheadingNoteLoadDto>(sql, new { CompId = compId, YearId = yearId, CustId = custId });
+
+            return notes.ToList();
+        }
+
+        //DeleteSubHeadingNoteDescriptions
+        public async Task<int> DeleteSubHeadingDescriptionAsync(int compId, int ashnId)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -69,64 +201,23 @@ WHERE ASHN_CustomerId = @CustomerId
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
+            // ✅ Step 2: Get connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            {
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        using (var cmd = new SqlCommand("spACC_SubHeadingNoteDesc", connection, transaction))
-                        {
-                            cmd.CommandType = CommandType.StoredProcedure;
 
-                            cmd.Parameters.AddWithValue("@ASHN_ID", dto.ASHN_ID);
-                            cmd.Parameters.AddWithValue("@ASHN_SubHeadingId", dto.ASHN_SubHeadingId);
-                            cmd.Parameters.AddWithValue("@ASHN_CustomerId", dto.ASHN_CustomerId);
-                            cmd.Parameters.AddWithValue("@ASHN_Description", dto.ASHN_Description ?? string.Empty);
-                            cmd.Parameters.AddWithValue("@ASHN_DelFlag", dto.ASHN_DelFlag ?? "A");
-                            cmd.Parameters.AddWithValue("@ASHN_Status", dto.ASHN_Status ?? "W");
-                            cmd.Parameters.AddWithValue("@ASHN_Operation", dto.ASHN_Operation ?? "S");
-                            cmd.Parameters.AddWithValue("@ASHN_CreatedBy", dto.ASHN_CreatedBy);
-                            cmd.Parameters.AddWithValue("@ASHN_CreatedOn", dto.ASHN_CreatedOn);
-                            cmd.Parameters.AddWithValue("@ASHN_CompID", dto.ASHN_CompID);
-                            cmd.Parameters.AddWithValue("@ASHN_YearID", dto.ASHN_YearID);
-                            cmd.Parameters.AddWithValue("@ASHN_IPAddress", dto.ASHN_IPAddress ?? string.Empty);
+            // ✅ Step 3: Hard delete description
+            var deleteQuery = @"
+        DELETE FROM ACC_SubHeadingNoteDesc
+        WHERE ASHN_CompID = @ASHN_CompID
+         AND ASHN_ID = @ASHN_ID";
 
-                            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
-                            {
-                                Direction = ParameterDirection.Output
-                            };
-                            var operParam = new SqlParameter("@iOper", SqlDbType.Int)
-                            {
-                                Direction = ParameterDirection.Output
-                            };
+            var affectedRows = await connection.ExecuteAsync(
+                deleteQuery,
+                new { ASHN_CompID = compId, ASHN_ID = ashnId});
 
-                            cmd.Parameters.Add(updateOrSaveParam);
-                            cmd.Parameters.Add(operParam);
-
-                            await cmd.ExecuteNonQueryAsync();
-
-                            transaction.Commit();
-
-                            return new int[]
-                            {
-                        (int)(updateOrSaveParam.Value ?? 0),
-                        (int)(operParam.Value ?? 0)
-                            };
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        transaction.Rollback();
-                        throw;
-                    }
-                }
-            }
+            return affectedRows; 
         }
 
         //GetBranch(Notes For Ledger)

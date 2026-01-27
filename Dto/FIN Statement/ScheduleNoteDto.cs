@@ -6,25 +6,50 @@
         //GetSubHeadingname(Notes For SubHeading)
         public class SubHeadingNoteDto
         {
-            public int ASHN_ID { get; set; }
-            public string Description { get; set; }
+            public int ASSH_ID { get; set; }
+            public string ASSH_Name { get; set; }
         }
 
         //SaveOrUpdateSubHeadingNotes(Notes For SubHeading)
-        public class SubHeadingNotesDto
+        public class SaveSubheadingDto
         {
-            public int ASHN_ID { get; set; }
-            public int ASHN_SubHeadingId { get; set; }
-            public int ASHN_CustomerId { get; set; }
-            public string ASHN_Description { get; set; }
-            public string ASHN_DelFlag { get; set; }
-            public string ASHN_Status { get; set; }
-            public string ASHN_Operation { get; set; }
-            public int ASHN_CreatedBy { get; set; }
-            public DateTime ASHN_CreatedOn { get; set; }
+            public int assH_ID { get; set; }            
+            public string assH_Name { get; set; }         
+            public int assH_HeadingID { get; set; }    
+            public int assH_CompId { get; set; }
+            public int assH_YEARId { get; set; }
+            public List<SaveSubHeadingNoteDto> notes { get; set; } = new();
+        }
+        public class SaveSubHeadingNoteDto
+        {
+            public int ashN_ID { get; set; }               
+            public int ashN_SubHeadingId { get; set; }   
+            public int ashN_CustomerId { get; set; }
+            public string ashN_Description { get; set; }
+            public string ashN_DelFlag { get; set; }     
+            public string ashN_Status { get; set; }   
+            public string ashN_Operation { get; set; }    
+            public int ashN_CreatedBy { get; set; }
+            public DateTime ashN_CreatedOn { get; set; }
+            public int ashN_CompID { get; set; }
+            public int ashN_YearID { get; set; }
+            public string ashN_IPAddress { get; set; }
+        }
+
+        //LoadGrid(Notes For SubHeading)
+        public class SubheadingNoteLoadDto
+        {
+            public int SubHeadingId { get; set; }      
+            public string SubHeadingName { get; set; } 
+            public int NoteId { get; set; }           
+            public string Description { get; set; }   
+        }
+
+        //DeleteSubHeadingNoteDescriptions
+        public class DeleteSubHeadingDescriptionDto
+        {
             public int ASHN_CompID { get; set; }
-            public int ASHN_YearID { get; set; }
-            public string ASHN_IPAddress { get; set; }
+            public int ASHN_ID { get; set; }
         }
 
         //GetBranch(Notes For Ledger)

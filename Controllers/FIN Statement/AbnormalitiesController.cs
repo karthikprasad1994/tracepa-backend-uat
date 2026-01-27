@@ -27,17 +27,25 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetAbnormalTransactions
         [HttpGet("Abnormal")]
-        public async Task<IActionResult> GetAbnormalTransactions([FromQuery] int iCustId, 
-            [FromQuery] int iBranchId, [FromQuery] int iYearID, [FromQuery] int iAbnormalType, [FromQuery] string sAmount,
-
-            [FromQuery] string? searchTerm, [FromQuery] int pageNumber, [FromQuery] int pageSize)
+        public async Task<IActionResult> GetAbnormalTransactions(
+            [FromQuery] int iCustId,
+            [FromQuery] int iBranchId,
+            [FromQuery] int iYearID,
+            [FromQuery] int iAbnormalType,
+            [FromQuery] decimal sAmount,
+            [FromQuery] string? searchTerm,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string sortColumn = "AJTB_CreatedOn",
+            [FromQuery] string sortDirection = "DESC")
         {
             try
             {
-                var result = await _AbnormalitiesService.GetAbnormalTransactionsAsync(iCustId, iBranchId, 
-                    iYearID, iAbnormalType, sAmount, searchTerm, pageNumber, pageSize);
+                var result = await _AbnormalitiesService.GetAbnormalTransactionsAsync(
+                    iCustId, iBranchId, iYearID, iAbnormalType, sAmount,
+                    searchTerm ?? "", pageNumber, pageSize, sortColumn, sortDirection);
 
-                if (result == null)
+                if (result == null || !result.Items.Any())
                 {
                     return NotFound(new
                     {
@@ -51,7 +59,12 @@ namespace TracePca.Controllers.FIN_Statement
                 {
                     StatusCode = 200,
                     Message = "Abnormal transactions retrieved successfully.",
-                    Data = result
+                    Data = result,
+                    Sorting = new
+                    {
+                        sortColumn,
+                        sortDirection
+                    }
                 });
             }
             catch (Exception ex)
@@ -63,6 +76,12 @@ namespace TracePca.Controllers.FIN_Statement
                     Error = ex.Message
                 });
             }
+        }
+        [HttpGet("details/{masId}")]
+        public async Task<IActionResult> GetJeTransactionDetails(int masId)
+        {
+            var data = await _AbnormalitiesService.GetJeTransactionDetailsAsync(masId);
+            return Ok(data);
         }
 
         //UpdateAEStatus
@@ -106,6 +125,23 @@ namespace TracePca.Controllers.FIN_Statement
                     error = ex.Message
                 });
             }
+        }
+        [HttpGet("download-abnormal-excel")]
+        public async Task<IActionResult> DownloadExcel(
+    int iCustId,
+    int iBranchId,
+    int iYearID,
+    int iAbnormalType,
+    string sAmount,
+    string searchTerm = "")
+        {
+            var fileBytes = await _AbnormalitiesService.DownloadAbnormalTransactionsExcelAsync(
+                iCustId, iBranchId, iYearID, iAbnormalType, sAmount, searchTerm);
+
+            return File(
+                fileBytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "Abnormal_Transactions.xlsx");
         }
 
         [HttpGet("DownloadAbnormalTransactionsExcel")]
