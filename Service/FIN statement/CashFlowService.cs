@@ -6,6 +6,7 @@ using iText.Commons.Bouncycastle.Cert.Ocsp;
 using iText.Commons.Utils;
 using Microsoft.AspNetCore.SignalR.Protocol;
 using Microsoft.Data.SqlClient;
+using System;
 using System.Data;
 using System.Runtime.ConstrainedExecution;
 using System.Text.RegularExpressions;
@@ -609,6 +610,7 @@ namespace TracePca.Service.FIN_statement
             using var tran = connection.BeginTransaction();
             try
             {
+                Decimal dCashflorTotal = 0m;
                 var result = new CashFlowCategory1Result
                 {
                     Particular = new List<CashFlowParticularDto>()
@@ -631,14 +633,14 @@ namespace TracePca.Service.FIN_statement
                     "Operating profit / (loss) before working capital changes"
                 };
 
-                // Row 1: Heading
+                // Row 1: A. Cash flow from operating activities
                 result.Particular.Add(new CashFlowParticularDto
                 {
                     Sr_No = 1,
                     ParticularName = labels[0]
                 });
 
-                // Row 2: Net Profit = Income - Expenses
+                // Row 2: Net Profit / (Loss) before extraordinary items and tax
                 int headIncomeId = await GetHeadingId(connection, tran, customerId, "Income");
                 int headExpenseId = await GetHeadingId(connection, tran, customerId, "Expenses");
 
@@ -647,6 +649,7 @@ namespace TracePca.Service.FIN_statement
 
                 decimal netCY = Safe(income.Dc1) - Safe(expense.Dc1);
                 decimal netPY = Safe(income.DP1) - Safe(expense.DP1);
+                dCashflorTotal += netCY;
 
                 result.Particular.Add(new CashFlowParticularDto
                 {
@@ -656,7 +659,7 @@ namespace TracePca.Service.FIN_statement
                     PreviousYear = netPY
                 });
 
-                // Row 3: Adjustment Heading
+                // Row 3: Adjustment for
                 result.Particular.Add(new CashFlowParticularDto
                 {
                     Sr_No = 3,
@@ -677,6 +680,7 @@ namespace TracePca.Service.FIN_statement
                     decimal depPY = Safe(depDt.DP1);
                     totalAdjCY += depCY;
                     totalAdjPY += depPY;
+                    dCashflorTotal += depCY;
 
                     result.Particular.Add(new CashFlowParticularDto
                     {
@@ -686,7 +690,7 @@ namespace TracePca.Service.FIN_statement
                         PreviousYear = depPY
                     });
                 }
-                // Row 5: Provision for impairment of fixed assets and intangibles (heading)
+                // Row 5: Provision for impairment of fixed assets and intangibles
                 {
                     int provHeadId = await GetHeadingId(connection, tran, customerId, labels[4]);
                     // breakpoint here to inspect provHeadId
@@ -695,6 +699,7 @@ namespace TracePca.Service.FIN_statement
                     decimal provPY = Safe(provDt.DP1);
                     totalAdjCY += provCY;
                     totalAdjPY += provPY;
+                    dCashflorTotal += provCY;
 
                     result.Particular.Add(new CashFlowParticularDto
                     {
@@ -712,7 +717,7 @@ namespace TracePca.Service.FIN_statement
                     decimal badPY = Safe(badDt.DP1);
                     totalAdjCY += badCY;
                     totalAdjPY += badPY;
-
+                    dCashflorTotal += badCY;
                     result.Particular.Add(new CashFlowParticularDto
                     {
                         Sr_No = sr++,
@@ -729,6 +734,7 @@ namespace TracePca.Service.FIN_statement
                     decimal esopPY = Safe(esopDt.DP1);
                     totalAdjCY += esopCY;
                     totalAdjPY += esopPY;
+                    dCashflorTotal += esopCY;
 
                     result.Particular.Add(new CashFlowParticularDto
                     {
@@ -746,6 +752,7 @@ namespace TracePca.Service.FIN_statement
                     decimal finPY = Safe(finDt.DP1);
                     totalAdjCY += finCY;
                     totalAdjPY += finPY;
+                    dCashflorTotal += finCY;
 
                     result.Particular.Add(new CashFlowParticularDto
                     {
@@ -763,6 +770,7 @@ namespace TracePca.Service.FIN_statement
                     decimal intPY = Safe(intDt.DP1);
                     totalAdjCY += intCY;
                     totalAdjPY += intPY;
+                    dCashflorTotal += intCY;
 
                     result.Particular.Add(new CashFlowParticularDto
                     {
@@ -772,6 +780,31 @@ namespace TracePca.Service.FIN_statement
                         PreviousYear = intPY
                     });
                 }
+
+
+
+                //Dynamic Data
+                var intList = await GetSubHeadingDynamicDataAmt(connection, tran, yearId, customerId, 3);
+                foreach (var intDt in intList)
+                {
+                    decimal intCY = Safe(intDt.Dc1);
+                    decimal intPY = Safe(intDt.DP1);
+
+                    totalAdjCY += intCY;
+                    totalAdjPY += intPY;
+                    dCashflorTotal += intCY;
+
+                    result.Particular.Add(new CashFlowParticularDto
+                    {
+                        Sr_No = sr++,
+                        ParticularName = intDt.sSubHeading,
+                        CurrentYear = intCY,
+                        PreviousYear = intPY
+                    });
+                }
+                 
+
+
                 // USER-ADDED ADJUSTMENTS (AFTER SR 9)
                 if (userAdjustments != null)
                 {
@@ -784,7 +817,7 @@ namespace TracePca.Service.FIN_statement
                         {
                             Sr_No = sr++,
                             ParticularName = ua.Description,
-                            CurrentYear = ua.CurrentYear,
+                            CurrentYear = dCashflorTotal,
                             PreviousYear = ua.PreviousYear
                         });
                     }
@@ -1034,6 +1067,27 @@ namespace TracePca.Service.FIN_statement
                 }
 
 
+                //Dynamic Data
+                var intList = await GetSubHeadingDynamicDataAmt(connection, tran, yearId, customerId, 4);
+                foreach (var intDt in intList)
+                {
+                    decimal intCY = Safe(intDt.Dc1);
+                    decimal intPY = Safe(intDt.DP1);
+
+                    totalCat2CY += intCY;
+                    totalCat2PY += intPY;
+                     
+
+                    result.Particular.Add(new CashFlowParticularDto
+                    {
+                        Sr_No = sr++,
+                        ParticularName = intDt.sSubHeading,
+                        CurrentYear = intCY,
+                        PreviousYear = intPY
+                    });
+                }
+
+
                 // Row 12:  ""
                 {
                     result.Particular.Add(new CashFlowParticularDto
@@ -1237,6 +1291,27 @@ namespace TracePca.Service.FIN_statement
                         PreviousYear = depPY
                     });
                 }
+
+                //Dynamic Data
+                var intList = await GetSubHeadingDynamicDataAmt(connection, tran, yearId, customerId, 4);
+                foreach (var intDt in intList)
+                {
+                    decimal intCY = Safe(intDt.Dc1);
+                    decimal intPY = Safe(intDt.DP1);
+
+                    totalCat3CY += intCY;
+                    totalCat3PY += intPY;
+
+
+                    result.Particular.Add(new CashFlowParticularDto
+                    {
+                        Sr_No = sr++,
+                        ParticularName = intDt.sSubHeading,
+                        CurrentYear = intCY,
+                        PreviousYear = intPY
+                    });
+                }
+
 
 
                 // Row 4: 
@@ -1444,6 +1519,27 @@ namespace TracePca.Service.FIN_statement
                     });
                 }
 
+
+                //Dynamic Data
+                var intList = await GetSubHeadingDynamicDataAmt(connection, tran, yearId, customerId, 5);
+                foreach (var intDt in intList)
+                {
+                    decimal intCY = Safe(intDt.Dc1);
+                    decimal intPY = Safe(intDt.DP1);
+
+                    totalCat4CY += intCY;
+                    totalCat4CY += intPY;
+
+
+                    result.Particular.Add(new CashFlowParticularDto
+                    {
+                        Sr_No = sr++,
+                        ParticularName = intDt.sSubHeading,
+                        CurrentYear = intCY,
+                        PreviousYear = intPY
+                    });
+                }
+
                 // Row 7: ""
                 {
                     result.Particular.Add(new CashFlowParticularDto
@@ -1624,6 +1720,9 @@ namespace TracePca.Service.FIN_statement
                     PreviousYear = 0
                 });
 
+
+
+
                 tran.Commit();
                 return result;
             }
@@ -1642,8 +1741,8 @@ namespace TracePca.Service.FIN_statement
 
         private async Task<int> GetSubHeadingId(SqlConnection conn, SqlTransaction tran, int customerId, string subHeadName)
         {
-            const string sql = @"SELECT ISNULL(ASSH_ID,0) FROM ACC_SchedulesubHeading WHERE ASSH_Name = @SubHeadName AND ASSH_OrgType = @CustId";
-            return await conn.ExecuteScalarAsync<int>(sql, new { SubHeadName = subHeadName, CustId = customerId }, tran);
+            const string sql = @"SELECT ISNULL(ASSH_ID,0) FROM ACC_SchedulesubHeading WHERE ASSH_Name like @SubHeadName AND ASSH_OrgType = @CustId";
+            return await conn.ExecuteScalarAsync<int>(sql, new { SubHeadName = "%" + subHeadName + "%", CustId = customerId }, tran);
         }
 
         private async Task<ScheduleAccountingRatioDto.HeadingAmount> GetHeadingAmt(SqlConnection conn, SqlTransaction tran,
@@ -1830,146 +1929,31 @@ namespace TracePca.Service.FIN_statement
             }
         }
 
-    //    public async Task<IEnumerable<CashFlowOperatingSystemDto>> GetCashFlowDetailsAsync(
-    
-    //int customerId,
-    //int branchId,
-    //int category,
-    //int financialYearId, int companyId)
-    //    {
-    //        try
-    //        {
-    //            // 🔹 Category check
-    //            if (category != 2)
-    //                return Enumerable.Empty<CashFlowOperatingSystemDto>();
+        private async Task<List<ScheduleAccountingRatioDto.SubHeadingDynamicAmount>>GetSubHeadingDynamicDataAmt(SqlConnection conn,SqlTransaction tran,int yearId,int customerId,int schedType)
+        {
+            var sql = @"SELECT ABS(ISNULL(ACF_Current_Amount, 0)) AS Dc1, ABS(ISNULL(ACF_Prev_Amount, 0)) AS DP1,
+                        ACF_Description AS SubHeading FROM acc_cashflow WHERE ACF_Catagary = @SchedType
+                        AND ACF_CustId = @CustomerId
+                        AND ACF_yearid = @YearId";
 
-    //            // 🔹 Get DB name from session
-    //            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            var rows = await conn.QueryAsync(sql,
+                new { YearId = yearId, CustomerId = customerId, SchedType = schedType },
+                tran);
 
-    //            if (string.IsNullOrEmpty(dbName))
-    //                throw new Exception("CustomerCode is missing in session. Please log in again.");
+            var result = new List<ScheduleAccountingRatioDto.SubHeadingDynamicAmount>();
 
-    //            // 🔹 Get connection string
-    //            var connectionString = _configuration.GetConnectionString(dbName);
+            foreach (var row in rows)
+            {
+                result.Add(new ScheduleAccountingRatioDto.SubHeadingDynamicAmount
+                {
+                    Dc1 = row.Dc1 ?? 0m,
+                    DP1 = row.DP1 ?? 0m,
+                    sSubHeading = row.SubHeading ?? ""
+                });
+            }
 
-    //            using var connection = new SqlConnection(connectionString);
-    //            await connection.OpenAsync();
-    //            using var transaction = connection.BeginTransaction();
-
-             
-    //            int checkflag = await connection.ExecuteScalarAsync<int>(@"select isnull(ACF_pkid,0) as ACF_pkid  from Acc_Cashflow
-    //            Where (ACF_Custid= @ACF_Custid Or ACF_Custid=0) And ACF_Branchid=@ACF_Branchid And ACF_Compid = @ACF_Compid And ACF_yearid = @ACF_yearid and ACF_Catagary=ACF_Catagary",
-    //            new { ACF_Custid = customerId, ACF_Branchid = branchId, ACF_Compid = companyId, ACF_yearid = financialYearId, ACF_Catagary = 2 }, transaction);
-    //            if (checkflag != 0)
-    //            {
-    //                string sSql = "";
-    //                sSql = @"select  ROW_NUMBER() OVER (ORDER BY ACF_pkid ASC) AS SrNo,ACF_pkid,ACF_Description as Particulers,CAST(ACF_Prev_Amount AS DECIMAL) as PreviesAmount,CAST(ACF_Current_Amount AS DECIMAL) as  CurrentAmmount from Acc_Cashflow where ACF_Custid= @ACF_Custid And ACF_Catagary=@ACF_Catagary";
-    //                var result = await connection.QueryAsync<CashFlowOperatingSystemDto>(sSql, new
-    //                {
-    //                    ACF_Custid = customerId,
-    //                    ACF_Catagary = category
-    //                });
-
-    //                foreach (var dto in result)
-    //                {
-
-    //                }
-    //            }
-    //            else
-    //            {
-    //                string sSql = "";
-    //                sSql = @"select  ROW_NUMBER() OVER (ORDER BY ACF_pkid ASC) AS SrNo,ACF_pkid,ACF_Description as Particulers,CAST(ACF_Prev_Amount AS DECIMAL) as PreviesAmount,CAST(ACF_Current_Amount AS DECIMAL) as  CurrentAmmount from Acc_Cashflow where (ACF_Custid= @ACF_Custid Or ACF_Custid=0) And ACF_Catagary=@ACF_Catagary";
-    //                var result = await connection.QueryAsync<CashFlowOperatingSystemDto>(sSql, new
-    //                {
-    //                    ACF_Custid = customerId,
-    //                    ACF_Catagary = category
-    //                });
-                    
-    //            }
-
-    //            foreach (var dto in result)
-    //            {
-
-    //            }
-
-
-
-    //                // 🔹 Build SQL
-    //                string query = hasCustomerData
-    //                ? @"SELECT ROW_NUMBER() OVER (ORDER BY ACF_pkid) AS SrNo,
-    //                  ACF_pkid AS CashFlowId,
-    //                  ACF_Description AS Particulars,
-    //                  CAST(ACF_Prev_Amount AS DECIMAL(18,2)) AS PreviousAmount,
-    //                  CAST(ACF_Current_Amount AS DECIMAL(18,2)) AS CurrentAmount
-    //           FROM Acc_Cashflow
-    //           WHERE ACF_Custid = @CustomerId
-    //             AND ACF_Catagary = @Category"
-    //                : @"SELECT ROW_NUMBER() OVER (ORDER BY ACF_pkid) AS SrNo,
-    //                  ACF_pkid AS CashFlowId,
-    //                  ACF_Description AS Particulars,
-    //                  CAST(ACF_Prev_Amount AS DECIMAL(18,2)) AS PreviousAmount,
-    //                  CAST(ACF_Current_Amount AS DECIMAL(18,2)) AS CurrentAmount
-    //           FROM Acc_Cashflow
-    //           WHERE (ACF_Custid = @CustomerId OR ACF_Custid = 0)
-    //             AND ACF_Catagary = @Category";
-
-    //            // 🔹 Execute query
-    //            var cashFlows = (await connection.QueryAsync<CashFlowDto>(query, new
-    //            {
-    //                CustomerId = customerId,
-    //                Category = category
-    //            })).ToList();
-
-    //            // 🔹 Populate dynamic amounts (same logic as before)
-    //            foreach (var dto in cashFlows)
-    //            {
-    //                await PopulateDynamicAmountsAsync(
-    //                    dto,
-                       
-    //                    companyId,
-    //                    customerId,
-    //                    branchId,
-    //                    financialYearId
-    //                );
-    //            }
-
-    //            return cashFlows;
-    //        }
-    //        catch (Exception ex)
-    //        {
-    //            throw new Exception(ex.Message);
-    //        }
-    //    }
-
-
-    //    private async Task PopulateDynamicAmountsAsync(
-    //CashFlowOperatingSystemDto dto,
-    //string accessCode,
-    //int companyId,
-    //int customerId,
-    //int branchId,
-    //int yearId)
-    //    {
-    //        switch (dto.Particulars)
-    //        {
-    //            case "Inventories":
-    //                dto.CurrentAmount = await GetSubHeadingAmountAsync(accessCode, companyId, customerId, branchId, yearId, 145);
-    //                dto.PreviousAmount = await GetSubHeadingAmountAsync(accessCode, companyId, customerId, branchId, yearId - 1, 145);
-    //                break;
-
-    //            case "Trade receivables":
-    //                dto.CurrentAmount = await GetSubHeadingAmountAsync(accessCode, companyId, customerId, branchId, yearId, 146);
-    //                dto.PreviousAmount = await GetSubHeadingAmountAsync(accessCode, companyId, customerId, branchId, yearId - 1, 146);
-    //                break;
-
-    //            case "Operating profit / (loss) after working capital changes":
-    //            case "Cash generated from operations":
-    //            case "Net cash generated from/ (used in) operating activities":
-    //                dto.CurrentAmount = 0;
-    //                dto.PreviousAmount = 0;
-    //                break;
-    //        }
-    //    }
+            return result;
+        }
     }
 }
 

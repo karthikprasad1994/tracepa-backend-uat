@@ -553,7 +553,7 @@ namespace TracePca.Service.SuperMaster
         //DownloadEmployeeMaster
         public EmployeeMasterResult GetEmployeeMasterExcelTemplate()
         {
-            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SampleExcels\\EmployeeMaster Template.xlsx";
+            var filePath = "C:\\inetpub\\vhosts\\multimedia.interactivedns.com\\tracepacore.multimedia.interactivedns.com\\SampleExcels\\EmployeeMaster Template.xlsx";
 
             if (!File.Exists(filePath))
                 return new EmployeeMasterResult();
@@ -573,7 +573,7 @@ namespace TracePca.Service.SuperMaster
         //DownloadClientDetails
         public ClientDetailsResult GetClientDetailsExcelTemplate()
         {
-            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SampleExcels\\ClientDetails Template.xlsx";
+            var filePath = "C:\\inetpub\\vhosts\\multimedia.interactivedns.com\\tracepacore.multimedia.interactivedns.com\\SampleExcels\\ClientDetails Template.xlsx";
 
             if (!File.Exists(filePath))
                 return new ClientDetailsResult();
@@ -593,7 +593,7 @@ namespace TracePca.Service.SuperMaster
         //DownloadClientuser
         public ClientUserResult GetClientUserExcelTemplate()
         {
-            var filePath = "C:\\Users\\SSD\\Desktop\\TracePa\\tracepa-dotnet-core - Copy\\SampleExcels\\ClientUser Template.xlsx";
+            var filePath = "C:\\inetpub\\vhosts\\multimedia.interactivedns.com\\tracepacore.multimedia.interactivedns.com\\SampleExcels\\ClientUser Template.xlsx";
 
             if (!File.Exists(filePath))
                 return new ClientUserResult();
