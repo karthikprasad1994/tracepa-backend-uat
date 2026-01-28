@@ -3726,6 +3726,54 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         }
 
         //GetFinancialStatementReportType
+        //        public async Task<IEnumerable<GetFinancialStatementReportTypeDTO>> GetReportTypeDetails(int compId, int reportTypeId)
+        //        {
+        //            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+        //            if (string.IsNullOrEmpty(dbName))
+        //                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+        //            var connectionString = _configuration.GetConnectionString(dbName);
+
+        //            using var connection = new SqlConnection(connectionString);
+        //            await connection.OpenAsync();
+
+        //            try
+        //            {
+
+        //                string query = @"
+        //        SELECT  
+        //    RCM.RCM_Id,
+        //    RCM.RCM_ReportName,
+        //    RCM.RCM_Heading,
+        //    RCM.RCM_Description,
+        //    LTD.LTD_ID,
+        //    LOE.LOE_Id
+        //FROM SAD_ReportContentMaster RCM
+        //LEFT JOIN LOE_Template_Details LTD 
+        //    ON RCM.RCM_Id = LTD.LTD_HeadingID
+        //LEFT JOIN SAD_CUST_LOE LOE
+        //    ON LOE.LOE_Id = LTD.LTD_LOE_ID
+        //WHERE RCM.RCM_ReportId = @ReportTypeId
+        //  AND RCM.RCM_CompID = @CompId
+        //  AND RCM.RCM_Delflag = 'A'
+        //ORDER BY RCM.RCM_Id";
+
+        //                var result = await connection.QueryAsync<GetFinancialStatementReportTypeDTO>(
+        //                    query,
+        //                    new
+        //                    {
+        //                        CompId = compId,
+        //                        ReportTypeId = reportTypeId
+        //                    });
+
+        //                return result;
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                throw new ApplicationException("An error occurred while getting report type details", ex);
+        //            }
+        //        }
         public async Task<IEnumerable<GetFinancialStatementReportTypeDTO>> GetReportTypeDetails(int compId, int reportTypeId)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -3740,24 +3788,22 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
 
             try
             {
-               
+
                 string query = @"
-        SELECT  
-    RCM.RCM_Id,
-    RCM.RCM_ReportName,
-    RCM.RCM_Heading,
-    RCM.RCM_Description,
+               SELECT  
     LTD.LTD_ID,
+    LTD_HeadingID,
+    LTD.LTD_Heading,
+    LTD.LTD_Decription,
     LOE.LOE_Id
-FROM SAD_ReportContentMaster RCM
-LEFT JOIN LOE_Template_Details LTD 
+FROM LOE_Template_Details LTD
+LEFT JOIN SAD_ReportContentMaster RCM 
     ON RCM.RCM_Id = LTD.LTD_HeadingID
 LEFT JOIN SAD_CUST_LOE LOE
     ON LOE.LOE_Id = LTD.LTD_LOE_ID
-WHERE RCM.RCM_ReportId = @ReportTypeId
-  AND RCM.RCM_CompID = @CompId
-  AND RCM.RCM_Delflag = 'A'
-ORDER BY RCM.RCM_Id";
+WHERE LTD.LTD_ReportTypeID= @ReportTypeId
+  AND LTD.LTD_CompID= @CompId
+ORDER BY LTD.LTD_ID";
 
                 var result = await connection.QueryAsync<GetFinancialStatementReportTypeDTO>(
                     query,
