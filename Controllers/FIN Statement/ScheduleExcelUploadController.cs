@@ -859,42 +859,48 @@ WHERE LTRIM(RTRIM(ATBU_Description))
             {
                 pItemId = await GetIdFromNameAsync(
                     connection, transaction,
-                    "ACC_ScheduleItems", "ASI_ID",
-                    "Others - Trade Payables",
+                    "ACC_Schedulesubheading", "ASSH_ID",
+                    "(b)   Trade payables",
                     request.CustomerId);
-
-                var dt = await GetScheduleIDs(connection, transaction, pItemId, request.CustomerId, 3);
-                if (dt.Rows.Count > 0)
+                if (pItemId > 0)
                 {
-                    pHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
-                    pSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
-                    pItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
-                }
+                    var dt = await GetScheduleIDs(connection, transaction, pItemId, request.CustomerId, 2);
+                    if (dt.Rows.Count > 0)
+                    {
+                        pHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
+                        pSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
+                        pItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
+                    }
 
-                pScheduleType = await GetScheduleTypeFromTemplateAsync(
-                    connection, transaction,
-                    0, pItemId, pSubHeadingId, pHeadingId, request.CustomerId);
+                    pScheduleType = await GetScheduleTypeFromTemplateAsync(
+                        connection, transaction,
+                        0, pItemId, pSubHeadingId, pHeadingId, request.CustomerId);
+                }
+               
             }
 
             if (hasSales)
             {
                 sItemId = await GetIdFromNameAsync(
                     connection, transaction,
-                    "ACC_ScheduleItems", "ASI_ID",
-                    "Any others - Trade receivables",
+                    "ACC_Schedulesubheading", "ASSH_ID",
+                    "(b) Trade Receivables",
                     request.CustomerId);
-
-                var dt = await GetScheduleIDs(connection, transaction, sItemId, request.CustomerId, 3);
-                if (dt.Rows.Count > 0)
+                if (pItemId > 0)
                 {
-                    sHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
-                    sSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
-                    sItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
-                }
+                    var dt = await GetScheduleIDs(connection, transaction, sItemId, request.CustomerId, 2);
+                    if (dt.Rows.Count > 0)
+                    {
+                        sHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
+                        sSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
+                        sItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
+                    }
 
-                sScheduleType = await GetScheduleTypeFromTemplateAsync(
-                    connection, transaction,
-                    0, sItemId, sSubHeadingId, sHeadingId, request.CustomerId);
+                    sScheduleType = await GetScheduleTypeFromTemplateAsync(
+                        connection, transaction,
+                        0, sItemId, sSubHeadingId, sHeadingId, request.CustomerId);
+                }
+                  
             }
 
             // 3️⃣ DataTables
