@@ -45,9 +45,12 @@ namespace TracePca.Interface.FIN_Statement
         Task<CustomerAmountSettingsDto> GetCustomerAmountSettingsAsync(int customerId);
 
         //SaveFinancialStatement
-        //Task<int> SaveOrUpdateFinancialStatementAsync(SREngagementPlanDetailsDTO dto);
-        //Task<int> SaveOrUpdateFinancialStatementAsync(FinancialStatementDTO dto);
         Task<int> SaveOrUpdateLOEAsync(SaveLOEDto dto);
+
+        //GetFinancialStatementReportType
+        Task<IEnumerable<GetFinancialStatementReportTypeDTO>> GetReportTypeDetails(int compId, int reportTypeId);
+
+        //GetNetIncomeZero
         Task<bool> IsNetIncomeZeroAsync(
       int yearId,
       int custId,

@@ -599,8 +599,8 @@ namespace TracePca.Service.SuperMaster
                 return new ClientUserResult();
 
             var bytes = File.ReadAllBytes(filePath);
-            var fileName = "ClientUser Template.xlsx";   // ✅ keep .xls
-            var contentType = "application/vnd.ms-excel"; // ✅ correct for .xls
+            var fileName = "ClientUser Template.xlsx";  
+            var contentType = "application/vnd.ms-excel"; 
 
             return new ClientUserResult
             {
