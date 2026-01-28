@@ -3774,7 +3774,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         //                throw new ApplicationException("An error occurred while getting report type details", ex);
         //            }
         //        }
-        public async Task<IEnumerable<GetFinancialStatementReportTypeDTO>> GetReportTypeDetails(int compId, int reportTypeId)
+        public async Task<IEnumerable<GetFinancialStatementReportTypeDTO>> GetReportTypeDetails(int compId, int reportTypeId, int CustomerId)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -3803,6 +3803,7 @@ LEFT JOIN SAD_CUST_LOE LOE
     ON LOE.LOE_Id = LTD.LTD_LOE_ID
 WHERE LTD.LTD_ReportTypeID= @ReportTypeId
   AND LTD.LTD_CompID= @CompId
+  AND LOE.LOE_CustomerId = @CustomerId
 ORDER BY LTD.LTD_ID";
 
                 var result = await connection.QueryAsync<GetFinancialStatementReportTypeDTO>(
@@ -3810,7 +3811,8 @@ ORDER BY LTD.LTD_ID";
                     new
                     {
                         CompId = compId,
-                        ReportTypeId = reportTypeId
+                        ReportTypeId = reportTypeId,
+                        CustomerId = CustomerId
                     });
 
                 return result;

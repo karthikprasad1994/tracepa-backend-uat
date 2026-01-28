@@ -48,7 +48,7 @@ namespace TracePca.Interface.FIN_Statement
         Task<int> SaveOrUpdateLOEAsync(SaveLOEDto dto);
 
         //GetFinancialStatementReportType
-        Task<IEnumerable<GetFinancialStatementReportTypeDTO>> GetReportTypeDetails(int compId, int reportTypeId);
+        Task<IEnumerable<GetFinancialStatementReportTypeDTO>> GetReportTypeDetails(int compId, int reportTypeId, int CustomerId);
 
         //GetNetIncomeZero
         Task<bool> IsNetIncomeZeroAsync(

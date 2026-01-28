@@ -514,7 +514,7 @@ namespace TracePca.Controllers.FIN_Statement
 
         //GetFinancialStatementReportType
         [HttpGet("GetFinancialStatementReportType")]
-        public async Task<IActionResult> GetReportTypeDetails([FromQuery] int compId, [FromQuery] int reportTypeId)
+        public async Task<IActionResult> GetReportTypeDetails([FromQuery] int compId, [FromQuery] int reportTypeId, [FromQuery] int CustomerId)
         {
             if (compId <= 0 || reportTypeId <= 0)
             {
@@ -527,7 +527,7 @@ namespace TracePca.Controllers.FIN_Statement
 
             try
             {
-                var result = await _ScheduleReportService.GetReportTypeDetails(compId, reportTypeId);
+                var result = await _ScheduleReportService.GetReportTypeDetails(compId, reportTypeId, CustomerId);
 
                 return Ok(new
                 {
