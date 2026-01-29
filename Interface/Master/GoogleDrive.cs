@@ -16,7 +16,7 @@ namespace TracePca.Interface.Master
         Task<object> UploadFileToFolderAsync(IFormFile file, string folderPath, string userEmail,int docid);
         Task<IEnumerable<GoogleDriveFile>> ListFilesAsync(string userEmail);
         Task<GoogleDriveFile> RenameFileAsync(string fileId, string newName, string userEmail);
-        Task DeleteFileAsync(string fileId, string userEmail);
+        Task DeleteFileByDocIdAsync(int docId, string userEmail);
         Task ExchangeCodeAsync(string userEmail, string code);
         Task<int> CheckEmailExistsAsync(string gmail);
 
