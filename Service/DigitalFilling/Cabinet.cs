@@ -1298,43 +1298,75 @@ namespace TracePca.Service.DigitalFilling
 				using var connection = new SqlConnection(connectionString);
 				await connection.OpenAsync();
 
-				string query = @"
-                  SELECT Cab.CBN_Name AS Cabinet, SubCab.CBN_Name AS SubCabinet, Fol.Fol_Name AS Folder, 
-                        A.PGE_Title AS Title, A.PGE_Ext AS Extension,PGE_BASENAME,
-                        (select SAD_Config_Value from [Sad_Config_Settings] where sad_Config_key='DisplayPath') +
-						'BITMAPS\' + CAST(FLOOR(CAST(PGE_BASENAME AS numeric)/301) AS varchar) + '\' +
-						CAST(PGE_BASENAME AS varchar) + '.'  + A.PGE_Ext AS URLPath,
-                        (SELECT TOP 1 UserEmail FROM UserDriveTokens ORDER BY Id DESC) AS UserEmail 
-                        FROM edt_page A 
-                        JOIN edt_Cabinet Cab ON A.PGE_CABINET = Cab.CBN_ID 
-                        JOIN EDT_Cabinet SubCab ON A.PGE_SubCabinet = SubCab.cbn_Id
-                        JOIN edt_Folder Fol ON A.PGE_FOLDER = Fol.FOL_FolID 
-                        WHERE A.Pge_Status = 'A' 
-                        AND (
-                                A.PGE_KeyWord LIKE '%' + @SearchTerm + '%'
-                                OR A.pge_Title LIKE '%' + @SearchTerm + '%'
-                        OR EXISTS (
-                                SELECT 1 FROM edt_page_details 
-                                WHERE epd_baseid = A.PGE_Details_ID 
-                                AND EPD_Value LIKE '%' + @SearchTerm + '%'
-                        )
-                        OR EXISTS (
-                                SELECT 1 FROM edt_Cabinet 
-                                WHERE CBN_ID = A.PGE_Cabinet 
-                                AND CBN_Name LIKE '%' + @SearchTerm + '%'
-                        )
-                        OR EXISTS (
-                                SELECT 1 FROM edt_Cabinet 
-                                WHERE CBN_ID = A.PGE_SubCabinet 
-                                AND CBN_Name LIKE '%' + @SearchTerm + '%'
-                        )
-                        OR EXISTS (
-                                SELECT 1 FROM edt_Folder 
-                                WHERE Fol_FolID = A.PGE_Folder 
-                                AND FOL_Name LIKE '%' + @SearchTerm + '%'
-                        )
-                  )
-                  ORDER BY A.pge_BaseName";
+                //string query = @"
+                //              SELECT Cab.CBN_Name AS Cabinet, SubCab.CBN_Name AS SubCabinet, Fol.Fol_Name AS Folder, 
+                //                    A.PGE_Title AS Title, A.PGE_Ext AS Extension,PGE_BASENAME,
+                //                    (select SAD_Config_Value from [Sad_Config_Settings] where sad_Config_key='DisplayPath') +
+                //		'BITMAPS\' + CAST(FLOOR(CAST(PGE_BASENAME AS numeric)/301) AS varchar) + '\' +
+                //		CAST(PGE_BASENAME AS varchar) + '.'  + A.PGE_Ext AS URLPath,
+                //                    (SELECT TOP 1 UserEmail FROM UserDriveTokens ORDER BY Id DESC) AS UserEmail 
+                //                    FROM edt_page A 
+                //                    JOIN edt_Cabinet Cab ON A.PGE_CABINET = Cab.CBN_ID 
+                //                    JOIN EDT_Cabinet SubCab ON A.PGE_SubCabinet = SubCab.cbn_Id
+                //                    JOIN edt_Folder Fol ON A.PGE_FOLDER = Fol.FOL_FolID 
+                //                    WHERE A.Pge_Status = 'A' 
+                //                    AND (
+                //                            A.PGE_KeyWord LIKE '%' + @SearchTerm + '%'
+                //                            OR A.pge_Title LIKE '%' + @SearchTerm + '%'
+                //                    OR EXISTS (
+                //                            SELECT 1 FROM edt_page_details 
+                //                            WHERE epd_baseid = A.PGE_Details_ID 
+                //                            AND EPD_Value LIKE '%' + @SearchTerm + '%'
+                //                    )
+                //                    OR EXISTS (
+                //                            SELECT 1 FROM edt_Cabinet 
+                //                            WHERE CBN_ID = A.PGE_Cabinet 
+                //                            AND CBN_Name LIKE '%' + @SearchTerm + '%'
+                //                    )
+                //                    OR EXISTS (
+                //                            SELECT 1 FROM edt_Cabinet 
+                //                            WHERE CBN_ID = A.PGE_SubCabinet 
+                //                            AND CBN_Name LIKE '%' + @SearchTerm + '%'
+                //                    )
+                //                    OR EXISTS (
+                //                            SELECT 1 FROM edt_Folder 
+                //                            WHERE Fol_FolID = A.PGE_Folder 
+                //                            AND FOL_Name LIKE '%' + @SearchTerm + '%'
+                //                    )
+                //              )
+                //              ORDER BY A.pge_BaseName";
+
+                string query = @"SELECT Cab.CBN_Name AS Cabinet, SubCab.CBN_Name AS SubCabinet, Fol.Fol_Name AS Folder, 
+                                A.PGE_Title AS Title, A.PGE_Ext AS Extension,PGE_BASENAME,
+                                (select SAD_Config_Value from [Sad_Config_Settings] where sad_Config_key='DisplayPath') +
+			                    'BITMAPS\' + CAST(FLOOR(CAST(PGE_BASENAME AS numeric)/301) AS varchar) + '\' +
+			                    CAST(PGE_BASENAME AS varchar) + '.'  + A.PGE_Ext AS URLPath,
+                                (SELECT TOP 1 UserEmail FROM UserDriveTokens ORDER BY Id DESC) AS UserEmail, Attch.Atch_FName, PGE_KeyWord
+                                FROM EDT_Page A INNER JOIN EDT_Cabinet Cab ON A.PGE_CABINET = Cab.CBN_ID
+                                INNER JOIN EDT_Cabinet SubCab ON A.PGE_SubCabinet = SubCab.CBN_ID
+                                INNER JOIN EDT_Folder Fol ON A.PGE_FOLDER = Fol.FOL_FolID
+                                LEFT JOIN EDT_Attachments Attch ON Attch.ATCH_DOCID = A.PGE_BASENAME
+	                            Left Join Sad_UserDetails  Sad on Sad.Usr_ID = cab.CBn_CreatedBy
+                                WHERE (
+                                        A.PGE_TITLE        LIKE '%' + @SearchTerm + '%' OR
+                                        A.PGE_KeyWORD      LIKE '%' + @SearchTerm + '%' OR
+                                        A.PGE_OCRText      LIKE '%' + @SearchTerm + '%' OR
+                                        A.pge_refno        LIKE '%' + @SearchTerm + '%' OR
+                                        A.pge_OrignalFileName LIKE '%' + @SearchTerm + '%'
+
+                                        OR Cab.CBN_Name    LIKE '%' + @SearchTerm + '%'
+                                        OR Cab.CBN_Note    LIKE '%' + @SearchTerm + '%'
+ 
+                                        OR SubCab.CBN_Name LIKE '%' + @SearchTerm + '%'
+                                        OR SubCab.CBN_Note LIKE '%' + @SearchTerm + '%'
+ 
+                                        OR Fol.FOL_Name    LIKE '%' + @SearchTerm + '%'
+                                        OR Fol.FOL_Note    LIKE '%' + @SearchTerm + '%'
+ 
+                                        OR Attch.ATCH_FNAME LIKE '%' + @SearchTerm + '%'
+                                        OR Attch.ATCH_Desc  LIKE '%' + @SearchTerm + '%'
+
+	                                    OR Sad.Usr_FullName  LIKE '%' + @SearchTerm + '%')";
 
                 var result = await connection.QueryAsync<SearchDto>(query, new { SearchTerm = sValue });
                 return result ?? Enumerable.Empty<SearchDto>();
