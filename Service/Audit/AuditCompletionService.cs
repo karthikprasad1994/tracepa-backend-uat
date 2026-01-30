@@ -3871,18 +3871,59 @@ namespace TracePca.Service.Audit
                     if (uploadedFile == null || uploadedFile.Status != "Success")
                         throw new Exception(uploadedFile?.Message ?? "File upload failed.");
 
-                    await connection.ExecuteAsync(@"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
-                            ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID) VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);",
-                        new
-                        {
-                            AtchId = attachId,
-                            DocId = docId,
-                            FileName = Path.GetFileNameWithoutExtension(fileInfo.Name),
-                            FileExt = fileInfo.Extension.Trim('.'),
-                            CreatedBy = userId,
-                            Size = fileInfo.Length,
-                            CompId = compId
-                        });
+                    await connection.ExecuteAsync(@"
+INSERT INTO EDT_ATTACHMENTS 
+(
+    ATCH_ID,
+    ATCH_DOCID,
+    ATCH_FNAME,
+    ATCH_EXT,
+    ATCH_CREATEDBY,
+    ATCH_VERSION,
+    ATCH_FLAG,
+    ATCH_SIZE,
+    ATCH_FROM,
+    ATCH_Basename,
+    ATCH_CREATEDON,
+    ATCH_Status,
+    ATCH_CompID,
+    Atch_Vstatus,
+    ATCH_REPORTTYPE,
+    ATCH_DRLID,
+    ATCH_AttachmentStatus
+)
+VALUES
+(
+    @AtchId,
+    @DocId,
+    @FileName,
+    @FileExt,
+    @CreatedBy,
+    1,
+    0,
+    @Size,
+    0,
+    0,
+    GETDATE(),
+    'X',
+    @CompId,
+    'A',
+    0,
+    0,
+    @AttachmentStatus
+);",
+new
+{
+    AtchId = attachId,
+    DocId = docId,
+    FileName = Path.GetFileNameWithoutExtension(fileInfo.Name),
+    FileExt = fileInfo.Extension.Trim('.'),
+    CreatedBy = userId,
+    Size = fileInfo.Length,
+    CompId = compId,
+    AttachmentStatus = "Accepted" // 👈 REQUIRED
+});
+
                 }
 
                 File.Delete(physicalFilePath);
