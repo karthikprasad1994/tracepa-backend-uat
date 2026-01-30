@@ -3921,7 +3921,7 @@ new
     CreatedBy = userId,
     Size = fileInfo.Length,
     CompId = compId,
-    AttachmentStatus = "Accepted" // 👈 REQUIRED
+    AttachmentStatus = "Accepted" // By Varun
 });
 
                 }
