@@ -14,6 +14,7 @@ using TracePca.Dto.FIN_Statement;
 using TracePca.Interface.FIN_Statement;
 using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
 using DocumentFormat.OpenXml.Bibliography;
+using DocumentFormat.OpenXml.Office.Word;
 
 namespace TracePca.Service.FIN_statement
 {
@@ -116,7 +117,7 @@ namespace TracePca.Service.FIN_statement
                         cmdNote.CommandType = CommandType.StoredProcedure;
 
                         cmdNote.Parameters.AddWithValue("@ASHN_ID", note.ashN_ID);
-                        cmdNote.Parameters.AddWithValue("@ASHN_SubHeadingId", subheading.assH_ID); // 🔑 KEY POINT
+                        cmdNote.Parameters.AddWithValue("@ASHN_SubHeadingId", subheading.assH_ID); 
                         cmdNote.Parameters.AddWithValue("@ASHN_CustomerId", note.ashN_CustomerId);
                         cmdNote.Parameters.AddWithValue("@ASHN_Description", note.ashN_Description ?? string.Empty);
                         cmdNote.Parameters.AddWithValue("@ASHN_DelFlag", note.ashN_DelFlag ?? "N");
@@ -124,7 +125,7 @@ namespace TracePca.Service.FIN_statement
                         cmdNote.Parameters.AddWithValue("@ASHN_Operation", note.ashN_Operation ?? "SAVE");
                         cmdNote.Parameters.AddWithValue("@ASHN_CreatedBy", note.ashN_CreatedBy);
                         cmdNote.Parameters.AddWithValue("@ASHN_CreatedOn",
-                            note.ashN_CreatedOn == default ? DateTime.Now : note.ashN_CreatedOn);
+                        note.ashN_CreatedOn == default ? DateTime.Now : note.ashN_CreatedOn);
                         cmdNote.Parameters.AddWithValue("@ASHN_CompID", note.ashN_CompID);
                         cmdNote.Parameters.AddWithValue("@ASHN_YearID", note.ashN_YearID);
                         cmdNote.Parameters.AddWithValue("@ASHN_IPAddress", note.ashN_IPAddress ?? "127.0.0.1");
@@ -148,7 +149,6 @@ namespace TracePca.Service.FIN_statement
                         note.ashN_ID = Convert.ToInt32(iOper.Value);
                     }
                 }
-
                 transaction.Commit();
                 return subheadingDtos;
             }
@@ -246,37 +246,170 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetLedger(Notes For Ledger)
-        public async Task<IEnumerable<LedgerIndividualDto>> GetLedgerIndividualDetailsAsync(int CustomerId, int SubHeadingId)
+        public async Task<List<GetLedgerNoteDto>> GetLedgerNoteAsync(int compId, int custId, int yearId, int branchId)
         {
-            // ✅ Step 1: Get DB name from session
+            // Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            var query = @"
-SELECT 
-    ASHL_Description AS Description, 
-    ASHL_ID 
-FROM ACC_SubHeadingLedgerDesc 
-LEFT JOIN Acc_TrailBalance_Upload_Details a ON a.ATBUD_ID = ASHL_SubHeadingId 
-WHERE ASHL_CustomerId = @CustomerId 
-  AND ASHL_SubHeadingId = @SubHeadingId";
-            return await connection.QueryAsync<LedgerIndividualDto>(query, new
-            {
-                CustomerId = CustomerId,
-                SubHeadingId = SubHeadingId
-            });
+
+            string sql = @"
+      Select 
+   ATBU_ID, ATBU_Description 
+From Acc_TrailBalance_Upload
+Where ATBU_CompId = @CompId
+      AND ATBU_CustId = @CustId
+      AND ATBU_YEARId = @YearId
+      AND ATBU_Branchid = @BranchId
+Order By ATBU_ID";
+
+            var notes = await connection.QueryAsync<GetLedgerNoteDto>(sql, new { CompId = compId, CustId = custId, YearId = yearId, BranchId = branchId });
+
+            return notes.ToList();
         }
 
         //SaveOrUpdateLedger(Notes For Ledger)
-        public async Task<int[]> SaveLedgerDetailsAsync(SubHeadingLedgerNoteDto dto)
+        public async Task<SaveLedgerNoteDto> SaveSingleNoteUsingExistingSubHeadingAsync(
+     SaveLedgerNoteDto ledger)
+        {
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                // 🔹 Get ATBUD_ID if not provided
+                if (ledger.ATBU_ID <= 0)
+                {
+                    string fetchLedgerSql = @"
+            SELECT ATBU_ID
+            FROM Acc_TrailBalance_Upload
+            WHERE ATBU_Description = @Name
+              AND ATBU_CustId = @CustID
+              AND ATBU_CompId = @CompId
+              AND ATBU_YEARId = @YearId
+              AND ATBU_Branchid = @BranchId";
+
+                    ledger.ATBU_ID = await connection.ExecuteScalarAsync<int>(
+                        fetchLedgerSql,
+                        new
+                        {
+                            Name = ledger.ATBU_Description,
+                            CustID = ledger.ATBU_CustId,
+                            CompId = ledger.ATBU_CompId,
+                            YearId = ledger.ATBU_YEARId,
+                            BranchId = ledger.ATBU_Branchid
+                        },
+                        transaction
+                    );
+
+                    if (ledger.ATBU_ID <= 0)
+                        throw new Exception($"Ledger not found: {ledger.ATBU_Description}");
+                }
+
+                // 🔹 Save ONLY ONE description
+                var note = ledger.notes.FirstOrDefault();
+                if (note == null)
+                    throw new Exception("No description provided.");
+
+                using var cmdNote = new SqlCommand(
+                    "spACC_SubHeadingLedgerDesc",
+                    connection,
+                    transaction);
+
+                cmdNote.CommandType = CommandType.StoredProcedure;
+
+                cmdNote.Parameters.AddWithValue("@ASHL_ID", note.ASHL_ID);
+                cmdNote.Parameters.AddWithValue("@ASHL_SubHeadingId", ledger.ATBU_ID);
+                cmdNote.Parameters.AddWithValue("@ASHL_CustomerId", note.ASHL_CustomerId);
+                cmdNote.Parameters.AddWithValue("@ASHL_BranchId", note.ASHL_BranchId);
+                cmdNote.Parameters.AddWithValue("@ASHL_Description", note.ASHL_Description ?? string.Empty);
+                cmdNote.Parameters.AddWithValue("@ASHL_DelFlag", note.ASHL_DelFlag ?? "A");
+                cmdNote.Parameters.AddWithValue("@ASHL_Status", note.ASHL_Status ?? "W");
+                cmdNote.Parameters.AddWithValue("@ASHL_Operation", note.ASHL_Operation ?? "S");
+                cmdNote.Parameters.AddWithValue("@ASHL_CreatedBy", note.ASHL_CreatedBy);
+                cmdNote.Parameters.AddWithValue("@ASHL_CreatedOn", note.ASHL_CreatedOn);
+                cmdNote.Parameters.AddWithValue("@ASHL_CompID", note.ASHL_CompID);
+                cmdNote.Parameters.AddWithValue("@ASHL_YearID", note.ASHL_YearID);
+                cmdNote.Parameters.AddWithValue("@ASHL_IPAddress", note.ASHL_IPAddress ?? string.Empty);
+
+                var iUpdateOrSave = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
+                {
+                    Direction = ParameterDirection.Output
+                };
+
+                var iOper = new SqlParameter("@iOper", SqlDbType.Int)
+                {
+                    Direction = ParameterDirection.Output
+                };
+
+                cmdNote.Parameters.Add(iUpdateOrSave);
+                cmdNote.Parameters.Add(iOper);
+
+                await cmdNote.ExecuteNonQueryAsync();
+
+                // 🔹 Update ID
+                note.ASHL_ID = Convert.ToInt32(iOper.Value);
+
+                transaction.Commit();
+                return ledger;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+
+        //LoadGrid(Notes For Ledger)
+        public async Task<List<LoadLedgerNotesGridDto>> LoadLedgerNotesGridAsync(int compId, int custId, int yearId, int branchId)
+        {
+            // Get DB name from session
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            string sql = @"
+        SELECT 
+     ld.ATBU_ID AS SubHeadingId,
+     ld.ATBU_Description AS SubHeadingName,
+     l.ASHL_ID AS LedgerId,
+     l.ASHL_Description AS Description
+ FROM ACC_SubHeadingLedgerDesc l
+ INNER JOIN Acc_TrailBalance_Upload ld
+     ON l.ASHL_SubHeadingId = ld.ATBU_ID
+ WHERE l.ASHL_CompID = @CompId
+   AND l.ASHL_CustomerId = @CustId
+   AND l.ASHL_YearID = @YearId
+   AND l.ASHL_BranchId = @BranchId
+ ORDER BY ld.ATBU_Description, l.ASHL_ID";
+
+            var notes = await connection.QueryAsync<LoadLedgerNotesGridDto>(sql, new { CompId = compId, CustId = custId, YearId = yearId, BranchId = branchId });
+
+            return notes.ToList();
+        }
+
+        //DeleteLedgerNote
+        public async Task<int> DeleteLedgerNoteAsync(int compId, int ashlId)
         {
             // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -284,64 +417,23 @@ WHERE ASHL_CustomerId = @CustomerId
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get the connection string
+            // ✅ Step 2: Get connection string
             var connectionString = _configuration.GetConnectionString(dbName);
 
-            // ✅ Step 3: Use SqlConnection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            {
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        using (var cmd = new SqlCommand("spACC_SubHeadingLedgerDesc", connection, transaction))
-                        {
-                            cmd.CommandType = CommandType.StoredProcedure;
 
-                            cmd.Parameters.AddWithValue("@ASHL_ID", dto.ASHL_ID);
-                            cmd.Parameters.AddWithValue("@ASHL_SubHeadingId", dto.ASHL_SubHeadingId);
-                            cmd.Parameters.AddWithValue("@ASHL_CustomerId", dto.ASHL_CustomerId);
-                            cmd.Parameters.AddWithValue("@ASHL_BranchId", dto.ASHL_BranchId);
-                            cmd.Parameters.AddWithValue("@ASHL_Description", dto.ASHL_Description ?? string.Empty);
-                            cmd.Parameters.AddWithValue("@ASHL_DelFlag", dto.ASHL_DelFlag ?? "A");
-                            cmd.Parameters.AddWithValue("@ASHL_Status", dto.ASHL_Status ?? "W");
-                            cmd.Parameters.AddWithValue("@ASHL_Operation", dto.ASHL_Operation ?? "S");
-                            cmd.Parameters.AddWithValue("@ASHL_CreatedBy", dto.ASHL_CreatedBy);
-                            cmd.Parameters.AddWithValue("@ASHL_CreatedOn", dto.ASHL_CreatedOn);
-                            cmd.Parameters.AddWithValue("@ASHL_CompID", dto.ASHL_CompID);
-                            cmd.Parameters.AddWithValue("@ASHL_YearID", dto.ASHL_YearID);
-                            cmd.Parameters.AddWithValue("@ASHL_IPAddress", dto.ASHL_IPAddress ?? string.Empty);
+            // ✅ Step 3: Hard delete description
+            var deleteQuery = @"
+        DELETE FROM ACC_SubHeadingLedgerDesc
+        WHERE  ASHL_CompID = @ASHL_CompId
+   AND ASHL_ID = @ASHL_Id";
 
-                            var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int)
-                            {
-                                Direction = ParameterDirection.Output
-                            };
-                            var operParam = new SqlParameter("@iOper", SqlDbType.Int)
-                            {
-                                Direction = ParameterDirection.Output
-                            };
+            var affectedRows = await connection.ExecuteAsync(
+                deleteQuery,
+                new { ASHL_CompId = compId, ASHL_Id = ashlId });
 
-                            cmd.Parameters.Add(updateOrSaveParam);
-                            cmd.Parameters.Add(operParam);
-
-                            await cmd.ExecuteNonQueryAsync();
-                            transaction.Commit();
-
-                            return new int[]
-                            {
-                        (int)(updateOrSaveParam.Value ?? 0),
-                        (int)(operParam.Value ?? 0)
-                            };
-                        }
-                    }
-                    catch
-                    {
-                        transaction.Rollback();
-                        throw;
-                    }
-                }
-            }
+            return affectedRows;
         }
 
         //DownloadNotesExcel
@@ -438,7 +530,6 @@ INSERT INTO ScheduleNote_First (
                 return newId;
             }
         }
-
 
         // --PreDefinied Notes //
         //SaveAuthorisedShareCapital(Particulars)

@@ -859,42 +859,48 @@ WHERE LTRIM(RTRIM(ATBU_Description))
             {
                 pItemId = await GetIdFromNameAsync(
                     connection, transaction,
-                    "ACC_ScheduleItems", "ASI_ID",
-                    "Others - Trade Payables",
+                    "ACC_Schedulesubheading", "ASSH_ID",
+                    "(b)   Trade payables",
                     request.CustomerId);
-
-                var dt = await GetScheduleIDs(connection, transaction, pItemId, request.CustomerId, 3);
-                if (dt.Rows.Count > 0)
+                if (pItemId > 0)
                 {
-                    pHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
-                    pSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
-                    pItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
-                }
+                    var dt = await GetScheduleIDs(connection, transaction, pItemId, request.CustomerId, 2);
+                    if (dt.Rows.Count > 0)
+                    {
+                        pHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
+                        pSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
+                        pItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
+                    }
 
-                pScheduleType = await GetScheduleTypeFromTemplateAsync(
-                    connection, transaction,
-                    0, pItemId, pSubHeadingId, pHeadingId, request.CustomerId);
+                    pScheduleType = await GetScheduleTypeFromTemplateAsync(
+                        connection, transaction,
+                        0, pItemId, pSubHeadingId, pHeadingId, request.CustomerId);
+                }
+               
             }
 
             if (hasSales)
             {
                 sItemId = await GetIdFromNameAsync(
                     connection, transaction,
-                    "ACC_ScheduleItems", "ASI_ID",
-                    "Any others - Trade receivables",
+                    "ACC_Schedulesubheading", "ASSH_ID",
+                    "(b) Trade Receivables",
                     request.CustomerId);
-
-                var dt = await GetScheduleIDs(connection, transaction, sItemId, request.CustomerId, 3);
-                if (dt.Rows.Count > 0)
+                if (pItemId > 0)
                 {
-                    sHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
-                    sSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
-                    sItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
-                }
+                    var dt = await GetScheduleIDs(connection, transaction, sItemId, request.CustomerId, 2);
+                    if (dt.Rows.Count > 0)
+                    {
+                        sHeadingId = Convert.ToInt32(dt.Rows[0]["ASH_ID"]);
+                        sSubHeadingId = Convert.ToInt32(dt.Rows[0]["ASSH_ID"]);
+                        sItemId = Convert.ToInt32(dt.Rows[0]["ASI_ID"]);
+                    }
 
-                sScheduleType = await GetScheduleTypeFromTemplateAsync(
-                    connection, transaction,
-                    0, sItemId, sSubHeadingId, sHeadingId, request.CustomerId);
+                    sScheduleType = await GetScheduleTypeFromTemplateAsync(
+                        connection, transaction,
+                        0, sItemId, sSubHeadingId, sHeadingId, request.CustomerId);
+                }
+                  
             }
 
             // 3️⃣ DataTables
@@ -967,7 +973,7 @@ WHERE LTRIM(RTRIM(ATBU_Description))
                 int scheduleType = isPurchase ? pScheduleType : isSales ? sScheduleType : 0;
 
                 masterTable.Rows.Add(
-                    newAtbuId, code, account, request.CustomerId,
+                    newAtbuId, code, account.Trim(), request.CustomerId,
                     0m, 0m, 0m, 0m, 0m, 0m,
                     "A", userId, "C", userId, ipAddress,
                     accessCodeId, request.FinancialYearId,
@@ -977,7 +983,7 @@ WHERE LTRIM(RTRIM(ATBU_Description))
     newAtbudId,          // ATBUD_ID
     newAtbuId,           // ATBUD_Masid
     code,                // ATBUD_CODE
-    account,             // ATBUD_Description
+    account.Trim(),             // ATBUD_Description
     request.CustomerId,  // ATBUD_CustId
     scheduleType,        // ATBUD_SChedule_Type
     request.CustomerId,  // ATBUD_Company_Type

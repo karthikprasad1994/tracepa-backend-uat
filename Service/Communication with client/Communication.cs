@@ -4517,11 +4517,12 @@ ORDER BY RCM_Id";
             using var ms = new MemoryStream();
             using var document = Xceed.Words.NET.DocX.Create(ms);
 
-            // Title
-            document.InsertParagraph(reportName ?? "Report")
-                    .FontSize(16)
-                    .Bold()
-                    .Alignment = Alignment.center;
+            // Title - CORRECTED: Proper paragraph handling
+            var titleParagraph = document.InsertParagraph();
+            titleParagraph.Append(reportName ?? "Report")
+                          .FontSize(16)
+                          .Bold();
+            titleParagraph.Alignment = Alignment.center;
 
             document.InsertParagraph(); // spacing
 
@@ -4541,54 +4542,64 @@ ORDER BY RCM_Id";
             document.InsertTable(infoTable);
             document.InsertParagraph(); // spacing
 
-            // Insert headings and descriptions
+            // Insert headings and descriptions - CORRECTED: Better paragraph handling
             for (int i = 0; i < headings.Count; i++)
             {
                 var heading = headings[i];
 
-                // Heading
-                document.InsertParagraph((heading.LOEHeading ?? "N/A")
-                    .Replace("\r", "").Replace("\n", " "))
-                    .Bold()
-                    .FontSize(12)
-                    .SpacingAfter(5);
+                // Heading - CORRECTED: Create and configure paragraph properly
+                var headingParagraph = document.InsertParagraph();
+                headingParagraph.Append((heading.LOEHeading ?? "N/A").Replace("\r", "").Replace("\n", " "))
+                               .Bold()
+                               .FontSize(12);
+                headingParagraph.SpacingAfter(5);
 
-                // Description
+                // Description - CORRECTED: Better text handling with alignment
                 if (!string.IsNullOrWhiteSpace(heading.LOEDesc))
                 {
                     var lines = heading.LOEDesc.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
                     foreach (var line in lines)
                     {
-                        document.InsertParagraph(line.Trim())
-                                .FontSize(11)
-                                .SpacingAfter(2);
+                        if (!string.IsNullOrWhiteSpace(line))
+                        {
+                            var descParagraph = document.InsertParagraph();
+                            descParagraph.Append(line.Trim())
+                                         .FontSize(11);
+                            descParagraph.SpacingAfter(2);
+                            descParagraph.Alignment = Alignment.left; // Explicitly set left alignment
+                        }
                     }
                 }
                 else
                 {
-                    document.InsertParagraph("No description available.")
-                            .Italic()
-                            .FontSize(11);
+                    var noDescParagraph = document.InsertParagraph();
+                    noDescParagraph.Append("No description available.")
+                                   .Italic()
+                                   .FontSize(11);
+                    noDescParagraph.Alignment = Alignment.left;
                 }
 
                 // Divider
                 if (i != headings.Count - 1)
                 {
-                    document.InsertParagraph(new string('_', 80))
-                            .SpacingBefore(5)
-                            .SpacingAfter(5);
+                    var dividerParagraph = document.InsertParagraph();
+                    dividerParagraph.Append(new string('_', 80))
+                                   .SpacingBefore(5)
+                                   .SpacingAfter(5);
+                    dividerParagraph.Alignment = Alignment.left;
                 }
 
                 document.InsertParagraph(); // spacing
             }
 
-            // Footer
+            // Footer - CORRECTED: Proper footer handling
             document.AddFooters();
             document.DifferentFirstPage = true;
             var footer = document.Footers.First;
-            footer.InsertParagraph($"Generated on {DateTime.Now:dd-MMM-yyyy HH:mm}")
-                  .FontSize(9)
-                  .Alignment = Alignment.center;
+            var footerParagraph = footer.InsertParagraph();
+            footerParagraph.Append($"Generated on {DateTime.Now:dd-MMM-yyyy HH:mm}")
+                           .FontSize(9);
+            footerParagraph.Alignment = Alignment.center;
 
             document.Save();
             return ms.ToArray();

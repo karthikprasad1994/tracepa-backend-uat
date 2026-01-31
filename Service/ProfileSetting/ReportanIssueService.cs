@@ -13,69 +13,92 @@ namespace TracePca.Service.ProfileSetting
     {
         private readonly IConfiguration _configuration;
         private readonly IWebHostEnvironment _env;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public ReportanIssueService(IConfiguration configuration, IWebHostEnvironment env)
+
+        public ReportanIssueService(IConfiguration configuration, IWebHostEnvironment env, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration;
+            _httpContextAccessor = httpContextAccessor;
 
             _env = env ?? throw new ArgumentNullException(nameof(env));
 
 
         }
 
-        public async Task<bool> ReportIssueAsync(IssueReportDto issueDto, string userFullName, string userLogin, string accessCode)
+        public async Task<bool> ReportIssueAsync(
+        IssueReportDto issueDto,
+        string userFullName,
+        string userLogin,
+        string accessCode)
         {
             try
             {
-                // 1. Validate input
-                if (string.IsNullOrEmpty(issueDto.Base64Image))
+                if (string.IsNullOrWhiteSpace(issueDto.Base64Image))
                     return false;
 
-                // 2. Extract and decode base64 image
-                string cleanBase64 = issueDto.Base64Image.Replace("data:image/png;base64,", "");
+                // 🔹 Clean base64 (supports png/jpg/jpeg)
+                var cleanBase64 = issueDto.Base64Image
+                    .Replace("data:image/png;base64,", "")
+                    .Replace("data:image/jpeg;base64,", "")
+                    .Replace("data:image/jpg;base64,", "");
+
                 byte[] imageBytes = Convert.FromBase64String(cleanBase64);
 
-                // 3. Build folder and file path
-                string screenshotsFolder = Path.Combine(_env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "Screenshots");
+                // 🔹 Save screenshot
+                var rootPath = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                var screenshotsFolder = Path.Combine(rootPath, "Screenshots");
+
                 if (!Directory.Exists(screenshotsFolder))
                     Directory.CreateDirectory(screenshotsFolder);
 
-                string fileName = $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss}.png";
-                string imagePath = Path.Combine(screenshotsFolder, fileName);
+                var fileName = $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+                var imagePath = Path.Combine(screenshotsFolder, fileName);
+
                 await File.WriteAllBytesAsync(imagePath, imageBytes);
 
-                // 4. Build email body
+                // 🔹 Email content
                 string subject = $"Issue Raised by {userFullName} - {DateTime.Now:dd-MMM-yyyy hh:mm tt}";
-                var body = $@"
-            <html>
-            <body>
-                <p>Dear Support Team,</p>
-                <p>An issue was raised by <strong>{userFullName}</strong>.</p>
-                <p>{issueDto.EmailText}</p>
-                <p><strong>Access Code:</strong> {accessCode}</p>
-                <p><strong>User Name:</strong> {userLogin}</p>
-                <p>Visit: <a href='https://tracelites.multimedia.interactivedns.com/'>TRACe Link</a></p>
-                <p>Thanks,<br/>TRACe PA Team</p>
-            </body>
-            </html>";
+                string body = $@"
+<html>
+<body>
+    <p>Dear Support Team,</p>
+    <p>An issue was raised by <strong>{userFullName}</strong>.</p>
+    <p>{issueDto.EmailText}</p>
+    <p><strong>Access Code:</strong> {accessCode}</p>
+    <p><strong>User Name:</strong> {userLogin}</p>
+    <p>Visit: <a href='https://tracelites.multimedia.interactivedns.com/'>TRACe Link</a></p>
+    <p>Thanks,<br/>TRACe PA Team</p>
+</body>
+</html>";
 
-                // 5. Send email
+                // 🔹 Read SMTP config
+                var smtpConfig = _configuration.GetSection("Smtp");
+
                 using var mail = new MailMessage
                 {
-                    From = new MailAddress("harsha.s2700@gmail.com"),
+                    From = new MailAddress(
+                        smtpConfig["FromEmail"],
+                        smtpConfig["FromName"]
+                    ),
                     Subject = subject,
                     Body = body,
                     IsBodyHtml = true
                 };
 
-                mail.To.Add("varunhallur417@gmail.com");
+                mail.To.Add("product_issues@mmcspl.com");
                 mail.Attachments.Add(new Attachment(imagePath));
 
-                using var smtp = new SmtpClient("smtp.gmail.com", 587)
+                using var smtp = new SmtpClient
                 {
+                    Host = smtpConfig["Host"],
+                    Port = int.Parse(smtpConfig["Port"]),
                     EnableSsl = true,
                     UseDefaultCredentials = false,
-                    Credentials = new NetworkCredential("harsha.s2700@gmail.com", "edvemvlmgfkcasrp"), // ⛔️ DO NOT use real Gmail password
+                    Credentials = new NetworkCredential(
+                        smtpConfig["User"],
+                        smtpConfig["Password"]
+                    ),
                     DeliveryMethod = SmtpDeliveryMethod.Network
                 };
 
@@ -85,8 +108,6 @@ namespace TracePca.Service.ProfileSetting
             catch (SmtpException ex)
             {
                 Console.WriteLine($"SMTP Error: {ex.StatusCode} - {ex.Message}");
-                if (ex.InnerException != null)
-                    Console.WriteLine($"Inner: {ex.InnerException.Message}");
                 return false;
             }
             catch (Exception ex)
@@ -95,9 +116,17 @@ namespace TracePca.Service.ProfileSetting
                 return false;
             }
         }
+
         public async Task<UserDetailsDto> GetUserDetailsAsync(int userId)
         {
-            using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
             var sql = "SELECT usr_FullName, usr_LoginName FROM SAD_Userdetails WHERE usr_Id = @UserId";
             return await connection.QueryFirstOrDefaultAsync<UserDetailsDto>(sql, new { UserId = userId });
         }

@@ -476,83 +476,6 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //SaveFinancialStatement
-        //[HttpPost("SaveOrUpdateEngagementPlan")]
-        //public async Task<IActionResult> SaveOrUpdateFinancialStatement( [FromBody] SREngagementPlanDetailsDTO dto)
-        //{
-        //    try
-        //    {
-        //        if (dto == null)
-        //        {
-        //            return BadRequest(new
-        //            {
-        //                StatusCode = 400,
-        //                Message = "Invalid request data."
-        //            });
-        //        }
-
-        //        var loeId = await _ScheduleReportService.SaveOrUpdateFinancialStatementAsync(dto);
-
-        //        return Ok(new
-        //        {
-        //            StatusCode = 200,
-        //            Message = dto.LOE_Id > 0
-        //                ? "Engagement plan updated successfully."
-        //                : "Engagement plan saved successfully.",
-        //            Data = new
-        //            {
-        //                LOE_Id = loeId
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            StatusCode = 500,
-        //            Message = "An error occurred while saving engagement plan data.",
-        //            Error = ex.Message
-        //        });
-        //    }
-        //}
-
-        //[HttpPost("save-or-update")]
-        //public async Task<IActionResult> SaveOrUpdateFinancialStatement([FromBody] FinancialStatementDTO dto)
-        //{
-        //    if (dto == null)
-        //    {
-        //        return BadRequest(new
-        //        {
-        //            status = 400,
-        //            message = "Invalid request data"
-        //        });
-        //    }
-
-        //    try
-        //    {
-        //        // Call the service to save or update LOE templates
-        //        int loeId = await _ScheduleReportService.SaveOrUpdateFinancialStatementAsync(dto);
-
-        //        return Ok(new
-        //        {
-        //            status = 200,
-        //            message = "Engagement plan saved successfully",
-        //            data = new
-        //            {
-        //                LOE_Id = loeId
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            status = 500,
-        //            message = "Internal server error",
-        //            details = ex.Message
-        //        });
-        //    }
-        //}
-
         [HttpPost("save-or-update")]
         public async Task<IActionResult> SaveOrUpdateLOE([FromBody] SaveLOEDto dto)
         {
@@ -589,6 +512,76 @@ namespace TracePca.Controllers.FIN_Statement
             }
         }
 
+        //GetFinancialStatementReportType
+        //[HttpGet("GetFinancialStatementReportType")]
+        //public async Task<IActionResult> GetReportTypeDetails([FromQuery] int compId, [FromQuery] int reportTypeId, [FromQuery] int CustomerId)
+        //{
+        //    if (compId <= 0 || reportTypeId <= 0)
+        //    {
+        //        return BadRequest(new
+        //        {
+        //            status = 400,
+        //            message = "Invalid request data"
+        //        });
+        //    }
+
+        //    try
+        //    {
+        //        var result = await _ScheduleReportService.GetReportTypeDetails(compId, reportTypeId, CustomerId);
+
+        //        return Ok(new
+        //        {
+        //            status = 200,
+        //            message = "Report type details fetched successfully",
+        //            data = result
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            status = 500,
+        //            message = "Internal server error",
+        //            details = ex.Message
+        //        });
+        //    }
+        //}
+        [HttpGet("get-report-type-details")]
+        public async Task<IActionResult> GetReportTypeDetails(int compId, int customerId, int reportTypeId)
+        {
+            try
+            {
+                var result = await _ScheduleReportService.GetReportTypeDetails(compId, customerId, reportTypeId);
+
+                if (result == null || !result.Any())
+                {
+                    return Ok(new
+                    {
+                        status = 200,
+                        message = "No data found for the customer",
+                        data = new List<GetFinancialStatementReportTypeDTO>()
+                    });
+                }
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Report type details fetched successfully",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "Internal server error",
+                    details = ex.Message
+                });
+            }
+        }
+
+        //GetNetIncomeZero
         [HttpGet("net-income-zero")]
         public async Task<ActionResult<bool>> IsNetIncomeZero(
       int yearId,

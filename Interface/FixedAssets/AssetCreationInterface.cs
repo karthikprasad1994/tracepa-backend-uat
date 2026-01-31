@@ -31,15 +31,15 @@ namespace TracePca.Interface.FixedAssetsInterface
         Task<(int iUpdateOrSave, int iOper)> SaveSupplierDetailsAsync(SaveSupplierDto model);
 
         //SaveAsset
-        //Task<(int iUpdateOrSave, int iOper)> SaveFixedAssetAsync(SaveFixedAssetDto model);
-        //Task SaveGRACeFormOperationsAsync(GRACeFormOperationDto model);
-
-
-        //  Task<int[]> SaveFixedAssetWithAuditAsync(SaveFixedAssetDto asset, GRACeFormOperationDto audit);
-
-        //------------
-
         Task<int> SaveFixedAssetAsync(FixedAssetDto asset, AuditDto audit);
+
+        //Generete
+        Task<string> GenerateAssetCodeAsync(int compId, int custId, int locationId, int divisionId, int departmentId, int bayId, string assetCode);
+
+        //UploadAssetCreationExcel
+        Task<List<string>> UploadAssetExcelAsync(
+            int compId, int custId, int yearId, int userId,
+            IFormFile file);
 
     }
 }

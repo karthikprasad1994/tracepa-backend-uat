@@ -2,6 +2,7 @@
 using TracePca.Dto;
 using TracePca.Interface.FixedAssetsInterface;
 using static TracePca.Dto.FixedAssets.AssetCreationDto;
+using static TracePca.Service.FixedAssetsService.AssetCreationService;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -315,150 +316,6 @@ namespace TracePca.Controllers
         }
 
         //SaveAsset
-        //[HttpPost("SaveFixedAsset")]
-        //public async Task<IActionResult> SaveFixedAssetWithAudit([FromBody] SaveFixedAssetRequest request)
-        //{
-        //    try
-        //    {
-        //        if (request == null)
-        //            return BadRequest(new
-        //            {
-        //                status = 400,
-        //                message = "Invalid request body."
-        //            });
-
-        //        // STEP 1: Save Fixed Asset
-        //        var (iUpdateOrSave, iOper) = await _AssetCreationService.SaveFixedAssetAsync(request.FixedAsset);
-
-        //        // STEP 2: Save Audit Log
-        //        await _AssetCreationService.SaveGRACeFormOperationsAsync(request.Audit);
-
-        //        // SUCCESS RESPONSE
-        //        return Ok(new
-        //        {
-        //            status = 200,
-        //            message = "Fixed Asset saved successfully and Audit Log saved successfully",
-        //            fixedAssetResult = new
-        //            {
-        //                iUpdateOrSave = iUpdateOrSave,
-        //                iOper = iOper,
-        //                data = request.FixedAsset
-        //            },
-        //            auditResult = new
-        //            {
-        //                message = "Audit Log saved",
-        //                data = request.Audit
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new
-        //        {
-        //            status = 500,
-        //            message = "Error saving Fixed Asset or Audit Log",
-        //            details = ex.Message
-        //        });
-        //    }
-        //}
-
-
-        //------------------------------
-
-        //[HttpPost("saveFixedasset")]
-        //public async Task<IActionResult> SaveFixedAsset([FromBody] SaveFixedAssetRequestDto request)
-        //{
-        //    // -----------------------------
-        //    // 1️⃣ Validate incoming request
-        //    // -----------------------------
-        //    if (request == null)
-        //    {
-        //        return BadRequest(new
-        //        {
-        //            status = 400,
-        //            message = "Invalid request format",
-        //            errorCode = 101
-        //        });
-        //    }
-
-        //    if (request.Asset == null)
-        //    {
-        //        return BadRequest(new
-        //        {
-        //            status = 400,
-        //            message = "Asset object is missing",
-        //            errorCode = 102
-        //        });
-        //    }
-
-        //    if (request.Audit == null)
-        //    {
-        //        return BadRequest(new
-        //        {
-        //            status = 400,
-        //            message = "Audit object is missing",
-        //            errorCode = 103
-        //        });
-        //    }
-
-        //    try
-        //    {
-        //        // -------------------------
-        //        // 2️⃣ Call service function
-        //        // -------------------------
-        //        var result = await _AssetCreationService
-        //            .SaveFixedAssetWithAuditAsync(request.Asset, request.Audit);
-
-        //        int updateOrSave = result[0];
-        //        int oper = result[1];
-
-        //        // -----------------------------
-        //        // 3️⃣ Check SP operation result
-        //        // -----------------------------
-        //        if (oper != 1)
-        //        {
-        //            return StatusCode(500, new
-        //            {
-        //                status = 500,
-        //                message = "Failed to save fixed asset",
-        //                errorCode = 236,
-        //                dbUpdateOrSave = updateOrSave,
-        //                dbOper = oper
-        //            });
-        //        }
-
-        //        // -----------------------------
-        //        // 4️⃣ Success response
-        //        // -----------------------------
-        //        return Ok(new
-        //        {
-        //            status = 200,
-        //            message = "Fixed asset saved successfully",
-        //            data = new
-        //            {
-        //                savedId = updateOrSave,
-        //                operation = oper
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        // -----------------------------
-        //        // 5️⃣ Exception handling
-        //        // -----------------------------
-        //        return StatusCode(500, new
-        //        {
-        //            status = 500,
-        //            message = "An error occurred while saving asset",
-        //            error = ex.Message,
-        //            errorCode = 500
-        //        });
-        //    }
-        //}
-
-        //------
-
-
             [HttpPost("SaveFixedAsset")]
             public async Task<IActionResult> SaveFixedAsset([FromBody] FixedAssetRequest request)
             {
@@ -492,11 +349,140 @@ namespace TracePca.Controllers
                     });
                 }
             }
+
+        //Generete
+
+        [HttpGet("generate")]
+        public async Task<IActionResult> GenerateAssetCode(
+            [FromQuery] int compId,
+            [FromQuery] int custId,
+            [FromQuery] int locationId,
+            [FromQuery] int divisionId,
+            [FromQuery] int departmentId,
+            [FromQuery] int bayId,
+            [FromQuery] string assetCode)
+        {
+            if (string.IsNullOrWhiteSpace(assetCode))
+            {
+                return BadRequest(new
+                {
+                    statusCode = 400,
+                    success = false,
+                    message = "AssetCode is required",
+                    data = (string)null
+                });
+            }
+
+            try
+            {
+                var result = await _AssetCreationService.GenerateAssetCodeAsync(
+                    compId,
+                    custId,
+                    locationId,
+                    divisionId,
+                    departmentId,
+                    bayId,
+                    assetCode
+                );
+
+                return Ok(new
+                {
+                    statusCode = 200,
+                    success = true,
+                    message = "Asset code generated successfully",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    statusCode = StatusCodes.Status500InternalServerError,
+                    success = false,
+                    message = ex.Message,
+                    data = (string)null
+                });
+            }
         }
+
+        //UploadAssetCreationExcel
+        [HttpPost("UploadAssetCreation")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadFixedAssetExcel(
+            [FromForm] UploadAssetCreationRequestDto dto
+        )
+        {
+            if (dto.File == null || dto.File.Length == 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Excel file is required"
+                });
+            }
+
+            try
+            {
+                var result = await _AssetCreationService.UploadAssetExcelAsync(
+                    dto.CompId,
+                    dto.CustId,
+                    dto.YearId,
+                    dto.UserId,
+                    dto.File
+                );
+
+                return Ok(new
+                {
+                    status = 200,
+                    success = true,
+                    message = "Fixed Asset Excel uploaded successfully",
+                    data = result
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(new
+                {
+                    status = 404,
+                    success = false,
+                    message = "Supplier details not found.",
+                    data = new List<object>()
+                });
+            }
+            catch (AssetUploadException ex)
+            {
+                return BadRequest(new
+                {
+                    status = 400,
+                    success = false,
+                    message = "Excel validation failed",
+                    errors = ex.Errors
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    status = 500,
+                    success = false,
+                    message = "An error occurred while loading supplier.",
+                    error = ex.Message
+                });
+            }
+        }
+    }
 
     }
 
-//ExcelUpload
+
 
 
 

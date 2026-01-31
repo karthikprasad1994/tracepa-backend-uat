@@ -94,10 +94,38 @@ namespace TracePca.Controllers.master
         }
 
         [HttpDelete("delete")]
-        public async Task<IActionResult> DeleteFile([FromQuery] string userEmail, [FromQuery] string fileId)
+        public async Task<IActionResult> DeleteByDocId(
+        int docId,
+        [FromQuery] string userEmail)
         {
-            await _driveService.DeleteFileAsync(fileId, userEmail);
-            return Ok(new { success = true });
+            if (docId <= 0)
+            return StatusCode(500, new
+            {
+                message = "Invalid DocId",
+            });
+
+            if (string.IsNullOrWhiteSpace(userEmail))
+            return StatusCode(500, new
+            {
+                message = "UserEmail is required",
+            });
+
+            try
+            {
+                await _driveService.DeleteFileByDocIdAsync(docId, userEmail);
+                return Ok(new
+                {
+                    message = "File deleted successfully",
+                    docId
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = ex.Message
+                });
+            }
         }
 
         public class FolderStructureRequest

@@ -174,153 +174,147 @@ namespace TracePca.Service.FIN_statement
         }
 
         //GetTotalAmount
-        public async Task<IEnumerable<CustCOASummaryDto>> GetCustCOAMasterDetailsAsync(int CompId, int CustId, int YearId, int BranchId, int DurationId)
+        public async Task<IEnumerable<CustCOASummaryDto>> GetCustCOAMasterDetailsAsync(
+          int CompId, int CustId, int YearId, int BranchId, int DurationId)
         {
-            // ✅ Step 1: Get DB name from session
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
             if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+                throw new Exception("CustomerCode is missing in session.");
 
-            // ✅ Step 2: Get the connection string
-            var connectionString = _configuration.GetConnectionString(dbName);
-
-            // ✅ Step 3: Use SqlConnection
-            using var connection = new SqlConnection(connectionString);
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
+
             var query = @"
 SELECT 
     ROUND(SUM(a.ATBU_Opening_Debit_Amount), 0) AS OpeningDebit,
     ROUND(SUM(a.ATBU_Opening_Credit_Amount), 0) AS OpeningCredit,
-    ROUND(SUM(a.ATBU_TR_Debit_Amount + ISNULL(g.TotalDebit, 0) ), 0) AS TrDebit,
-    ROUND(SUM(a.ATBU_TR_Credit_Amount + ISNULL(g.TotalCredit, 0) ), 0) AS TrCredit,
+
+    ROUND(SUM(
+        a.ATBU_TR_Debit_Amount + ISNULL(j.TotalDebit, 0)
+    ), 0) AS TrDebit,
+
+    ROUND(SUM(
+        a.ATBU_TR_Credit_Amount + ISNULL(j.TotalCredit, 0)
+    ), 0) AS TrCredit,
+
     ROUND(SUM(a.ATBU_Closing_TotalCredit_Amount), 0) AS ClosingCredit,
     ROUND(SUM(a.ATBU_Closing_TotalDebit_Amount), 0) AS ClosingDebit
 FROM Acc_TrailBalance_Upload a
 LEFT JOIN (
     SELECT 
-        AJTB_DescName,
-        SUM(AJTB_Debit) AS TotalDebit,
+        AJTB_Deschead,
+        SUM(AJTB_Debit)  AS TotalDebit,
         SUM(AJTB_Credit) AS TotalCredit
     FROM Acc_JETransactions_Details
-    WHERE  AJTB_CustId = @custId
-        AND AJTB_YearID = @yearId
-        AND AJTB_QuarterId = @durationId
-        AND AJTB_BranchId = @branchId and AJTB_Status<> 'D'
-    GROUP BY AJTB_DescName
-) g ON g.AJTB_DescName = a.ATBU_Description
-WHERE 
-    a.ATBU_CustId = @custId
-    AND a.ATBU_CompId = @compId
-    AND a.ATBU_YearId = @yearId
-    AND a.ATBU_BranchId = @branchId
-    AND a.ATBU_Description<>'Net Income' 
-    AND a.ATBU_QuarterId = @durationId;";
+    WHERE AJTB_CustId    = @CustId
+      AND AJTB_YearID    = @YearId
+      AND AJTB_QuarterId = @DurationId
+      AND AJTB_BranchId  = @BranchId
+      AND AJTB_Status <> 'D'
+    GROUP BY AJTB_Deschead
+) j ON j.AJTB_Deschead = a.ATBU_ID
+WHERE a.ATBU_CustId    = @CustId
+  AND a.ATBU_CompId    = @CompId
+  AND a.ATBU_YearId    = @YearId
+  AND a.ATBU_BranchId  = @BranchId
+  AND a.ATBU_QuarterId = @DurationId
+  AND a.ATBU_Description <> 'Net Income';
+";
 
-            return await connection.QueryAsync<CustCOASummaryDto>(query, new { CompId, CustId, YearId, BranchId, DurationId });
+            return await connection.QueryAsync<CustCOASummaryDto>(query,
+                new { CompId, CustId, YearId, BranchId, DurationId });
         }
+
 
         //GetTrailBalance(Grid)
         public async Task<IEnumerable<CustCOADetailsDto>> GetCustCOADetailsAsync(
-      int CompId, int CustId, int YearId, int ScheduleTypeId, int Unmapped, int BranchId, int DurationId)
+           int CompId, int CustId, int YearId, int ScheduleTypeId,
+           int Unmapped, int BranchId, int DurationId)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-
             if (string.IsNullOrEmpty(dbName))
-                throw new Exception("CustomerCode is missing in session. Please log in again.");
+                throw new Exception("CustomerCode is missing in session.");
 
-            var connectionString = _configuration.GetConnectionString(dbName);
-
-            using var connection = new SqlConnection(connectionString);
+            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
             await connection.OpenAsync();
 
             var query = @"
 SELECT 
-    ROW_NUMBER() OVER (ORDER BY ATBU_ID ASC) AS SrNo,
-    Atbu_id AS DescDetailsID,
-    b.atbud_progress AS Status,
+    ROW_NUMBER() OVER (ORDER BY a.ATBU_ID) AS SrNo,
+    a.ATBU_ID AS DescDetailsID,
+    b.ATBUD_Progress AS Status,
     b.ATBUD_SChedule_Type AS ScheduleType,
     b.ATBUD_ID AS DescID,
-    ATBU_Code AS DescriptionCode,
-    ATBU_Description AS Description,
-    CAST(ATBU_Opening_Debit_Amount AS DECIMAL(19, 2)) AS OpeningDebit,
-    CAST(ATBU_Opening_Credit_Amount AS DECIMAL(19, 2)) AS OpeningCredit,
-    CAST(SUM(ATBU_TR_Debit_Amount + ISNULL(g.TotalDebit, 0) ) AS DECIMAL(19, 2)) AS TrDebit,
-    CAST(SUM(ATBU_TR_Credit_Amount + ISNULL(h.TotalCredit, 0) ) AS DECIMAL(19, 2)) AS TrCredit,
-    CAST(ATBU_Closing_TotalDebit_Amount AS DECIMAL(19, 2)) AS ClosingDebit,
-    CAST(ATBU_Closing_TotalCredit_Amount AS DECIMAL(19, 2)) AS ClosingCredit,
-    ISNULL(b.ATBUD_SubItemId, 0) AS SubItemID,
-    ASSI_Name,
-    ISNULL(b.ATBUD_ItemId, 0) AS ItemID,
-    ASI_Name,
-    ISNULL(b.ATBUD_SubHeading, 0) AS SubHeadingID,
-    ASSH_Name,
-    ISNULL(b.ATBUD_HeadingId, 0) AS HeadingID,
-    ASH_Name,
-    CAST(ATBU_TR_Debit_Amount AS DECIMAL(19, 2)) AS TrDebittrUploaded,
-    CAST(ATBU_TR_Credit_Amount AS DECIMAL(19, 2)) AS TrCredittrUploaded
+
+    a.ATBU_Code AS DescriptionCode,
+    a.ATBU_Description AS Description,
+
+    CAST(a.ATBU_Opening_Debit_Amount  AS DECIMAL(19,2)) AS OpeningDebit,
+    CAST(a.ATBU_Opening_Credit_Amount AS DECIMAL(19,2)) AS OpeningCredit,
+
+    CAST(a.ATBU_TR_Debit_Amount + ISNULL(j.TotalDebit,0) AS DECIMAL(19,2)) AS TrDebit,
+    CAST(a.ATBU_TR_Credit_Amount + ISNULL(j.TotalCredit,0) AS DECIMAL(19,2)) AS TrCredit,
+
+    CAST(a.ATBU_Closing_TotalDebit_Amount  AS DECIMAL(19,2)) AS ClosingDebit,
+    CAST(a.ATBU_Closing_TotalCredit_Amount AS DECIMAL(19,2)) AS ClosingCredit,
+
+    ISNULL(b.ATBUD_SubItemId,0) AS SubItemID,
+    f.ASSI_Name,
+    ISNULL(b.ATBUD_ItemId,0) AS ItemID,
+    e.ASI_Name,
+    ISNULL(b.ATBUD_SubHeading,0) AS SubHeadingID,
+    d.ASSH_Name,
+    ISNULL(b.ATBUD_HeadingId,0) AS HeadingID,
+    c.ASH_Name,
+
+    CAST(a.ATBU_TR_Debit_Amount AS DECIMAL(19,2)) AS TrDebittrUploaded,
+    CAST(a.ATBU_TR_Credit_Amount AS DECIMAL(19,2)) AS TrCredittrUploaded
+
 FROM Acc_TrailBalance_Upload a
-LEFT JOIN Acc_TrailBalance_Upload_details b
-    ON b.ATBUD_Description = a.ATBU_Description
-    AND b.ATBUD_CustId = @custId
-    AND b.ATBUD_YEARId = @yearId
-    AND b.ATBUD_Branchnameid = @branchId
-    AND b.ATBUD_QuarterId = @durationId
+LEFT JOIN Acc_TrailBalance_Upload_Details b
+    ON b.ATBUD_Masid = a.ATBU_ID
+    AND b.ATBUD_CustId = @CustId
+    AND b.ATBUD_YearId = @YearId
+    AND b.Atbud_Branchnameid = @BranchId
+    AND b.ATBUD_QuarterId = @DurationId
+
 LEFT JOIN ACC_ScheduleHeading c ON c.ASH_ID = b.ATBUD_HeadingId
 LEFT JOIN ACC_ScheduleSubHeading d ON d.ASSH_ID = b.ATBUD_SubHeading
 LEFT JOIN ACC_ScheduleItems e ON e.ASI_ID = b.ATBUD_ItemId
 LEFT JOIN ACC_ScheduleSubItems f ON f.ASSI_ID = b.ATBUD_SubItemId
-LEFT JOIN (
-    SELECT AJTB_DescName, SUM(AJTB_Debit) AS TotalDebit
-    FROM Acc_JETransactions_Details
-    WHERE  AJTB_CustId = @custId
-        AND AJTB_YearID = @yearId
-        AND AJTB_QuarterId = @durationId
-        AND AJTB_BranchId = @branchId
-        AND AJTB_Credit = 0 and AJTB_Status<> 'D'
-    GROUP BY AJTB_DescName
-) g ON g.AJTB_DescName = a.ATBU_Description
-LEFT JOIN (
-    SELECT AJTB_DescName, SUM(AJTB_Credit) AS TotalCredit
-    FROM Acc_JETransactions_Details
-    WHERE  AJTB_CustId = @custId
-        AND AJTB_YearID = @yearId
-        AND AJTB_QuarterId = @durationId
-        AND AJTB_BranchId = @branchId
-        AND AJTB_Debit = 0 and AJTB_Status<> 'D'
-    GROUP BY AJTB_DescName
-) h ON h.AJTB_DescName = a.ATBU_Description
-WHERE a.ATBU_CustId = @custId
-    AND a.ATBU_CompId = @compId
-    AND a.ATBU_YEARId = @yearId
-    AND a.ATBU_BranchId = @branchId
-    AND a.ATBU_QuarterId = @durationId
-" + (Unmapped == 1 ? @"AND (
-        ISNULL(ATBUD_Headingid, 0) = 0 and  
-        ISNULL(ATBUD_Subheading, 0) = 0 and  
-        ISNULL(ATBUD_itemid, 0) = 0 and 
-        ISNULL(ATBUD_SubItemId, 0) = 0
-    )" : "") + @"
-GROUP BY b.ATBUD_ID, a.ATBU_ID, a.ATBU_Code, a.ATBU_CustId, a.ATBU_Description, a.ATBU_Opening_Debit_Amount,
-         a.ATBU_Opening_Credit_Amount, a.ATBU_TR_Debit_Amount, a.ATBU_TR_Credit_Amount,
-         a.ATBU_Closing_TotalDebit_Amount, a.ATBU_Closing_TotalCredit_Amount,
-         b.ATBUD_SubItemId, b.ATBUD_ItemId, ASI_Name, b.ATBUD_SubHeading,
-         ASSH_Name, b.atbud_progress, b.ATBUD_HeadingId, ASH_Name,
-         b.ATBUD_SChedule_Type, ASSI_Name
-ORDER BY ATBU_ID;";
 
-            return await connection.QueryAsync<CustCOADetailsDto>(query, new
-            {
-                CompId,
-                CustId,
-                YearId,
-                ScheduleTypeId,
-                Unmapped,
-                BranchId,
-                DurationId
-            });
+LEFT JOIN (
+    SELECT 
+        AJTB_Deschead,
+        SUM(AJTB_Debit)  AS TotalDebit,
+        SUM(AJTB_Credit) AS TotalCredit
+    FROM Acc_JETransactions_Details
+    WHERE AJTB_CustId    = @CustId
+      AND AJTB_YearID    = @YearId
+      AND AJTB_QuarterId = @DurationId
+      AND AJTB_BranchId  = @BranchId
+      AND AJTB_Status <> 'D'
+    GROUP BY AJTB_Deschead
+) j ON j.AJTB_Deschead = a.ATBU_ID
 
+WHERE a.ATBU_CustId    = @CustId
+  AND a.ATBU_CompId    = @CompId
+  AND a.ATBU_YearId    = @YearId
+  AND a.ATBU_BranchId  = @BranchId
+  AND a.ATBU_QuarterId = @DurationId
+" + (Unmapped == 1 ? @"
+AND ISNULL(b.ATBUD_HeadingId,0)=0
+AND ISNULL(b.ATBUD_SubHeading,0)=0
+AND ISNULL(b.ATBUD_ItemId,0)=0
+AND ISNULL(b.ATBUD_SubItemId,0)=0
+" : "") + @"
+ORDER BY a.ATBU_ID;
+";
+
+            return await connection.QueryAsync<CustCOADetailsDto>(query,
+                new { CompId, CustId, YearId, BranchId, DurationId });
         }
+
 
         //FreezeForPreviousDuration
         public async Task<int[]> FreezePreviousDurationTrialBalanceAsync(List<FreezePreviousYearTrialBalanceDto> inputList)
