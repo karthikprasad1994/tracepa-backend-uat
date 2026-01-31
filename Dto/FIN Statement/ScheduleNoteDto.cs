@@ -1,4 +1,6 @@
-﻿namespace TracePca.Dto.FIN_Statement
+﻿using static TracePca.Dto.FIN_Statement.ScheduleNoteDto;
+
+namespace TracePca.Dto.FIN_Statement
 {
     public class ScheduleNoteDto
     {
@@ -60,13 +62,24 @@
         }
 
         //GetLedger(Notes For Ledger)
-        public class LedgerIndividualDto
+        public class GetLedgerNoteDto
         {
-            public string Description { get; set; }
-            public int ASHL_ID { get; set; }
+            public int ATBU_ID { get; set; }
+            public string ATBU_Description { get; set; }
         }
 
         //SaveOrUpdateLedger(Notes For Ledger)
+        public class SaveLedgerNoteDto
+        {
+            public int ATBU_ID { get; set; }
+            public string ATBU_Description { get; set; }
+            public int ATBU_CustId { get; set; }
+            public int ATBU_CompId { get; set; }
+            public int ATBU_YEARId { get; set; }
+            public int ATBU_Branchid { get; set; }
+
+            public List<SubHeadingLedgerNoteDto> notes { get; set; } = new();
+        }
         public class SubHeadingLedgerNoteDto
         {
             public int ASHL_ID { get; set; }
@@ -82,6 +95,22 @@
             public int ASHL_CompID { get; set; }
             public int ASHL_YearID { get; set; }
             public string ASHL_IPAddress { get; set; }
+        }
+
+        //LoadGrid(Notes For Ledger)
+        public class LoadLedgerNotesGridDto
+        {
+            public int SubHeadingId { get; set; }
+            public string SubHeadingName { get; set; }
+            public int LedgerId { get; set; }
+            public string Description { get; set; }
+        }
+
+        //DeleteLedgerNote
+        public class DeleteLedgerNoteDto
+        {
+            public int ASHL_CompId { get; set; }
+            public int ASHL_Id { get; set; }
         }
 
         //DownloadNotesExcel

@@ -224,7 +224,6 @@ namespace TracePca.Service.SuperMaster
                         objCust.CUST_ORGTYPEID = orgTypeId;
                     }
 
-
                     //Ensure Customer Code exists or activate it
                     var custRecord = await connection.QueryFirstOrDefaultAsync<(int Id, string DelFlag)>(
                         @"SELECT Cust_ID AS Id, CUST_DELFLG AS DelFlag
@@ -300,7 +299,6 @@ namespace TracePca.Service.SuperMaster
                         cmdCust.Parameters.AddWithValue("@CUST_RoundOff", objCust.CUST_RoundOff);
                         cmdCust.Parameters.AddWithValue("@Cust_DurtnId", objCust.Cust_DurtnId);
                         cmdCust.Parameters.AddWithValue("@Cust_FY", objCust.Cust_FY);
-
 
                         var updateOrSaveParam = new SqlParameter("@iUpdateOrSave", SqlDbType.Int) { Direction = ParameterDirection.Output };
                         var operParam = new SqlParameter("@iOper", SqlDbType.Int) { Direction = ParameterDirection.Output };
