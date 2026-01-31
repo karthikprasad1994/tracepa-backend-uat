@@ -131,193 +131,193 @@ namespace TracePca.Service.Master
             return accessCodeDirectory;
         }
 
-        public async Task<string> IndexDocuments(IndexDocumentDto dto)
-        {
-            string sStatus = "";
+   //     public async Task<string> IndexDocuments(IndexDocumentDto dto)
+   //     {
+   //         string sStatus = "";
 
-			//using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			////using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+			////await connection.OpenAsync();
+
+			//string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+			//if (string.IsNullOrEmpty(dbName))
+			//	throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+			//// ✅ Step 2: Get the connection string
+			//var connectionString = _configuration.GetConnectionString(dbName);
+
+			//using var connection = new SqlConnection(connectionString);
 			//await connection.OpenAsync();
 
-			string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
-			if (string.IsNullOrEmpty(dbName))
-				throw new Exception("CustomerCode is missing in session. Please log in again.");
+			//using var transaction = connection.BeginTransaction();
 
-			// ✅ Step 2: Get the connection string
-			var connectionString = _configuration.GetConnectionString(dbName);
+   //         //To Get Image Path
+   //         var AccessCodeDirectory = await connection.ExecuteScalarAsync<string>(@"Select sad_Config_Value from sad_config_settings where sad_Config_Key='ImgPath'  
+   //             and sad_compid=@sad_compid", new { sad_compid = dto.CompID }, transaction);
+   //         if (AccessCodeDirectory == "")
+   //         {
+   //             return sStatus = "Invalid Image Path.";
+   //         }
 
-			using var connection = new SqlConnection(connectionString);
-			await connection.OpenAsync();
+   //         //Check User id is Valid
+   //         var UserLoginName = await connection.ExecuteScalarAsync<string>(@"Select Usr_LoginName from sad_UserDetails where Usr_ID=@Usr_ID 
+   //             and Usr_CompID=@Usr_CompID", new { Usr_ID = dto.UserID, Usr_CompID = dto.CompID }, transaction);
+   //         if (UserLoginName == "")
+   //         {
+   //             return sStatus = "Invalid UserId.";
+   //         }
 
+   //         //Check for Cabinet Id is Valid
+   //         var CabinetID = await connection.ExecuteScalarAsync<int>(@"Select Cbn_id from edt_Cabinet where Cbn_id=@Cbn_id and CBN_Parent = -1 and CBN_UserID=@CBN_UserID
+   //             and CBN_CompID=@CBN_CompID", new { Cbn_id = dto.CabinetID, CBN_UserID=dto.UserID, CBN_CompID = dto.CompID }, transaction);
+   //         if (CabinetID == 0)
+   //         {
+   //             return sStatus = "Invalid Cabinet Id.";
+   //         }
 
-			using var transaction = connection.BeginTransaction();
+   //         //Check for SubCabinet Id is Valid
+   //         var SubCabinetID = await connection.ExecuteScalarAsync<int>(@"Select Cbn_id from edt_Cabinet where Cbn_id=@Cbn_id and CBN_Parent=@CBN_Parent and CBN_UserID=@CBN_UserID
+   //             and CBN_CompID=@CBN_CompID", new { Cbn_id = dto.SubCabinetID, CBN_Parent= dto.CabinetID, CBN_UserID = dto.UserID, CBN_CompID = dto.CompID }, transaction);
+   //         if (SubCabinetID == 0)
+   //         {
+   //             return sStatus = "Invalid SubCabinet Id.";
+   //         }
 
-            //To Get Image Path
-            var AccessCodeDirectory = await connection.ExecuteScalarAsync<string>(@"Select sad_Config_Value from sad_config_settings where sad_Config_Key='ImgPath'  
-                and sad_compid=@sad_compid", new { sad_compid = dto.CompID }, transaction);
-            if (AccessCodeDirectory == "")
-            {
-                return sStatus = "Invalid Image Path.";
-            }
+   //         //Check for Folder Id is Valid
+   //         var FolderId = await connection.ExecuteScalarAsync<int>(@"Select Fol_FolID from edt_folder where Fol_FolID=@Fol_FolID  and Fol_Cabinet=@Fol_Cabinet
+   //             and FOL_CompID=@FOL_CompID", new { Fol_FolID = dto.FolderID, Fol_Cabinet=dto.SubCabinetID, FOL_CompID = dto.CompID }, transaction);
+   //         if (FolderId == 0)
+   //         {
+   //             return sStatus = "Invalid Folder Id.";
+   //         }
 
-            //Check User id is Valid
-            var UserLoginName = await connection.ExecuteScalarAsync<string>(@"Select Usr_LoginName from sad_UserDetails where Usr_ID=@Usr_ID 
-                and Usr_CompID=@Usr_CompID", new { Usr_ID = dto.UserID, Usr_CompID = dto.CompID }, transaction);
-            if (UserLoginName == "")
-            {
-                return sStatus = "Invalid UserId.";
-            }
+   //         //Check for Document Type Id is Valid
+   //         var DocumentTypeID = await connection.ExecuteScalarAsync<int>(@"Select Fol_FolID from edt_Document_Type where Dot_DocTypeID=@Dot_DocTypeID  
+   //             and DOT_CompID=@DOT_CompID", new { Dot_DocTypeID = dto.DocumentTypeID, DOT_CompID = dto.CompID }, transaction);
+   //         if (DocumentTypeID == 0)
+   //         {
+   //             return sStatus = "Invalid Document Type Id.";
+   //         }
 
-            //Check for Cabinet Id is Valid
-            var CabinetID = await connection.ExecuteScalarAsync<int>(@"Select Cbn_id from edt_Cabinet where Cbn_id=@Cbn_id and CBN_Parent = -1 and CBN_UserID=@CBN_UserID
-                and CBN_CompID=@CBN_CompID", new { Cbn_id = dto.CabinetID, CBN_UserID=dto.UserID, CBN_CompID = dto.CompID }, transaction);
-            if (CabinetID == 0)
-            {
-                return sStatus = "Invalid Cabinet Id.";
-            }
+   //         //Check title name exist or not
+   //         int checkTitleName = await connection.ExecuteScalarAsync<int>(@"Select PGE_BaseName From edt_page where PGE_Title = @PGE_Title  
+   //             and Pge_CompID=@Pge_CompID", new { PGE_TITLE = dto.Title, Pge_CompID = dto.CompID }, transaction);
+   //         if (checkTitleName != 0)
+   //         {
+   //             return sStatus = "Title Already Exists.";
+   //         }
 
-            //Check for SubCabinet Id is Valid
-            var SubCabinetID = await connection.ExecuteScalarAsync<int>(@"Select Cbn_id from edt_Cabinet where Cbn_id=@Cbn_id and CBN_Parent=@CBN_Parent and CBN_UserID=@CBN_UserID
-                and CBN_CompID=@CBN_CompID", new { Cbn_id = dto.SubCabinetID, CBN_Parent= dto.CabinetID, CBN_UserID = dto.UserID, CBN_CompID = dto.CompID }, transaction);
-            if (SubCabinetID == 0)
-            {
-                return sStatus = "Invalid SubCabinet Id.";
-            }
+   //         //To Get and Create Directory
+   //         String sTempPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
 
-            //Check for Folder Id is Valid
-            var FolderId = await connection.ExecuteScalarAsync<int>(@"Select Fol_FolID from edt_folder where Fol_FolID=@Fol_FolID  and Fol_Cabinet=@Fol_Cabinet
-                and FOL_CompID=@FOL_CompID", new { Fol_FolID = dto.FolderID, Fol_Cabinet=dto.SubCabinetID, FOL_CompID = dto.CompID }, transaction);
-            if (FolderId == 0)
-            {
-                return sStatus = "Invalid Folder Id.";
-            }
+   //         //Check UploadFile valid
+   //         if (dto.File == null || dto.File.Length == 0)
+   //         {
+   //             return sStatus = "Invalid file.";  
+   //         }
 
-            //Check for Document Type Id is Valid
-            var DocumentTypeID = await connection.ExecuteScalarAsync<int>(@"Select Fol_FolID from edt_Document_Type where Dot_DocTypeID=@Dot_DocTypeID  
-                and DOT_CompID=@DOT_CompID", new { Dot_DocTypeID = dto.DocumentTypeID, DOT_CompID = dto.CompID }, transaction);
-            if (DocumentTypeID == 0)
-            {
-                return sStatus = "Invalid Document Type Id.";
-            }
+   //         var sFileName = Path.GetFileName(dto.File.FileName);
+   //         var fileExt = Path.GetExtension(sFileName)?.TrimStart('.');
 
-            //Check title name exist or not
-            int checkTitleName = await connection.ExecuteScalarAsync<int>(@"Select PGE_BaseName From edt_page where PGE_Title = @PGE_Title  
-                and Pge_CompID=@Pge_CompID", new { PGE_TITLE = dto.Title, Pge_CompID = dto.CompID }, transaction);
-            if (checkTitleName != 0)
-            {
-                return sStatus = "Title Already Exists.";
-            }
+   //         var sFullFilePath = Path.Combine(sTempPath, sFileName);
+   //         using (var stream = new FileStream(sFullFilePath, FileMode.Create))
+   //         {
+   //             await dto.File.CopyToAsync(stream);
+   //         }
 
-            //To Get and Create Directory
-            String sTempPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
+   //         //Get BaseName ID
+   //         var BaseNameID = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(PGE_BASENAME)+1,1) FROM edt_page Where Pge_CompID=@Pge_CompID", 
+   //             new { Pge_CompID = dto.CompID }, transaction);
 
-            //Check UploadFile valid
-            if (dto.File == null || dto.File.Length == 0)
-            {
-                return sStatus = "Invalid file.";  
-            }
+   //         //Get PageNo ID
+   //         var PageNoID = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(PGE_PAGENO)+1,1) FROM edt_page Where Pge_CompID=@Pge_CompID",
+   //            new { Pge_CompID = dto.CompID }, transaction);
 
-            var sFileName = Path.GetFileName(dto.File.FileName);
-            var fileExt = Path.GetExtension(sFileName)?.TrimStart('.');
-
-            var sFullFilePath = Path.Combine(sTempPath, sFileName);
-            using (var stream = new FileStream(sFullFilePath, FileMode.Create))
-            {
-                await dto.File.CopyToAsync(stream);
-            }
-
-            //Get BaseName ID
-            var BaseNameID = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(PGE_BASENAME)+1,1) FROM edt_page Where Pge_CompID=@Pge_CompID", 
-                new { Pge_CompID = dto.CompID }, transaction);
-
-            //Get PageNo ID
-            var PageNoID = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(PGE_PAGENO)+1,1) FROM edt_page Where Pge_CompID=@Pge_CompID",
-               new { Pge_CompID = dto.CompID }, transaction);
-
-            var sObject = "";
-            switch (fileExt.ToUpper())
-            {
-                case "TIF": case "TIFF": case "JPG": case "JPEG": case "BMP":
-                case "BRK": case "CAL": case "CLP": case "DCX": case "EPS":
-                case "ICO": case "IFF": case "IMT": case "ICA": case "PCT":
-                case "PCX": case "PNG": case "PSD": case "RAS": case "SGI":
-                case "TGA": case "XBM": case "XPM": case "XWD":
-                    sObject = "IMAGE"; break;
-                default:
-                    sObject = "OLE"; break;
-            }
+   //         var sObject = "";
+   //         switch (fileExt.ToUpper())
+   //         {
+   //             case "TIF": case "TIFF": case "JPG": case "JPEG": case "BMP":
+   //             case "BRK": case "CAL": case "CLP": case "DCX": case "EPS":
+   //             case "ICO": case "IFF": case "IMT": case "ICA": case "PCT":
+   //             case "PCX": case "PNG": case "PSD": case "RAS": case "SGI":
+   //             case "TGA": case "XBM": case "XPM": case "XWD":
+   //                 sObject = "IMAGE"; break;
+   //             default:
+   //                 sObject = "OLE"; break;
+   //         }
 
 
-            var insertQuery = @"
-                INSERT INTO EDT_PAGE (PGE_BASENAME, PGE_CABINET, PGE_FOLDER, PGE_DOCUMENT_TYPE, PGE_TITLE, PGE_DATE, Pge_DETAILS_ID, Pge_CreatedBy, PGE_OBJECT, PGE_PAGENO, PGE_EXT, 
-                PGE_KeyWORD, PGE_OCRText, PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, pge_OrignalFileName, PGE_BatchID,
-                PGE_OCRDelFlag, Pge_CompID, pge_Delflag, PGE_RFID)
-                VALUES (@PGE_BASENAME, @PGE_CABINET, @PGE_FOLDER, @PGE_DOCUMENT_TYPE, @PGE_TITLE, GETDATE(), @Pge_DETAILS_ID, @Pge_CreatedBy, @PGE_OBJECT, @PGE_PAGENO, @PGE_EXT,
-                @PGE_KeyWORD,'',0,0,'A',@PGE_SubCabinet,0,'F',@PGE_batch_name,@pge_OrignalFileName,0,0,@Pge_CompID,'A','');";
+   //         var insertQuery = @"
+   //             INSERT INTO EDT_PAGE (PGE_BASENAME, PGE_CABINET, PGE_FOLDER, PGE_DOCUMENT_TYPE, PGE_TITLE, PGE_DATE, Pge_DETAILS_ID, Pge_CreatedBy, PGE_OBJECT, PGE_PAGENO, PGE_EXT, 
+   //             PGE_KeyWORD, PGE_OCRText, PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, pge_OrignalFileName, PGE_BatchID,
+   //             PGE_OCRDelFlag, Pge_CompID, pge_Delflag, PGE_RFID)
+   //             VALUES (@PGE_BASENAME, @PGE_CABINET, @PGE_FOLDER, @PGE_DOCUMENT_TYPE, @PGE_TITLE, GETDATE(), @Pge_DETAILS_ID, @Pge_CreatedBy, @PGE_OBJECT, @PGE_PAGENO, @PGE_EXT,
+   //             @PGE_KeyWORD,'',0,0,'A',@PGE_SubCabinet,0,'F',@PGE_batch_name,@pge_OrignalFileName,0,0,@Pge_CompID,'A','');";
 
-            await connection.ExecuteAsync(insertQuery, new
-            {
-                PGE_BASENAME = BaseNameID,
-                PGE_CABINET = dto.CabinetID,
-                PGE_FOLDER = dto.FolderID,
-                PGE_DOCUMENT_TYPE = dto.DocumentTypeID,
-                PGE_TITLE = dto.Title,
-                Pge_DETAILS_ID = BaseNameID,
-                Pge_CreatedBy = dto.UserID,
-                PGE_OBJECT = sObject,
-                PGE_PAGENO = PageNoID,
-                PGE_EXT = fileExt,
-                PGE_KeyWORD = dto.Keyword,
-                PGE_SubCabinet = dto.SubCabinetID,
-                PGE_batch_name = BaseNameID,
-                pge_OrignalFileName = sFileName,
-                Pge_CompID = dto.CompID
-            });
+   //         await connection.ExecuteAsync(insertQuery, new
+   //         {
+   //             PGE_BASENAME = BaseNameID,
+   //             PGE_CABINET = dto.CabinetID,
+   //             PGE_FOLDER = dto.FolderID,
+   //             PGE_DOCUMENT_TYPE = dto.DocumentTypeID,
+   //             PGE_TITLE = dto.Title,
+   //             Pge_DETAILS_ID = BaseNameID,
+   //             Pge_CreatedBy = dto.UserID,
+   //             PGE_OBJECT = sObject,
+   //             PGE_PAGENO = PageNoID,
+   //             PGE_EXT = fileExt,
+   //             PGE_KeyWORD = dto.Keyword,
+   //             PGE_SubCabinet = dto.SubCabinetID,
+   //             PGE_batch_name = BaseNameID,
+   //             pge_OrignalFileName = sFileName,
+   //             Pge_CompID = dto.CompID
+   //         });
 
-            //Check FIleIn DB true or false
-            var CheckFileInDB = await connection.ExecuteScalarAsync<string>(@"Select SAD_Config_Value from sad_config_settings where SAD_Config_Key = 'FilesInDB'",
-               new { Pge_CompID = dto.CompID }, transaction);
+   //         //Check FIleIn DB true or false
+   //         var CheckFileInDB = await connection.ExecuteScalarAsync<string>(@"Select SAD_Config_Value from sad_config_settings where SAD_Config_Key = 'FilesInDB'",
+   //            new { Pge_CompID = dto.CompID }, transaction);
 
-            if(CheckFileInDB.ToUpper() == "FALSE")
-            {
-                string sImagePath = ""; string sPaths = "";
-                sImagePath = sImagePath + "\\BITMAPS\\" + BaseNameID + "\\301\\";
+   //         if(CheckFileInDB.ToUpper() == "FALSE")
+   //         {
+   //             string sImagePath = ""; string sPaths = "";
+   //             sImagePath = sImagePath + "\\BITMAPS\\" + BaseNameID + "\\301\\";
 
-                if (!sImagePath.EndsWith("\\"))
-                {
-                    sPaths = sImagePath + "\\";
-                }
-                else
-                {
-                    sPaths = sImagePath;
-                }
+   //             if (!sImagePath.EndsWith("\\"))
+   //             {
+   //                 sPaths = sImagePath + "\\";
+   //             }
+   //             else
+   //             {
+   //                 sPaths = sImagePath;
+   //             }
 
-                if (!Directory.Exists(sPaths))
-                {
-                    Directory.CreateDirectory(sPaths);
-                }
+   //             if (!Directory.Exists(sPaths))
+   //             {
+   //                 Directory.CreateDirectory(sPaths);
+   //             }
 
-                if(fileExt.Contains(".") == false)
-                {
-                    fileExt = "." + fileExt;
-                }
-                sImagePath = sPaths + BaseNameID + fileExt;
+   //             if(fileExt.Contains(".") == false)
+   //             {
+   //                 fileExt = "." + fileExt;
+   //             }
+   //             sImagePath = sPaths + BaseNameID + fileExt;
 
-                if( System.IO.File.Exists(sImagePath) == false)
-                {
-                    System.IO.File.Copy(sFullFilePath, sImagePath, true);
-                }
+   //             if( System.IO.File.Exists(sImagePath) == false)
+   //             {
+   //                 System.IO.File.Copy(sFullFilePath, sImagePath, true);
+   //             }
 
-                if (System.IO.File.Exists(sFullFilePath) == true)
-                {
-                    System.IO.File.Delete(sFullFilePath);
-                }
-                sStatus = "Indexed Successfully.";
-            }
+   //             if (System.IO.File.Exists(sFullFilePath) == true)
+   //             {
+   //                 System.IO.File.Delete(sFullFilePath);
+   //             }
+   //             sStatus = "Indexed Successfully.";
+   //         }
 
-            await transaction.CommitAsync();
-            return sStatus;
-        }
+   //         await transaction.CommitAsync();
+   //         return sStatus;
+   //     }
 
 		public async Task<IEnumerable<DescriptorDto>> LoadDescriptorAsync(int DescId, int compID)
 		{

@@ -31,6 +31,7 @@ using TracePca.Interface.Master;
 using Google.Apis.Util;
 using File = System.IO.File;
 using GoogleDriveFile = Google.Apis.Drive.v3.Data.File;
+using DocumentFormat.OpenXml.Office2010.Word;
 
 namespace TracePca.Service.DigitalFilling
 {
@@ -61,8 +62,8 @@ namespace TracePca.Service.DigitalFilling
 
             _isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
 
-            string localPath = @"C:\Users\Crcuial\Desktop\TracePA-Backend-Latest\tracepa-corebackend\client_secret_desktop.json";
-            //string localPath = @"D:\Steffi\Backend Project\tracepa-corebackend\client_secret_desktop.json";
+            //string localPath = @"C:\Users\Crcuial\Desktop\TracePA-Backend-Latest\tracepa-corebackend\client_secret_desktop.json";
+            string localPath = @"D:\Steffi\Backend Project\tracepa-corebackend\client_secret_desktop.json";
 
             string cloudPath = @"C:\inetpub\vhosts\multimedia.interactivedns.com\tracepacore.multimedia.interactivedns.com\GoogleDrive\client_secret.json";
             _credentialsPath = _isDevelopment ? localPath : cloudPath;
@@ -438,7 +439,7 @@ namespace TracePca.Service.DigitalFilling
 
                 //To Get Image Path
                 var AccessCodeDirectory = await connection.ExecuteScalarAsync<string>(@"Select sad_Config_Value from sad_config_settings where sad_Config_Key='ImgPath'  
-          and sad_compid=@sad_compid", new { sad_compid = dto.CompID }, transaction);
+                        and sad_compid=@sad_compid", new { sad_compid = dto.CompID }, transaction);
                 if (AccessCodeDirectory == "")
                 {
                     return sStatus = "Invalid Image Path.";
@@ -487,31 +488,19 @@ namespace TracePca.Service.DigitalFilling
 
                 //Check title name exist or not
                 int checkTitleName = await connection.ExecuteScalarAsync<int>(@"Select PGE_BaseName From edt_page where PGE_Title = @PGE_Title  
-          and Pge_CompID=@Pge_CompID", new { PGE_TITLE = dto.Title, Pge_CompID = dto.CompID }, transaction);
+                                        and Pge_CompID=@Pge_CompID", new { PGE_TITLE = dto.Title, Pge_CompID = dto.CompID }, transaction);
                 if (checkTitleName != 0)
                 {
                     return sStatus = "Title Already Exists.";
                 }
 
-                //To Get and Create Directory
-                //String sTempPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
-                //var sTempPath = EnsureDirectoryExists(AccessCodeDirectory, UserLoginName, "Upload");
-
+                
                 //Check UploadFile valid
-                if (dto.File == null || dto.File.Length == 0)
-                {
-                    return sStatus = "Invalid file.";
-                }
-
-                var sFileName = Path.GetFileName(dto.File.FileName);
-                var fileExt = Path.GetExtension(sFileName)?.TrimStart('.');
-
-                //var sFullFilePath = Path.Combine(sTempPath, sFileName);
-                //using (var stream = new FileStream(sFullFilePath, FileMode.Create))
+                //if (dto.Files == null || dto.Files.Any())
                 //{
-                //	await dto.File.CopyToAsync(stream);
+                //    return sStatus = "Invalid file.";
                 //}
-
+ 
                 //Get BaseName ID
                 var BaseNameID = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(PGE_BASENAME)+1,1) FROM edt_page Where Pge_CompID=@Pge_CompID",
                           new { Pge_CompID = dto.CompID }, transaction);
@@ -520,39 +509,7 @@ namespace TracePca.Service.DigitalFilling
                 var PageNoID = await connection.ExecuteScalarAsync<int>(@"Select ISNULL(MAX(PGE_PAGENO)+1,1) FROM edt_page Where Pge_CompID=@Pge_CompID",
                    new { Pge_CompID = dto.CompID }, transaction);
 
-                var sObject = "";
-                switch (fileExt.ToUpper())
-                {
-                    case "TIF":
-                    case "TIFF":
-                    case "JPG":
-                    case "JPEG":
-                    case "BMP":
-                    case "BRK":
-                    case "CAL":
-                    case "CLP":
-                    case "DCX":
-                    case "EPS":
-                    case "ICO":
-                    case "IFF":
-                    case "IMT":
-                    case "ICA":
-                    case "PCT":
-                    case "PCX":
-                    case "PNG":
-                    case "PSD":
-                    case "RAS":
-                    case "SGI":
-                    case "TGA":
-                    case "XBM":
-                    case "XPM":
-                    case "XWD":
-                        sObject = "IMAGE"; break;
-                    default:
-                        sObject = "OLE"; break;
-                }
-
-
+                
                 if (dto.RentensionDate != null && dto.RentensionDate != "" && dto.RentensionDate != "string")
                 {
                     var sSql = @"Update edt_Cabinet set CBN_DocumentExpiryDate= @CBN_DocumentExpiryDate where CBN_ID =@CBN_ID";
@@ -563,93 +520,154 @@ namespace TracePca.Service.DigitalFilling
                     }, transaction);
                 }
 
-
-                var insertQuery = @"
-          INSERT INTO EDT_PAGE (PGE_BASENAME, PGE_CABINET, PGE_FOLDER, PGE_DOCUMENT_TYPE, PGE_TITLE, PGE_DATE, Pge_DETAILS_ID, Pge_CreatedBy, PGE_OBJECT, PGE_PAGENO, PGE_EXT, 
-          PGE_KeyWORD, PGE_OCRText, PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, pge_OrignalFileName, PGE_BatchID,
-          PGE_OCRDelFlag, Pge_CompID, pge_Delflag, PGE_RFID)
-          VALUES (@PGE_BASENAME, @PGE_CABINET, @PGE_FOLDER, @PGE_DOCUMENT_TYPE, @PGE_TITLE, GETDATE(), @Pge_DETAILS_ID, @Pge_CreatedBy, @PGE_OBJECT, @PGE_PAGENO, @PGE_EXT,
-          @PGE_KeyWORD,'',0,0,'A',@PGE_SubCabinet,0,'F',@PGE_batch_name,@pge_OrignalFileName,0,0,@Pge_CompID,'A','');";
-
-                await connection.ExecuteAsync(insertQuery, new
+                foreach (var file in dto.Files)
                 {
-                    PGE_BASENAME = BaseNameID,
-                    PGE_CABINET = dto.CabinetID,
-                    PGE_FOLDER = dto.FolderID,
-                    PGE_DOCUMENT_TYPE = dto.DocumentTypeID,
-                    PGE_TITLE = dto.Title,
-                    Pge_DETAILS_ID = BaseNameID,
-                    Pge_CreatedBy = dto.UserID,
-                    PGE_OBJECT = sObject,
-                    PGE_PAGENO = PageNoID,
-                    PGE_EXT = fileExt,
-                    //PGE_KeyWORD = dto.Keyword,
-                    PGE_KeyWORD = string.IsNullOrEmpty(dto.Keyword) ? "" : dto.Keyword,
-                    PGE_SubCabinet = dto.SubCabinetID,
-                    PGE_batch_name = BaseNameID,
-                    pge_OrignalFileName = sFileName,
-                    Pge_CompID = dto.CompID
-                }, transaction);
+                    String sTempPath = await CheckOrCreateCustomDirectory(AccessCodeDirectory, UserLoginName, "Upload");
+                    var tempFolderPath = EnsureDirectoryExists(AccessCodeDirectory, UserLoginName, "Upload");
 
-                ////Check FIleIn DB true or false
-                //var CheckFileInDB = await connection.ExecuteScalarAsync<string>(@"Select SAD_Config_Value from sad_config_settings where SAD_Config_Key = 'FilesInDB'",
-                //   new { Pge_CompID = dto.CompID }, transaction);
+                    var originalFileName = Path.GetFileName(file.FileName);
+                    var tempFilePath = Path.Combine(tempFolderPath, originalFileName);
 
-                //if (CheckFileInDB.ToUpper() == "FALSE")
-                //{
-                //    string sImagePath = ""; string sPaths = "";
-                //    sImagePath = sImagePath + "\\BITMAPS\\" + BaseNameID + "\\301\\";
+                    var fileExtension = Path.GetExtension(originalFileName).TrimStart('.').ToLower();
+                    var fileBaseName = Path.GetFileNameWithoutExtension(originalFileName).Replace("&", " and");
+                    fileBaseName = fileBaseName.Substring(0, Math.Min(fileBaseName.Length, 95));
 
-                //    if (!sImagePath.EndsWith("\\"))
-                //    {
-                //        sPaths = sImagePath + "\\";
-                //    }
-                //    else
-                //    {
-                //        sPaths = sImagePath;
-                //    }
-
-                //    if (!Directory.Exists(sPaths))
-                //    {
-                //        Directory.CreateDirectory(sPaths);
-                //    }
-
-                //    if (fileExt.Contains(".") == false)
-                //    {
-                //        fileExt = "." + fileExt;
-                //    }
-                //    sImagePath = sPaths + BaseNameID + fileExt;
-
-                //    if (System.IO.File.Exists(sImagePath) == false)
-                //    {
-                //        System.IO.File.Copy(sFullFilePath, sImagePath, true);
-                //    }
-
-                //    if (System.IO.File.Exists(sFullFilePath) == true)
-                //    {
-                //        System.IO.File.Delete(sFullFilePath);
-                //    }
-                //    sStatus = "Indexed Successfully.";
-                //}
-
-
-                dynamic uploadedFile = await UploadFileToFolderAsyncNew(dto.File, "TracePA/DigitalFillings", GetUserEmail(), iDocID);
-                if (uploadedFile != null)
-                {
-                    // Check status
-                    if (uploadedFile.Status == "Success")
+                    if (file.FileName == "empty.txt")
                     {
-                        string fullFileName = uploadedFile.File.Name;
-                        nameOnly = Path.GetFileNameWithoutExtension(fullFileName);
-                        extension = Path.GetExtension(fullFileName);
+                        fileExtension = ""; fileBaseName = "";
                     }
-                    else if (uploadedFile.Status == "Error")
+                     
+                    var sObject = "";
+                    switch (fileExtension.ToUpper())
                     {
-                        string errorMessage = uploadedFile.Message ?? "Unknown Google Drive upload error.";
+                        case "TIF":
+                        case "TIFF":
+                        case "JPG":
+                        case "JPEG":
+                        case "BMP":
+                        case "BRK":
+                        case "CAL":
+                        case "CLP":
+                        case "DCX":
+                        case "EPS":
+                        case "ICO":
+                        case "IFF":
+                        case "IMT":
+                        case "ICA":
+                        case "PCT":
+                        case "PCX":
+                        case "PNG":
+                        case "PSD":
+                        case "RAS":
+                        case "SGI":
+                        case "TGA":
+                        case "XBM":
+                        case "XPM":
+                        case "XWD":
+                            sObject = "IMAGE"; break;
+                        default:
+                            sObject = "OLE"; break;
                     }
+
+                    var fileSize = file.Length; 
+                    var insertQuery = @"
+                                  INSERT INTO EDT_PAGE (PGE_BASENAME, PGE_CABINET, PGE_FOLDER, PGE_DOCUMENT_TYPE, PGE_TITLE, PGE_DATE, Pge_DETAILS_ID, Pge_CreatedBy, PGE_OBJECT, PGE_PAGENO, PGE_EXT, 
+                                  PGE_KeyWORD, PGE_OCRText, PGE_SIZE, PGE_CURRENT_VER, PGE_STATUS, PGE_SubCabinet, PGE_QC_UsrGrpId, PGE_FTPStatus, PGE_batch_name, pge_OrignalFileName, PGE_BatchID,
+                                  PGE_OCRDelFlag, Pge_CompID, pge_Delflag, PGE_RFID)
+                                  VALUES (@PGE_BASENAME, @PGE_CABINET, @PGE_FOLDER, @PGE_DOCUMENT_TYPE, @PGE_TITLE, GETDATE(), @Pge_DETAILS_ID, @Pge_CreatedBy, @PGE_OBJECT, @PGE_PAGENO, @PGE_EXT,
+                                  @PGE_KeyWORD,'',0,0,'A',@PGE_SubCabinet,0,'F',@PGE_batch_name,@pge_OrignalFileName,0,0,@Pge_CompID,'A','');";
+
+                    await connection.ExecuteAsync(insertQuery, new
+                    {
+                        PGE_BASENAME = BaseNameID,
+                        PGE_CABINET = dto.CabinetID,
+                        PGE_FOLDER = dto.FolderID,
+                        PGE_DOCUMENT_TYPE = dto.DocumentTypeID,
+                        PGE_TITLE = dto.Title,
+                        Pge_DETAILS_ID = BaseNameID,
+                        Pge_CreatedBy = dto.UserID,
+                        PGE_OBJECT = sObject,
+                        PGE_PAGENO = PageNoID,
+                        PGE_EXT = fileExtension,
+                        PGE_KeyWORD = string.IsNullOrEmpty(dto.Keyword) ? "" : dto.Keyword,
+                        PGE_SubCabinet = dto.SubCabinetID,
+                        PGE_batch_name = BaseNameID,
+                        pge_OrignalFileName = originalFileName,
+                        Pge_CompID = dto.CompID
+                    }, transaction);
+
+
+                    int attachmentId = GetNextId("ATCH_ID", dto.CompID);
+                    if (IsFileStoredInDatabase(dto.CompID))
+                    {
+                        byte[] fileData = await File.ReadAllBytesAsync(tempFilePath);
+                        string sSql = @"INSERT INTO EDT_ATTACHMENTS 
+                          (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, 
+                           ATCH_VERSION, ATCH_FLAG, ATCH_OLE, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
+                           ATCH_Status, ATCH_CompID,Atch_Vstatus)
+                          VALUES (@ATCH_ID, @ATCH_DOCID, @ATCH_FNAME, @ATCH_EXT, @CREATEDBY, @MODIFIEDBY, 1, 0, @ATCH_OLE, 
+                          @SIZE, 0, 0, GETDATE(), 'X', @COMPID,@Vstatus)";
+
+                        await connection.ExecuteAsync(sSql, new
+                        {
+                            ATCH_ID = attachmentId,
+                            ATCH_DOCID = BaseNameID,
+                            ATCH_FNAME = fileBaseName,
+                            ATCH_EXT = fileExtension,
+                            CREATEDBY = dto.UserID,
+                            MODIFIEDBY = dto.UserID,
+                            ATCH_OLE = fileData,
+                            SIZE = fileSize,
+                            COMPID = dto.CompID,
+                            Vstatus = 'A'
+
+                        }, transaction);
+                    }
+                    else
+                    {
+                        string sSql = @"INSERT INTO EDT_ATTACHMENTS 
+                          (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_MODIFIEDBY, 
+                           ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
+                           ATCH_Status, ATCH_CompID, Atch_Vstatus,Atch_Attachmentstatus,  Atch_FolderID)
+                          VALUES (@ATCH_ID, @ATCH_DOCID, @ATCH_FNAME, @ATCH_EXT, @CREATEDBY, @MODIFIEDBY, 1, 0, 
+                                  @SIZE, 0, 0, GETDATE(), 'X', @COMPID, @Vstatus,@Atch_Attachmentstatus,@Atch_FolderID)";
+                         
+                        await connection.ExecuteAsync(sSql, new
+                        {
+                            ATCH_ID = attachmentId,
+                            ATCH_DOCID = BaseNameID,
+                            ATCH_FNAME = fileBaseName,
+                            ATCH_EXT = fileExtension,
+                            CREATEDBY = dto.UserID,
+                            MODIFIEDBY = dto.UserID,
+                            SIZE = fileSize,
+                            COMPID = dto.CompID,
+                            Vstatus = 'A',
+                            Atch_Attachmentstatus = "Accepted",
+                            Atch_FolderID =0
+                        }, transaction);
+                         
+                    } 
+
+                    dynamic uploadedFile = await UploadFileToFolderAsyncNew(file, "TracePA/DigitalFillings", GetUserEmail(), iDocID);
+                    if (uploadedFile != null)
+                    {
+                        // Check status
+                        if (uploadedFile.Status == "Success")
+                        {
+                            string fullFileName = uploadedFile.File.Name;
+                            nameOnly = Path.GetFileNameWithoutExtension(fullFileName);
+                            extension = Path.GetExtension(fullFileName);
+                        }
+                        else if (uploadedFile.Status == "Error")
+                        {
+                            string errorMessage = uploadedFile.Message ?? "Unknown Google Drive upload error.";
+                        }
+                    }
+
+                    await transaction.CommitAsync();
+                   
                 }
-
-                await transaction.CommitAsync();
                 return $"File uploaded Successfully.";
             }
             catch(Exception ex)
@@ -657,6 +675,40 @@ namespace TracePca.Service.DigitalFilling
                 throw new ApplicationException(ex.Message);
             }
            
+        }
+
+        private bool IsFileStoredInDatabase(int companyId)
+        {
+            //using var conn = new SqlConnection(_configuration.GetConnectionString(dbName));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            string sql = "SELECT Sad_Config_Value FROM Sad_Config_Settings WHERE Sad_Config_Key = 'FilesInDB' AND Sad_CompID = @CompID";
+            var result = connection.ExecuteScalar<string>(sql, new { CompID = companyId });
+            return result?.ToUpper() == "TRUE";
+        }
+
+
+        private int GetNextId(string column, int companyId)
+        {
+            // using var conn = new SqlConnection(_configuration.GetConnectionString(dbName));
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+
+            if (string.IsNullOrEmpty(dbName))
+                throw new Exception("CustomerCode is missing in session. Please log in again.");
+
+            // ✅ Step 2: Get the connection string
+            var connectionString = _configuration.GetConnectionString(dbName);
+
+            using var connection = new SqlConnection(connectionString);
+            string sql = $"SELECT ISNULL(MAX({column}), 0) + 1 FROM EDT_ATTACHMENTS WHERE ATCH_CompID = @CompID";
+            return connection.ExecuteScalar<int>(sql, new { CompID = companyId });
         }
 
         //     public async Task<string> IndexDocuments(IndexDocumentDto dto)
@@ -2745,7 +2797,8 @@ namespace TracePca.Service.DigitalFilling
                                 from edt_page A join edt_folder B on A.PGE_Folder = B.fol_FolID
                                 Inner Join edt_Cabinet C on C.CBN_ID = A.PGE_SubCabinet
                                 Inner Join edt_Cabinet D on D.CBN_ID = A.PGE_Cabinet
-                                left join UserDriveItemsNumeric E on E.docid = A.PGE_BaseName where pge_Folder =@pge_Folder and PGE_CompID=@PGE_CompID";
+                                Inner join edt_Attachments F on F.Atch_DocID = A.PGE_BaseName
+                                left join UserDriveItemsNumeric E on E.docid = A.PGE_BaseName and FolderPath='TracePA/DigitalFillings' where pge_Folder =@pge_Folder and PGE_CompID=@PGE_CompID";
                 var result = await connection.QueryAsync<SearchDto>(query, new
                 {
                     pge_Folder = FolderID,
