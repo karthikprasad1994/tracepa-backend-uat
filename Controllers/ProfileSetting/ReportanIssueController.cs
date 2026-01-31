@@ -21,10 +21,8 @@ namespace TracePca.Controllers.ProfileSetting
         [HttpPost("report-An-Issue")]
         public async Task<IActionResult> ReportIssue([FromBody] IssueReportDto dto)
         {
-            // 🔁 Replace this with dynamic user id retrieval (e.g., from session, token, or DTO)
-            int userId = 2;
 
-            var user = await _ReportanIssueInterface.GetUserDetailsAsync(userId);
+            var user = await _ReportanIssueInterface.GetUserDetailsAsync(dto.userid);
             if (user == null)
                 return NotFound(new { success = false, message = "User not found." });
 
