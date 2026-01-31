@@ -62,7 +62,7 @@ namespace TracePca.Service.Audit
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _engagementPlanInterface = engagementPlanInterface ?? throw new ArgumentNullException(nameof(engagementPlanInterface));
             _auditSummaryInterface = auditSummaryInterface ?? throw new ArgumentNullException(nameof(auditSummaryInterface));
-            _auditAndDashboardInterface = auditAndDashboardInterface ?? throw new ArgumentNullException(nameof(auditSummaryInterface));            
+            _auditAndDashboardInterface = auditAndDashboardInterface ?? throw new ArgumentNullException(nameof(auditSummaryInterface));
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
             _emailInterface = emailinterface ?? throw new ArgumentNullException(nameof(emailinterface));
             _driveService = driveService ?? throw new ArgumentNullException(nameof(driveService));
@@ -191,16 +191,16 @@ namespace TracePca.Service.Audit
             {
                 throw new ApplicationException("An error occurred while getting report type details", ex);
             }
-        } 
+        }
 
-		public async Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId)
-		{
-			try
-			{
-				using var connection = new SqlConnection(_connectionString);
-				await connection.OpenAsync();
+        public async Task<AuditDropDownListDataDTO> LoadAuditNoDDLAsync(int compId, int yearId, int custId, int userId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
 
-				var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
+                var sql = @"SELECT SA.SA_ID AS ID, SA.SA_AuditNo + ' - ' + CMM.CMM_Desc AS Name,
                     CASE WHEN ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isPartner,
                     CASE WHEN ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isReviewer,
                     CASE WHEN ',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' THEN 1 ELSE 0 END AS isAuditor, 
@@ -209,33 +209,33 @@ namespace TracePca.Service.Audit
                     FROM StandardAudit_Schedule SA LEFT JOIN Content_Management_Master CMM ON CMM.CMM_ID = SA.SA_AuditTypeID
                     WHERE SA.SA_CompID = @CompId AND SA.SA_YearID = @YearId ";
 
-				if (custId > 0) { sql += " AND SA.SA_CustID = @CustId "; }
+                if (custId > 0) { sql += " AND SA.SA_CustID = @CustId "; }
 
-				sql += @" AND (EXISTS (SELECT 1 FROM sad_userdetails WHERE usr_CompID = @CompId AND usr_ID = @UserId AND usr_Partner = 1 AND usr_DelFlag IN ('A','B','L'))
+                sql += @" AND (EXISTS (SELECT 1 FROM sad_userdetails WHERE usr_CompID = @CompId AND usr_ID = @UserId AND usr_Partner = 1 AND usr_DelFlag IN ('A','B','L'))
                 OR (',' + ISNULL(SA.SA_AdditionalSupportEmployeeID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_EngagementPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' 
                 OR ',' + ISNULL(SA.SA_ReviewPartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%' OR ',' + ISNULL(SA.SA_PartnerID, '') + ',' LIKE '%,' + CAST(@UserId AS VARCHAR) + ',%')) ORDER BY SA.SA_ID DESC;";
 
-				var parameters = new
-				{
-					CompId = compId,
-					YearId = yearId,
-					CustId = custId,
-					UserId = userId
-				};
+                var parameters = new
+                {
+                    CompId = compId,
+                    YearId = yearId,
+                    CustId = custId,
+                    UserId = userId
+                };
 
-				var auditNoList = await connection.QueryAsync<AuditDropDownListData>(sql, parameters);
-				return new AuditDropDownListDataDTO
-				{
-					ExistingAuditNoList = auditNoList.ToList()
-				};
-			}
-			catch (Exception ex)
-			{
-				throw new ApplicationException("An error occurred while loading audit no DDL data", ex);
-			}
-		}
+                var auditNoList = await connection.QueryAsync<AuditDropDownListData>(sql, parameters);
+                return new AuditDropDownListDataDTO
+                {
+                    ExistingAuditNoList = auditNoList.ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("An error occurred while loading audit no DDL data", ex);
+            }
+        }
 
-		public async Task<AuditDropDownListDataDTO> LoadAuditWorkPaperDDLAsync(int compId, int auditId)
+        public async Task<AuditDropDownListDataDTO> LoadAuditWorkPaperDDLAsync(int compId, int auditId)
         {
             try
             {
@@ -478,7 +478,7 @@ namespace TracePca.Service.Audit
                         {
                             SAC_AuditID = dto.SAC_AuditID,
                             SAC_CheckPointId = dto.AuditCompletionSubPointDetails.SAC_CheckPointId,
-                            SAC_SubPointId= dto.AuditCompletionSubPointDetails.SAC_SubPointId,
+                            SAC_SubPointId = dto.AuditCompletionSubPointDetails.SAC_SubPointId,
                             SAC_Remarks = dto.AuditCompletionSubPointDetails.SAC_Remarks,
                             SAC_WorkPaperId = dto.AuditCompletionSubPointDetails.SAC_WorkPaperId,
                             SAC_UpdatedBy = dto.SAC_UpdatedBy,
@@ -577,7 +577,7 @@ namespace TracePca.Service.Audit
         }
 
         public async Task<int> CheckCAEIndependentAuditorsReportSavedAsync(int compId, int auditId)
-        {            
+        {
             try
             {
                 using var connection = new SqlConnection(_connectionString);
@@ -912,7 +912,7 @@ namespace TracePca.Service.Audit
                             }
 
                             if (templateDetails?.Any() == true)
-                            {                                
+                            {
                                 foreach (var item in templateDetails.Skip(1))
                                 {
                                     column.Item().PaddingTop(5);
@@ -1261,8 +1261,8 @@ namespace TracePca.Service.Audit
                 using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                var query = @"SELECT a.SCR_CheckPointID,ISNULL(x.ACM_Checkpoint, '') AS ACM_Checkpoint,a.SCR_Date,a.SCR_Remarks As SCR_Remarks,
-                    c.USr_FullName As SCR_RemarksByName,e.Mas_Description As SCR_RemarksByRole,ISNULL(d.USr_FullName,'') + ' - ' + ISNULL(b.SCR_Remarks,'') As SCR_ClientRemarks
+                var query = @"SELECT a.SCR_CheckPointID,ISNULL(x.ACM_Checkpoint, '') AS ACM_Checkpoint,a.SCR_Date,ISNULL(a.SCR_Remarks,'') As SCR_Remarks,
+                    ISNULL(c.USr_FullName,'') As SCR_RemarksByName,ISNULL(e.Mas_Description,'') As SCR_RemarksByRole,ISNULL(d.USr_FullName,'') + ' - ' + ISNULL(b.SCR_Remarks,'') As SCR_ClientRemarks
                     FROM StandardAudit_ConductAudit_RemarksHistory a 
 					JOIN AuditType_Checklist_Master x ON x.ACM_ID = a.SCR_CheckPointID
                     Left Join sad_userdetails c on c.Usr_ID = a.SCR_RemarksBy 
@@ -1491,7 +1491,7 @@ namespace TracePca.Service.Audit
                             {
                                 column.Item().PaddingTop(10).Text("Additional Fees").FontSize(12).Bold().Underline();
                                 column.Item().PaddingBottom(10).Text($"Details of Engagement Estimate for the Letter of Engagement in {dtoEP.AuditType} to {dtoEP.Customer}").FontSize(10);
-                                
+
                                 column.Item().Table(table =>
                                 {
                                     table.ColumnsDefinition(columns =>
@@ -1943,7 +1943,7 @@ namespace TracePca.Service.Audit
                 {
                     var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
                     if (attachments.Any())
-                        result.BeginningAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });                    
+                        result.BeginningAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
                 // 4. During the Audit Requests
@@ -1958,7 +1958,7 @@ namespace TracePca.Service.Audit
                 {
                     var attachments = await LoadAttachmentsByIdsAsync(item.AttachIds, compId, connection);
                     if (attachments.Any())
-                        result.DuringAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });                    
+                        result.DuringAuditAttachments.Add(new AttachmentGroupDTO { TypeId = item.TypeId, TypeName = item.TypeName, Attachments = attachments });
                 }
 
                 // 5. Workpapers and Attachments
@@ -2020,7 +2020,7 @@ namespace TracePca.Service.Audit
                 result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Accounting Ratio", Attachments = new List<AttachmentDetailsDTO>() });
                 result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "Cashflow", Attachments = new List<AttachmentDetailsDTO>() });
                 result.AccountFinalisationAttachments.Add(new AttachmentGroupDTO { TypeId = 0, TypeName = "ScheduleNotes", Attachments = new List<AttachmentDetailsDTO>() });
-                
+
                 return result;
             }
             catch (Exception ex)
@@ -2035,7 +2035,7 @@ namespace TracePca.Service.Audit
 
             var query = @"SELECT A.ATCH_ID, A.ATCH_DOCID, A.ATCH_FNAME, A.ATCH_EXT, A.ATCH_DESC, A.ATCH_CREATEDBY, U.Usr_FullName AS ATCH_CREATEDBYNAME, A.ATCH_CREATEDON, A.ATCH_SIZE FROM edt_attachments A
                   LEFT JOIN Sad_Userdetails U ON A.ATCH_CREATEDBY = U.Usr_ID AND A.ATCH_COMPID = U.Usr_CompId
-                  WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID IN (SELECT value FROM STRING_SPLIT(@Ids, ',')) AND A.ATCH_Status <> 'D' ORDER BY A.ATCH_CREATEDON";
+                  WHERE A.ATCH_CompID = @CompId AND A.ATCH_ID IN (SELECT value FROM STRING_SPLIT(@Ids, ',')) AND A.ATCH_Status <> 'D' AND A.Atch_FName != '' AND ATCH_Ext != '' ORDER BY A.ATCH_CREATEDON";
 
             var result = await connection.QueryAsync<AttachmentDetailsDTO>(query, new { CompId = compId, Ids = ids });
             return result.ToList();
@@ -2173,7 +2173,7 @@ namespace TracePca.Service.Audit
                 String OrgName = result.CustName;
                 String Cabinet = result.CustName + "_" + result.YearName;
                 string downloadDirectoryPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Tempfolder", compId.ToString(), SanitizeName(Cabinet));
- 
+
                 if (Directory.Exists(downloadDirectoryPath))
                 {
                     DirectoryInfo dir = new DirectoryInfo(downloadDirectoryPath);
@@ -2191,7 +2191,7 @@ namespace TracePca.Service.Audit
                 else
                 {
                     Directory.CreateDirectory(downloadDirectoryPath);
-                }               
+                }
 
                 int orgNode = await connection.ExecuteScalarAsync<int>(@"SELECT ISNULL(Org_Node, 0) FROM sad_org_structure WHERE Org_Name = @Org_Name AND Org_CompID = @Org_CompID;",
                     new { Org_Name = OrgName, Org_CompID = compId });
@@ -2352,7 +2352,7 @@ namespace TracePca.Service.Audit
                 //await ProcessReportAttachmentsAsync(connection, compId, downloadDirectoryPath, mainFolder, userId, cabinetId, subCabinetId, "Audit Schedule Report", "Audit_Schedule_Report.pdf", savedAuditScheduleFilePath);
 
                 // 3. Beginning of the Audit Communication
-                var savedBeginningoftheAuditFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId,"", result.CustName, "Beginning_ofthe_Audit_Report", "Beginning of the Audit Communication", "pdf", 1, result.YearId, null);
+                var savedBeginningoftheAuditFilePath = await GenerateTempReportAndGetTempPathAsync(compId, auditId, "", result.CustName, "Beginning_ofthe_Audit_Report", "Beginning of the Audit Communication", "pdf", 1, result.YearId, null);
                 int beginningoftheAuditAttachmentId = await UploadAndSaveAttachmentFromPhysicalPathAsync(savedBeginningoftheAuditFilePath, compId, userId);
                 var beginningoftheAudit = $@"SELECT 0 AS TypeId, 0 AS CheckReportType, 'Beginning of the Audit - Report' AS TypeName, {beginningoftheAuditAttachmentId} AS AttachIds";
                 await ProcessGenericAttachmentsAsync(connection, compId, downloadDirectoryPath, "SamplingCU", mainFolder, auditId, userId, cabinetId, subCabinetId, ipAddress, beginningoftheAudit);
@@ -2655,8 +2655,8 @@ namespace TracePca.Service.Audit
 
                     if (!shouldIndexFile)
                         IndexingFileAsync(connection, cabinetId, subCabinetId, folderId, userId, compId, destFilePath, "FALSE");
-                     
-				}
+
+                }
             }
             catch (Exception ex)
             {
@@ -2740,7 +2740,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        public async void IndexingFileAsync(SqlConnection connection, int cabinetId,  int subCabinetId, int folderId, int userId, int compId, string filePath, string isBlobData)
+        public async void IndexingFileAsync(SqlConnection connection, int cabinetId, int subCabinetId, int folderId, int userId, int compId, string filePath, string isBlobData)
         {
             try
             {
@@ -2787,7 +2787,7 @@ namespace TracePca.Service.Audit
                 }
             }
             catch (Exception ex)
-            {                
+            {
             }
         }
 
@@ -3071,7 +3071,7 @@ namespace TracePca.Service.Audit
             }
         }
 
-        private async Task<byte[]> GenerateAuditSchedulePdfAsync(DataTable dt, DataTable dt1, DataTable dt2, string Engpartner, string Reviewer, string partner, string Assist, string scopeOfAudit , string customerName)
+        private async Task<byte[]> GenerateAuditSchedulePdfAsync(DataTable dt, DataTable dt1, DataTable dt2, string Engpartner, string Reviewer, string partner, string Assist, string scopeOfAudit, string customerName)
         {
             try
             {
@@ -3804,17 +3804,20 @@ namespace TracePca.Service.Audit
                                     header.Cell().Element(HeaderStyle).AlignRight().Text($"31/03/20{yearId - 1}");
                                 });
 
-                                foreach (var row in data.Where(x => x != null && !string.IsNullOrEmpty(x.Status)))
+                                if (data != null)
                                 {
-                                    bool isHeader = row.Status == "1";
-                                    if (isHeader)
-                                        table.Cell().Element(CellStyle).PaddingLeft(12).Text(row.Particular ?? "").Bold();
-                                    else
-                                        table.Cell().Element(CellStyle).PaddingLeft(0).Text(row.Particular ?? "");
+                                    foreach (var row in data.Where(x => x != null && !string.IsNullOrEmpty(x.Status)))
+                                    {
+                                        bool isHeader = row.Status == "1";
+                                        if (isHeader)
+                                            table.Cell().Element(CellStyle).PaddingLeft(12).Text(row.Particular ?? "").Bold();
+                                        else
+                                            table.Cell().Element(CellStyle).PaddingLeft(0).Text(row.Particular ?? "");
 
-                                    table.Cell().Element(CellStyle).AlignCenter().Text(row.Notes ?? "");
-                                    table.Cell().Element(CellStyle).AlignRight().Text(row.CurrentYearAmount ?? "");
-                                    table.Cell().Element(CellStyle).AlignRight().Text(row.PreviousYearAmount ?? "");
+                                        table.Cell().Element(CellStyle).AlignCenter().Text(row.Notes ?? "");
+                                        table.Cell().Element(CellStyle).AlignRight().Text(row.CurrentYearAmount ?? "");
+                                        table.Cell().Element(CellStyle).AlignRight().Text(row.PreviousYearAmount ?? "");
+                                    }
                                 }
                                 column.Item().PaddingBottom(15);
                                 column.Item().AlignLeft().Text("As per our Report of even date");
@@ -3868,18 +3871,59 @@ namespace TracePca.Service.Audit
                     if (uploadedFile == null || uploadedFile.Status != "Success")
                         throw new Exception(uploadedFile?.Message ?? "File upload failed.");
 
-                    await connection.ExecuteAsync(@"INSERT INTO EDT_ATTACHMENTS (ATCH_ID, ATCH_DOCID, ATCH_FNAME, ATCH_EXT, ATCH_CREATEDBY, ATCH_VERSION, ATCH_FLAG, ATCH_SIZE, ATCH_FROM, ATCH_Basename, ATCH_CREATEDON, 
-                            ATCH_Status, ATCH_CompID, Atch_Vstatus, ATCH_REPORTTYPE, ATCH_DRLID) VALUES (@AtchId, @DocId, @FileName, @FileExt, @CreatedBy, 1, 0, @Size, 0, 0, GETDATE(), 'X', @CompId, 'A', 0, 0);",
-                        new
-                        {
-                            AtchId = attachId,
-                            DocId = docId,
-                            FileName = Path.GetFileNameWithoutExtension(fileInfo.Name),
-                            FileExt = fileInfo.Extension.Trim('.'),
-                            CreatedBy = userId,
-                            Size = fileInfo.Length,
-                            CompId = compId
-                        });
+                    await connection.ExecuteAsync(@"
+INSERT INTO EDT_ATTACHMENTS 
+(
+    ATCH_ID,
+    ATCH_DOCID,
+    ATCH_FNAME,
+    ATCH_EXT,
+    ATCH_CREATEDBY,
+    ATCH_VERSION,
+    ATCH_FLAG,
+    ATCH_SIZE,
+    ATCH_FROM,
+    ATCH_Basename,
+    ATCH_CREATEDON,
+    ATCH_Status,
+    ATCH_CompID,
+    Atch_Vstatus,
+    ATCH_REPORTTYPE,
+    ATCH_DRLID,
+    ATCH_AttachmentStatus
+)
+VALUES
+(
+    @AtchId,
+    @DocId,
+    @FileName,
+    @FileExt,
+    @CreatedBy,
+    1,
+    0,
+    @Size,
+    0,
+    0,
+    GETDATE(),
+    'X',
+    @CompId,
+    'A',
+    0,
+    0,
+    @AttachmentStatus
+);",
+new
+{
+    AtchId = attachId,
+    DocId = docId,
+    FileName = Path.GetFileNameWithoutExtension(fileInfo.Name),
+    FileExt = fileInfo.Extension.Trim('.'),
+    CreatedBy = userId,
+    Size = fileInfo.Length,
+    CompId = compId,
+    AttachmentStatus = "Accepted" // By Varun
+});
+
                 }
 
                 File.Delete(physicalFilePath);

@@ -973,7 +973,7 @@ WHERE LTRIM(RTRIM(ATBU_Description))
                 int scheduleType = isPurchase ? pScheduleType : isSales ? sScheduleType : 0;
 
                 masterTable.Rows.Add(
-                    newAtbuId, code, account, request.CustomerId,
+                    newAtbuId, code, account.Trim(), request.CustomerId,
                     0m, 0m, 0m, 0m, 0m, 0m,
                     "A", userId, "C", userId, ipAddress,
                     accessCodeId, request.FinancialYearId,
@@ -983,7 +983,7 @@ WHERE LTRIM(RTRIM(ATBU_Description))
     newAtbudId,          // ATBUD_ID
     newAtbuId,           // ATBUD_Masid
     code,                // ATBUD_CODE
-    account,             // ATBUD_Description
+    account.Trim(),             // ATBUD_Description
     request.CustomerId,  // ATBUD_CustId
     scheduleType,        // ATBUD_SChedule_Type
     request.CustomerId,  // ATBUD_Company_Type

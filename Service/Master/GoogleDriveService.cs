@@ -361,24 +361,60 @@ namespace TracePca.Service.Master
             return updatedFile;
         }
 
-        public async Task DeleteFileAsync(string fileId, string userEmail)
+        public async Task DeleteFileByDocIdAsync(int docId, string userEmail)
         {
+            string fileId;
+
+            // 1️⃣ Get FileId from DB
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+
+                fileId = await connection.QuerySingleOrDefaultAsync<string>(
+                    "SELECT FileId FROM UserDriveItemsNumeric WHERE DocId = @DocId",
+                    new { DocId = docId });
+
+                if (string.IsNullOrEmpty(fileId))
+                    throw new Exception($"No FileId found for DocId {docId}");
+            }
+
+            // 2️⃣ Delete from Google Drive
             var service = await GetDriveServiceAsync(userEmail);
             await service.Files.Delete(fileId).ExecuteAsync();
+            LogInfo($"Deleted Google Drive file: {fileId}");
 
-            // 🔹 Delete DB record from UserDriveItemsNumeric table
-            try
+            // 3️⃣ Delete DB records in transaction
+            using (var connection = new SqlConnection(_connectionString))
             {
-                using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
-                await connection.ExecuteAsync("DELETE FROM UserDriveItemsNumeric WHERE FileId = @FileId", new { FileId = fileId });
-                LogInfo($"Deleted FileId {fileId} from UserDriveItemsNumeric table");
-            }
-            catch (Exception ex)
-            {
-                LogError($"Failed to delete FileId {fileId} from UserDriveItemsNumeric table: {ex.Message}");
+                using var transaction = connection.BeginTransaction();
+
+                try
+                {
+                    // Child table first
+                    await connection.ExecuteAsync(
+                        "DELETE FROM EDT_attachments WHERE ATCH_DOCID = @DocId",
+                        new { DocId = docId },
+                        transaction);
+
+                    // Parent table
+                    await connection.ExecuteAsync(
+                        "DELETE FROM UserDriveItemsNumeric WHERE DocId = @DocId",
+                        new { DocId = docId },
+                        transaction);
+
+                    transaction.Commit();
+                    LogInfo($"Deleted DB records for DocId {docId}");
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    LogError($"DB delete failed for DocId {docId}: {ex.Message}");
+                    throw;
+                }
             }
         }
+
         #endregion
 
         public async Task ExchangeCodeAsync(string userEmail, string code)
