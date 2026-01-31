@@ -2798,7 +2798,7 @@ namespace TracePca.Service.DigitalFilling
                                 Inner Join edt_Cabinet C on C.CBN_ID = A.PGE_SubCabinet
                                 Inner Join edt_Cabinet D on D.CBN_ID = A.PGE_Cabinet
                                 Inner join edt_Attachments F on F.Atch_DocID = A.PGE_BaseName
-                                left join UserDriveItemsNumeric E on E.docid = A.PGE_BaseName and FolderPath='TracePA/DigitalFillings' where pge_Folder =@pge_Folder and PGE_CompID=@PGE_CompID";
+                                join UserDriveItemsNumeric E on E.docid = A.PGE_BaseName and FolderPath='TracePA/DigitalFillings'where pge_Folder =@pge_Folder and PGE_CompID=@PGE_CompID";
                 var result = await connection.QueryAsync<SearchDto>(query, new
                 {
                     pge_Folder = FolderID,
