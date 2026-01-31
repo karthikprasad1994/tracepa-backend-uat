@@ -38,7 +38,7 @@ namespace TracePca.Service.Master
             _connectionString = GetConnectionStringFromSession();
 
             _isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-            //string localPath = @"D:\Steffi\Backend Project\tracepa-corebackend\client_secret_desktop.json";
+            // localPath = @"D:\Steffi\Backend Project\tracepa-corebackend\client_secret_desktop.json";
             string localPath = @"\\MMCS-SERVER19\EMP_Backup\Googledrivetoken\client_secret_desktop.json";
 
 
