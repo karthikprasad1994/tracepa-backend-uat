@@ -158,147 +158,147 @@ namespace TracePca.Dto.FixedAssets
         //-------------------------new it correct
 
 
-        public class DepreciationRequesttDto
-        {
-           
-            public string AccessCode { get; set; }
-            public int CompId { get; set; }
-            public int YearId { get; set; }
-            public int CustId { get; set; }
-            public int DepBasis { get; set; } // 1=Company, 2=IT
-            public int Method { get; set; }   // 1=SLM, 2=WDV
-            public int DurationType { get; set; }
-            public int HalfYear { get; set; }
-            public int Quarter { get; set; }
-            public int Month { get; set; }
-            public string FinancialYear { get; set; }
-            public DateTime FromDate { get; set; }
-            public DateTime ToDate { get; set; }
-            public string SNameSpace { get; set; }
-            public int NoOfDays { get; internal set; }
-            public int TotalNoOfDays { get; internal set; }
-            public int Duration { get; internal set; }
-        }
+        //public class DepreciationRequesttDto
+        //{
 
-        public class DepreciationResultDto
-        {
-            public string DepreciationBasis { get; set; }
-            public List<ITActDepreciationDto> ITActData { get; set; }
-            public List<CompanyActDepreciationDto> CompanyActData { get; set; }
-            //public List<DepreciationDto> CompanySLMData { get; internal set; }
-        }
+        //    public string AccessCode { get; set; }
+        //    public int CompId { get; set; }
+        //    public int YearId { get; set; }
+        //    public int CustId { get; set; }
+        //    public int DepBasis { get; set; } // 1=Company, 2=IT
+        //    public int Method { get; set; }   // 1=SLM, 2=WDV
+        //    public int DurationType { get; set; }
+        //    public int HalfYear { get; set; }
+        //    public int Quarter { get; set; }
+        //    public int Month { get; set; }
+        //    public string FinancialYear { get; set; }
+        //    public DateTime FromDate { get; set; }
+        //    public DateTime ToDate { get; set; }
+        //    public string SNameSpace { get; set; }
+        //    public int NoOfDays { get; internal set; }
+        //    public int TotalNoOfDays { get; internal set; }
+        //    public int Duration { get; internal set; }
+        //}
 
-        public class ITActDepreciationDto
-        {
-            public int AssetClassID { get; set; }
-            public string ClassOfAsset { get; set; }
-            public decimal RateOfDep { get; set; }
-            public decimal WDVOpeningValue { get; set; }
-            public decimal Before180DaysAddition { get; set; }
-            public decimal After180DaysAddition { get; set; }
-            public decimal TotalAddition { get; set; }
-            public decimal DepBefore180Days { get; set; }
-            public decimal DepAfter180Days { get; set; }
-            public decimal TotalDepreciation { get; set; }
-            public decimal WDVClosingValue { get; set; }
-        }
+        //public class DepreciationResultDto
+        //{
+        //    public string DepreciationBasis { get; set; }
+        //    public List<ITActDepreciationDto> ITActData { get; set; }
+        //    public List<CompanyActDepreciationDto> CompanyActData { get; set; }
+        //    //public List<DepreciationDto> CompanySLMData { get; internal set; }
+        //}
 
-        public class CompanyActDepreciationDto
-        {
-            public DateTime? DateOfPutToUse { get; set; }
-            public string AssetCode { get; set; }
-            public string AssetName { get; set; }
-            public decimal OriginalCost { get; set; }
-            public decimal AssetLife { get; set; }
-            public decimal ResidualPercent { get; set; }
-            public string Location { get; set; }
-            public string Division { get; set; }
-            public string Department { get; set; }
-            public string Bay { get; set; }
-            public decimal DepreciationAmount { get; set; }
-            public decimal ClosingValue { get; set; }
-        }
+        //public class ITActDepreciationDto
+        //{
+        //    public int AssetClassID { get; set; }
+        //    public string ClassOfAsset { get; set; }
+        //    public decimal RateOfDep { get; set; }
+        //    public decimal WDVOpeningValue { get; set; }
+        //    public decimal Before180DaysAddition { get; set; }
+        //    public decimal After180DaysAddition { get; set; }
+        //    public decimal TotalAddition { get; set; }
+        //    public decimal DepBefore180Days { get; set; }
+        //    public decimal DepAfter180Days { get; set; }
+        //    public decimal TotalDepreciation { get; set; }
+        //    public decimal WDVClosingValue { get; set; }
+        //}
 
-        //-------wdv
-        public class CompanyActWDVRequestDto
-        {
-            public int CompId { get; set; }
-            public int YearId { get; set; }
-            public int CustId { get; set; }
+        //public class CompanyActDepreciationDto
+        //{
+        //    public DateTime? DateOfPutToUse { get; set; }
+        //    public string AssetCode { get; set; }
+        //    public string AssetName { get; set; }
+        //    public decimal OriginalCost { get; set; }
+        //    public decimal AssetLife { get; set; }
+        //    public decimal ResidualPercent { get; set; }
+        //    public string Location { get; set; }
+        //    public string Division { get; set; }
+        //    public string Department { get; set; }
+        //    public string Bay { get; set; }
+        //    public decimal DepreciationAmount { get; set; }
+        //    public decimal ClosingValue { get; set; }
+        //}
 
-            public int NoOfDays { get; set; }
-            public int TotalDays { get; set; }
-            public int Duration { get; set; }
+        ////-------wdv
+        //public class CompanyActWDVRequestDto
+        //{
+        //    public int CompId { get; set; }
+        //    public int YearId { get; set; }
+        //    public int CustId { get; set; }
 
-            public DateTime StartDate { get; set; }
-            public DateTime EndDate { get; set; }
+        //    public int NoOfDays { get; set; }
+        //    public int TotalDays { get; set; }
+        //    public int Duration { get; set; }
 
-            public int Method { get; set; }
-        }
-        public class CompanyActWDVResponseDto
-        {
-            public int AssetClassID { get; set; }
-            public int AssetID { get; set; }
-            public string AssetType { get; set; }
-            public string AssetCode { get; set; }
+        //    public DateTime StartDate { get; set; }
+        //    public DateTime EndDate { get; set; }
 
-            public DateTime? PurchaseDate { get; set; }
-            public int AssetAge { get; set; }
+        //    public int Method { get; set; }
+        //}
+        //public class CompanyActWDVResponseDto
+        //{
+        //    public int AssetClassID { get; set; }
+        //    public int AssetID { get; set; }
+        //    public string AssetType { get; set; }
+        //    public string AssetCode { get; set; }
 
-            public decimal OriginalCost { get; set; }
-            public decimal ResidualPercent { get; set; }
-            public decimal SalvageValue { get; set; }
+        //    public DateTime? PurchaseDate { get; set; }
+        //    public int AssetAge { get; set; }
 
-            public decimal DepreciationRate { get; set; }
-            public decimal OpeningWDV { get; set; }
-            public decimal DepreciationForFY { get; set; }
-            public decimal ClosingWDV { get; set; }
+        //    public decimal OriginalCost { get; set; }
+        //    public decimal ResidualPercent { get; set; }
+        //    public decimal SalvageValue { get; set; }
 
-            public int NoOfDays { get; set; }
-            public int TrType { get; set; }
+        //    public decimal DepreciationRate { get; set; }
+        //    public decimal OpeningWDV { get; set; }
+        //    public decimal DepreciationForFY { get; set; }
+        //    public decimal ClosingWDV { get; set; }
 
-            public int LocationID { get; set; }
-            public int DivisionID { get; set; }
-            public int DepartmentID { get; set; }
-            public int BayID { get; set; }
-        }
+        //    public int NoOfDays { get; set; }
+        //    public int TrType { get; set; }
 
-        //---------slnwdv
-        public class DepreciationRequestDto
-        {
-            public int CompId { get; set; }
-            public int YearId { get; set; }
-            public int CustId { get; set; }
-            public int NoOfDays { get; set; }
-            public int TotalDays { get; set; }
-            public int Duration { get; set; }
-            public DateTime StartDate { get; set; }
-            public DateTime EndDate { get; set; }
-            public int Method { get; set; } // 1 = SLM, 2 = WDV
-        }
+        //    public int LocationID { get; set; }
+        //    public int DivisionID { get; set; }
+        //    public int DepartmentID { get; set; }
+        //    public int BayID { get; set; }
+        //}
 
-        public class DepreciationResulttDto
-        {
-            public int AssetClassID { get; set; }
-            public int AssetID { get; set; }
-            public string AssetType { get; set; }
-            public string AssetCode { get; set; }
-            public DateTime PurchaseDate { get; set; }
-            public int AssetAge { get; set; }
-            public decimal OriginalCost { get; set; }
-            public decimal ResidualPercent { get; set; }
-            public decimal SalvageValue { get; set; }
-            public decimal DepreciationRate { get; set; }
-            public decimal OpeningWDV { get; set; }
-            public decimal DepreciationForFY { get; set; }
-            public decimal ClosingWDV { get; set; }
-            public int NoOfDays { get; set; }
-            public int TrType { get; set; }
-            public int LocationID { get; set; }
-            public int DivisionID { get; set; }
-            public int DepartmentID { get; set; }
-            public int BayID { get; set; }
-        }
+        ////---------slnwdv
+        //public class DepreciationRequestDto
+        //{
+        //    public int CompId { get; set; }
+        //    public int YearId { get; set; }
+        //    public int CustId { get; set; }
+        //    public int NoOfDays { get; set; }
+        //    public int TotalDays { get; set; }
+        //    public int Duration { get; set; }
+        //    public DateTime StartDate { get; set; }
+        //    public DateTime EndDate { get; set; }
+        //    public int Method { get; set; } // 1 = SLM, 2 = WDV
+        //}
+
+        //public class DepreciationResulttDto
+        //{
+        //    public int AssetClassID { get; set; }
+        //    public int AssetID { get; set; }
+        //    public string AssetType { get; set; }
+        //    public string AssetCode { get; set; }
+        //    public DateTime PurchaseDate { get; set; }
+        //    public int AssetAge { get; set; }
+        //    public decimal OriginalCost { get; set; }
+        //    public decimal ResidualPercent { get; set; }
+        //    public decimal SalvageValue { get; set; }
+        //    public decimal DepreciationRate { get; set; }
+        //    public decimal OpeningWDV { get; set; }
+        //    public decimal DepreciationForFY { get; set; }
+        //    public decimal ClosingWDV { get; set; }
+        //    public int NoOfDays { get; set; }
+        //    public int TrType { get; set; }
+        //    public int LocationID { get; set; }
+        //    public int DivisionID { get; set; }
+        //    public int DepartmentID { get; set; }
+        //    public int BayID { get; set; }
+        //}
 
         //----------final
         public class DepreciatiionRequestDto
@@ -393,43 +393,65 @@ namespace TracePca.Dto.FixedAssets
         }
 
         //CompanyCalculation
-        // Request DTO
-        public class CompanyDepreciationRequestDto
-        {
-            public int CompId { get; set; }
-            public int CustId { get; set; }
-            public int YearId { get; set; }
-            public int Method { get; set; } // 1 = SLM, 2 = WDV
-            public int NoOfDays { get; set; } // FY days
-            public int TotalDays { get; set; } // Usually 365
-            public int Duration { get; set; } // 1 = yearly, 2 = quarterly, 3 = monthly
-            public DateTime StartDate { get; set; }
-            public DateTime EndDate { get; set; }
-        }
+        //public class DepreciationRequest
+        //{
+        //    public int CompanyId { get; set; }
+        //    public int CustomerId { get; set; }
+        //    public int FinancialYearId { get; set; }
+        //    public DateTime StartDate { get; set; }
+        //    public DateTime EndDate { get; set; }
+        //    public string CustomerCode { get; set; } // ✅ ADD
+        //}
+        //public class DepreciationResultDtoo
+        //{
+        //    public int AssetClassId { get; set; }
+        //    public int AssetId { get; set; }
+        //    public string AssetType { get; set; }
+        //    public string AssetCode { get; set; }
 
-        // Response DTO
-        public class CompanyDepreciationResponseDto
-        {
-            public int AssetClassID { get; set; }
-            public int AssetID { get; set; }
-            public string AssetType { get; set; }
-            public string AssetCode { get; set; }
+        //    public string Location { get; set; }
+        //    public string Division { get; set; }
+        //    public string Department { get; set; }
+        //    public string Bay { get; set; }
 
-            public int LocationID { get; set; }
-            public int DivisionID { get; set; }
-            public int DepartmentID { get; set; }
-            public int BayID { get; set; }
+        //    public DateTime? PurchaseDate { get; set; }
+        //    public int NoOfDays { get; set; }
 
-            public double OriginalCost { get; set; }
-            public double ResidualValue { get; set; }
-            public double SalvageValue { get; set; }
-            public int AssetAge { get; set; }
+        //    public decimal OriginalCost { get; set; }
+        //    public decimal ResidualValue { get; set; }
+        //    public decimal SalvageValue { get; set; }
 
-            public double DepreciationRate { get; set; }
-            public double OPBForYear { get; set; }
-            public double DepreciationForFY { get; set; }
-            public double WrittenDownValue { get; set; }
-        }
+        //    public int AssetAge { get; set; }
+        //    public decimal DepreciationRate { get; set; }
+        //    public decimal OpeningBalance { get; set; }
+        //    public decimal DepreciationForYear { get; set; }
+        //    public decimal WrittenDownValue { get; set; }
+        //}
+        //internal class AssetEntity
+        //{
+        //    public int AssetClassId { get; set; }
+        //    public int AssetId { get; set; }
+        //    public string AssetType { get; set; }
+        //    public string AssetCode { get; set; }
+
+        //    public string Location { get; set; }
+        //    public string Division { get; set; }
+        //    public string Department { get; set; }
+        //    public string Bay { get; set; }
+
+        //    public DateTime? PurchaseDate { get; set; }   
+        //    public decimal OriginalCost { get; set; }
+        //    public decimal OpeningBalance { get; set; }
+        //    public decimal SalvageValue { get; set; }
+        //    public decimal ResidualValue { get; set; }
+        //    public int AssetAge { get; set; }
+        //}
+
+
+
+
+
+
 
 
     }

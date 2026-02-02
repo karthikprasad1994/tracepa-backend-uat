@@ -300,21 +300,21 @@ namespace TracePca.Dto.FIN_Statement
         //GetFinancialStatementReportType
         //public class GetFinancialStatementReportTypeDTO
         //{
-        //    public int RCM_Id { get; set; }
-        //    public string RCM_ReportName { get; set; }
-        //    public string RCM_Heading { get; set; }
-        //    public string RCM_Description { get; set; }
-        //    public int? LTD_ID { get; set; }   
-        //    public int? LOE_Id { get; set; }   
+        //    public int LTD_ID { get; set; }
+        //    public int LTD_HeadingID { get; set; }
+        //    public string LTD_Heading { get; set; }
+        //    public string LTD_Decription { get; set; }
+        //    public int LOE_Id { get; set; }
         //}
         public class GetFinancialStatementReportTypeDTO
         {
             public int LTD_ID { get; set; }
-            public int LTD_HeadingID { get; set; }
+            public int? LTD_HeadingID { get; set; }
             public string LTD_Heading { get; set; }
             public string LTD_Decription { get; set; }
-            public int LOE_Id { get; set; }
+            public int? LTD_LOE_ID { get; set; }
         }
+
 
         //GetNetIncomeZero
         public class CommonReportRowDto

@@ -8,13 +8,6 @@ namespace TracePca.Interface.FixedAssetsInterface
 {
     public interface DepreciationComputationInterface
     {
-
-        //DepreciationBasis
-
-
-        //MethodofDepreciation
-
-
         //SaveDepreciation
         Task<bool> SaveDepreciationAsync(
    int depBasis,
@@ -32,35 +25,35 @@ namespace TracePca.Interface.FixedAssetsInterface
 
         //Go
         //itcorrect
-        Task<List<DepreciationnITActDto>> LoadDepreciationITActAsync(
-            int compId, int yearId, int custId, DateTime endDate);
+        //       Task<List<DepreciationnITActDto>> LoadDepreciationITActAsync(
+        //           int compId, int yearId, int custId, DateTime endDate);
 
-        //------------------new it correct
-        Task<DepreciationResultDto> CalculateDepreciationAsync(DepreciationRequesttDto request);
+        //       //------------------new it correct
+        //       Task<DepreciationResultDto> CalculateDepreciationAsync(DepreciationRequesttDto request);
 
-        //----wdv
-        Task<List<dynamic>> CalculateCompanyActWDVAsync(
- int compId,
- int yearId,
- int custId,
- int noOfDays,
- int totalDays,
- int duration,
- DateTime startDate,
- DateTime endDate,
- int method);
+        //       //----wdv
+        //       Task<List<dynamic>> CalculateCompanyActWDVAsync(
+        //int compId,
+        //int yearId,
+        //int custId,
+        //int noOfDays,
+        //int totalDays,
+        //int duration,
+        //DateTime startDate,
+        //DateTime endDate,
+        //int method);
 
-        //----sln&wdv
-        Task<List<dynamic>> CalculateCompanyActDepreciationAsync(
-    int compId,
-    int yearId,
-    int custId,
-    int noOfDays,
-    int totalDays,
-    int duration,
-    DateTime startDate,
-    DateTime endDate,
-    int method);
+        //       //----sln&wdv
+        //       Task<List<dynamic>> CalculateCompanyActDepreciationAsync(
+        //   int compId,
+        //   int yearId,
+        //   int custId,
+        //   int noOfDays,
+        //   int totalDays,
+        //   int duration,
+        //   DateTime startDate,
+        //   DateTime endDate,
+        //   int method);
 
 
         //------final
@@ -77,7 +70,12 @@ namespace TracePca.Interface.FixedAssetsInterface
    DateTime endDate,
    int method);
 
-        //companycalculation
+        //ITcalculation
         Task<List<ITDepreciationResponseDto>> CalculateITActDepreciationAsync(ITDepreciationRequestDto request);
+
+        //CompanyCalculation
+        //Task<List<DepreciationResultDtoo>> CalculateWDVAsync(
+        //    DepreciationRequest request);
+
     }
 }

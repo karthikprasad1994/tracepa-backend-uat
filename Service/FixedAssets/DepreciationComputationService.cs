@@ -1,11 +1,14 @@
 ﻿using System.Data;
 using System.Drawing;
+using System.Globalization;
 using Dapper;
 using DocumentFormat.OpenXml.Bibliography;
 using Microsoft.Data.SqlClient;
+using Org.BouncyCastle.Ocsp;
 using TracePca.Data;
 using TracePca.Interface.FixedAssetsInterface;
 using static TracePca.Dto.FixedAssets.DepreciationComputationDto;
+using static TracePca.Service.FixedAssetsService.DepreciationComputationService;
 
 
 
@@ -29,7 +32,7 @@ namespace TracePca.Service.FixedAssetsService
             _httpContextAccessor = httpContextAccessor;
         }
 
-        //  //SaveDepreciation
+        //SaveDepreciation
 
         public async Task<bool> SaveDepreciationAsync(
      int depBasis,
@@ -466,739 +469,738 @@ namespace TracePca.Service.FixedAssetsService
 
         //-----------
         //itcorrect
-        public async Task<List<DepreciationnITActDto>> LoadDepreciationITActAsync(
-            int compId, int yearId, int custId, DateTime endDate)
-        {
-            var result = new List<DepreciationnITActDto>();
-            int previousYearId = yearId != 0 ? yearId - 1 : 0;
-
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-            if (string.IsNullOrWhiteSpace(dbName))
-                throw new Exception("CustomerCode is missing in session.");
-
-            string connectionString = _configuration.GetConnectionString(dbName);
-
-            using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-
-            using var transaction = connection.BeginTransaction();
-
-            try
-            {
-                // 1️⃣ Check if previous year data exists
-                string countSql = @"SELECT COUNT(ADITAct_ID) 
-                            FROM Acc_AssetDepITAct 
-                            WHERE ADITAct_CustId=@CustId 
-                            AND ADITAct_YearID=@PrevYearId 
-                            AND ADITAct_CompID=@CompId";
-                int count = await connection.ExecuteScalarAsync<int>(
-                    countSql, new { CustId = custId, PrevYearId = previousYearId, CompId = compId }, transaction);
-
-                // 2️⃣ Get Asset Master
-                string assetSql = @"SELECT AM_ID, AM_Description, AM_WDVITAct, AM_ITRate 
-                            FROM Acc_AssetMaster 
-                            WHERE AM_CompID=@CompId AND AM_LevelCode=2 AND AM_CustId=@CustId";
-                var assets = (await connection.QueryAsync<AssetMasterDto>(
-                    assetSql, new { CompId = compId, CustId = custId }, transaction)).AsList();
-
-                foreach (var asset in assets)
-                {
-                    var dto = new DepreciationnITActDto
-                    {
-                        AssetClassID = asset.AM_ID,
-                        ClassofAsset = asset.AM_Description,
-                        RateofDep = asset.AM_ITRate
-                    };
-
-                    // 3️⃣ WDV Opening
-                    double openingValue = asset.AM_WDVITAct;
-                    if (count > 0)
-                    {
-                        string prevWdvSql = @"SELECT ISNULL(SUM(ADITAct_WrittenDownValue),0) 
-                                      FROM Acc_AssetDepITAct 
-                                      WHERE ADITAct_AssetClassID=@AssetId AND ADITAct_CustId=@CustId 
-                                      AND ADITAct_YearID=@PrevYearId AND ADITAct_CompID=@CompId";
-                        openingValue = await connection.ExecuteScalarAsync<double>(
-                            prevWdvSql, new { AssetId = asset.AM_ID, CustId = custId, PrevYearId = previousYearId, CompId = compId }, transaction);
-                        if (openingValue == 0) openingValue = asset.AM_WDVITAct;
-                    }
-
-                    // 4️⃣ Deletion Amount
-                    string delSql = @"SELECT ISNULL(SUM(AFAD_SalesPrice),0) 
-                              FROM Acc_FixedAssetDeletion 
-                              WHERE AFAD_AssetClass=@AssetId AND AFAD_CompID=@CompId 
-                              AND AFAD_CustomerName=@CustId AND AFAD_YearID=@YearId";
-                    double delAmount = await connection.ExecuteScalarAsync<double>(
-                        delSql, new { AssetId = asset.AM_ID, CompId = compId, CustId = custId, YearId = yearId }, transaction);
-
-                    dto.WDVOpeningValue = Math.Round(openingValue - delAmount, 0);
-                    dto.DelAmount = Math.Round(delAmount, 0);
-
-                    // 5️⃣ Previous Init Dep
-                    //string prevInitDepSql = @"SELECT ISNULL(SUM(ADITAct_InitAmt),0) 
-                    //                  FROM Acc_AssetDepITAct 
-                    //                  WHERE ADITAct_AssetClassID=@AssetId AND ADITAct_CustId=@CustId 
-                    //                  AND ADITAct_YearID=@PrevYearId AND ADITAct_CompID=@CompId";
-                    //double prevInitDepAmt = await connection.ExecuteScalarAsync<double>(
-                    //    prevInitDepSql, new { AssetId = asset.AM_ID, CustId = custId, PrevYearId = previousYearId, CompId = compId }, transaction);
-                    //dto.PrevInitDepAmt = prevInitDepAmt;
-
-                    double prevInitDepAmt = 0;
-
-
-                    // 6️⃣ Depreciation for period
-                    double depForPeriod = (dto.WDVOpeningValue * dto.RateofDep) / 100;
-                    dto.WDVOpeningDepreciation = depForPeriod;
-
-                    // 7️⃣ Asset Additions
-                    string addSql = @"SELECT b.FAAD_ItemType, a.AFAM_CommissionDate, ISNULL(SUM(b.FAAD_AssetValue),0) AS FAAD_AssetValue, ISNULL(FAAD_InitDep,0) AS FAAD_InitDep
-                              FROM Acc_FixedAssetMaster a
-                              LEFT JOIN Acc_FixedAssetAdditionDetails b ON a.AFAM_ID=b.FAAD_ItemType
-                              WHERE b.FAAD_ItemType<>'' AND FAAD_YearID=@YearId AND FAAD_Delflag<>'D' 
-                              AND FAAD_CustId=@CustId AND FAAD_Status<>'D' AND FAAD_CompID=@CompId AND FAAD_AssetType=@AssetId
-                              GROUP BY FAAD_ItemType, AFAM_CommissionDate, FAAD_InitDep";
-
-                    var addDetails = (await connection.QueryAsync<FixedAssetAdditionDto>(
-                        addSql, new { YearId = yearId, CustId = custId, CompId = compId, AssetId = asset.AM_ID }, transaction)).AsList();
-
-                    double less180 = 0, more180 = 0, lTotalDep = 0, mTotalDep = 0, initDepTot = 0, nextYearCarry = 0;
-
-                    foreach (var add in addDetails)
-                    {
-                        int noOfDays = (endDate - add.AFAM_CommissionDate).Days;
-                        if (noOfDays <= 180)
-                        {
-                            less180 += add.FAAD_AssetValue;
-                            if (add.FAAD_InitDep == 1)
-                            {
-                                double initDep = (add.FAAD_AssetValue * 10) / 100;
-                                dto.InitDepAmt = initDep;
-                                initDepTot += initDep;
-                                nextYearCarry += initDep;
-                            }
-                            lTotalDep += (add.FAAD_AssetValue * (dto.RateofDep / 2)) / 100;
-                        }
-                        else
-                        {
-                            more180 += add.FAAD_AssetValue;
-                            if (add.FAAD_InitDep == 1)
-                            {
-                                double initDep = (add.FAAD_AssetValue * 20) / 100;
-                                dto.InitDepAmt = initDep;
-                                initDepTot += initDep;
-                            }
-                            mTotalDep += (add.FAAD_AssetValue * dto.RateofDep) / 100;
-                        }
-                    }
-
-                    dto.BfrQtrAmount = less180;
-                    dto.BfrQtrDep = lTotalDep;
-                    dto.AftQtrAmount = more180;
-                    dto.AftQtrDep = mTotalDep;
-                    dto.Depfortheperiod = Math.Round(depForPeriod + lTotalDep + mTotalDep + initDepTot + prevInitDepAmt, 0);
-                    dto.AdditionDuringtheYear = Math.Round(less180 + more180, 0);
-                    dto.WDVClosingValue = Math.Round(dto.WDVOpeningValue + less180 + more180 - dto.Depfortheperiod, 0);
-                    dto.NextYrCarry = nextYearCarry;
-
-                    result.Add(dto);
-                }
-
-                transaction.Commit();
-                return result;
-            }
-            catch
-            {
-                transaction.Rollback();
-                throw;
-            }
-        }
-
-
-        //--------------------new it correct
-
-        public async Task<DepreciationResultDto> CalculateDepreciationAsync(DepreciationRequesttDto request)
-        {
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-            if (string.IsNullOrWhiteSpace(dbName))
-                throw new Exception("CustomerCode missing in session");
-
-            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
-            await connection.OpenAsync();
-
-            if (request.CustId == 0)
-                throw new ArgumentException("Select Customer Name");
-
-            if (request.DepBasis != 1 && request.DepBasis != 2)
-                throw new ArgumentException("Select valid Depreciation Basis");
-
-            var fySplit = request.FinancialYear.Split('-');
-            int startYear = int.Parse(fySplit[0]);
-            int endYear = int.Parse(fySplit[1]);
-            DateTime fyStart = new(startYear, 4, 1);
-            DateTime fyEnd = new(endYear, 3, 31);
-
-            var result = new DepreciationResultDto
-            {
-                ITActData = new List<ITActDepreciationDto>(),
-                CompanyActData = new List<CompanyActDepreciationDto>()
-            };
-
-            // ========================== IT ACT ==========================
-            if (request.DepBasis == 2)
-            {
-                result.DepreciationBasis = "IT_ACT";
-                int prevYearId = request.YearId - 1;
-
-                var assetClasses = await connection.QueryAsync(
-                    @"SELECT AM_ID, AM_Description, AM_ITRate, AM_WDVITAct
-                  FROM Acc_AssetMaster
-                  WHERE AM_CompID = @CompId 
-                    AND AM_LevelCode = 2 
-                    AND AM_CustId = @CustId",
-                    new { request.CompId, request.CustId });
-
-                foreach (var asset in assetClasses)
-                {
-                    decimal openingWDV = await connection.ExecuteScalarAsync<decimal>(
-                        @"SELECT ISNULL(SUM(ADITAct_WrittenDownValue),0)
-                      FROM Acc_AssetDepITAct
-                      WHERE ADITAct_AssetClassID = @ClassId
-                        AND ADITAct_YearID = @PrevYear
-                        AND ADITAct_CompID = @CompId
-                        AND ADITAct_CustId = @CustId",
-                        new { ClassId = asset.AM_ID, PrevYear = prevYearId, request.CompId, request.CustId });
-
-                    if (openingWDV == 0)
-                        openingWDV = asset.AM_WDVITAct ?? 0;
-
-                    decimal before180 = await connection.ExecuteScalarAsync<decimal>(
-                        @"SELECT ISNULL(SUM(FAAD_AssetValue),0)
-                      FROM Acc_FixedAssetAdditionDetails
-                      WHERE FAAD_YearID = @YearId
-                        AND FAAD_AssetType = @ClassId
-                        AND DATEDIFF(DAY, FAAD_DocDate, @FyEnd) > 180",
-                        new { request.YearId, ClassId = asset.AM_ID, FyEnd = fyEnd });
-
-                    decimal after180 = await connection.ExecuteScalarAsync<decimal>(
-                        @"SELECT ISNULL(SUM(FAAD_AssetValue),0)
-                      FROM Acc_FixedAssetAdditionDetails
-                      WHERE FAAD_YearID = @YearId
-                        AND FAAD_AssetType = @ClassId
-                        AND DATEDIFF(DAY, FAAD_DocDate, @FyEnd) <= 180",
-                        new { request.YearId, ClassId = asset.AM_ID, FyEnd = fyEnd });
-
-                    decimal rate = asset.AM_ITRate ?? 0;
-                    decimal depBefore = (openingWDV + before180) * rate / 100;
-                    decimal depAfter = after180 * rate / 200;
-                    decimal totalDep = depBefore + depAfter;
-                    decimal closingWDV = openingWDV + before180 + after180 - totalDep;
-
-                    result.ITActData.Add(new ITActDepreciationDto
-                    {
-                        AssetClassID = asset.AM_ID,
-                        ClassOfAsset = asset.AM_Description,
-                        RateOfDep = rate,
-                        WDVOpeningValue = openingWDV,
-                        Before180DaysAddition = before180,
-                        After180DaysAddition = after180,
-                        TotalAddition = before180 + after180,
-                        DepBefore180Days = depBefore,
-                        DepAfter180Days = depAfter,
-                        TotalDepreciation = totalDep,
-                        WDVClosingValue = closingWDV
-                    });
-                }
-            }
-            // ====================== COMPANY ACT =======================
-            else if (request.DepBasis == 1)
-            {
-                result.DepreciationBasis = "COMPANY_ACT";
-
-                // ✅ Use TRY_CAST for all varchar->int fields
-                var assets = await connection.QueryAsync<CompanyActDepreciationDto>(
-                    @"
-       SELECT
-    FA.AFAM_PurchaseDate AS DateOfPutToUse,
-    FA.AFAM_AssetCode AS AssetCode,
-    FA.AFAM_Description AS AssetName,
-    FA.AFAM_PurchaseAmount AS OriginalCost,
-    ISNULL(FA.AFAM_AssetAge,0) AS AssetLife,
-    ISNULL(FA.AFAM_Value,0) AS ResidualPercent,
-    LOC.LS_Description AS Location,
-    DIVI.LS_Description AS Division,
-    DEPT.LS_Description AS Department,
-    BAY.LS_Description AS Bay
-FROM Acc_FixedAssetMaster FA
-
-LEFT JOIN Acc_AssetLocationSetup LOC
-    ON LOC.LS_LevelCode = 1
-   AND LOC.LS_CustId = FA.AFAM_CustId
-   AND LOC.LS_CompID = FA.AFAM_CompID
-   AND CAST(LOC.LS_Code AS VARCHAR(50)) = FA.AFAM_Location
-
-LEFT JOIN Acc_AssetLocationSetup DIVI
-    ON DIVI.LS_LevelCode = 2
-   AND DIVI.LS_CustId = FA.AFAM_CustId
-   AND DIVI.LS_CompID = FA.AFAM_CompID
-   AND CAST(DIVI.LS_Code AS VARCHAR(50)) = FA.AFAM_Division
-
-LEFT JOIN Acc_AssetLocationSetup DEPT
-    ON DEPT.LS_LevelCode = 3
-   AND DEPT.LS_CustId = FA.AFAM_CustId
-   AND DEPT.LS_CompID = FA.AFAM_CompID
-   AND CAST(DEPT.LS_Code AS VARCHAR(50)) = FA.AFAM_Department
-
-LEFT JOIN Acc_AssetLocationSetup BAY
-    ON BAY.LS_LevelCode = 4
-   AND BAY.LS_CustId = FA.AFAM_CustId
-   AND BAY.LS_CompID = FA.AFAM_CompID
-   AND CAST(BAY.LS_Code AS VARCHAR(50)) = FA.AFAM_Bay
-
-WHERE FA.AFAM_CompID = @CompId
-  AND FA.AFAM_CustId = @CustId
-  AND ISNULL(FA.AFAM_DelFlag,0) = 0;
-        ",
-                    new { request.CompId, request.CustId });
-
-                foreach (var a in assets)
-                {
-                    if (a.OriginalCost <= 0) continue;
-
-                    decimal residualValue = a.OriginalCost * (a.ResidualPercent / 100);
-
-                    DateTime putToUse = a.DateOfPutToUse < request.FromDate
-                        ? request.FromDate
-                        : a.DateOfPutToUse.Value;
-
-                    int daysUsed = (int)(request.ToDate - putToUse).TotalDays + 1;
-                    int totalDaysFY = (int)(request.ToDate - request.FromDate).TotalDays + 1;
-
-                    decimal depreciation = 0;
-
-                    if (request.Method == 1) // SLM
-                    {
-                        decimal life = a.AssetLife > 0 ? a.AssetLife : 1;
-                        decimal yearlyDep = (a.OriginalCost - residualValue) / life;
-                        depreciation = yearlyDep * daysUsed / totalDaysFY;
-                    }
-                    else // WDV
-                    {
-                        decimal life = a.AssetLife > 0 ? a.AssetLife : 10;
-                        decimal rate = 100 / life;
-                        depreciation = a.OriginalCost * rate / 100 * daysUsed / totalDaysFY;
-                    }
-
-                    depreciation = Math.Round(depreciation, 2);
-
-                    result.CompanyActData.Add(new CompanyActDepreciationDto
-                    {
-                        DateOfPutToUse = a.DateOfPutToUse,
-                        AssetCode = a.AssetCode,
-                        AssetName = a.AssetName,
-                        Location = a.Location,
-                        Division = a.Division,
-                        Department = a.Department,
-                        Bay = a.Bay,
-                        OriginalCost = a.OriginalCost,
-                        ResidualPercent = a.ResidualPercent,
-                        DepreciationAmount = depreciation,
-                        ClosingValue = a.OriginalCost - depreciation
-                    });
-                }
-            }
-
-            return result;
-        }
-
-        //-------wdv
-        public async Task<List<dynamic>> CalculateCompanyActWDVAsync(
-  int compId,
-  int yearId,
-  int custId,
-  int noOfDays,
-  int totalDays,
-  int duration,
-  DateTime startDate,
-  DateTime endDate,
-  int method)
-        {
-
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-            if (string.IsNullOrWhiteSpace(dbName))
-                throw new Exception("CustomerCode missing in session");
-
-            var connectionString = _configuration.GetConnectionString(dbName);
-            if (string.IsNullOrWhiteSpace(connectionString))
-                throw new Exception($"Connection string not found for key: {dbName}");
-
-            using var con = new SqlConnection(connectionString);
-            await con.OpenAsync();
-
-            List<dynamic> result = new();
-
-            var assetRows = await con.QueryAsync<dynamic>(
-                @"SELECT DISTINCT 
-              AFAA_TrType,
-              AFAA_Id,
-              AFAA_ItemType,
-              AFAA_AssetType,
-              AFAA_AssetAmount,
-              AFAA_FYAmount,
-              AFAA_Location,
-              AFAA_Division,
-              AFAA_Department,
-              AFAA_Bay
-          FROM Acc_FixedAssetAdditionDel
-          WHERE AFAA_CompID = @CompID
-            AND AFAA_CustId = @CustID
-            AND AFAA_YearID <= @YearID
-            AND AFAA_Delflag = 'A'
-          ORDER BY AFAA_ItemType",
-                new { CompID = compId, CustID = custId, YearID = yearId });
-
-            foreach (var row in assetRows)
-            {
-                /* -------------------- ASSET MASTER -------------------- */
-                var asset = await con.QueryFirstOrDefaultAsync<dynamic>(
-                    @"SELECT 
-                 AFAM_AssetCode,
-                 AFAM_AssetAge,
-                 AFAM_PurchaseDate
-              FROM Acc_FixedAssetMaster
-              WHERE AFAM_ID = @ID
-                AND AFAM_CompID = @CompID
-                AND AFAM_CustId = @CustID",
-                    new { ID = row.AFAA_ItemType, CompID = compId, CustID = custId });
-
-                if (asset == null) continue;
-
-                int assetAge = asset.AFAM_AssetAge != null ? Convert.ToInt32(asset.AFAM_AssetAge) : 0;
-                DateTime purchaseDate = asset.AFAM_PurchaseDate ?? DateTime.MinValue;
-
-                /* -------------------- NO OF DAYS -------------------- */
-                int calcDays = 0;
-                DateTime expiryDate = purchaseDate.AddYears(assetAge);
-
-                if (expiryDate < startDate)
-                    calcDays = 0;
-                else if (purchaseDate >= startDate && purchaseDate <= endDate)
-                {
-                    if (duration != 3)
-                        calcDays = (endDate - purchaseDate).Days;
-                }
-                else
-                {
-                    if (row.AFAA_TrType == 1)
-                        calcDays = noOfDays;
-                }
-
-                //if (calcDays == 0 && duration != 3)
-                //    continue;
-
-                /* -------------------- RESIDUAL / SALVAGE -------------------- */
-                decimal residualPercent = await con.ExecuteScalarAsync<decimal>(
-                @"SELECT ISNULL(AM_ResidualValue,0)
-              FROM Acc_AssetMaster
-              WHERE AM_ID = @ID AND AM_CustId = @CustID",
-                    new { ID = row.AFAA_AssetType, CustID = custId });
-
-                decimal originalCost = Convert.ToDecimal(row.AFAA_AssetAmount ?? 0);
-                decimal salvageValue = Math.Round((residualPercent * originalCost) / 100, 2);
-
-                /* -------------------- WDV RATE -------------------- */
-                decimal depreciationRate = 0;
-                if (originalCost > 0 && salvageValue > 0 && assetAge > 0)
-                {
-                    depreciationRate = Math.Round(
-                        (decimal)((1 - Math.Pow((double)(salvageValue / originalCost), 1.0 / assetAge)) * 100), 2);
-                }
-
-                /* -------------------- OPENING WDV -------------------- */
-                decimal openingWDV = await con.ExecuteScalarAsync<decimal>(
-                @"SELECT ISNULL(ADep_WrittenDownValue,0)
-              FROM Acc_AssetDepreciation
-              WHERE ADep_CompID = @CompID
-                AND ADep_YearID = @YearID
-                AND ADep_AssetID = @AssetID
-                AND ADep_CustId = @CustID
-                AND ADep_Method = @Method",
-                    new
-                    {
-                        CompID = compId,
-                        YearID = yearId,
-                        AssetType = row.AFAA_AssetType,
-                        AssetID = row.AFAA_ItemType,
-                        CustID = custId,
-                        Method = method
-                    });
-
-                if (openingWDV == 0)
-                    openingWDV = originalCost;
-
-                /* -------------------- DEPRECIATION -------------------- */
-                decimal depreciationFY =
-                    Math.Round((openingWDV * depreciationRate / 100) * calcDays / totalDays, 2);
-
-                decimal wdvAfterDep = openingWDV - depreciationFY;
-
-                /* -------------------- SALVAGE CHECK -------------------- */
-                if (salvageValue >= wdvAfterDep)
-                {
-                    depreciationFY = openingWDV - salvageValue;
-                    wdvAfterDep = salvageValue;
-                }
-
-                /* -------------------- DELETION CHECK -------------------- */
-                decimal deletionAmount = await con.ExecuteScalarAsync<decimal>(
-                @"SELECT ISNULL(SUM(AFAD_Amount),0)
-              FROM Acc_FixedAssetDeletion
-              WHERE AFAD_CompID = @CompID
-               ",
-                    new
-                    {
-                        CompID = compId,
-                        AssetType = row.AFAA_AssetType,
-                        AssetID = row.AFAA_ItemType,
-                        CustID = custId
-                    });
-
-                if (deletionAmount > 0)
-                {
-                    depreciationFY = deletionAmount;
-                    wdvAfterDep = 0;
-                }
-
-                /* -------------------- DESCRIPTION -------------------- */
-                string assetTypeName = await con.ExecuteScalarAsync<string>(
-                    @"SELECT AM_Description
-              FROM Acc_AssetMaster
-              WHERE AM_ID = @ID AND AM_CustId = @CustID",
-                    new { ID = row.AFAA_AssetType, CustID = custId });
-
-                /* -------------------- FINAL ROW -------------------- */
-                result.Add(new
-                {
-                    AssetClassID = row.AFAA_AssetType,
-                    AssetID = row.AFAA_ItemType,
-                    AssetType = assetTypeName,
-                    AssetCode = asset.AFAM_AssetCode,
-                    PurchaseDate = purchaseDate,
-                    AssetAge = assetAge,
-                    OriginalCost = originalCost,
-                    ResidualPercent = residualPercent,
-                    SalvageValue = salvageValue,
-                    DepreciationRate = depreciationRate,
-                    OpeningWDV = openingWDV,
-                    DepreciationForFY = depreciationFY,
-                    ClosingWDV = wdvAfterDep,
-                    NoOfDays = calcDays,
-                    TrType = row.AFAA_TrType,
-                    LocationID = row.AFAA_Location,
-                    DivisionID = row.AFAA_Division,
-                    DepartmentID = row.AFAA_Department,
-                    BayID = row.AFAA_Bay
-                });
-            }
-
-            return result;
-        }
-
-        //-------sln&wdv
-        public async Task<List<dynamic>> CalculateCompanyActDepreciationAsync(
-int compId,
-int yearId,
-int custId,
-int noOfDays,
-int totalDays,
-int duration,
-DateTime startDate,
-DateTime endDate,
-int method)
-        {
-
-            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
-            if (string.IsNullOrWhiteSpace(dbName))
-                throw new Exception("CustomerCode missing in session");
-
-            var connectionString = _configuration.GetConnectionString(dbName);
-            if (string.IsNullOrWhiteSpace(connectionString))
-                throw new Exception($"Connection string not found for key: {dbName}");
-
-            using var con = new SqlConnection(connectionString);
-            await con.OpenAsync();
-
-            List<dynamic> result = new();
-
-            var assetRows = await con.QueryAsync<dynamic>(
-                @"SELECT DISTINCT 
-            AFAA_TrType,
-            AFAA_Id,
-            AFAA_ItemType,
-            AFAA_AssetType,
-            AFAA_AssetAmount,
-            AFAA_FYAmount,
-            AFAA_Location,
-            AFAA_Division,
-            AFAA_Department,
-            AFAA_Bay
-        FROM Acc_FixedAssetAdditionDel
-        WHERE AFAA_CompID = @CompID
-          AND AFAA_CustId = @CustID
-          AND AFAA_YearID <= @YearID
-          AND AFAA_Delflag = 'A'
-        ORDER BY AFAA_ItemType",
-                new { CompID = compId, CustID = custId, YearID = yearId });
-
-            foreach (var row in assetRows)
-            {
-                /* -------------------- ASSET MASTER -------------------- */
-                var asset = await con.QueryFirstOrDefaultAsync<dynamic>(
-                    @"SELECT 
-               AFAM_AssetCode,
-               AFAM_AssetAge,
-               AFAM_PurchaseDate
-            FROM Acc_FixedAssetMaster
-            WHERE AFAM_ID = @ID
-              AND AFAM_CompID = @CompID
-              AND AFAM_CustId = @CustID",
-                    new { ID = row.AFAA_ItemType, CompID = compId, CustID = custId });
-
-                if (asset == null) continue;
-
-                int assetAge = asset.AFAM_AssetAge != null ? Convert.ToInt32(asset.AFAM_AssetAge) : 0;
-                DateTime purchaseDate = asset.AFAM_PurchaseDate ?? DateTime.MinValue;
-
-                /* -------------------- NO OF DAYS -------------------- */
-                int calcDays = 0;
-                DateTime expiryDate = purchaseDate.AddYears(assetAge);
-
-                if (expiryDate < startDate)
-                    calcDays = 0;
-                else if (purchaseDate >= startDate && purchaseDate <= endDate)
-                {
-                    if (duration != 3)
-                        calcDays = (endDate - purchaseDate).Days;
-                }
-                else
-                {
-                    if (row.AFAA_TrType == 1)
-                        calcDays = noOfDays;
-                }
-
-                //if (calcDays == 0 && duration != 3)
-                //    continue;
-
-                /* -------------------- RESIDUAL / SALVAGE -------------------- */
-                decimal residualPercent = await con.ExecuteScalarAsync<decimal>(
-                @"SELECT ISNULL(AM_ResidualValue,0)
-            FROM Acc_AssetMaster
-            WHERE AM_ID = @ID AND AM_CustId = @CustID",
-                    new { ID = row.AFAA_AssetType, CustID = custId });
-
-                decimal originalCost = Convert.ToDecimal(row.AFAA_AssetAmount ?? 0);
-                decimal salvageValue = Math.Round((residualPercent * originalCost) / 100, 2);
-
-                /* -------------------- WDV RATE -------------------- */
-                decimal depreciationRate = 0;
-                if (originalCost > 0 && salvageValue > 0 && assetAge > 0)
-                {
-                    depreciationRate = Math.Round(
-                        (decimal)((1 - Math.Pow((double)(salvageValue / originalCost), 1.0 / assetAge)) * 100), 2);
-                }
-
-                /* -------------------- OPENING WDV -------------------- */
-                decimal openingWDV = await con.ExecuteScalarAsync<decimal>(
-                @"SELECT ISNULL(ADep_WrittenDownValue,0)
-            FROM Acc_AssetDepreciation
-            WHERE ADep_CompID = @CompID
-              AND ADep_YearID = @YearID
-              AND ADep_AssetID = @AssetID
-              AND ADep_CustId = @CustID
-              AND ADep_Method = @Method",
-                    new
-                    {
-                        CompID = compId,
-                        YearID = yearId,
-                        AssetType = row.AFAA_AssetType,
-                        AssetID = row.AFAA_ItemType,
-                        CustID = custId,
-                        Method = method
-                    });
-
-                if (openingWDV == 0)
-                    openingWDV = originalCost;
-
-                /* -------------------- DEPRECIATION -------------------- */
-                decimal depreciationFY =
-                    Math.Round((openingWDV * depreciationRate / 100) * calcDays / totalDays, 2);
-
-                decimal wdvAfterDep = openingWDV - depreciationFY;
-
-                /* -------------------- SALVAGE CHECK -------------------- */
-                if (salvageValue >= wdvAfterDep)
-                {
-                    depreciationFY = openingWDV - salvageValue;
-                    wdvAfterDep = salvageValue;
-                }
-
-                /* -------------------- DELETION CHECK -------------------- */
-                decimal deletionAmount = await con.ExecuteScalarAsync<decimal>(
-                @"SELECT ISNULL(SUM(AFAD_Amount),0)
-            FROM Acc_FixedAssetDeletion
-            WHERE AFAD_CompID = @CompID
-             ",
-                    new
-                    {
-                        CompID = compId,
-                        AssetType = row.AFAA_AssetType,
-                        AssetID = row.AFAA_ItemType,
-                        CustID = custId
-                    });
-
-                if (deletionAmount > 0)
-                {
-                    depreciationFY = deletionAmount;
-                    wdvAfterDep = 0;
-                }
-
-                /* -------------------- DESCRIPTION -------------------- */
-                string assetTypeName = await con.ExecuteScalarAsync<string>(
-                    @"SELECT AM_Description
-            FROM Acc_AssetMaster
-            WHERE AM_ID = @ID AND AM_CustId = @CustID",
-                    new { ID = row.AFAA_AssetType, CustID = custId });
-
-                /* -------------------- FINAL ROW -------------------- */
-                result.Add(new
-                {
-                    AssetClassID = row.AFAA_AssetType,
-                    AssetID = row.AFAA_ItemType,
-                    AssetType = assetTypeName,
-                    AssetCode = asset.AFAM_AssetCode,
-                    PurchaseDate = purchaseDate,
-                    AssetAge = assetAge,
-                    OriginalCost = originalCost,
-                    ResidualPercent = residualPercent,
-                    SalvageValue = salvageValue,
-                    DepreciationRate = depreciationRate,
-                    OpeningWDV = openingWDV,
-                    DepreciationForFY = depreciationFY,
-                    ClosingWDV = wdvAfterDep,
-                    NoOfDays = calcDays,
-                    TrType = row.AFAA_TrType,
-                    LocationID = row.AFAA_Location,
-                    DivisionID = row.AFAA_Division,
-                    DepartmentID = row.AFAA_Department,
-                    BayID = row.AFAA_Bay
-                });
-            }
-
-            return result;
-        }
+        //        public async Task<List<DepreciationnITActDto>> LoadDepreciationITActAsync(
+        //            int compId, int yearId, int custId, DateTime endDate)
+        //        {
+        //            var result = new List<DepreciationnITActDto>();
+        //            int previousYearId = yearId != 0 ? yearId - 1 : 0;
+
+        //            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //            if (string.IsNullOrWhiteSpace(dbName))
+        //                throw new Exception("CustomerCode is missing in session.");
+
+        //            string connectionString = _configuration.GetConnectionString(dbName);
+
+        //            using var connection = new SqlConnection(connectionString);
+        //            await connection.OpenAsync();
+
+        //            using var transaction = connection.BeginTransaction();
+
+        //            try
+        //            {
+        //                // 1️⃣ Check if previous year data exists
+        //                string countSql = @"SELECT COUNT(ADITAct_ID) 
+        //                            FROM Acc_AssetDepITAct 
+        //                            WHERE ADITAct_CustId=@CustId 
+        //                            AND ADITAct_YearID=@PrevYearId 
+        //                            AND ADITAct_CompID=@CompId";
+        //                int count = await connection.ExecuteScalarAsync<int>(
+        //                    countSql, new { CustId = custId, PrevYearId = previousYearId, CompId = compId }, transaction);
+
+        //                // 2️⃣ Get Asset Master
+        //                string assetSql = @"SELECT AM_ID, AM_Description, AM_WDVITAct, AM_ITRate 
+        //                            FROM Acc_AssetMaster 
+        //                            WHERE AM_CompID=@CompId AND AM_LevelCode=2 AND AM_CustId=@CustId";
+        //                var assets = (await connection.QueryAsync<AssetMasterDto>(
+        //                    assetSql, new { CompId = compId, CustId = custId }, transaction)).AsList();
+
+        //                foreach (var asset in assets)
+        //                {
+        //                    var dto = new DepreciationnITActDto
+        //                    {
+        //                        AssetClassID = asset.AM_ID,
+        //                        ClassofAsset = asset.AM_Description,
+        //                        RateofDep = asset.AM_ITRate
+        //                    };
+
+        //                    // 3️⃣ WDV Opening
+        //                    double openingValue = asset.AM_WDVITAct;
+        //                    if (count > 0)
+        //                    {
+        //                        string prevWdvSql = @"SELECT ISNULL(SUM(ADITAct_WrittenDownValue),0) 
+        //                                      FROM Acc_AssetDepITAct 
+        //                                      WHERE ADITAct_AssetClassID=@AssetId AND ADITAct_CustId=@CustId 
+        //                                      AND ADITAct_YearID=@PrevYearId AND ADITAct_CompID=@CompId";
+        //                        openingValue = await connection.ExecuteScalarAsync<double>(
+        //                            prevWdvSql, new { AssetId = asset.AM_ID, CustId = custId, PrevYearId = previousYearId, CompId = compId }, transaction);
+        //                        if (openingValue == 0) openingValue = asset.AM_WDVITAct;
+        //                    }
+
+        //                    // 4️⃣ Deletion Amount
+        //                    string delSql = @"SELECT ISNULL(SUM(AFAD_SalesPrice),0) 
+        //                              FROM Acc_FixedAssetDeletion 
+        //                              WHERE AFAD_AssetClass=@AssetId AND AFAD_CompID=@CompId 
+        //                              AND AFAD_CustomerName=@CustId AND AFAD_YearID=@YearId";
+        //                    double delAmount = await connection.ExecuteScalarAsync<double>(
+        //                        delSql, new { AssetId = asset.AM_ID, CompId = compId, CustId = custId, YearId = yearId }, transaction);
+
+        //                    dto.WDVOpeningValue = Math.Round(openingValue - delAmount, 0);
+        //                    dto.DelAmount = Math.Round(delAmount, 0);
+
+        //                    // 5️⃣ Previous Init Dep
+        //                    //string prevInitDepSql = @"SELECT ISNULL(SUM(ADITAct_InitAmt),0) 
+        //                    //                  FROM Acc_AssetDepITAct 
+        //                    //                  WHERE ADITAct_AssetClassID=@AssetId AND ADITAct_CustId=@CustId 
+        //                    //                  AND ADITAct_YearID=@PrevYearId AND ADITAct_CompID=@CompId";
+        //                    //double prevInitDepAmt = await connection.ExecuteScalarAsync<double>(
+        //                    //    prevInitDepSql, new { AssetId = asset.AM_ID, CustId = custId, PrevYearId = previousYearId, CompId = compId }, transaction);
+        //                    //dto.PrevInitDepAmt = prevInitDepAmt;
+
+        //                    double prevInitDepAmt = 0;
+
+
+        //                    // 6️⃣ Depreciation for period
+        //                    double depForPeriod = (dto.WDVOpeningValue * dto.RateofDep) / 100;
+        //                    dto.WDVOpeningDepreciation = depForPeriod;
+
+        //                    // 7️⃣ Asset Additions
+        //                    string addSql = @"SELECT b.FAAD_ItemType, a.AFAM_CommissionDate, ISNULL(SUM(b.FAAD_AssetValue),0) AS FAAD_AssetValue, ISNULL(FAAD_InitDep,0) AS FAAD_InitDep
+        //                              FROM Acc_FixedAssetMaster a
+        //                              LEFT JOIN Acc_FixedAssetAdditionDetails b ON a.AFAM_ID=b.FAAD_ItemType
+        //                              WHERE b.FAAD_ItemType<>'' AND FAAD_YearID=@YearId AND FAAD_Delflag<>'D' 
+        //                              AND FAAD_CustId=@CustId AND FAAD_Status<>'D' AND FAAD_CompID=@CompId AND FAAD_AssetType=@AssetId
+        //                              GROUP BY FAAD_ItemType, AFAM_CommissionDate, FAAD_InitDep";
+
+        //                    var addDetails = (await connection.QueryAsync<FixedAssetAdditionDto>(
+        //                        addSql, new { YearId = yearId, CustId = custId, CompId = compId, AssetId = asset.AM_ID }, transaction)).AsList();
+
+        //                    double less180 = 0, more180 = 0, lTotalDep = 0, mTotalDep = 0, initDepTot = 0, nextYearCarry = 0;
+
+        //                    foreach (var add in addDetails)
+        //                    {
+        //                        int noOfDays = (endDate - add.AFAM_CommissionDate).Days;
+        //                        if (noOfDays <= 180)
+        //                        {
+        //                            less180 += add.FAAD_AssetValue;
+        //                            if (add.FAAD_InitDep == 1)
+        //                            {
+        //                                double initDep = (add.FAAD_AssetValue * 10) / 100;
+        //                                dto.InitDepAmt = initDep;
+        //                                initDepTot += initDep;
+        //                                nextYearCarry += initDep;
+        //                            }
+        //                            lTotalDep += (add.FAAD_AssetValue * (dto.RateofDep / 2)) / 100;
+        //                        }
+        //                        else
+        //                        {
+        //                            more180 += add.FAAD_AssetValue;
+        //                            if (add.FAAD_InitDep == 1)
+        //                            {
+        //                                double initDep = (add.FAAD_AssetValue * 20) / 100;
+        //                                dto.InitDepAmt = initDep;
+        //                                initDepTot += initDep;
+        //                            }
+        //                            mTotalDep += (add.FAAD_AssetValue * dto.RateofDep) / 100;
+        //                        }
+        //                    }
+
+        //                    dto.BfrQtrAmount = less180;
+        //                    dto.BfrQtrDep = lTotalDep;
+        //                    dto.AftQtrAmount = more180;
+        //                    dto.AftQtrDep = mTotalDep;
+        //                    dto.Depfortheperiod = Math.Round(depForPeriod + lTotalDep + mTotalDep + initDepTot + prevInitDepAmt, 0);
+        //                    dto.AdditionDuringtheYear = Math.Round(less180 + more180, 0);
+        //                    dto.WDVClosingValue = Math.Round(dto.WDVOpeningValue + less180 + more180 - dto.Depfortheperiod, 0);
+        //                    dto.NextYrCarry = nextYearCarry;
+
+        //                    result.Add(dto);
+        //                }
+
+        //                transaction.Commit();
+        //                return result;
+        //            }
+        //            catch
+        //            {
+        //                transaction.Rollback();
+        //                throw;
+        //            }
+        //        }
+
+
+        //        //--------------------new it correct
+
+        //        public async Task<DepreciationResultDto> CalculateDepreciationAsync(DepreciationRequesttDto request)
+        //        {
+        //            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //            if (string.IsNullOrWhiteSpace(dbName))
+        //                throw new Exception("CustomerCode missing in session");
+
+        //            using var connection = new SqlConnection(_configuration.GetConnectionString(dbName));
+        //            await connection.OpenAsync();
+
+        //            if (request.CustId == 0)
+        //                throw new ArgumentException("Select Customer Name");
+
+        //            if (request.DepBasis != 1 && request.DepBasis != 2)
+        //                throw new ArgumentException("Select valid Depreciation Basis");
+
+        //            var fySplit = request.FinancialYear.Split('-');
+        //            int startYear = int.Parse(fySplit[0]);
+        //            int endYear = int.Parse(fySplit[1]);
+        //            DateTime fyStart = new(startYear, 4, 1);
+        //            DateTime fyEnd = new(endYear, 3, 31);
+
+        //            var result = new DepreciationResultDto
+        //            {
+        //                ITActData = new List<ITActDepreciationDto>(),
+        //                CompanyActData = new List<CompanyActDepreciationDto>()
+        //            };
+
+        //            // ========================== IT ACT ==========================
+        //            if (request.DepBasis == 2)
+        //            {
+        //                result.DepreciationBasis = "IT_ACT";
+        //                int prevYearId = request.YearId - 1;
+
+        //                var assetClasses = await connection.QueryAsync(
+        //                    @"SELECT AM_ID, AM_Description, AM_ITRate, AM_WDVITAct
+        //                  FROM Acc_AssetMaster
+        //                  WHERE AM_CompID = @CompId 
+        //                    AND AM_LevelCode = 2 
+        //                    AND AM_CustId = @CustId",
+        //                    new { request.CompId, request.CustId });
+
+        //                foreach (var asset in assetClasses)
+        //                {
+        //                    decimal openingWDV = await connection.ExecuteScalarAsync<decimal>(
+        //                        @"SELECT ISNULL(SUM(ADITAct_WrittenDownValue),0)
+        //                      FROM Acc_AssetDepITAct
+        //                      WHERE ADITAct_AssetClassID = @ClassId
+        //                        AND ADITAct_YearID = @PrevYear
+        //                        AND ADITAct_CompID = @CompId
+        //                        AND ADITAct_CustId = @CustId",
+        //                        new { ClassId = asset.AM_ID, PrevYear = prevYearId, request.CompId, request.CustId });
+
+        //                    if (openingWDV == 0)
+        //                        openingWDV = asset.AM_WDVITAct ?? 0;
+
+        //                    decimal before180 = await connection.ExecuteScalarAsync<decimal>(
+        //                        @"SELECT ISNULL(SUM(FAAD_AssetValue),0)
+        //                      FROM Acc_FixedAssetAdditionDetails
+        //                      WHERE FAAD_YearID = @YearId
+        //                        AND FAAD_AssetType = @ClassId
+        //                        AND DATEDIFF(DAY, FAAD_DocDate, @FyEnd) > 180",
+        //                        new { request.YearId, ClassId = asset.AM_ID, FyEnd = fyEnd });
+
+        //                    decimal after180 = await connection.ExecuteScalarAsync<decimal>(
+        //                        @"SELECT ISNULL(SUM(FAAD_AssetValue),0)
+        //                      FROM Acc_FixedAssetAdditionDetails
+        //                      WHERE FAAD_YearID = @YearId
+        //                        AND FAAD_AssetType = @ClassId
+        //                        AND DATEDIFF(DAY, FAAD_DocDate, @FyEnd) <= 180",
+        //                        new { request.YearId, ClassId = asset.AM_ID, FyEnd = fyEnd });
+
+        //                    decimal rate = asset.AM_ITRate ?? 0;
+        //                    decimal depBefore = (openingWDV + before180) * rate / 100;
+        //                    decimal depAfter = after180 * rate / 200;
+        //                    decimal totalDep = depBefore + depAfter;
+        //                    decimal closingWDV = openingWDV + before180 + after180 - totalDep;
+
+        //                    result.ITActData.Add(new ITActDepreciationDto
+        //                    {
+        //                        AssetClassID = asset.AM_ID,
+        //                        ClassOfAsset = asset.AM_Description,
+        //                        RateOfDep = rate,
+        //                        WDVOpeningValue = openingWDV,
+        //                        Before180DaysAddition = before180,
+        //                        After180DaysAddition = after180,
+        //                        TotalAddition = before180 + after180,
+        //                        DepBefore180Days = depBefore,
+        //                        DepAfter180Days = depAfter,
+        //                        TotalDepreciation = totalDep,
+        //                        WDVClosingValue = closingWDV
+        //                    });
+        //                }
+        //            }
+        //            // ====================== COMPANY ACT =======================
+        //            else if (request.DepBasis == 1)
+        //            {
+        //                result.DepreciationBasis = "COMPANY_ACT";
+
+        //                // ✅ Use TRY_CAST for all varchar->int fields
+        //                var assets = await connection.QueryAsync<CompanyActDepreciationDto>(
+        //                    @"
+        //       SELECT
+        //    FA.AFAM_PurchaseDate AS DateOfPutToUse,
+        //    FA.AFAM_AssetCode AS AssetCode,
+        //    FA.AFAM_Description AS AssetName,
+        //    FA.AFAM_PurchaseAmount AS OriginalCost,
+        //    ISNULL(FA.AFAM_AssetAge,0) AS AssetLife,
+        //    ISNULL(FA.AFAM_Value,0) AS ResidualPercent,
+        //    LOC.LS_Description AS Location,
+        //    DIVI.LS_Description AS Division,
+        //    DEPT.LS_Description AS Department,
+        //    BAY.LS_Description AS Bay
+        //FROM Acc_FixedAssetMaster FA
+
+        //LEFT JOIN Acc_AssetLocationSetup LOC
+        //    ON LOC.LS_LevelCode = 1
+        //   AND LOC.LS_CustId = FA.AFAM_CustId
+        //   AND LOC.LS_CompID = FA.AFAM_CompID
+        //   AND CAST(LOC.LS_Code AS VARCHAR(50)) = FA.AFAM_Location
+
+        //LEFT JOIN Acc_AssetLocationSetup DIVI
+        //    ON DIVI.LS_LevelCode = 2
+        //   AND DIVI.LS_CustId = FA.AFAM_CustId
+        //   AND DIVI.LS_CompID = FA.AFAM_CompID
+        //   AND CAST(DIVI.LS_Code AS VARCHAR(50)) = FA.AFAM_Division
+
+        //LEFT JOIN Acc_AssetLocationSetup DEPT
+        //    ON DEPT.LS_LevelCode = 3
+        //   AND DEPT.LS_CustId = FA.AFAM_CustId
+        //   AND DEPT.LS_CompID = FA.AFAM_CompID
+        //   AND CAST(DEPT.LS_Code AS VARCHAR(50)) = FA.AFAM_Department
+
+        //LEFT JOIN Acc_AssetLocationSetup BAY
+        //    ON BAY.LS_LevelCode = 4
+        //   AND BAY.LS_CustId = FA.AFAM_CustId
+        //   AND BAY.LS_CompID = FA.AFAM_CompID
+        //   AND CAST(BAY.LS_Code AS VARCHAR(50)) = FA.AFAM_Bay
+
+        //WHERE FA.AFAM_CompID = @CompId
+        //  AND FA.AFAM_CustId = @CustId
+        //  AND ISNULL(FA.AFAM_DelFlag,0) = 0;
+        //        ",
+        //                    new { request.CompId, request.CustId });
+
+        //                foreach (var a in assets)
+        //                {
+        //                    if (a.OriginalCost <= 0) continue;
+
+        //                    decimal residualValue = a.OriginalCost * (a.ResidualPercent / 100);
+
+        //                    DateTime putToUse = a.DateOfPutToUse < request.FromDate
+        //                        ? request.FromDate
+        //                        : a.DateOfPutToUse.Value;
+
+        //                    int daysUsed = (int)(request.ToDate - putToUse).TotalDays + 1;
+        //                    int totalDaysFY = (int)(request.ToDate - request.FromDate).TotalDays + 1;
+
+        //                    decimal depreciation = 0;
+
+        //                    if (request.Method == 1) // SLM
+        //                    {
+        //                        decimal life = a.AssetLife > 0 ? a.AssetLife : 1;
+        //                        decimal yearlyDep = (a.OriginalCost - residualValue) / life;
+        //                        depreciation = yearlyDep * daysUsed / totalDaysFY;
+        //                    }
+        //                    else // WDV
+        //                    {
+        //                        decimal life = a.AssetLife > 0 ? a.AssetLife : 10;
+        //                        decimal rate = 100 / life;
+        //                        depreciation = a.OriginalCost * rate / 100 * daysUsed / totalDaysFY;
+        //                    }
+
+        //                    depreciation = Math.Round(depreciation, 2);
+
+        //                    result.CompanyActData.Add(new CompanyActDepreciationDto
+        //                    {
+        //                        DateOfPutToUse = a.DateOfPutToUse,
+        //                        AssetCode = a.AssetCode,
+        //                        AssetName = a.AssetName,
+        //                        Location = a.Location,
+        //                        Division = a.Division,
+        //                        Department = a.Department,
+        //                        Bay = a.Bay,
+        //                        OriginalCost = a.OriginalCost,
+        //                        ResidualPercent = a.ResidualPercent,
+        //                        DepreciationAmount = depreciation,
+        //                        ClosingValue = a.OriginalCost - depreciation
+        //                    });
+        //                }
+        //            }
+
+        //            return result;
+        //        }
+
+        //        //-------wdv
+        //        public async Task<List<dynamic>> CalculateCompanyActWDVAsync(
+        //  int compId,
+        //  int yearId,
+        //  int custId,
+        //  int noOfDays,
+        //  int totalDays,
+        //  int duration,
+        //  DateTime startDate,
+        //  DateTime endDate,
+        //  int method)
+        //        {
+
+        //            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //            if (string.IsNullOrWhiteSpace(dbName))
+        //                throw new Exception("CustomerCode missing in session");
+
+        //            var connectionString = _configuration.GetConnectionString(dbName);
+        //            if (string.IsNullOrWhiteSpace(connectionString))
+        //                throw new Exception($"Connection string not found for key: {dbName}");
+
+        //            using var con = new SqlConnection(connectionString);
+        //            await con.OpenAsync();
+
+        //            List<dynamic> result = new();
+
+        //            var assetRows = await con.QueryAsync<dynamic>(
+        //                @"SELECT DISTINCT 
+        //              AFAA_TrType,
+        //              AFAA_Id,
+        //              AFAA_ItemType,
+        //              AFAA_AssetType,
+        //              AFAA_AssetAmount,
+        //              AFAA_FYAmount,
+        //              AFAA_Location,
+        //              AFAA_Division,
+        //              AFAA_Department,
+        //              AFAA_Bay
+        //          FROM Acc_FixedAssetAdditionDel
+        //          WHERE AFAA_CompID = @CompID
+        //            AND AFAA_CustId = @CustID
+        //            AND AFAA_YearID <= @YearID
+        //            AND AFAA_Delflag = 'A'
+        //          ORDER BY AFAA_ItemType",
+        //                new { CompID = compId, CustID = custId, YearID = yearId });
+
+        //            foreach (var row in assetRows)
+        //            {
+        //                /* -------------------- ASSET MASTER -------------------- */
+        //                var asset = await con.QueryFirstOrDefaultAsync<dynamic>(
+        //                    @"SELECT 
+        //                 AFAM_AssetCode,
+        //                 AFAM_AssetAge,
+        //                 AFAM_PurchaseDate
+        //              FROM Acc_FixedAssetMaster
+        //              WHERE AFAM_ID = @ID
+        //                AND AFAM_CompID = @CompID
+        //                AND AFAM_CustId = @CustID",
+        //                    new { ID = row.AFAA_ItemType, CompID = compId, CustID = custId });
+
+        //                if (asset == null) continue;
+
+        //                int assetAge = asset.AFAM_AssetAge != null ? Convert.ToInt32(asset.AFAM_AssetAge) : 0;
+        //                DateTime purchaseDate = asset.AFAM_PurchaseDate ?? DateTime.MinValue;
+
+        //                /* -------------------- NO OF DAYS -------------------- */
+        //                int calcDays = 0;
+        //                DateTime expiryDate = purchaseDate.AddYears(assetAge);
+
+        //                if (expiryDate < startDate)
+        //                    calcDays = 0;
+        //                else if (purchaseDate >= startDate && purchaseDate <= endDate)
+        //                {
+        //                    if (duration != 3)
+        //                        calcDays = (endDate - purchaseDate).Days;
+        //                }
+        //                else
+        //                {
+        //                    if (row.AFAA_TrType == 1)
+        //                        calcDays = noOfDays;
+        //                }
+
+        //                //if (calcDays == 0 && duration != 3)
+        //                //    continue;
+
+        //                /* -------------------- RESIDUAL / SALVAGE -------------------- */
+        //                decimal residualPercent = await con.ExecuteScalarAsync<decimal>(
+        //                @"SELECT ISNULL(AM_ResidualValue,0)
+        //              FROM Acc_AssetMaster
+        //              WHERE AM_ID = @ID AND AM_CustId = @CustID",
+        //                    new { ID = row.AFAA_AssetType, CustID = custId });
+
+        //                decimal originalCost = Convert.ToDecimal(row.AFAA_AssetAmount ?? 0);
+        //                decimal salvageValue = Math.Round((residualPercent * originalCost) / 100, 2);
+
+        //                /* -------------------- WDV RATE -------------------- */
+        //                decimal depreciationRate = 0;
+        //                if (originalCost > 0 && salvageValue > 0 && assetAge > 0)
+        //                {
+        //                    depreciationRate = Math.Round(
+        //                        (decimal)((1 - Math.Pow((double)(salvageValue / originalCost), 1.0 / assetAge)) * 100), 2);
+        //                }
+
+        //                /* -------------------- OPENING WDV -------------------- */
+        //                decimal openingWDV = await con.ExecuteScalarAsync<decimal>(
+        //                @"SELECT ISNULL(ADep_WrittenDownValue,0)
+        //              FROM Acc_AssetDepreciation
+        //              WHERE ADep_CompID = @CompID
+        //                AND ADep_YearID = @YearID
+        //                AND ADep_AssetID = @AssetID
+        //                AND ADep_CustId = @CustID
+        //                AND ADep_Method = @Method",
+        //                    new
+        //                    {
+        //                        CompID = compId,
+        //                        YearID = yearId,
+        //                        AssetType = row.AFAA_AssetType,
+        //                        AssetID = row.AFAA_ItemType,
+        //                        CustID = custId,
+        //                        Method = method
+        //                    });
+
+        //                if (openingWDV == 0)
+        //                    openingWDV = originalCost;
+
+        //                /* -------------------- DEPRECIATION -------------------- */
+        //                decimal depreciationFY =
+        //                    Math.Round((openingWDV * depreciationRate / 100) * calcDays / totalDays, 2);
+
+        //                decimal wdvAfterDep = openingWDV - depreciationFY;
+
+        //                /* -------------------- SALVAGE CHECK -------------------- */
+        //                if (salvageValue >= wdvAfterDep)
+        //                {
+        //                    depreciationFY = openingWDV - salvageValue;
+        //                    wdvAfterDep = salvageValue;
+        //                }
+
+        //                /* -------------------- DELETION CHECK -------------------- */
+        //                decimal deletionAmount = await con.ExecuteScalarAsync<decimal>(
+        //                @"SELECT ISNULL(SUM(AFAD_Amount),0)
+        //              FROM Acc_FixedAssetDeletion
+        //              WHERE AFAD_CompID = @CompID
+        //               ",
+        //                    new
+        //                    {
+        //                        CompID = compId,
+        //                        AssetType = row.AFAA_AssetType,
+        //                        AssetID = row.AFAA_ItemType,
+        //                        CustID = custId
+        //                    });
+
+        //                if (deletionAmount > 0)
+        //                {
+        //                    depreciationFY = deletionAmount;
+        //                    wdvAfterDep = 0;
+        //                }
+
+        //                /* -------------------- DESCRIPTION -------------------- */
+        //                string assetTypeName = await con.ExecuteScalarAsync<string>(
+        //                    @"SELECT AM_Description
+        //              FROM Acc_AssetMaster
+        //              WHERE AM_ID = @ID AND AM_CustId = @CustID",
+        //                    new { ID = row.AFAA_AssetType, CustID = custId });
+
+        //                /* -------------------- FINAL ROW -------------------- */
+        //                result.Add(new
+        //                {
+        //                    AssetClassID = row.AFAA_AssetType,
+        //                    AssetID = row.AFAA_ItemType,
+        //                    AssetType = assetTypeName,
+        //                    AssetCode = asset.AFAM_AssetCode,
+        //                    PurchaseDate = purchaseDate,
+        //                    AssetAge = assetAge,
+        //                    OriginalCost = originalCost,
+        //                    ResidualPercent = residualPercent,
+        //                    SalvageValue = salvageValue,
+        //                    DepreciationRate = depreciationRate,
+        //                    OpeningWDV = openingWDV,
+        //                    DepreciationForFY = depreciationFY,
+        //                    ClosingWDV = wdvAfterDep,
+        //                    NoOfDays = calcDays,
+        //                    TrType = row.AFAA_TrType,
+        //                    LocationID = row.AFAA_Location,
+        //                    DivisionID = row.AFAA_Division,
+        //                    DepartmentID = row.AFAA_Department,
+        //                    BayID = row.AFAA_Bay
+        //                });
+        //            }
+
+        //            return result;
+        //        }
+
+        //        //-------sln&wdv
+        //        public async Task<List<dynamic>> CalculateCompanyActDepreciationAsync(
+        //int compId,
+        //int yearId,
+        //int custId,
+        //int noOfDays,
+        //int totalDays,
+        //int duration,
+        //DateTime startDate,
+        //DateTime endDate,
+        //int method)
+        //        {
+
+        //            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+        //            if (string.IsNullOrWhiteSpace(dbName))
+        //                throw new Exception("CustomerCode missing in session");
+
+        //            var connectionString = _configuration.GetConnectionString(dbName);
+        //            if (string.IsNullOrWhiteSpace(connectionString))
+        //                throw new Exception($"Connection string not found for key: {dbName}");
+
+        //            using var con = new SqlConnection(connectionString);
+        //            await con.OpenAsync();
+
+        //            List<dynamic> result = new();
+
+        //            var assetRows = await con.QueryAsync<dynamic>(
+        //                @"SELECT DISTINCT 
+        //            AFAA_TrType,
+        //            AFAA_Id,
+        //            AFAA_ItemType,
+        //            AFAA_AssetType,
+        //            AFAA_AssetAmount,
+        //            AFAA_FYAmount,
+        //            AFAA_Location,
+        //            AFAA_Division,
+        //            AFAA_Department,
+        //            AFAA_Bay
+        //        FROM Acc_FixedAssetAdditionDel
+        //        WHERE AFAA_CompID = @CompID
+        //          AND AFAA_CustId = @CustID
+        //          AND AFAA_YearID <= @YearID
+        //          AND AFAA_Delflag = 'A'
+        //        ORDER BY AFAA_ItemType",
+        //                new { CompID = compId, CustID = custId, YearID = yearId });
+
+        //            foreach (var row in assetRows)
+        //            {
+        //                /* -------------------- ASSET MASTER -------------------- */
+        //                var asset = await con.QueryFirstOrDefaultAsync<dynamic>(
+        //                    @"SELECT 
+        //               AFAM_AssetCode,
+        //               AFAM_AssetAge,
+        //               AFAM_PurchaseDate
+        //            FROM Acc_FixedAssetMaster
+        //            WHERE AFAM_ID = @ID
+        //              AND AFAM_CompID = @CompID
+        //              AND AFAM_CustId = @CustID",
+        //                    new { ID = row.AFAA_ItemType, CompID = compId, CustID = custId });
+
+        //                if (asset == null) continue;
+
+        //                int assetAge = asset.AFAM_AssetAge != null ? Convert.ToInt32(asset.AFAM_AssetAge) : 0;
+        //                DateTime purchaseDate = asset.AFAM_PurchaseDate ?? DateTime.MinValue;
+
+        //                /* -------------------- NO OF DAYS -------------------- */
+        //                int calcDays = 0;
+        //                DateTime expiryDate = purchaseDate.AddYears(assetAge);
+
+        //                if (expiryDate < startDate)
+        //                    calcDays = 0;
+        //                else if (purchaseDate >= startDate && purchaseDate <= endDate)
+        //                {
+        //                    if (duration != 3)
+        //                        calcDays = (endDate - purchaseDate).Days;
+        //                }
+        //                else
+        //                {
+        //                    if (row.AFAA_TrType == 1)
+        //                        calcDays = noOfDays;
+        //                }
+
+        //                //if (calcDays == 0 && duration != 3)
+        //                //    continue;
+
+        //                /* -------------------- RESIDUAL / SALVAGE -------------------- */
+        //                decimal residualPercent = await con.ExecuteScalarAsync<decimal>(
+        //                @"SELECT ISNULL(AM_ResidualValue,0)
+        //            FROM Acc_AssetMaster
+        //            WHERE AM_ID = @ID AND AM_CustId = @CustID",
+        //                    new { ID = row.AFAA_AssetType, CustID = custId });
+
+        //                decimal originalCost = Convert.ToDecimal(row.AFAA_AssetAmount ?? 0);
+        //                decimal salvageValue = Math.Round((residualPercent * originalCost) / 100, 2);
+
+        //                /* -------------------- WDV RATE -------------------- */
+        //                decimal depreciationRate = 0;
+        //                if (originalCost > 0 && salvageValue > 0 && assetAge > 0)
+        //                {
+        //                    depreciationRate = Math.Round(
+        //                        (decimal)((1 - Math.Pow((double)(salvageValue / originalCost), 1.0 / assetAge)) * 100), 2);
+        //                }
+
+        //                /* -------------------- OPENING WDV -------------------- */
+        //                decimal openingWDV = await con.ExecuteScalarAsync<decimal>(
+        //                @"SELECT ISNULL(ADep_WrittenDownValue,0)
+        //            FROM Acc_AssetDepreciation
+        //            WHERE ADep_CompID = @CompID
+        //              AND ADep_YearID = @YearID
+        //              AND ADep_AssetID = @AssetID
+        //              AND ADep_CustId = @CustID
+        //              AND ADep_Method = @Method",
+        //                    new
+        //                    {
+        //                        CompID = compId,
+        //                        YearID = yearId,
+        //                        AssetType = row.AFAA_AssetType,
+        //                        AssetID = row.AFAA_ItemType,
+        //                        CustID = custId,
+        //                        Method = method
+        //                    });
+
+        //                if (openingWDV == 0)
+        //                    openingWDV = originalCost;
+
+        //                /* -------------------- DEPRECIATION -------------------- */
+        //                decimal depreciationFY =
+        //                    Math.Round((openingWDV * depreciationRate / 100) * calcDays / totalDays, 2);
+
+        //                decimal wdvAfterDep = openingWDV - depreciationFY;
+
+        //                /* -------------------- SALVAGE CHECK -------------------- */
+        //                if (salvageValue >= wdvAfterDep)
+        //                {
+        //                    depreciationFY = openingWDV - salvageValue;
+        //                    wdvAfterDep = salvageValue;
+        //                }
+
+        //                /* -------------------- DELETION CHECK -------------------- */
+        //                decimal deletionAmount = await con.ExecuteScalarAsync<decimal>(
+        //                @"SELECT ISNULL(SUM(AFAD_Amount),0)
+        //            FROM Acc_FixedAssetDeletion
+        //            WHERE AFAD_CompID = @CompID
+        //             ",
+        //                    new
+        //                    {
+        //                        CompID = compId,
+        //                        AssetType = row.AFAA_AssetType,
+        //                        AssetID = row.AFAA_ItemType,
+        //                        CustID = custId
+        //                    });
+
+        //                if (deletionAmount > 0)
+        //                {
+        //                    depreciationFY = deletionAmount;
+        //                    wdvAfterDep = 0;
+        //                }
+
+        //                /* -------------------- DESCRIPTION -------------------- */
+        //                string assetTypeName = await con.ExecuteScalarAsync<string>(
+        //                    @"SELECT AM_Description
+        //            FROM Acc_AssetMaster
+        //            WHERE AM_ID = @ID AND AM_CustId = @CustID",
+        //                    new { ID = row.AFAA_AssetType, CustID = custId });
+
+        //                /* -------------------- FINAL ROW -------------------- */
+        //                result.Add(new
+        //                {
+        //                    AssetClassID = row.AFAA_AssetType,
+        //                    AssetID = row.AFAA_ItemType,
+        //                    AssetType = assetTypeName,
+        //                    AssetCode = asset.AFAM_AssetCode,
+        //                    PurchaseDate = purchaseDate,
+        //                    AssetAge = assetAge,
+        //                    OriginalCost = originalCost,
+        //                    ResidualPercent = residualPercent,
+        //                    SalvageValue = salvageValue,
+        //                    DepreciationRate = depreciationRate,
+        //                    OpeningWDV = openingWDV,
+        //                    DepreciationForFY = depreciationFY,
+        //                    ClosingWDV = wdvAfterDep,
+        //                    NoOfDays = calcDays,
+        //                    TrType = row.AFAA_TrType,
+        //                    LocationID = row.AFAA_Location,
+        //                    DivisionID = row.AFAA_Division,
+        //                    DepartmentID = row.AFAA_Department,
+        //                    BayID = row.AFAA_Bay
+        //                });
+        //            }
+
+        //            return result;
+        //        }
 
 
         //----------final
-
         public async Task<object> CalculateDepreciationAsync(
     int depBasis,          // 1 = Company Act, 2 = IT Act
     int compId,
@@ -1471,7 +1473,7 @@ int method)
         }
 
 
-        //companycalculation
+        //ITcalculation
         public async Task<List<ITDepreciationResponseDto>> CalculateITActDepreciationAsync(ITDepreciationRequestDto request)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
@@ -1596,7 +1598,126 @@ int method)
             return result;
         }
 
+        //companyCalculation
+        //        public async Task<List<DepreciationResultDtoo>> CalculateWDVAsync(DepreciationRequest request)
+        //        {
+        //            // Session & validation
+        //            var session = _httpContextAccessor.HttpContext?.Session;
+        //            if (session == null)
+        //                throw new Exception("Session not available");
+
+        //            string dbName = session.GetString("CustomerCode");
+        //            if (string.IsNullOrWhiteSpace(dbName))
+        //                throw new Exception("CustomerCode missing in session");
+
+        //            if (request.CompanyId <= 0 || request.CustomerId <= 0 || request.FinancialYearId <= 0)
+        //                throw new Exception("Invalid Company / Customer / Year");
+
+        //            var connectionString = _configuration.GetConnectionString(dbName);
+        //            if (string.IsNullOrWhiteSpace(connectionString))
+        //                throw new Exception("Connection string not found");
+
+        //            var result = new List<DepreciationResultDtoo>();
+
+        //            using (var con = new SqlConnection(connectionString))
+        //            {
+        //                await con.OpenAsync();
+
+        //                string sql = @"
+        //SELECT
+        //    AFAA_AssetType      AS AssetClassId,
+        //    AFAA_ItemType       AS AssetId,
+        //    AFAA_Location       AS Location,
+        //    AFAA_Division       AS Division,
+        //    AFAA_Department     AS Department,
+        //    AFAA_Bay            AS Bay,
+        //    AFAA_PurchaseDate   AS PurchaseDate,
+        //    ISNULL(AFAA_AssetAmount,0) AS OriginalCost,
+        //    ISNULL(AFAA_FYAmount,0)    AS OpeningBalance,
+        //    ISNULL(AFAA_AssetAge,0)    AS AssetAge
+        //FROM Acc_FixedAssetAdditionDel
+        //WHERE AFAA_CompID = @CompId
+        //  AND AFAA_CustId = @CustId
+        //  AND AFAA_YearID <= @YearId
+        //  AND AFAA_Delflag = 'A'";
+
+        //                var assets = (await con.QueryAsync<AssetEntity>(sql, new
+        //                {
+        //                    CompId = request.CompanyId,
+        //                    CustId = request.CustomerId,
+        //                    YearId = request.FinancialYearId
+        //                })).ToList();
+
+        //                // Calculation
+        //                foreach (var asset in assets)
+        //                {
+        //                    DateTime? purchaseDate = asset.PurchaseDate;
+        //                    if (!purchaseDate.HasValue)
+        //                        continue;
+
+        //                    // No of days
+        //                    DateTime effectiveStart =
+        //                        purchaseDate.Value > request.StartDate ? purchaseDate.Value : request.StartDate;
+
+        //                    if (effectiveStart > request.EndDate)
+        //                        continue;
+
+        //                    int noOfDays = (request.EndDate - effectiveStart).Days + 1;
+
+        //                    decimal totalDays =
+        //                        (decimal)(request.EndDate - request.StartDate).TotalDays + 1;
+
+        //                    if (totalDays <= 0)
+        //                        totalDays = 1;
+
+        //                    // WDV RATE (VB SAFE LOGIC)
+        //                    decimal rate;
+        //                    if (asset.AssetAge <= 0)
+        //                    {
+        //                        rate = 5; // VB default when AssetAge = 0
+        //                    }
+        //                    else
+        //                    {
+        //                        rate = Math.Round(100m / asset.AssetAge, 2);
+        //                    }
+
+        //                    decimal depreciation =
+        //                        asset.OpeningBalance * rate / 100 * noOfDays / totalDays;
+
+        //                    depreciation = Math.Round(depreciation, 2);
+
+        //                    result.Add(new DepreciationResultDtoo
+        //                    {
+        //                        AssetClassId = asset.AssetClassId,
+        //                        AssetId = asset.AssetId,
+        //                        Location = asset.Location,
+        //                        Division = asset.Division,
+        //                        Department = asset.Department,
+        //                        Bay = asset.Bay,
+        //                        PurchaseDate = purchaseDate,
+        //                        NoOfDays = noOfDays,
+        //                        OriginalCost = asset.OriginalCost,
+        //                        OpeningBalance = asset.OpeningBalance,
+        //                        AssetAge = asset.AssetAge,
+        //                        DepreciationRate = rate,
+        //                        DepreciationForYear = depreciation,
+        //                        WrittenDownValue = asset.OpeningBalance - depreciation
+        //                    });
+        //                }
+        //            }
+
+        //            return result;
+        //        }
 
 
     }
+
 }
+
+
+
+
+
+
+
+

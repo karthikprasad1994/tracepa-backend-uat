@@ -3726,7 +3726,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         }
 
         //GetFinancialStatementReportType
-        //        public async Task<IEnumerable<GetFinancialStatementReportTypeDTO>> GetReportTypeDetails(int compId, int reportTypeId)
+        //        public async Task<IEnumerable<GetFinancialStatementReportTypeDTO>> GetReportTypeDetails(int compId, int reportTypeId, int CustomerId)
         //        {
         //            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -3742,29 +3742,29 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         //            {
 
         //                string query = @"
-        //        SELECT  
-        //    RCM.RCM_Id,
-        //    RCM.RCM_ReportName,
-        //    RCM.RCM_Heading,
-        //    RCM.RCM_Description,
+        //               SELECT  
         //    LTD.LTD_ID,
+        //    LTD_HeadingID,
+        //    LTD.LTD_Heading,
+        //    LTD.LTD_Decription,
         //    LOE.LOE_Id
-        //FROM SAD_ReportContentMaster RCM
-        //LEFT JOIN LOE_Template_Details LTD 
+        //FROM LOE_Template_Details LTD
+        //LEFT JOIN SAD_ReportContentMaster RCM 
         //    ON RCM.RCM_Id = LTD.LTD_HeadingID
         //LEFT JOIN SAD_CUST_LOE LOE
         //    ON LOE.LOE_Id = LTD.LTD_LOE_ID
-        //WHERE RCM.RCM_ReportId = @ReportTypeId
-        //  AND RCM.RCM_CompID = @CompId
-        //  AND RCM.RCM_Delflag = 'A'
-        //ORDER BY RCM.RCM_Id";
+        //WHERE LTD.LTD_ReportTypeID= @ReportTypeId
+        //  AND LTD.LTD_CompID= @CompId
+        //  AND LOE.LOE_CustomerId = @CustomerId
+        //ORDER BY LTD.LTD_ID";
 
         //                var result = await connection.QueryAsync<GetFinancialStatementReportTypeDTO>(
         //                    query,
         //                    new
         //                    {
         //                        CompId = compId,
-        //                        ReportTypeId = reportTypeId
+        //                        ReportTypeId = reportTypeId,
+        //                        CustomerId = CustomerId
         //                    });
 
         //                return result;
@@ -3774,7 +3774,7 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
         //                throw new ApplicationException("An error occurred while getting report type details", ex);
         //            }
         //        }
-        public async Task<IEnumerable<GetFinancialStatementReportTypeDTO>> GetReportTypeDetails(int compId, int reportTypeId, int CustomerId)
+        public async Task<IEnumerable<GetFinancialStatementReportTypeDTO>> GetReportTypeDetails( int compId, int customerId, int reportTypeId)
         {
             string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
 
@@ -3788,46 +3788,87 @@ group by ATBUD_ID,ATBUD_Description,a.ASSI_ID, a.ASSI_Name,g.ASHL_Description or
 
             try
             {
+                // Step 1: Check if customer has this report type
+                string checkQuery = @"
+            SELECT COUNT(1)
+            FROM SAD_CUST_LOE
+            WHERE LOE_CustomerId = @CustomerId
+              AND LOE_ServiceTypeId = @ReportTypeId
+              AND LOE_CompID = @CompId;";
 
-                string query = @"
-               SELECT  
-    LTD.LTD_ID,
-    LTD_HeadingID,
-    LTD.LTD_Heading,
-    LTD.LTD_Decription,
-    LOE.LOE_Id
-FROM LOE_Template_Details LTD
-LEFT JOIN SAD_ReportContentMaster RCM 
-    ON RCM.RCM_Id = LTD.LTD_HeadingID
-LEFT JOIN SAD_CUST_LOE LOE
-    ON LOE.LOE_Id = LTD.LTD_LOE_ID
-WHERE LTD.LTD_ReportTypeID= @ReportTypeId
-  AND LTD.LTD_CompID= @CompId
-  AND LOE.LOE_CustomerId = @CustomerId
-ORDER BY LTD.LTD_ID";
-
-                var result = await connection.QueryAsync<GetFinancialStatementReportTypeDTO>(
-                    query,
+                bool hasReportType = await connection.ExecuteScalarAsync<int>(
+                    checkQuery,
                     new
                     {
                         CompId = compId,
-                        ReportTypeId = reportTypeId,
-                        CustomerId = CustomerId
-                    });
+                        CustomerId = customerId,
+                        ReportTypeId = reportTypeId
+                    }) > 0;
 
-                return result;
+                // Step 2: Try to get templates from LOE_Template_Details (only if customer has report type)
+                if (hasReportType)
+                {
+                    string loeTemplateQuery = @"
+                SELECT  
+                    LTD.LTD_ID,
+                    LTD.LTD_HeadingID,
+                    LTD.LTD_Heading,
+                    LTD.LTD_Decription,
+                    LTD.LTD_LOE_ID
+                FROM LOE_Template_Details LTD
+                INNER JOIN SAD_CUST_LOE LOE
+                    ON LOE.LOE_Id = LTD.LTD_LOE_ID
+                WHERE LOE.LOE_CustomerId = @CustomerId
+                  AND LOE.LOE_CompID = @CompId
+                  AND LOE.LOE_ServiceTypeId = @reportTypeId
+                ORDER BY LTD.LTD_ID;";
+
+                    var loeTemplates = await connection.QueryAsync<GetFinancialStatementReportTypeDTO>(
+                        loeTemplateQuery,
+                        new
+                        {
+                            CompId = compId,
+                            CustomerId = customerId,
+                            ReportTypeId = reportTypeId
+                        });
+
+                    // If LOE templates found → return them
+                    if (loeTemplates.Any())
+                    {
+                        return loeTemplates;
+                    }
+                }
+
+                // Step 3: Fallback to SAD_ReportContentMaster
+                string masterTemplateQuery = @"
+            SELECT  
+                RCM.RCM_Id           AS LTD_HeadingID,
+                RCM.RCM_Heading      AS LTD_Heading,
+                RCM.RCM_Description  AS LTD_Decription,
+                NULL                 AS LTD_LOE_ID
+            FROM SAD_ReportContentMaster RCM
+            WHERE RCM.RCM_ReportId = @ReportTypeId
+            ORDER BY RCM.RCM_Id;";
+
+                var masterTemplates = await connection.QueryAsync<GetFinancialStatementReportTypeDTO>(
+                    masterTemplateQuery,
+                    new
+                    {
+                        ReportTypeId = reportTypeId
+                    });
+                return masterTemplates;
             }
             catch (Exception ex)
             {
-                throw new ApplicationException("An error occurred while getting report type details", ex);
+                Console.WriteLine(ex.ToString());
+                throw new ApplicationException(
+                    "An error occurred while getting report type details",
+                    ex);
             }
         }
 
         //GetNetIncomeZero
-        public async Task<bool> IsNetIncomeZeroAsync(
-    int yearId,
-    int custId,
-    int branchId, int duration)
+        public async Task<bool> IsNetIncomeZeroAsync( int yearId, int custId, int branchId, int duration)
         {
             string dbName = _httpContextAccessor.HttpContext?
                 .Session.GetString("CustomerCode");

@@ -1461,18 +1461,46 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
                 await regConnection.OpenAsync();
 
                 // Get customer code
-                string customerCodeSql = @"
-        SELECT TOP 1 MCR_CustomerCode 
-        FROM mmcs_customerregistration 
-        CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails 
-        WHERE LTRIM(RTRIM(Emails.value)) = @Email";
+                string customerCodeSql = @" SELECT TOP 1 MCR_CustomerCode 
+                                            FROM mmcs_customerregistration 
+                                            CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails 
+                                            WHERE LTRIM(RTRIM(Emails.value)) = @Email";
 
                 var customerCode = await regConnection.QuerySingleOrDefaultAsync<string>(customerCodeSql, new { Email = email });
 
-                //if (string.IsNullOrEmpty(customerCode))
+
+                //Block login access for users whose trial or subscription has expired.
+                //string sQuery = @"SELECT  CONVERT(varchar(10), MCR_ToDate, 103) AS MCR_ToDate
+                //                            FROM mmcs_customerregistration
+                //                            CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails 
+                //                            WHERE LTRIM(RTRIM(Emails.value)) = @Email and MCR_TStatus = 'T' AND ( MCR_ToDate IS NULL OR MCR_ToDate < GetDate() ) ";
+                //var blockUser = await regConnection.QuerySingleOrDefaultAsync<string?>(sQuery, new { Email = email });
+
+                //if (blockUser != null)
                 //{
-                //    return new LoginResponse { StatusCode = 404, Message = "Email not found in customer registration." };
+                //    await _errorLogger.LogErrorAsync(new ErrorLogDto
+                //    {
+                //        FormName = "Login",
+                //        Controller = "Auth",
+                //        Action = "LoginUser",
+                //        ErrorMessage = "Trial Period Expired on '" + blockUser  + "'",
+                //        StackTrace = "",
+                //        UserId =  0,
+                //        CustomerId = 0,
+                //        Description = $"Failed login attempt for {email}",
+                //        ResponseTime = 0
+                //    });
+
+                //    return new LoginResponse
+                //    {
+                //        StatusCode = 401,
+                //        Message = "Your trial period expired on - '" + blockUser + "'. Please renew to continue."
+                //    };
                 //}
+                
+
+
+
 
                 // Connect to customer's DB
                 string connectionStringTemplate = _configuration.GetConnectionString("NewDatabaseTemplate");
@@ -1484,21 +1512,13 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
                 string plainEmail = email.Trim().ToLower();
 
                 // Fetch user details
-                var user = await connection.QueryFirstOrDefaultAsync(
-           @"SELECT 
-          u.usr_Email AS UsrEmail, 
-          u.usr_Password AS UsrPassWord, 
-          g.Mas_Description AS RoleName
-      FROM Sad_UserDetails u
-      LEFT JOIN SAD_GrpOrLvl_General_Master g 
-             ON u.Usr_Role = g.Mas_ID
-      WHERE LOWER(u.usr_Email) = @email",
-new { email = plainEmail });
+                var user = await connection.QueryFirstOrDefaultAsync( @"SELECT 
+                                        u.usr_Email AS UsrEmail, u.usr_Password AS UsrPassWord,  g.Mas_Description AS RoleName
+                                        FROM Sad_UserDetails u LEFT JOIN SAD_GrpOrLvl_General_Master g  ON u.Usr_Role = g.Mas_ID
+                                        WHERE LOWER(u.usr_Email) = @email",
+                new { email = plainEmail });
 
                 // Fetch user details with role
-
-
-
                 //if (user == null || DecryptPassword(user.UsrPassWord) != password)
                 // {
                 //     return new LoginResponse
@@ -1544,16 +1564,13 @@ new { email = plainEmail });
 
 
                 string? userEmail = await connection.QueryFirstOrDefaultAsync<string>(
-@"SELECT usr_Email
-  FROM Sad_UserDetails 
-  WHERE usr_Id  = @UserId",
-new { UserId = userId });
+                    @"SELECT usr_Email FROM Sad_UserDetails WHERE usr_Id  = @UserId",
+                    new { UserId = userId });
 
 
                 var roleName = await connection.QueryFirstOrDefaultAsync<string>(
-                @"SELECT g.Mas_Description 
-       FROM Sad_UserDetails u
-       LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID WHERE LOWER(u.usr_Email) = @email",
+                        @"SELECT g.Mas_Description FROM Sad_UserDetails u
+                        LEFT JOIN SAD_GrpOrLvl_General_Master g ON u.Usr_Role = g.Mas_ID WHERE LOWER(u.usr_Email) = @email",
                new { email = plainEmail });
 
                 // Step 5: Check if user already logged in on another system
@@ -1583,7 +1600,6 @@ new { UserId = userId });
 
                 // Step 6: Generate JWT
 
-
                 string accessToken = GenerateJwtToken(email, customerCode, userId);
                 string refreshToken = Guid.NewGuid().ToString(); // Use JWT if you want, but GUID is fine too
                 DateTime accessExpiry = DateTime.UtcNow.AddMinutes(15);  // Match with JWT 'exp'
@@ -1595,14 +1611,12 @@ new { UserId = userId });
                     httpContext.Session.SetString("CustomerCode", customerCode);
                     httpContext.Session.SetInt32("UserId", userId);
                     _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
-
                 }
 
                 await InsertUserTokenAsync(userId, email, accessToken, refreshToken, accessExpiry, refreshExpiry, customerCode);
                 //  _httpContextAccessor.HttpContext?.Session.SetString("CustomerCode", customerCode);
                 // _httpContextAccessor.HttpContext?.Session.SetString("IsLoggedIn", "true");
-
-
+                 
 
                 string token = GenerateJwtToken(email, customerCode, userId);
 
@@ -1614,12 +1628,7 @@ new { UserId = userId });
                 using (var yearConnection = new SqlConnection(customerDbConnection))
                 {
                     await yearConnection.OpenAsync();
-
-                    const string query = @"
-        SELECT YMS_ID, YMS_YEARID
-        FROM Year_Master
-        WHERE YMS_Default = 1";
-
+                    const string query = @"SELECT YMS_ID, YMS_YEARID FROM Year_Master WHERE YMS_Default = 1";
                     var yearResult = await yearConnection
                         .QueryFirstOrDefaultAsync<YearDto>(query);
 
@@ -1640,11 +1649,8 @@ new { UserId = userId });
                 await customerConnection.OpenAsync();
 
                 var customerInfo = await customerConnection.QueryFirstOrDefaultAsync<(string CustomerCode, int CustomerId)>(
-                    @"SELECT TOP 1 
-          MCR_CustomerCode, MCR_ID 
-      FROM mmcs_customerregistration
-      CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails
-      WHERE LTRIM(RTRIM(Emails.value)) = @Email",
+                    @"SELECT TOP 1  MCR_CustomerCode, MCR_ID FROM mmcs_customerregistration
+                    CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails WHERE LTRIM(RTRIM(Emails.value)) = @Email",
                     new { Email = email });
 
                 if (customerInfo.CustomerCode == null)
@@ -1655,18 +1661,16 @@ new { UserId = userId });
 
            
 
-                var savedModules = await customerConnection.QueryAsync<CustomerModuleDto>(@"
-    SELECT 
-        MCM_ID AS MCM_ID, 
-        MCM_ModuleID AS MCM_ModuleID
-    FROM MMCS_CustomerModules
-    WHERE MCM_MCR_ID = @CustomerId",
+                var savedModules = await customerConnection.QueryAsync<CustomerModuleDto>(@"SELECT 
+                    MCM_ID AS MCM_ID, MCM_ModuleID AS MCM_ModuleID
+                    FROM MMCS_CustomerModules
+                    WHERE MCM_MCR_ID = @CustomerId",
               new { CustomerId = customerId });
 
 
                 var mcmIds = await customerConnection.QueryAsync<int?>(
-       @"SELECT MCM_ID FROM MMCS_CustomerModules WHERE MCM_MCR_ID = @CustomerId",
-       new { CustomerId = customerId });
+                @"SELECT MCM_ID FROM MMCS_CustomerModules WHERE MCM_MCR_ID = @CustomerId",
+                new { CustomerId = customerId });
                 var validMcmIds = mcmIds.Where(id => id.HasValue).Select(id => id.Value).ToList();
 
                 bool activePlan;
@@ -1705,18 +1709,21 @@ new { UserId = userId });
                     YmsYearId = ymsYearId,
                     CustomerCode = customerCode,
                     PkIds = savedModules
-                .Where(x => x.MCM_ID.HasValue)
-               .Select(x => x.MCM_ID.Value)
-                        .ToList(),
+                   .Where(x => x.MCM_ID.HasValue)
+                   .Select(x => x.MCM_ID.Value)
+                   .ToList(),
 
                     ModuleIds = savedModules
-    .Where(x => x.MCM_ModuleID.HasValue)
-    .Select(x => x.MCM_ModuleID.Value)
-    .ToList(),
+                    .Where(x => x.MCM_ModuleID.HasValue)
+                    .Select(x => x.MCM_ModuleID.Value)
+                    .ToList(),
                     ClientIpAddress = clientIp,
                     SystemIpAddress = systemIp,
+<<<<<<< HEAD
                     ActivePlan = activePlan
 
+=======
+>>>>>>> 4752d7c41a131a4ae45fd5a1bb2ff51880d02fc1
                 };
             }
             catch (Exception ex)

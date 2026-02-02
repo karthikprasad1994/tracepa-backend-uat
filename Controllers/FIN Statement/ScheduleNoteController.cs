@@ -102,6 +102,7 @@ namespace TracePca.Controllers.FIN_Statement
                 });
             }
         }
+
         //LoadGrid(Notes For SubHeading)
         [HttpGet("LoadSubheadingNotes")]
         public async Task<IActionResult> LoadSubheadingNotes([FromQuery] int compId, [FromQuery] int yearId, [FromQuery] int custId)
@@ -155,8 +156,7 @@ namespace TracePca.Controllers.FIN_Statement
                     });
                 }
 
-                var affectedRows = await _ScheduleNoteService
-                    .DeleteSubHeadingDescriptionAsync(dto.ASHN_CompID, dto.ASHN_ID);
+                var affectedRows = await _ScheduleNoteService.DeleteSubHeadingDescriptionAsync(dto.ASHN_CompID, dto.ASHN_ID);
 
                 if (affectedRows == 0)
                 {
@@ -226,19 +226,19 @@ namespace TracePca.Controllers.FIN_Statement
         }
 
         //GetLedger(Notes For Ledger)
-        [HttpGet("GetLedgerNotesForLedger")]
-        public async Task<IActionResult> GetLedgerIndividualDetails([FromQuery] int CustomerId, [FromQuery] int SubHeadingId)
+        [HttpGet("GetLedgerNote")]
+        public async Task<IActionResult> GetLedgerNote([FromQuery] int compId, [FromQuery] int custId, [FromQuery] int yearId, [FromQuery] int branchId)
         {
             try
             {
-                var result = await _ScheduleNoteService.GetLedgerIndividualDetailsAsync(CustomerId, SubHeadingId);
+                var result = await _ScheduleNoteService.GetLedgerNoteAsync(compId, custId, yearId, branchId);
 
                 if (result != null && result.Any())
                 {
                     return Ok(new
                     {
                         StatusCode = 200,
-                        Message = "Ledger individual details fetched successfully.",
+                        Message = "Ledger subheadings fetched successfully.",
                         Data = result
                     });
                 }
@@ -246,8 +246,8 @@ namespace TracePca.Controllers.FIN_Statement
                 return NotFound(new
                 {
                     StatusCode = 404,
-                    Message = "No ledger individual details found.",
-                    Data = Enumerable.Empty<LedgerIndividualDto>()
+                    Message = "No ledger subheadings found.",
+                    Data = Enumerable.Empty<SubheadingNoteLoadDto>()
                 });
             }
             catch (Exception ex)
@@ -255,56 +255,116 @@ namespace TracePca.Controllers.FIN_Statement
                 return StatusCode(500, new
                 {
                     StatusCode = 500,
-                    Message = "An error occurred while fetching ledger individual details.",
+                    Message = "An error occurred while fetching ledger subheadings.",
                     Error = ex.Message
                 });
             }
         }
 
         //SaveOrUpdateLedger(Notes For Ledger)
-        [HttpPost("SaveOrUpdateLedgerDetails")]
-        public async Task<IActionResult> SaveLedgerDetails([FromBody] SubHeadingLedgerNoteDto dto)
+        [HttpPost("SaveSingleLedgerNote")]
+        public async Task<IActionResult> SaveSingleLedgerNote([FromBody] SaveLedgerNoteDto ledgerDto)
         {
-            if (dto == null)
-            {
-                return BadRequest(new
-                {
-                    Status = 400,
-                    Message = "Invalid input: DTO is null",
-                    Data = (object)null
-                });
-            }
-
             try
             {
-                bool isUpdate = dto.ASHL_ID > 0;
+                var result = await _ScheduleNoteService.SaveSingleNoteUsingExistingSubHeadingAsync(ledgerDto);
 
-                var result = await _ScheduleNoteService.SaveLedgerDetailsAsync(dto);
-
-                string successMessage = isUpdate
-                    ? "Ledger details successfully updated."
-                    : "Ledger details successfully created.";
-
-                return Ok(new
+                if (result != null)
                 {
-                    Status = 200,
-                    Message = successMessage,
-                    Data = new
+                    return Ok(new
                     {
-                        UpdateOrSave = result[0],
-                        Oper = result[1],
-                        IsUpdate = isUpdate
-                    }
+                        StatusCode = 200,
+                        Message = "Ledger note saved successfully.",
+                        Data = result
+                    });
+                }
+
+                return BadRequest(new
+                {
+                    StatusCode = 400,
+                    Message = "Failed to save ledger note.",
+                    Data = (SaveLedgerNoteDto)null
                 });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new
                 {
-                    Status = 500,
-                    Message = "An error occurred while processing your request.",
-                    Error = ex.Message,
-                    InnerException = ex.InnerException?.Message
+                    StatusCode = 500,
+                    Message = "An error occurred while saving ledger note.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //LoadGrid(Notes For Ledger)
+        [HttpGet("GetLedgerNotesGrid")]
+        public async Task<IActionResult> GetLedgerNotesGrid([FromQuery] int compId,[FromQuery] int custId, [FromQuery] int yearId,  [FromQuery] int branchId)
+        {
+            try
+            {
+                var result = await _ScheduleNoteService.LoadLedgerNotesGridAsync(compId, custId, yearId, branchId);
+
+                if (result != null && result.Any())
+                {
+                    return Ok(new
+                    {
+                        StatusCode = 200,
+                        Message = "Ledger notes grid data fetched successfully.",
+                        Data = result
+                    });
+                }
+
+                return NotFound(new
+                {
+                    StatusCode = 404,
+                    Message = "No ledger notes grid data found.",
+                    Data = Enumerable.Empty<LoadLedgerNotesGridDto>()
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while fetching ledger notes grid data.",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        //DeleteLedgerNote
+        [HttpDelete("DeleteLedgerNoteById")]
+        public async Task<IActionResult> DeleteLedgerNoteById([FromQuery] int compId, [FromQuery] int ashlId)
+        {
+            try
+            {
+                var affectedRows = await _ScheduleNoteService.DeleteLedgerNoteAsync(compId, ashlId);
+
+                if (affectedRows > 0)
+                {
+                    return Ok(new
+                    {
+                        StatusCode = 200,
+                        Message = "Ledger note deleted successfully.",
+                        Data = affectedRows
+                    });
+                }
+
+                return NotFound(new
+                {
+                    StatusCode = 404,
+                    Message = "Ledger note not found.",
+                    Data = 0
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    StatusCode = 500,
+                    Message = "An error occurred while deleting ledger note.",
+                    Error = ex.Message
                 });
             }
         }

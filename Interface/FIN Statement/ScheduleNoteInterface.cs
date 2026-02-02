@@ -22,10 +22,16 @@ namespace TracePca.Interface.FIN_Statement
         Task<IEnumerable<CustBranchDto>> GetBranchNameAsync(int CompId, int CustId);
 
         //GetLedger(Notes For Ledger)
-        Task<IEnumerable<LedgerIndividualDto>> GetLedgerIndividualDetailsAsync(int CustomerId, int SubHeadingId);
+        Task<List<GetLedgerNoteDto>> GetLedgerNoteAsync(int compId, int custId, int yearId, int branchId);
 
         //SaveOrUpdateLedger(Notes For Ledger)
-        Task<int[]> SaveLedgerDetailsAsync(SubHeadingLedgerNoteDto dto);
+        Task<SaveLedgerNoteDto> SaveSingleNoteUsingExistingSubHeadingAsync(SaveLedgerNoteDto ledger);
+
+        //LoadGrid(Notes For Ledger)
+        Task<List<LoadLedgerNotesGridDto>> LoadLedgerNotesGridAsync(int compId, int custId, int yearId, int branchId);
+
+        //DeleteLedgerNote
+        Task<int> DeleteLedgerNoteAsync(int compId, int ashlId);
 
         //DownloadNotesExcel
         ExcelFileDownloadResult GetExcelTemplate();
