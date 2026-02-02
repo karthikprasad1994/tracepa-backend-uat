@@ -33,8 +33,8 @@ namespace TracePca.Dto
 
         public int CustomerId { get; set; }
 
+        public bool ActivePlan { get; set; }
 
-        
 
     }
     public class UpdatePasswordDto

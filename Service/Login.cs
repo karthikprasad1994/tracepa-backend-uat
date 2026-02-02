@@ -11,6 +11,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using BCrypt.Net;
 using Dapper;
+using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Drawing.Diagrams;
 using DocumentFormat.OpenXml.Math;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -73,7 +74,7 @@ namespace TracePca.Service
             _otpService = otpService;
             _env = env;
             _errorLogger = errorLogger;
-            _appSettingsPath = Path.Combine(env.ContentRootPath, "appsettings.json");
+            _appSettingsPath = System.IO.Path.Combine(env.ContentRootPath, "appsettings.json");
             _db = new SqlConnection(configuration.GetConnectionString("DefaultConnection"));
 
 
@@ -330,7 +331,7 @@ ORDER BY MM_ID
                 string userId,
                 string password)
         {
-            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json");
+            string filePath = System.IO.Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json");
 
             if (!File.Exists(filePath))
             {
@@ -1652,8 +1653,7 @@ new { UserId = userId });
                 int customerId = customerInfo.CustomerId;
                 customerCode = customerInfo.CustomerCode;
 
-                // Fetch module IDs assigned to this customer
-
+           
 
                 var savedModules = await customerConnection.QueryAsync<CustomerModuleDto>(@"
     SELECT 
@@ -1668,6 +1668,28 @@ new { UserId = userId });
        @"SELECT MCM_ID FROM MMCS_CustomerModules WHERE MCM_MCR_ID = @CustomerId",
        new { CustomerId = customerId });
                 var validMcmIds = mcmIds.Where(id => id.HasValue).Select(id => id.Value).ToList();
+
+                bool activePlan;
+
+                using (var cmd = new SqlCommand(@"
+    SELECT 
+        CASE 
+            WHEN EXISTS (
+                SELECT 1 
+                FROM PaymentTransactions 
+                WHERE Database_Id = @DatabaseId
+            )
+            THEN 1 
+            ELSE 0 
+        END", customerConnection))
+                {
+                    cmd.Parameters.AddWithValue("@DatabaseId", customerId); // or Database_Id value
+
+                    activePlan = Convert.ToBoolean(await cmd.ExecuteScalarAsync());
+                }
+
+
+
                 return new LoginResponse
                 {
                     StatusCode = 200,
@@ -1693,6 +1715,7 @@ new { UserId = userId });
     .ToList(),
                     ClientIpAddress = clientIp,
                     SystemIpAddress = systemIp,
+                    ActivePlan = activePlan
 
                 };
             }

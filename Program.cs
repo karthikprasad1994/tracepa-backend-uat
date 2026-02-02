@@ -56,6 +56,7 @@ using TracePca.Utility;
 using System.Globalization;
 using QuestPDF.Infrastructure;
 using JournalEntryUploadAPI.Services;
+using TracePca.Services;
 
 
 
@@ -183,6 +184,8 @@ builder.Services.AddScoped<AgingAnalysisInterface, AgingAnalysisService>();
 builder.Services.AddScoped<SamplingInterface, SamplingService>();
 builder.Services.AddScoped<IClientPortalInterface, ClientPortalService>();
 builder.Services.AddScoped<IDBHelper, DBHelper>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+
 
 // Register your custom DbConnectionFactory
 builder.Services.AddScoped<IDbConnectionFactory, DbConnectionFactory>();

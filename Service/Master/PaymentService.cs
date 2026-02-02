@@ -10,6 +10,10 @@ using TracePca.DTOs;
 using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Http;
 using System.Collections.Generic;
+using Dapper;
+using TracePca.Controllers;
+using Org.BouncyCastle.Asn1.Ocsp;
+using Org.BouncyCastle.Ocsp;
 
 namespace TracePca.Services
 {
@@ -18,12 +22,15 @@ namespace TracePca.Services
         private readonly IConfiguration _configuration;
         private readonly HttpClient _httpClient;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        string _connectionString;
 
         public PaymentService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
             _httpClient = new HttpClient();
+            string dbName = _httpContextAccessor.HttpContext?.Session.GetString("CustomerCode");
+            _connectionString = _configuration.GetConnectionString("CustomerRegistrationConnection");
         }
 
         public async Task<object> CreateOrderAsync(CreateOrderDto dto)
@@ -55,25 +62,6 @@ namespace TracePca.Services
             // ✅ Step 4: Call Razorpay API
             var response = await _httpClient.PostAsync("https://api.razorpay.com/v1/orders", content);
             var responseText = await response.Content.ReadAsStringAsync();
-
-            // ✅ Step 5: Log payment creation
-            await LogPaymentAsync(
-                dbName,
-                logType: "CreateOrder",
-                orderId: null,
-                paymentId: null,
-                signature: null,
-                amount: dto.Amount,
-                currency: dto.Currency,
-                receipt: dto.Receipt,
-                notes: null,
-                status: response.IsSuccessStatusCode ? "Success" : "Failed",
-                responseText: responseText,
-                bank: null,
-                method: null,
-                email: null, // Optional if available in DTO
-                contact:null // Optional if available in DTO
-            );
 
             if (!response.IsSuccessStatusCode)
                 throw new Exception($"Failed to create order: {responseText}");
@@ -179,5 +167,291 @@ namespace TracePca.Services
                 Console.WriteLine($"[PaymentService] Log failed: {ex.Message}");
             }
         }
+        private async Task InsertPaymentAsync(
+      SqlConnection connection,
+      VerifyPaymentRequest req,
+      string status,
+      string failureReason,
+      DateTime? subscriptionStart = null,
+      DateTime? subscriptionEnd = null,
+      string paymentGateway = null
+  )
+        {
+            // 1️⃣ Get Database_Id (MCR_ID)
+
+            
+            const string dbIdSql = @"
+        SELECT MCR_ID
+        FROM dbo.MMCS_CustomerRegistration
+        WHERE MCR_CustomerCode = @CustomerCode";
+
+            int dbId = await connection.ExecuteScalarAsync<int>(
+                dbIdSql,
+                new { CustomerCode = req.DatabaseId }
+            );
+
+            // 2️⃣ Insert payment transaction
+            const string insertSql = @"
+        INSERT INTO PaymentTransactions
+        (
+            Database_Id,
+            PlanCode,
+            PlanName,
+            BillingCycle,
+            Amount,
+            IsFreeTrial,
+            TrialStartDate,
+            TrialEndDate,
+            PaymentGateway,
+            GatewayOrderId,
+            GatewayPaymentId,
+            PaymentStatus,
+            FailureReason,
+            SubscriptionStart,
+            SubscriptionEnd,
+            CreatedOn
+        )
+        VALUES
+        (
+            @Database_Id,
+            @PlanCode,
+            @PlanName,
+            @BillingCycle,
+            @Amount,
+            @IsFreeTrial,
+            @TrialStartDate,
+            @TrialEndDate,
+            @PaymentGateway,
+            @GatewayOrderId,
+            @GatewayPaymentId,
+            @PaymentStatus,
+            @FailureReason,
+            @SubscriptionStart,
+            @SubscriptionEnd,
+            GETDATE()
+        )";
+
+            await connection.ExecuteAsync(insertSql, new
+            {
+                Database_Id = dbId,
+                req.PlanCode,
+                req.PlanName,
+                req.BillingCycle,
+                req.Amount,
+                req.IsFreeTrial,
+
+                TrialStartDate = req.IsFreeTrial ? DateTime.UtcNow : (DateTime?)null,
+                TrialEndDate = req.IsFreeTrial ? DateTime.UtcNow.AddDays(29) : (DateTime?)null,
+
+                PaymentGateway = paymentGateway,
+                GatewayOrderId = req.RazorpayOrderId,
+                GatewayPaymentId = req.RazorpayPaymentId,
+                PaymentStatus = status,
+                FailureReason = failureReason,
+
+                SubscriptionStart = subscriptionStart,
+                SubscriptionEnd = subscriptionEnd
+            });
+        }
+
+
+        private bool VerifyRazorpaySignature(string orderId, string paymentId, string signature)
+        {
+            var secret = _configuration["Razorpay:KeySecret"];
+
+            var payload = $"{orderId}|{paymentId}";
+            var secretBytes = Encoding.UTF8.GetBytes(secret);
+            var payloadBytes = Encoding.UTF8.GetBytes(payload);
+
+            using var hmac = new HMACSHA256(secretBytes);
+            var hash = hmac.ComputeHash(payloadBytes);
+            var generatedSignature = Convert.ToHexString(hash).ToLower();
+
+            return generatedSignature == signature;
+        }
+        public async Task<bool> VerifyAndSavePaymentAsync(VerifyPaymentRequest req)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            // ================= FREE TRIAL =================
+            if (req.IsFreeTrial)
+            {
+                DateTime trialStart = DateTime.Now;
+                DateTime trialEnd = trialStart.AddDays(14);
+
+                await InsertPaymentAsync(
+                    connection,
+                    req,
+                    status: "SUCCESS",
+                    failureReason: null,
+                    subscriptionStart: trialStart,
+                    subscriptionEnd: trialEnd,
+                    paymentGateway: "FREE"
+                );
+
+                return true;
+            }
+
+            // ================= PAID PAYMENT =================
+            bool isValid = VerifyRazorpaySignature(
+                req.RazorpayOrderId,
+                req.RazorpayPaymentId,
+                req.RazorpaySignature
+            );
+
+            if (!isValid)
+            {
+                await InsertPaymentAsync(
+                    connection,
+                    req,
+                    status: "FAILED",
+                    failureReason: "Invalid Razorpay Signature",
+                    paymentGateway: "RAZORPAY"
+                );
+
+                return false;
+            }
+
+            DateTime start = DateTime.Now;
+            DateTime end = req.BillingCycle == "YEARLY"
+                ? start.AddYears(1)
+                : start.AddMonths(1);
+
+            await InsertPaymentAsync(
+                connection,
+                req,
+                status: "SUCCESS",
+                failureReason: null,
+                subscriptionStart: start,
+                subscriptionEnd: end,
+                paymentGateway: "RAZORPAY"
+            ); 
+
+            return true;
+        }
+
+        public async Task<string> GetPlanVersionAsync(long databaseId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+
+            var sql = @"
+        SELECT
+            CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM PaymentTransactions
+                    WHERE Database_Id = @DatabaseId
+                      AND IsFreeTrial = 0
+                      AND PaymentStatus = 'SUCCESS'
+                      AND SubscriptionStart <= GETDATE()
+                      AND SubscriptionEnd >= GETDATE()
+                ) THEN 'PAID'
+
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM PaymentTransactions
+                    WHERE Database_Id = @DatabaseId
+                      AND IsFreeTrial = 1
+                      AND PaymentStatus = 'SUCCESS'
+                      AND TrialStartDate <= GETDATE()
+                      AND TrialEndDate >= GETDATE()
+                ) THEN 'TRIAL'
+
+                ELSE 'EXPIRED / NO PLAN'
+            END AS PlanVersion;
+        ";
+
+            await connection.OpenAsync();
+
+            using var command = new SqlCommand(sql, connection);
+            command.Parameters.AddWithValue("@DatabaseId", databaseId);
+
+            var result = await command.ExecuteScalarAsync();
+            return result?.ToString();
+        }
+        public async Task<SubscriptionCountdownDto> GetSubscriptionCountdownAsync(string databaseId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+
+            const string dbIdSql = @"
+        SELECT MCR_ID
+        FROM dbo.MMCS_CustomerRegistration
+        WHERE MCR_CustomerCode = @CustomerCode";
+
+            int dbId = await connection.ExecuteScalarAsync<int>(
+            dbIdSql,
+                new { CustomerCode = databaseId }
+            );
+            var sql = @"
+    SELECT TOP 1
+        IsFreeTrial,
+        CASE 
+            WHEN IsFreeTrial = 1 THEN TrialEndDate
+            ELSE SubscriptionEnd
+        END AS EndDate
+    FROM PaymentTransactions
+    WHERE Database_Id = @dbId
+      AND PaymentStatus = 'SUCCESS'
+      AND (
+            (IsFreeTrial = 1 AND TrialStartDate <= GETDATE() AND TrialEndDate >= GETDATE())
+            OR
+            (IsFreeTrial = 0 AND SubscriptionStart <= GETDATE() AND SubscriptionEnd >= GETDATE())
+          )
+    ORDER BY IsFreeTrial ASC, CreatedOn DESC;
+    ";
+
+            await connection.OpenAsync();
+            using var cmd = new SqlCommand(sql, connection);
+            cmd.Parameters.AddWithValue("@dbId", dbId);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+
+            if (!reader.Read())
+            {
+                return new SubscriptionCountdownDto
+                {
+                    PlanVersion = "EXPIRED / NO PLAN",
+                    CountdownActive = false
+                };
+            }
+
+            bool isFreeTrial = Convert.ToBoolean(reader["IsFreeTrial"]);
+            DateTime endDate = Convert.ToDateTime(reader["EndDate"]);
+
+            TimeSpan remaining = endDate - DateTime.Now;
+
+            int daysLeft = (int)Math.Floor(remaining.TotalDays);
+
+            bool countdownActive =
+                (isFreeTrial && daysLeft <= 30) ||
+                (!isFreeTrial && daysLeft <= 30);
+
+            string countdown = null;
+            string message = null;
+
+            if (remaining.TotalSeconds > 0 && countdownActive)
+            {
+                countdown =
+                    $"{remaining.Days}d:" +
+                    $"{remaining.Hours:D2}h:" +
+                    $"{remaining.Minutes:D2}m:" +
+                    $"{remaining.Seconds:D2}s";
+
+                message = isFreeTrial
+                    ? $"Your free trial expires in {countdown}"
+                    : $"Your subscription expires in {countdown}";
+            }
+
+            return new SubscriptionCountdownDto
+            {
+                PlanVersion = isFreeTrial ? "TRIAL" : "PAID",
+                DaysLeft = daysLeft,
+                CountdownActive = countdownActive,
+                Countdown = countdown,
+                Message = message
+            };
+        }
+
     }
 }
