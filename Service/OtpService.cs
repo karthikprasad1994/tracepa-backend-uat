@@ -109,7 +109,8 @@ public class OtpService
         var existingUser = await connection.QueryFirstOrDefaultAsync<string>(
             @"SELECT MCR_CustomerEmail
           FROM MMCS_CustomerRegistration 
-          WHERE LOWER(MCR_CustomerEmail) = LOWER(@Email)",
+          WHERE ',' + LOWER(MCR_emails) + ',' 
+            LIKE '%,' + LOWER(@Email) + ',%'",
             new { Email = email });
 
         if (existingUser != null)
@@ -153,7 +154,8 @@ public class OtpService
         var existingUser = await connection.QueryFirstOrDefaultAsync<string>(
             @"SELECT MCR_CustomerEmail
               FROM MMCS_CustomerRegistration
-              WHERE LOWER(MCR_CustomerEmail) = LOWER(@Email)",
+              WHERE ',' + LOWER(MCR_emails) + ',' 
+            LIKE '%,' + LOWER(@Email) + ',%'",
             new { Email = email });
 
         if (existingUser == null)

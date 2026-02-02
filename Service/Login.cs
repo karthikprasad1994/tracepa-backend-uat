@@ -1719,11 +1719,7 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
                     .ToList(),
                     ClientIpAddress = clientIp,
                     SystemIpAddress = systemIp,
-<<<<<<< HEAD
                     ActivePlan = activePlan
-
-=======
->>>>>>> 4752d7c41a131a4ae45fd5a1bb2ff51880d02fc1
                 };
             }
             catch (Exception ex)
