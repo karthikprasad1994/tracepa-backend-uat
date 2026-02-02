@@ -61,8 +61,8 @@ namespace TracePca.Dto.DigitalFilling
 
     public class IndexDocumentDto
     {
-        public List<IFormFile>? Files { get; set; } = new();
-        //public IFormFile Files { get; set; }
+        //public List<IFormFile>? Files { get; set; } = new();
+        public IFormFile File { get; set; }
 
         public int CabinetID { get; set; }
         public int SubCabinetID { get; set; }
