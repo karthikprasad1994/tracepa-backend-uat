@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using TracePca.DTOs;
 using TracePca.Services;
@@ -31,15 +32,46 @@ namespace TracePca.Controllers
             }
         }
 
-        [HttpPost("VerifyPayment")]
-        public IActionResult VerifyPayment([FromBody] RazorpayVerifyDto dto)
+        [HttpPost("Verify")]
+        public async Task<IActionResult> VerifyPayment([FromBody] VerifyPaymentRequest request)
         {
-            bool isValid = _paymentService.VerifySignature(dto.OrderId, dto.PaymentId, dto.Signature);
-            if (isValid)
-                return Ok(new { message = "Payment verified successfully" });
-            else
-                return BadRequest(new { message = "Invalid payment signature" });
+            var result = await _paymentService.VerifyAndSavePaymentAsync(request);
+
+            if (!result)
+                return BadRequest(new { message = "Payment verification failed" });
+
+            return Ok(new { message = "Payment verified successfully" });
         }
+        [HttpGet("plan-version/{databaseId}")]
+        public async Task<IActionResult> GetPlanVersion(long databaseId)
+        {
+            var planVersion = await _paymentService.GetPlanVersionAsync(databaseId);
+
+            return Ok(new PlanVersionResponseDto
+            {
+                PlanVersion = planVersion
+            });
+        }
+        [HttpGet("subscription-countdown/{databaseId}")]
+        public async Task<IActionResult> GetSubscriptionCountdown(string databaseId)
+        {
+            var result = await _paymentService.GetSubscriptionCountdownAsync(databaseId);
+            return Ok(result);
+        }
+
+    }
+    public class SubscriptionCountdownDto
+    {
+        public string PlanVersion { get; set; }
+        public int DaysLeft { get; set; }
+        public bool CountdownActive { get; set; }
+        public string Countdown { get; set; }   // 👈 NEW
+        public string Message { get; set; }
+    }
+
+    public class PlanVersionResponseDto
+    {
+        public string PlanVersion { get; set; }
     }
 
     public class RazorpayVerifyDto
@@ -48,4 +80,30 @@ namespace TracePca.Controllers
         public string PaymentId { get; set; }
         public string Signature { get; set; }
     }
+
+    public class VerifyPaymentRequest
+    {
+        [Required]
+        public string DatabaseId { get; set; }
+
+        [Required]
+        public string PlanCode { get; set; }
+
+        [Required]
+        public string PlanName { get; set; }
+
+        [Required]
+        public string BillingCycle { get; set; }
+
+        public decimal Amount { get; set; }
+
+        public bool IsFreeTrial { get; set; }
+
+        // ✅ Optional
+        public string? RazorpayOrderId { get; set; }
+        public string? RazorpayPaymentId { get; set; }
+        public string? RazorpaySignature { get; set; }
+    }
+
+
 }

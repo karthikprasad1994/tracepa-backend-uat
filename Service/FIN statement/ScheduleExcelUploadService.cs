@@ -2239,7 +2239,7 @@ namespace TracePca.Service.FIN_statement
                 if (sheet.Dimension == null)
                     throw new Exception("Excel sheet is empty");
 
-                int startRow = 4; // DATA STARTS FROM ROW 4
+                int startRow = 3; // DATA STARTS FROM ROW 4
                 int lastRow = sheet.Dimension.End.Row;
                 string ipAddress =
                _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString()?? "UNKNOWN";
