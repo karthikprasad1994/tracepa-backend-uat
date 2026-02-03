@@ -1673,19 +1673,36 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
                 new { CustomerId = customerId });
                 var validMcmIds = mcmIds.Where(id => id.HasValue).Select(id => id.Value).ToList();
 
+            
                 bool activePlan;
 
                 using (var cmd = new SqlCommand(@"
-    SELECT 
-        CASE 
+    SELECT
+        CASE
             WHEN EXISTS (
-                SELECT 1 
-                FROM PaymentTransactions 
+                SELECT 1
+                FROM PaymentTransactions
                 WHERE Database_Id = @DatabaseId
+                  AND IsFreeTrial = 1
+                  AND PaymentStatus = 'SUCCESS'
+                  AND GETDATE() BETWEEN TrialStartDate AND TrialEndDate
             )
-            THEN 1 
-            ELSE 0 
-        END", customerConnection))
+            THEN 1
+
+            WHEN EXISTS (
+                SELECT 1
+                FROM PaymentTransactions
+                WHERE Database_Id = @DatabaseId
+                  AND IsFreeTrial = 0
+                  AND Amount > 0
+                  AND PaymentStatus = 'SUCCESS'
+                  AND GETDATE() BETWEEN SubscriptionStart AND SubscriptionEnd
+            )
+            THEN 1
+
+            ELSE 0
+        END
+", customerConnection))
                 {
                     cmd.Parameters.AddWithValue("@DatabaseId", customerId); // or Database_Id value
 

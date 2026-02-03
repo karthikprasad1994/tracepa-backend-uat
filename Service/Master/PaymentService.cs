@@ -14,6 +14,9 @@ using Dapper;
 using TracePca.Controllers;
 using Org.BouncyCastle.Asn1.Ocsp;
 using Org.BouncyCastle.Ocsp;
+using System.Net.Mail;
+using System.Net;
+using TracePca.Models.CustomerRegistration;
 
 namespace TracePca.Services
 {
@@ -40,26 +43,41 @@ namespace TracePca.Services
             if (string.IsNullOrEmpty(dbName))
                 throw new Exception("CustomerCode is missing in session. Please log in again.");
 
-            // ✅ Step 2: Get Razorpay credentials
+            // ✅ Step 2: Calculate GST (18% for Karnataka, India)
+            decimal gstRate = 0.18m; // 18% GST
+            decimal baseAmount = dto.Amount;
+            decimal gstAmount = Math.Round(baseAmount * gstRate, 2);
+            decimal totalAmount = baseAmount + gstAmount;
+
+            // ✅ Step 3: Get Razorpay credentials
             string keyId = _configuration["Razorpay:KeyId"];
             string keySecret = _configuration["Razorpay:KeySecret"];
             string credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{keyId}:{keySecret}"));
 
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
 
-            // ✅ Step 3: Prepare request
+            // ✅ Step 4: Prepare request with GST breakdown in notes
+            var notes = dto.Notes ?? new Dictionary<string, string>();
+
+            // Add GST details to notes
+            notes["gst_rate"] = "18%";
+            notes["gst_amount"] = gstAmount.ToString("F2");
+            notes["base_amount"] = baseAmount.ToString("F2");
+            notes["total_amount"] = totalAmount.ToString("F2");
+            notes["gst_state"] = "Karnataka, India";
+
             var body = new
             {
-                amount = (int)(dto.Amount * 100), // amount in paise
+                amount = (int)(totalAmount * 100), // amount in paise (INCLUDING GST)
                 currency = dto.Currency ?? "INR",
                 receipt = dto.Receipt ?? $"rcpt_{Guid.NewGuid()}",
-                notes = dto.Notes
+                notes = notes
             };
 
             var json = JsonConvert.SerializeObject(body);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            // ✅ Step 4: Call Razorpay API
+            // ✅ Step 5: Call Razorpay API
             var response = await _httpClient.PostAsync("https://api.razorpay.com/v1/orders", content);
             var responseText = await response.Content.ReadAsStringAsync();
 
@@ -70,9 +88,13 @@ namespace TracePca.Services
             return new
             {
                 orderId = (string)order.id,
-                amount = (int)order.amount,
+                baseAmount = baseAmount,
+                gstAmount = gstAmount,
+                totalAmount = totalAmount,
                 currency = (string)order.currency,
-                key = keyId
+                key = keyId,
+                gstRate = "18%",
+                gstState = "Karnataka, India"
             };
         }
 
@@ -274,11 +296,37 @@ namespace TracePca.Services
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
+
+            string CustName = string.Empty;
+            string CustEmail = string.Empty;
+
+            using (var cmd = new SqlCommand(@"
+    SELECT 
+        MCR_CustomerName,
+        MCR_CustomerEmail
+    FROM dbo.MMCS_CustomerRegistration
+    WHERE MCR_CustomerCode = @CustomerCode
+", connection))
+            {
+                cmd.Parameters.AddWithValue("@CustomerCode", req.DatabaseId);
+
+                using var reader = await cmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    CustName = reader["MCR_CustomerName"]?.ToString();
+                    CustEmail = reader["MCR_CustomerEmail"]?.ToString();
+                }
+                else
+                {
+                    throw new Exception("Customer not found");
+                }
+            }
+
             // ================= FREE TRIAL =================
             if (req.IsFreeTrial)
             {
                 DateTime trialStart = DateTime.Now;
-                DateTime trialEnd = trialStart.AddDays(14);
+                DateTime trialEnd = trialStart.AddDays(30);
 
                 await InsertPaymentAsync(
                     connection,
@@ -288,6 +336,30 @@ namespace TracePca.Services
                     subscriptionStart: trialStart,
                     subscriptionEnd: trialEnd,
                     paymentGateway: "FREE"
+                );
+
+                // Send free trial email to customer and notification to admin
+                await SendSubscriptionEmailAsync(
+                    customerEmail: CustEmail,
+                    customerName: CustName,
+                    planName: req.PlanName,
+                    billingCycle: req.BillingCycle,
+                    amount: req.Amount,
+                    isFreeTrial: true,
+                    trialEndDate: trialEnd,
+                    subscriptionStart: trialStart,
+                    subscriptionEnd: trialEnd
+                );
+
+                // Send admin notification for free trial signup
+                await SendAdminNotificationEmailAsync(
+                    customerEmail: CustEmail,
+                    customerName: CustName,
+                    planName: req.PlanName,
+                    billingCycle: req.BillingCycle,
+                    amount: req.Amount,
+                    isFreeTrial: true,
+                    isPaymentSuccessful: true
                 );
 
                 return true;
@@ -310,6 +382,25 @@ namespace TracePca.Services
                     paymentGateway: "RAZORPAY"
                 );
 
+                // Send payment failure email to customer
+                await SendPaymentFailedEmailAsync(
+                    customerEmail: CustEmail,
+                    customerName: CustName,
+                    planName: req.PlanName,
+                    amount: req.Amount
+                );
+
+                // Send admin notification for failed payment
+                await SendAdminNotificationEmailAsync(
+                    customerEmail: CustEmail,
+                    customerName: CustName,
+                    planName: req.PlanName,
+                    billingCycle: req.BillingCycle,
+                    amount: req.Amount,
+                    isFreeTrial: false,
+                    isPaymentSuccessful: false
+                );
+
                 return false;
             }
 
@@ -326,10 +417,345 @@ namespace TracePca.Services
                 subscriptionStart: start,
                 subscriptionEnd: end,
                 paymentGateway: "RAZORPAY"
-            ); 
+            );
+
+            // Send successful payment email to customer
+            await SendSubscriptionEmailAsync(
+                customerEmail: CustEmail,
+                customerName: CustName,
+                planName: req.PlanName,
+                billingCycle: req.BillingCycle,
+                amount: req.Amount,
+                isFreeTrial: false,
+                subscriptionStart: start,
+                subscriptionEnd: end
+            );
+
+            // Send admin notification for successful payment
+            await SendAdminNotificationEmailAsync(
+                customerEmail: CustEmail,
+                customerName: CustName,
+                planName: req.PlanName,
+                billingCycle: req.BillingCycle,
+                amount: req.Amount,
+                isFreeTrial: false,
+                isPaymentSuccessful: true
+            );
 
             return true;
         }
+
+        private async Task SendSubscriptionEmailAsync(
+            string customerEmail,
+            string customerName,
+            string planName,
+            string billingCycle,
+            decimal amount,
+            bool isFreeTrial,
+            DateTime subscriptionStart,
+            DateTime subscriptionEnd,
+            DateTime? trialEndDate = null)
+        {
+            try
+            {
+                string subject = isFreeTrial
+                    ? $"🎉 Your {planName} Free Trial is Activated!"
+                    : $"✅ Payment Successful - {planName} Subscription Activated";
+
+                string body = BuildSubscriptionEmailBody(
+                    customerName: customerName,
+                    planName: planName,
+                    billingCycle: billingCycle,
+                    amount: amount,
+                    isFreeTrial: isFreeTrial,
+                    subscriptionStart: subscriptionStart,
+                    subscriptionEnd: subscriptionEnd,
+                    trialEndDate: trialEndDate
+                );
+
+                // Send email to customer
+                await SendEmailAsync(
+                    fromEmail: "Trace@mmcspl.com",
+                    fromName: "MMCS PVT LTD Subscription Service",
+                    to: customerEmail,
+                    subject: subject,
+                    body: body,
+                    isHtml: true
+                );
+
+            }
+            catch (Exception ex)
+            {
+            }
+        }
+        private string BuildSubscriptionEmailBody(
+    string customerName,
+    string planName,
+    string billingCycle,
+    decimal amount,
+    bool isFreeTrial,
+    DateTime subscriptionStart,
+    DateTime subscriptionEnd,
+    DateTime? trialEndDate = null)
+{
+    if (isFreeTrial)
+    {
+        return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background-color: #4CAF50; color: white; padding: 10px; text-align: center; }}
+        .content {{ padding: 20px; }}
+        .info-box {{ background-color: #f9f9f9; border-left: 4px solid #4CAF50; padding: 15px; margin: 15px 0; }}
+        .footer {{ margin-top: 20px; font-size: 12px; color: #666; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h2>Free Trial Activated! 🎉</h2>
+        </div>
+        <div class='content'>
+            <p>Dear {customerName},</p>
+            <p>Congratulations! Your free trial for <strong>{planName}</strong> has been successfully activated.</p>
+            
+            <div class='info-box'>
+                <h3>Trial Details:</h3>
+                <p><strong>Plan:</strong> {planName}</p>
+                <p><strong>Trial Start:</strong> {subscriptionStart:dd MMM yyyy}</p>
+                <p><strong>Trial End:</strong> {trialEndDate:dd MMM yyyy}</p>
+                <p><strong>Regular Price:</strong> ₹{amount}/{billingCycle}</p>
+            </div>
+
+            <p>Need help? Contact our support team.</p>
+            <p>Best regards,<br>MMCS Team</p>
+        </div>
+        <div class='footer'>
+            <p>This is an automated email. Please do not reply.</p>
+        </div>
+    </div>
+</body>
+</html>";
+    }
+    else
+    {
+        return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background-color: #2196F3; color: white; padding: 10px; text-align: center; }}
+        .content {{ padding: 20px; }}
+        .info-box {{ background-color: #f9f9f9; border-left: 4px solid #2196F3; padding: 15px; margin: 15px 0; }}
+        .footer {{ margin-top: 20px; font-size: 12px; color: #666; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h2>Payment Successful! ✅</h2>
+        </div>
+        <div class='content'>
+            <p>Dear {customerName},</p>
+            <p>Thank you for your purchase! Your payment has been processed successfully.</p>
+            
+            <div class='info-box'>
+                <h3>Subscription Details:</h3>
+                <p><strong>Plan:</strong> {planName}</p>
+                <p><strong>Billing Cycle:</strong> {billingCycle}</p>
+                <p><strong>Amount Paid:</strong> ₹{amount}</p>
+                <p><strong>Start Date:</strong> {subscriptionStart:dd MMM yyyy}</p>
+                <p><strong>End Date:</strong> {subscriptionEnd:dd MMM yyyy}</p>
+                <p><strong>Transaction Date:</strong> {DateTime.Now:dd MMM yyyy HH:mm}</p>
+            </div>
+            
+            <p>You can now access all features of your {planName} plan.</p>
+            <p>Need help? Contact our support team.</p>
+            <p>Best regards,<br>MMCS Team</p>
+        </div>
+        <div class='footer'>
+            <p>This is an automated email. Please do not reply.</p>
+        </div>
+    </div>
+</body>
+</html>";
+    }
+}
+
+        private async Task SendPaymentFailedEmailAsync(
+            string customerEmail,
+            string customerName,
+            string planName,
+            decimal amount)
+        {
+            try
+            {
+                string subject = "❌ Payment Failed - Action Required";
+                string body = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background-color: #f44336; color: white; padding: 10px; text-align: center; }}
+        .content {{ padding: 20px; }}
+        .footer {{ margin-top: 20px; font-size: 12px; color: #666; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h2>Payment Failed</h2>
+        </div>
+        <div class='content'>
+            <p>Dear {customerName},</p>
+            <p>We were unable to process your payment for the <strong>{planName}</strong> plan.</p>
+            <p><strong>Amount:</strong> ₹{amount}</p>
+            <p>Please try again or contact our support team for assistance.</p>
+            <p>Best regards,<br>MMCS Team</p>
+        </div>
+        <div class='footer'>
+            <p>This is an automated email. Please do not reply.</p>
+        </div>
+    </div>
+</body>
+</html>";
+
+                // Send email to customer
+                await SendEmailAsync(
+                    fromEmail: "Trace@mmcspl.com",
+                    fromName: "MMCS PVT LTD Subscription Service",
+                    to: customerEmail,
+                    subject: subject,
+                    body: body,
+                    isHtml: true
+                );
+
+            }
+            catch (Exception ex)
+            {
+            }
+        }
+
+        private async Task SendAdminNotificationEmailAsync(
+            string customerEmail,
+            string customerName,
+            string planName,
+            string billingCycle,
+            decimal amount,
+            bool isFreeTrial,
+            bool isPaymentSuccessful)
+        {
+            try
+            {
+                string subject = isFreeTrial
+                    ? $"📊 New Free Trial Signup: {customerName}"
+                    : isPaymentSuccessful
+                        ? $"💰 New Payment Received: {customerName}"
+                        : $"⚠️ Payment Failed: {customerName}";
+
+                string body = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background-color: #333; color: white; padding: 10px; text-align: center; }}
+        .content {{ padding: 20px; }}
+        .info-box {{ background-color: #f5f5f5; border: 1px solid #ddd; padding: 15px; margin: 15px 0; }}
+        .success {{ color: #4CAF50; }}
+        .failed {{ color: #f44336; }}
+        .trial {{ color: #2196F3; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h2>Subscription Notification</h2>
+        </div>
+        <div class='content'>
+            <h3 class='{(isFreeTrial ? "trial" : isPaymentSuccessful ? "success" : "failed")}'>
+                {subject}
+            </h3>
+            
+            <div class='info-box'>
+                <h4>Customer Details:</h4>
+                <p><strong>Name:</strong> {customerName}</p>
+                <p><strong>Email:</strong> {customerEmail}</p>
+                <p><strong>Plan:</strong> {planName}</p>
+                <p><strong>Billing Cycle:</strong> {billingCycle}</p>
+                <p><strong>Amount:</strong> ₹{amount}</p>
+                <p><strong>Type:</strong> {(isFreeTrial ? "Free Trial" : "Paid Subscription")}</p>
+                <p><strong>Status:</strong> {(isPaymentSuccessful ? "SUCCESS" : "FAILED")}</p>
+                <p><strong>Date:</strong> {DateTime.Now:dd MMM yyyy HH:mm}</p>
+            </div>
+            
+            <p>This is an automated notification from MMCS PVT LTD Subscription System.</p>
+        </div>
+    </div>
+</body>
+</html>";
+
+                // Send admin notification to varun@mmcspl.com
+                await SendEmailAsync(
+                    fromEmail: "Trace@mmcspl.com",
+                    fromName: "MMCS PVT LTD Subscription System",
+                    to: "sujatha@mmcspl.com,venu@mmcspl.com",
+                    subject: subject,
+                    body: body,
+                    isHtml: true
+                );
+
+            }
+            catch (Exception ex)
+            {
+            }
+        }
+        public async Task SendEmailAsync(
+        string fromEmail,
+        string fromName,
+        string to,
+        string subject,
+        string body,
+        bool isHtml = false)
+        {
+            try
+            {
+                using var client = new SmtpClient(_configuration["Smtp:Host"])
+                {
+                    Port = int.Parse(_configuration["Smtp:Port"]),
+                    Credentials = new NetworkCredential(
+                        _configuration["Smtp:User"],
+                        _configuration["Smtp:Password"]
+                    ),
+                    EnableSsl = true // Gmail SMTP requires SSL
+                };
+
+                var message = new MailMessage
+                {
+                    From = new MailAddress(fromEmail, fromName),
+                    Subject = subject,
+                    Body = body,
+                    IsBodyHtml = isHtml
+                };
+
+                message.To.Add(to);
+
+                await client.SendMailAsync(message);
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
 
         public async Task<string> GetPlanVersionAsync(long databaseId)
         {
