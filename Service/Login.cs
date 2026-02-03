@@ -452,6 +452,22 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
                     });
                 }
 
+
+                //Allow only two clients and two users
+                var emailCount = registerModel.McrCustomerEmail
+                                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                .Select(e => e.Trim())
+                                .Count();
+
+                if (emailCount > 2)
+                {
+                    return new BadRequestObjectResult(new
+                    {
+                        statuscode = 400,
+                        message = "Trial account allow Only 2 emails."
+                    });
+                }
+
                 // Step 2: Generate Customer Code and IDs
                 int maxMcrId = (await connection.ExecuteScalarAsync<int?>(
                     "SELECT ISNULL(MAX(MCR_ID), 0) FROM MMCS_CustomerRegistration") ?? 0) + 1;
@@ -1093,7 +1109,8 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
                 message.To.Add(new MailboxAddress("", gmail));
                 message.Subject = "Welcome to TracePA – Your Login Credentials";
 
-                var bodyBuilder = new BodyBuilder
+                //var bodyBuilder = new BodyBuilder
+                message.Body = new BodyBuilder
                 {
                     HtmlBody = $@"
                     <html>
@@ -1114,9 +1131,9 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
                         <p>Best regards,<br/>TracePA Team</p>
                     </body>
                     </html>"
-                };
+                }.ToMessageBody();
 
-                message.Body = bodyBuilder.ToMessageBody();
+                //message.Body = bodyBuilder.ToMessageBody();
 
                 using var client = new SmtpClient();
                 await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.StartTls);
@@ -1469,35 +1486,33 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
 
 
                 //Block login access for users whose trial or subscription has expired.
-                //string sQuery = @"SELECT  CONVERT(varchar(10), MCR_ToDate, 103) AS MCR_ToDate
-                //                            FROM mmcs_customerregistration
-                //                            CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails 
-                //                            WHERE LTRIM(RTRIM(Emails.value)) = @Email and MCR_TStatus = 'T' AND ( MCR_ToDate IS NULL OR MCR_ToDate < GetDate() ) ";
-                //var blockUser = await regConnection.QuerySingleOrDefaultAsync<string?>(sQuery, new { Email = email });
+                string sQuery = @"SELECT  CONVERT(varchar(10), MCR_ToDate, 103) AS MCR_ToDate
+                                            FROM mmcs_customerregistration
+                                            CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails 
+                                            WHERE LTRIM(RTRIM(Emails.value)) = @Email and (MCR_TStatus = 'T' or MCR_TStatus = 'S') AND ( MCR_ToDate IS NULL OR MCR_ToDate < GetDate() ) ";
+                var blockUser = await regConnection.QuerySingleOrDefaultAsync<string?>(sQuery, new { Email = email });
 
-                //if (blockUser != null)
-                //{
-                //    await _errorLogger.LogErrorAsync(new ErrorLogDto
-                //    {
-                //        FormName = "Login",
-                //        Controller = "Auth",
-                //        Action = "LoginUser",
-                //        ErrorMessage = "Trial Period Expired on '" + blockUser  + "'",
-                //        StackTrace = "",
-                //        UserId =  0,
-                //        CustomerId = 0,
-                //        Description = $"Failed login attempt for {email}",
-                //        ResponseTime = 0
-                //    });
+                if (blockUser != null)
+                {
+                    await _errorLogger.LogErrorAsync(new ErrorLogDto
+                    {
+                        FormName = "Login",
+                        Controller = "Auth",
+                        Action = "LoginUser",
+                        ErrorMessage = "Trial Period Expired on '" + blockUser + "'",
+                        StackTrace = "",
+                        UserId = 0,
+                        CustomerId = 0,
+                        Description = $"Failed login attempt for {email}",
+                        ResponseTime = 0
+                    });
 
-                //    return new LoginResponse
-                //    {
-                //        StatusCode = 401,
-                //        Message = "Your trial period expired on - '" + blockUser + "'. Please renew to continue."
-                //    };
-                //}
-                
-
+                    return new LoginResponse
+                    {
+                        StatusCode = 401,
+                        Message = "Your trial period expired on - '" + blockUser + "'. Please renew to continue."
+                    };
+                }
 
 
 
@@ -1528,8 +1543,27 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
                 // }
 
                 if (user == null || (password != null && DecryptPassword(user.UsrPassWord) != password))
-
                 {
+                    // Login attempts exceeded.
+                    int rowsAffected = await connection.ExecuteAsync(
+                                @"UPDATE Sad_UserDetails
+                                  SET Usr_NoOfUnsucsfAtteptts = ISNULL(Usr_NoOfUnsucsfAtteptts, 0) + 1
+                                  WHERE LOWER(usr_loginName) = @email
+                                    AND ISNULL(Usr_NoOfUnsucsfAtteptts, 0) < 3;",
+                                new { email = plainEmail }
+                            );
+
+                    if (rowsAffected == 0)
+                    {
+                        return new LoginResponse
+                        {
+                            StatusCode = 401,
+                            Message = "No of login attempts exceeded."
+                        };
+                    }
+
+
+
                     // Log failed login
                     await _errorLogger.LogErrorAsync(new ErrorLogDto
                     {
@@ -1765,12 +1799,12 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
         public async Task<bool> LogoutUserAsync(string accessToken)
         {
             const string query = @"
-UPDATE UserTokens
-SET IsRevoked = 1,
-    RevokedAt = GETUTCDATE()
-WHERE UserId = @UserId
-  AND AccessToken = @AccessToken
-  AND IsRevoked = 0";
+                                    UPDATE UserTokens
+                                    SET IsRevoked = 1,
+                                        RevokedAt = GETUTCDATE()
+                                    WHERE UserId = @UserId
+                                      AND AccessToken = @AccessToken
+                                      AND IsRevoked = 0";
 
             // ✅ Step 1: Decode JWT to get UserId + CustomerCode
             var handler = new JwtSecurityTokenHandler();
@@ -3129,9 +3163,66 @@ ORDER BY ut.Id DESC";
         }
 
 
+
+        public async Task<string> GetUserTrialOrPaidAsync(string email)
+        {
+            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+            using (var connection = new SqlConnection(mmcsConnection))
+            {
+                await connection.OpenAsync();
+
+                string query = @"
+            SELECT 
+                CASE 
+                    WHEN MCR_TStatus = 'T' THEN 'Trial'
+                    WHEN MCR_TStatus = 'S' THEN 'Subscription'
+                    ELSE 'Paid'
+                END
+            FROM MMCS_CustomerRegistration
+            WHERE MCR_emails LIKE @Email";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@Email", "%" + email + "%");
+
+                    var result = await command.ExecuteScalarAsync();
+
+                    return result?.ToString(); // safely handle null
+                }
+            }
+        }
+
+
+        public async Task<string> GetTrialRemainingDaysAsync(string email)
+        {
+            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+
+            using (var connection = new SqlConnection(mmcsConnection))
+            {
+                await connection.OpenAsync();
+                 
+                string query = @"Select CASE 
+                                    WHEN DATEDIFF(DAY, GETDATE(), MCR_ToDate) < 0 THEN 0
+                                    ELSE DATEDIFF(DAY, GETDATE(), MCR_ToDate)
+                                    END from mmcs_customerregistration where MCR_emails LIKE @Email AND MCR_TStatus='T'";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@Email", "%" + email + "%");
+
+                    var result = await command.ExecuteScalarAsync();
+
+                    return (result == null || result == DBNull.Value)
+                ? null
+                : result.ToString();
+                }
+            }
+        }
+
         #endregion
 
-    } 
+    }
 }
 
 

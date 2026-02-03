@@ -916,6 +916,60 @@ namespace TracePca.Controllers
             }
         }
 
+
+        [HttpGet("GetUserTrialOrPaid")]
+        public async Task<IActionResult> GetUserTrialOrPaid(string Email)
+        {
+            try
+            {
+                var status = await _LoginInterface.GetUserTrialOrPaidAsync(Email);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "User data retrieved successfully.",
+                    data = status
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving user status.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+
+        [HttpGet("GetTrialRemainingDays")]
+        public async Task<IActionResult> GetTrialRemainingDays(string Email)
+        {
+            try
+            {
+                var status = await _LoginInterface.GetTrialRemainingDaysAsync(Email);
+
+                return Ok(new
+                {
+                    status = 200,
+                    message = "Trial user Data retrieved successfully.",
+                    data = status
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    status = 500,
+                    message = "An error occurred while retrieving user status.",
+                    error = ex.Message
+                });
+            }
+        }
+
+
         #endregion
     }
 }

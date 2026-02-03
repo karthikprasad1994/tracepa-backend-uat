@@ -62,6 +62,10 @@ namespace TracePca.Interface
         Task<int> GetTotalTimeSpentAsync(int CompID);
 
         Task<IEnumerable<ClientViewDetails>> GetClientFullDetailsAsync(int FirmID);
+
+        Task<string> GetUserTrialOrPaidAsync(string Email);
+
+        Task<string> GetTrialRemainingDaysAsync(string Email);
         #endregion
 
     }
