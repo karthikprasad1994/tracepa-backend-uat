@@ -2194,7 +2194,7 @@ LEFT JOIN Acc_TrailBalance_Upload e ON e.ATBU_Description = ud.ATBUD_Description
 LEFT JOIN ACC_SubHeadingLedgerDesc ldg ON ldg.ASHL_SubHeadingId = ud.Atbud_ID 
     AND ldg.ASHL_CustomerId = @CustomerId AND ldg.ASHL_YearID = @YearId
 WHERE   ud.ATBUD_Subheading=@subHeadingId and ud.ATBUD_itemid=@ItemId and ud.ATBUD_SubItemId=0  and
-    ud.ATBUD_Schedule_type = @ScheduleTypeId AND ud.ATBUD_CustId = @CustomerId AND ud.ATBUD_compid = @CompanyId  And ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
+    ud.ATBUD_Schedule_type = @ScheduleTypeId AND ud.ATBUD_CustId = @CustomerId and ud.ATBUD_YEARId=@YearId AND ud.ATBUD_compid = @CompanyId  And ud.Atbud_Branchnameid IN (SELECT value FROM STRING_SPLIT(@BranchId, ','))
 GROUP BY ud.ATBUD_Description, ldg.ASHL_Description";
                                     var itemDescriptions = await connection.QueryAsync<DetailedReportPandLRow>(itemDescSql, new
                                     {
