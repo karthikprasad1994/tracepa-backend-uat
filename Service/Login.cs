@@ -1487,33 +1487,33 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
 
 
                 //Block login access for users whose trial or subscription has expired.
-                string sQuery = @"SELECT  CONVERT(varchar(10), MCR_ToDate, 103) AS MCR_ToDate
-                                            FROM mmcs_customerregistration
-                                            CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails 
-                                            WHERE LTRIM(RTRIM(Emails.value)) = @Email and (MCR_TStatus = 'T' or MCR_TStatus = 'S') AND ( MCR_ToDate IS NULL OR MCR_ToDate < GetDate() ) ";
-                var blockUser = await regConnection.QuerySingleOrDefaultAsync<string?>(sQuery, new { Email = email });
+                //string sQuery = @"SELECT  CONVERT(varchar(10), MCR_ToDate, 103) AS MCR_ToDate
+                //                            FROM mmcs_customerregistration
+                //                            CROSS APPLY STRING_SPLIT(MCR_emails, ',') AS Emails 
+                //                            WHERE LTRIM(RTRIM(Emails.value)) = @Email and (MCR_TStatus = 'T' or MCR_TStatus = 'S') AND ( MCR_ToDate IS NULL OR MCR_ToDate < GetDate() ) ";
+                //var blockUser = await regConnection.QuerySingleOrDefaultAsync<string?>(sQuery, new { Email = email });
 
-                if (blockUser != null)
-                {
-                    await _errorLogger.LogErrorAsync(new ErrorLogDto
-                    {
-                        FormName = "Login",
-                        Controller = "Auth",
-                        Action = "LoginUser",
-                        ErrorMessage = "Trial Period Expired on '" + blockUser + "'",
-                        StackTrace = "",
-                        UserId = 0,
-                        CustomerId = 0,
-                        Description = $"Failed login attempt for {email}",
-                        ResponseTime = 0
-                    });
+                //if (blockUser != null)
+                //{
+                //    await _errorLogger.LogErrorAsync(new ErrorLogDto
+                //    {
+                //        FormName = "Login",
+                //        Controller = "Auth",
+                //        Action = "LoginUser",
+                //        ErrorMessage = "Trial Period Expired on '" + blockUser + "'",
+                //        StackTrace = "",
+                //        UserId = 0,
+                //        CustomerId = 0,
+                //        Description = $"Failed login attempt for {email}",
+                //        ResponseTime = 0
+                //    });
 
-                    return new LoginResponse
-                    {
-                        StatusCode = 401,
-                        Message = "Your trial period expired on - '" + blockUser + "'. Please renew to continue."
-                    };
-                }
+                //    return new LoginResponse
+                //    {
+                //        StatusCode = 401,
+                //        Message = "Your trial period expired on - '" + blockUser + "'. Please renew to continue."
+                //    };
+                //}
 
 
 
@@ -3204,61 +3204,61 @@ ORDER BY ut.Id DESC";
 
 
 
-        public async Task<string> GetUserTrialOrPaidAsync(string email)
-        {
-            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+        //public async Task<string> GetUserTrialOrPaidAsync(string email)
+        //{
+        //    var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
 
-            using (var connection = new SqlConnection(mmcsConnection))
-            {
-                await connection.OpenAsync();
+        //    using (var connection = new SqlConnection(mmcsConnection))
+        //    {
+        //        await connection.OpenAsync();
 
-                string query = @"
-            SELECT 
-                CASE 
-                    WHEN MCR_TStatus = 'T' THEN 'Trial'
-                    WHEN MCR_TStatus = 'S' THEN 'Subscription'
-                    ELSE 'Paid'
-                END
-            FROM MMCS_CustomerRegistration
-            WHERE MCR_emails LIKE @Email";
+        //        string query = @"
+        //    SELECT 
+        //        CASE 
+        //            WHEN MCR_TStatus = 'T' THEN 'Trial'
+        //            WHEN MCR_TStatus = 'S' THEN 'Subscription'
+        //            ELSE 'Paid'
+        //        END
+        //    FROM MMCS_CustomerRegistration
+        //    WHERE MCR_emails LIKE @Email";
 
-                using (var command = new SqlCommand(query, connection))
-                {
-                    command.Parameters.AddWithValue("@Email", "%" + email + "%");
+        //        using (var command = new SqlCommand(query, connection))
+        //        {
+        //            command.Parameters.AddWithValue("@Email", "%" + email + "%");
 
-                    var result = await command.ExecuteScalarAsync();
+        //            var result = await command.ExecuteScalarAsync();
 
-                    return result?.ToString(); // safely handle null
-                }
-            }
-        }
+        //            return result?.ToString(); // safely handle null
+        //        }
+        //    }
+        //}
 
 
-        public async Task<string> GetTrialRemainingDaysAsync(string email)
-        {
-            var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
+        //public async Task<string> GetTrialRemainingDaysAsync(string email)
+        //{
+        //    var mmcsConnection = _configuration.GetConnectionString("CustomerRegistrationConnection");
 
-            using (var connection = new SqlConnection(mmcsConnection))
-            {
-                await connection.OpenAsync();
+        //    using (var connection = new SqlConnection(mmcsConnection))
+        //    {
+        //        await connection.OpenAsync();
                  
-                string query = @"Select CASE 
-                                    WHEN DATEDIFF(DAY, GETDATE(), MCR_ToDate) < 0 THEN 0
-                                    ELSE DATEDIFF(DAY, GETDATE(), MCR_ToDate)
-                                    END from mmcs_customerregistration where MCR_emails LIKE @Email AND MCR_TStatus='T'";
+        //        string query = @"Select CASE 
+        //                            WHEN DATEDIFF(DAY, GETDATE(), MCR_ToDate) < 0 THEN 0
+        //                            ELSE DATEDIFF(DAY, GETDATE(), MCR_ToDate)
+        //                            END from mmcs_customerregistration where MCR_emails LIKE @Email AND MCR_TStatus='T'";
 
-                using (var command = new SqlCommand(query, connection))
-                {
-                    command.Parameters.AddWithValue("@Email", "%" + email + "%");
+        //        using (var command = new SqlCommand(query, connection))
+        //        {
+        //            command.Parameters.AddWithValue("@Email", "%" + email + "%");
 
-                    var result = await command.ExecuteScalarAsync();
+        //            var result = await command.ExecuteScalarAsync();
 
-                    return (result == null || result == DBNull.Value)
-                ? null
-                : result.ToString();
-                }
-            }
-        }
+        //            return (result == null || result == DBNull.Value)
+        //        ? null
+        //        : result.ToString();
+        //        }
+        //    }
+        //}
 
         #endregion
 
