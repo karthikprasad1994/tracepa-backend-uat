@@ -260,19 +260,19 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
-})
-.AddCookie()
-.AddGoogle(options =>
-{
-    options.ClientId = "493423119535-jughepjld5acrqn90lk33onq2u1sveju.apps.googleusercontent.com";
-    options.ClientSecret = "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";
-    options.CallbackPath = "/signin-google"; // must match Google Cloud redirect URI
-    options.SaveTokens = true; // save access token in auth cookie
-});
+//builder.Services.AddAuthentication(options =>
+//{
+//    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+//    options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+//})
+//.AddCookie()
+//.AddGoogle(options =>
+//{
+//    options.ClientId = "493423119535-jughepjld5acrqn90lk33onq2u1sveju.apps.googleusercontent.com";
+//    options.ClientSecret = "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";
+//    options.CallbackPath = "/signin-google"; // must match Google Cloud redirect URI
+//    options.SaveTokens = true; // save access token in auth cookie
+//});
 
 builder.Services.AddDbContext<CustomerRegistrationContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("CustomerRegistrationConnection")));
@@ -316,51 +316,41 @@ var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"]);
 //            IssuerSigningKey = new SymmetricSecurityKey(secretKey)
 //        };
 //    });
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+builder.Services.AddAuthentication(options =>
+{
+    // JWT will be default for APIs
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+    var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"]);
+
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSettings["Issuer"],
-            ValidAudience = jwtSettings["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(secretKey),
-            ClockSkew = TimeSpan.Zero
-        };
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidAudience = jwtSettings["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(secretKey),
+        ClockSkew = TimeSpan.Zero
+    };
+})
+
+// 👉 OPTIONAL (keep Google login separate)
+.AddGoogle(options =>
+{
+    options.ClientId = "493423119535-jughepjld5acrqn90lk33onq2u1sveju.apps.googleusercontent.com";
+    options.ClientSecret = "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";
+    options.CallbackPath = "/signin-google"; // must match Google Cloud redirect URI
+    options.SaveTokens = true; // save access token in auth cookie
+});
 
 
-        options.Events = new JwtBearerEvents
-        {
-            OnTokenValidated = async context =>
-            {
-                var claimsIdentity = context.Principal?.Identity as ClaimsIdentity;
-                // Get the access token from the JWT claims
-                var accessToken = claimsIdentity?.FindFirst("AccessToken")?.Value;
 
-                if (string.IsNullOrEmpty(accessToken))
-                {
-                    context.Fail("Token is missing.");
-                    return;
-                }
-
-                using var scope = context.HttpContext.RequestServices.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<IDbConnection>();
-
-                // Check if the access token has been revoked
-                var isRevoked = await db.ExecuteScalarAsync<int>(
-                     "SELECT COUNT(1) FROM UserTokens WHERE AccessToken = @AccessToken AND IsRevoked = 1",
-                    new { AccessToken = accessToken });
-
-                if (isRevoked > 0)
-                {
-                    context.Fail("Token has been revoked.");
-                }
-            }
-        };
-    });
 QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.AddHttpClient();
@@ -383,7 +373,6 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseCors("AllowReactApp");
-
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseSession();

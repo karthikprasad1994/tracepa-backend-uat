@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using TracePca.Interface.FIN_Statement;
 using TracePca.Service.FIN_statement;
 using static TracePca.Dto.FIN_Statement.ScheduleFormatDto;
@@ -7,8 +8,9 @@ using static TracePca.Dto.FIN_Statement.ScheduleFormatDto;
 
 namespace TracePca.Controllers.FIN_Statement
 {
-    [Route("api/[controller]")]
+    [Authorize]
     [ApiController]
+    [Route("api/[controller]")]
     public class ScheduleFormatController : ControllerBase
     {
         private ScheduleFormatInterface _ScheduleFormatInterface;
