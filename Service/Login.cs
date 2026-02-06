@@ -658,7 +658,7 @@ ALTER DATABASE [{newDbName}] SET MULTI_USER;
                     UsrCode = newUserCode,
                     UsrNode = 2,
                     UsrFullName = "Admin",
-                    UsrLoginName = "sa",
+                    UsrLoginName = registerModel.McrCustomerEmail,
                     UsrPassWord = hashedPassword,
                     UsrEmail = registerModel.McrCustomerEmail,
                     UsrMobileNo = registerModel.McrCustomerTelephoneNo,
